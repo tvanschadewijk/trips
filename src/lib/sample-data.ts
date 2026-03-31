@@ -121,6 +121,75 @@ export const sampleTrips: TripData[] = [
         accommodation: { name: "Clachaig Inn, Glencoe", price: "(night 2 of 2)", status: "booked", nights: 1, note: "Night 2 of 2" },
         meals: [{ type: "lunch", name: "Pack lunch or Kingshouse", note: "Fuel before the climb" }, { type: "dinner", name: "Clachaig Inn \u2014 Bidean Bar", note: "Different menu from night 1" }],
         transport: []
+      },
+      {
+        day_number: 7, date: "2026-04-30", title: "Glencoe \u2192 Fort William", subtitle: "Final WHW stretch to the finish line",
+        hero_image: "https://images.unsplash.com/photo-1590523741831-ab7e8b8f9c7f?w=800&h=500&fit=crop&q=80",
+        stats: [{ icon: "footprints", label: "Distance", value: "22 km" }, { icon: "clock", label: "Walking", value: "~6 hrs" }, { icon: "mountain", label: "Terrain", value: "Forest & loch paths" }],
+        blocks: [
+          { time_label: "Morning", content: "Taxi to Kinlochleven, then walk the final WHW section.", type: "activity" },
+          { time_label: "Midday", content: "Through Nevis forest with views of Ben Nevis.", type: "activity" },
+          { time_label: "Afternoon", content: "Arrive Fort William \u2014 official end of the West Highland Way!", type: "activity" },
+          { time_label: "Evening", content: "Celebrate at The Garrison with local ales.", type: "activity" }
+        ],
+        accommodation: { name: "The Garrison, Fort William", price: "\u20ac196", rating: "4\u2605", status: "booked", nights: 1, note: "Central location, recently renovated",
+          detail: { check_in: "15:00", check_out: "11:00", room_type: "Double Room", address: "High Street, Fort William PH33 6DG", booking_platform: "Booking.com", confirmation: "4821937650" }
+        },
+        meals: [{ type: "lunch", name: "Pack lunch from Clachaig", note: "Eat on the trail" }, { type: "dinner", name: "The Garrison Bar", note: "Celebration dinner \u2014 you finished the WHW!" }],
+        transport: [{ mode: "car", label: "Taxi", from: "Clachaig Inn", to: "Kinlochleven", duration: "~15 min" }]
+      },
+      {
+        day_number: 8, date: "2026-05-01", title: "Fort William \u2192 Oban", subtitle: "Coastal train to the seafood capital",
+        hero_image: "https://images.unsplash.com/photo-1548250868-2e3aee8b2c86?w=800&h=500&fit=crop&q=80",
+        stats: [{ icon: "train", label: "ScotRail", value: "1h 30m" }],
+        blocks: [
+          { time_label: "Morning", content: "Leisurely breakfast at The Garrison.", type: "activity" },
+          { time_label: "11:20", content: "ScotRail to Oban \u2014 stunning coastal views.", type: "transport" },
+          { time_label: "Afternoon", content: "Arrive Oban. Walk the harbour, visit McCaig\u2019s Tower.", type: "activity" },
+          { time_label: "Evening", content: "Seafood dinner on the waterfront.", type: "activity" }
+        ],
+        accommodation: { name: "Perle Oban", price: "\u00a3330 (2 nights)", rating: "4\u2605", status: "booked", nights: 2, note: "Boutique hotel on the seafront. Breakfast included.",
+          detail: { check_in: "15:00", check_out: "11:00", room_type: "Sea View Double", address: "Station Road, Oban PA34 5RT", phone: "+44 1631 700301", booking_platform: "Hotels.com", confirmation: "Trip #72072515447821", note: "Breakfast included. Ask for harbour-facing room." }
+        },
+        meals: [{ type: "dinner", name: "Ee-Usk (Eeusk)", note: "Best seafood restaurant in Oban \u2014 book ahead" }],
+        transport: [{ mode: "train", label: "ScotRail", from: "Fort William", to: "Oban", depart: "11:20", arrive: "12:50", duration: "1h 30m",
+          detail: { class: "Standard", seats: "Unreserved \u2014 sit on the LEFT for sea views", booking_ref: "9PQWM3KZ", booking_platform: "scotrail.co.uk", note: "Scenic route along Loch Eil and through Connel." }
+        }]
+      },
+      {
+        day_number: 9, date: "2026-05-02", title: "Oban", subtitle: "Seafood, whisky & island views",
+        hero_image: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&h=500&fit=crop&q=80",
+        stats: [],
+        blocks: [
+          { time_label: "Morning", content: "Full Scottish breakfast at Perle. Walk along the Esplanade.", type: "activity" },
+          { time_label: "Late morning", content: "Oban Distillery tour & tasting.", type: "activity" },
+          { time_label: "Afternoon", content: "Wander the harbour. Fresh oysters at the Oban Seafood Hut.", type: "activity" },
+          { time_label: "Evening", content: "Final dinner \u2014 The Waterfront Fishouse.", type: "activity" }
+        ],
+        accommodation: { name: "Perle Oban", price: "(night 2 of 2)", status: "booked", nights: 1, note: "Night 2 of 2" },
+        meals: [{ type: "lunch", name: "Oban Seafood Hut", note: "Iconic green shack on the pier \u2014 oysters, langoustines" }, { type: "dinner", name: "The Waterfront Fishouse", note: "Harbourside spot, great wine list" }],
+        transport: []
+      },
+      {
+        day_number: 10, date: "2026-05-03", title: "Oban \u2192 Home", subtitle: "Glasgow, then flight back",
+        hero_image: "https://images.unsplash.com/photo-1566396223585-c8fbf5fa82a1?w=800&h=500&fit=crop&q=80",
+        stats: [{ icon: "train", label: "ScotRail", value: "3h" }, { icon: "plane", label: "Flight", value: "1h 20m" }],
+        blocks: [
+          { time_label: "08:40", content: "ScotRail Oban \u2192 Glasgow Queen Street.", type: "transport" },
+          { time_label: "Midday", content: "Quick lunch in Glasgow.", type: "activity" },
+          { time_label: "15:40", content: "easyJet Glasgow \u2192 Amsterdam Schiphol.", type: "transport" },
+          { time_label: "Evening", content: "Home!", type: "activity" }
+        ],
+        accommodation: undefined,
+        meals: [{ type: "lunch", name: "Glaschu", note: "Quick bite near Queen St station" }],
+        transport: [
+          { mode: "train", label: "ScotRail", from: "Oban", to: "Glasgow Queen St", depart: "08:40", arrive: "11:40", duration: "3h",
+            detail: { class: "Standard", seats: "Unreserved", booking_ref: "7KRTM5PW", booking_platform: "scotrail.co.uk" }
+          },
+          { mode: "plane", label: "easyJet", from: "Glasgow (GLA)", to: "Amsterdam (AMS)", depart: "15:40", arrive: "18:00", duration: "1h 20m",
+            detail: { flight: "EZY6924", terminal: "Main", booking_ref: "EH4K7QP", booking_platform: "easyjet.com", cabin_bag: "1\u00d7 under seat", hold_bag: "1\u00d7 23kg included", check_in: "Opens 30 days before", note: "Arrive 2h before departure." }
+          }
+        ]
       }
     ]
   },

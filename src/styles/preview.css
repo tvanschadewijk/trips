@@ -90,7 +90,8 @@
 .date-strip-inner { display: flex; gap: 2px; padding: 8px 12px; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; height: 100%; align-items: center; }
 .date-strip-inner::-webkit-scrollbar { display: none; }
 .date-btn { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; width: 42px; height: 42px; border-radius: 50%; border: none; cursor: pointer; flex-shrink: 0; transition: all 0.2s ease-out; background: transparent; color: rgba(255,255,255,0.45); font-family: var(--font-sans); }
-.date-btn.active { background: var(--color-accent); color: white; }
+.date-btn:hover:not(.active) { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.7); }
+.date-btn.active { background: var(--color-accent); color: white; box-shadow: 0 2px 8px rgba(43,124,233,0.35); }
 .date-btn-wd { font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; opacity: 0.55; }
 .date-btn.active .date-btn-wd { opacity: 0.85; }
 .date-btn-d { font-size: 15px; font-weight: 700; line-height: 1; }
@@ -139,7 +140,7 @@
 .day-slide > .text-body-italic { color: rgba(255,255,255,0.65); }
 
 /* Content sections */
-.day-section { background: var(--color-card); border-radius: var(--radius-card); padding: 16px; box-shadow: var(--shadow-card); margin-bottom: 12px; }
+.day-section { background: var(--color-card); border-radius: var(--radius-card); padding: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.12), 0 4px 16px rgba(0,0,0,0.1); margin-bottom: 12px; transition: box-shadow 0.2s ease; }
 .day-section-title { margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--color-border); }
 
 /* Time blocks */
@@ -223,16 +224,17 @@
 .overview-body { flex: 1; overflow-y: auto; padding: 0 16px 32px; -webkit-overflow-scrolling: touch; }
 
 /* Trip card in overview */
-.trip-card { position: relative; border-radius: var(--radius-card); overflow: hidden; margin-bottom: 16px; cursor: pointer; height: 220px; box-shadow: var(--shadow-card); transform: scale(1); transition: transform 0.2s ease, box-shadow 0.2s ease; }
-.trip-card:active { transform: scale(0.97); }
-.trip-card-img { width: 100%; height: 100%; object-fit: cover; }
-.trip-card-gradient { position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.30) 45%, rgba(0,0,0,0.05) 100%); }
+.trip-card { position: relative; border-radius: var(--radius-card); overflow: hidden; margin-bottom: 16px; cursor: pointer; height: 240px; box-shadow: var(--shadow-card); transform: scale(1); transition: transform 0.25s cubic-bezier(0.25, 0.1, 0.25, 1), box-shadow 0.25s ease; }
+.trip-card:active { transform: scale(0.97); box-shadow: var(--shadow-card-hover); }
+.trip-card-img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.4s cubic-bezier(0.25, 0.1, 0.25, 1); }
+.trip-card:hover .trip-card-img { transform: scale(1.03); }
+.trip-card-gradient { position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,0.78) 0%, rgba(0,0,0,0.35) 40%, rgba(0,0,0,0.05) 100%); }
 .trip-card-body { position: absolute; bottom: 0; left: 0; right: 0; padding: 20px; }
 .trip-card-dates { font-family: var(--font-mono); font-size: 11px; font-weight: 400; color: rgba(255,255,255,0.6); letter-spacing: 0.03em; margin-bottom: 6px; }
-.trip-card-name { font-family: var(--font-sans); font-size: 26px; font-weight: 800; letter-spacing: -0.02em; color: white; line-height: 1.1; margin-bottom: 4px; }
+.trip-card-name { font-family: var(--font-sans); font-size: 28px; font-weight: 800; letter-spacing: -0.02em; color: white; line-height: 1.1; margin-bottom: 4px; }
 .trip-card-subtitle { font-family: var(--font-sans); font-size: 14px; font-weight: 400; color: rgba(255,255,255,0.7); line-height: 1.3; }
 .trip-card-badge { position: absolute; top: 16px; right: 16px; display: inline-flex; align-items: center; gap: 5px; padding: 5px 12px; background: rgba(255,255,255,0.15); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-radius: 20px; font-family: var(--font-sans); font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.9); letter-spacing: 0.02em; }
-.trip-card-stats { display: flex; gap: 14px; margin-top: 10px; }
+.trip-card-stats { display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
 .trip-card-stat { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; background: rgba(255,255,255,0.12); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border-radius: 12px; font-family: var(--font-sans); font-size: 11px; font-weight: 500; color: rgba(255,255,255,0.85); }
 .trip-card-stat svg { width: 12px; height: 12px; opacity: 0.7; }
 
