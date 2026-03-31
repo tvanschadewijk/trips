@@ -55,10 +55,17 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen }:
       trackRef.current.style.transform = `translateX(-${clamped * 100}cqi)`;
       trackRef.current.classList.remove('dragging');
     }
-    // Scroll active date into view
+    // Scroll active date into view (scoped to date strip only — scrollIntoView
+    // can scroll parent containers too, shifting the entire viewport on later days)
     setTimeout(() => {
-      const activeBtn = dateStripRef.current?.querySelector('.date-btn.active');
-      activeBtn?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+      const strip = dateStripRef.current;
+      const activeBtn = strip?.querySelector('.date-btn.active') as HTMLElement | null;
+      if (strip && activeBtn) {
+        const stripRect = strip.getBoundingClientRect();
+        const btnRect = activeBtn.getBoundingClientRect();
+        const scrollLeft = strip.scrollLeft + (btnRect.left + btnRect.width / 2) - (stripRect.left + stripRect.width / 2);
+        strip.scrollTo({ left: scrollLeft, behavior: 'smooth' });
+      }
     }, 50);
     // Reset slide scroll position
     const slides = trackRef.current?.querySelectorAll('.slide');
@@ -97,8 +104,9 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen }:
   // Handle nav back
   const handleBack = useCallback(() => {
     if (currentSlide > 0) goTo(0);
+    else if (autoOpen) window.history.back();
     else closeTrip();
-  }, [currentSlide, goTo, closeTrip]);
+  }, [currentSlide, goTo, autoOpen, closeTrip]);
 
   // Animation end — use timeout as fallback since animationend may not fire
   // when element enters the DOM and animation starts in the same frame
@@ -205,8 +213,14 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen }:
           if (trackRef.current) {
             trackRef.current.style.transform = `translateX(-${slideIdx * 100}cqi)`;
           }
-          const activeBtn = dateStripRef.current?.querySelector('.date-btn.active');
-          activeBtn?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+          const strip = dateStripRef.current;
+          const activeBtn = strip?.querySelector('.date-btn.active') as HTMLElement | null;
+          if (strip && activeBtn) {
+            const stripRect = strip.getBoundingClientRect();
+            const btnRect = activeBtn.getBoundingClientRect();
+            const scrollLeft = strip.scrollLeft + (btnRect.left + btnRect.width / 2) - (stripRect.left + stripRect.width / 2);
+            strip.scrollTo({ left: scrollLeft, behavior: 'smooth' });
+          }
         }, 100);
         break;
       }
