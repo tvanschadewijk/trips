@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback, useEffect } from 'react';
+import Image from 'next/image';
 import type { TripData, Day, Transport, Accommodation } from '@/lib/types';
 import { ICONS } from './icons';
 import '@/styles/preview.css';
@@ -35,6 +36,7 @@ export default function TripPreview({ trips, singleTrip = false }: TripPreviewPr
 
   // Touch state
   const touchState = useRef({ startX: 0, startY: 0, dx: 0, isDragging: false, isScrolling: null as boolean | null });
+  const didAutoNav = useRef(false);
 
   const trip = activeTripIndex !== null ? trips[activeTripIndex]?.trip : null;
   const days = activeTripIndex !== null ? trips[activeTripIndex]?.days || [] : [];
@@ -93,13 +95,19 @@ export default function TripPreview({ trips, singleTrip = false }: TripPreviewPr
     else closeTrip();
   }, [currentSlide, goTo, closeTrip]);
 
-  // Animation end handlers
-  const handleTripAnimEnd = useCallback(() => {
-    if (isAnimatingIn) setIsAnimatingIn(false);
-    if (isAnimatingOut) {
-      setIsAnimatingOut(false);
-      setActiveTripIndex(null);
-    }
+  // Animation end — use timeout as fallback since animationend may not fire
+  // when element enters the DOM and animation starts in the same frame
+  useEffect(() => {
+    if (!isAnimatingIn && !isAnimatingOut) return;
+    const duration = isAnimatingIn ? 500 : 450;
+    const timer = setTimeout(() => {
+      if (isAnimatingIn) setIsAnimatingIn(false);
+      if (isAnimatingOut) {
+        setIsAnimatingOut(false);
+        setActiveTripIndex(null);
+      }
+    }, duration);
+    return () => clearTimeout(timer);
   }, [isAnimatingIn, isAnimatingOut]);
 
   // Touch handlers
@@ -163,6 +171,48 @@ export default function TripPreview({ trips, singleTrip = false }: TripPreviewPr
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
   }, [activeTripIndex, currentSlide, detailOpen, goTo, closeTrip]);
+
+  // Auto-navigate to today's date if it falls within a trip
+  useEffect(() => {
+    if (didAutoNav.current) return;
+    didAutoNav.current = true;
+
+    const today = new Date();
+    today.setHours(12, 0, 0, 0);
+
+    for (let i = 0; i < trips.length; i++) {
+      const t = trips[i];
+      const start = new Date(t.trip.dates.start + 'T12:00:00');
+      const end = new Date(t.trip.dates.end + 'T12:00:00');
+      if (today >= start && today <= end) {
+        // Find which day matches today
+        const todayStr = today.toISOString().slice(0, 10);
+        const dayIdx = t.days.findIndex(d => d.date === todayStr);
+        const slideIdx = dayIdx >= 0 ? dayIdx + 1 : 1; // +1 because slide 0 is hero
+
+        if (singleTrip) {
+          // Already viewing this trip — just go to the day slide
+          if (i === 0) {
+            setTimeout(() => goTo(slideIdx), 100);
+          }
+        } else {
+          // Multi-trip: open the matching trip and navigate to the day
+          setActiveTripIndex(i);
+          setOverviewFaded(true);
+          setIsAnimatingIn(true);
+          setCurrentSlide(slideIdx);
+          setTimeout(() => {
+            if (trackRef.current) {
+              trackRef.current.style.transform = `translateX(-${slideIdx * 100}%)`;
+            }
+            const activeBtn = dateStripRef.current?.querySelector('.date-btn.active');
+            activeBtn?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+          }, 100);
+        }
+        break;
+      }
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Detail sheet
   function openDetail(type: 'transport' | 'accommodation', item: Transport | Accommodation) {
@@ -244,9 +294,8 @@ export default function TripPreview({ trips, singleTrip = false }: TripPreviewPr
       const statusLabel = isPast ? 'Completed' : (dayCount === 0 ? 'Planning' : `${nights} nights`);
 
       return (
-        <div key={idx} className="trip-card" onClick={(e) => openTrip(idx, e.currentTarget)}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img className="trip-card-img" src={img} alt={t.name} loading="lazy" />
+        <div key={idx} className="trip-card" role="button" tabIndex={0} aria-label={`${t.name} — ${t.subtitle}`} onClick={(e) => openTrip(idx, e.currentTarget)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openTrip(idx, e.currentTarget as HTMLElement); } }}>
+          <Image className="trip-card-img" src={img} alt={t.name} fill sizes="430px" style={{ objectFit: 'cover' }} />
           <div className="trip-card-gradient" />
           <div className="trip-card-badge">{statusLabel}</div>
           <div className="trip-card-body">
@@ -287,8 +336,7 @@ export default function TripPreview({ trips, singleTrip = false }: TripPreviewPr
       <div className="slide">
         <div className="hero-slide">
           <div className="hero-bg">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={trip.hero_image} alt={trip.name} />
+            <Image src={trip.hero_image} alt={trip.name} fill sizes="430px" priority style={{ objectFit: 'cover' }} />
           </div>
           <div className="hero-overlay" />
           <div className="hero-body">
@@ -308,7 +356,7 @@ export default function TripPreview({ trips, singleTrip = false }: TripPreviewPr
               <div><div className="hero-stat-val">{formatDate(trip.dates.end, { day: 'numeric', month: 'short' })}</div><div className="hero-stat-lbl">end</div></div>
             </div>
           </div>
-          <button className="hero-hint" onClick={() => goTo(1)}>
+          <button className="hero-hint" onClick={() => goTo(1)} aria-label="Explore day by day">
             explore
             <Icon name="chevron" />
           </button>
@@ -334,8 +382,7 @@ export default function TripPreview({ trips, singleTrip = false }: TripPreviewPr
 
     const heroSection = day.hero_image ? (
       <div className="day-hero">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={day.hero_image} alt={day.title} loading="lazy" />
+        <Image src={day.hero_image} alt={day.title} fill sizes="430px" style={{ objectFit: 'cover' }} />
         <div className="day-hero-gradient" />
         <div className="day-hero-text">
           <p className="text-label" style={{ margin: '0 0 4px' }}>Day {day.day_number} &middot; {dateStr}</p>
@@ -501,12 +548,11 @@ export default function TripPreview({ trips, singleTrip = false }: TripPreviewPr
             '--card-bottom': cardVars.bottom,
             '--card-left': cardVars.left,
           } as React.CSSProperties}
-          onAnimationEnd={handleTripAnimEnd}
         >
           {/* Nav Bar */}
           <div className={`nav-bar ${isHero ? 'over-hero' : ''}`}>
             {(!singleTrip || !isHero) && (
-              <button className="nav-back" onClick={handleBack} title={isHero ? 'All trips' : 'Back to cover'}>
+              <button className="nav-back" onClick={handleBack} aria-label={isHero ? 'All trips' : 'Back to cover'}>
                 <Icon name="back" />
               </button>
             )}
@@ -531,7 +577,9 @@ export default function TripPreview({ trips, singleTrip = false }: TripPreviewPr
                 const d = date.getDate();
                 return (
                   <button key={day.day_number} className={`date-btn ${currentSlide === day.day_number ? 'active' : ''}`}
-                    onClick={() => goTo(day.day_number)}>
+                    onClick={() => goTo(day.day_number)}
+                    aria-selected={currentSlide === day.day_number}
+                    aria-label={`Day ${day.day_number}, ${date.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}`}>
                     <span className="date-btn-wd">{wd}</span>
                     <span className="date-btn-d">{d}</span>
                   </button>
@@ -549,9 +597,11 @@ export default function TripPreview({ trips, singleTrip = false }: TripPreviewPr
           </div>
 
           {/* Swipe dots */}
-          <div className="swipe-dots">
+          <div className="swipe-dots" role="tablist" aria-label="Trip slides">
             {Array.from({ length: totalSlides }).map((_, i) => (
               <div key={i} className={`swipe-dot ${i === currentSlide ? 'active' : ''}`}
+                role="tab" aria-selected={i === currentSlide} aria-label={i === 0 ? 'Overview' : `Day ${i}`}
+                tabIndex={i === currentSlide ? 0 : -1}
                 style={{ cursor: 'pointer' }} onClick={() => goTo(i)} />
             ))}
           </div>
@@ -559,11 +609,11 @@ export default function TripPreview({ trips, singleTrip = false }: TripPreviewPr
       )}
 
       {/* Detail sheet */}
-      <div className={`detail-overlay ${detailOpen ? 'open' : ''}`}>
+      <div className={`detail-overlay ${detailOpen ? 'open' : ''}`} role="dialog" aria-modal="true" aria-label={detailContent.title}>
         <div className="detail-backdrop" onClick={closeDetail} />
         <div className="detail-sheet">
           <div className="detail-header">
-            <button className="detail-close" onClick={closeDetail}>
+            <button className="detail-close" onClick={closeDetail} aria-label="Close details">
               <Icon name="back" />
             </button>
             <div className="text-nav-title" style={{ flex: 1, minWidth: 0, color: 'var(--color-text-primary)' }}>
