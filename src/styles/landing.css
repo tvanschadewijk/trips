@@ -98,11 +98,26 @@
 /* Hero */
 .landing-hero {
   padding: 140px 24px 80px;
-  text-align: center;
 }
 .landing-hero-inner {
-  max-width: 640px;
+  max-width: 1060px;
   margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 60px;
+}
+.landing-hero-text {
+  flex: 1;
+  text-align: left;
+  min-width: 0;
+}
+.landing-hero-phone {
+  flex-shrink: 0;
+}
+@media (max-width: 768px) {
+  .landing-hero-inner { flex-direction: column; gap: 40px; }
+  .landing-hero-text { text-align: center; }
+  .landing-hero-phone { display: none; }
 }
 .landing-hero-badge {
   display: inline-block;
@@ -133,14 +148,15 @@
   color: rgba(255, 255, 255, 0.55);
   margin: 0 0 36px;
   max-width: 480px;
-  margin-left: auto;
-  margin-right: auto;
 }
 .landing-hero-actions {
   display: flex;
   gap: 12px;
-  justify-content: center;
   flex-wrap: wrap;
+}
+@media (max-width: 768px) {
+  .landing-hero-subtitle { margin-left: auto; margin-right: auto; }
+  .landing-hero-actions { justify-content: center; }
 }
 
 /* Steps */
@@ -211,23 +227,6 @@
   .landing-step-divider { width: 40px; min-height: 0; height: 1px; }
 }
 
-/* Phone preview */
-.landing-preview {
-  padding: 40px 24px 80px;
-}
-.landing-preview-inner {
-  max-width: 480px;
-  margin: 0 auto;
-  text-align: center;
-}
-.landing-preview-label {
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.35);
-  margin-bottom: 24px;
-}
 .landing-phone-frame {
   background: #2C2C2C;
   border-radius: 32px;

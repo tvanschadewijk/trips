@@ -16,17 +16,37 @@ export default function Home() {
 
       <section className="landing-hero">
         <div className="landing-hero-inner">
-          <div className="landing-hero-badge">Built for travelers who plan with AI</div>
-          <h1 className="landing-hero-title">
-            Your trips.<br />All details in your pocket.
-          </h1>
-          <p className="landing-hero-subtitle">
-            Push trip data from Claude or any AI assistant and get back a shareable,
-            interactive itinerary — complete with maps, bookings, and day-by-day details.
-          </p>
-          <div className="landing-hero-actions">
-            <Link href="/dashboard" className="landing-btn-primary">Get started</Link>
-            <Link href="/demo" className="landing-btn-secondary">See a demo</Link>
+          <div className="landing-hero-text">
+            <div className="landing-hero-badge">Built for travelers who plan with AI</div>
+            <h1 className="landing-hero-title">
+              Your trips.<br />All details in your pocket.
+            </h1>
+            <p className="landing-hero-subtitle">
+              Push trip data from Claude or any AI assistant and get back a shareable,
+              interactive itinerary — complete with maps, bookings, and day-by-day details.
+            </p>
+            <div className="landing-hero-actions">
+              <Link href="/dashboard" className="landing-btn-primary">Get started</Link>
+              <Link href="/demo" className="landing-btn-secondary">See a demo</Link>
+            </div>
+          </div>
+          <div className="landing-hero-phone">
+            <div className="landing-phone-frame">
+              <div className="landing-phone-screen">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="https://images.unsplash.com/photo-1496442226666-8d4d0e62e6e9?w=430&h=800&fit=crop&crop=center&q=80"
+                  alt="New York trip preview"
+                  className="landing-phone-img"
+                />
+                <div className="landing-phone-overlay" />
+                <div className="landing-phone-content">
+                  <div className="landing-phone-pill">Thijs</div>
+                  <div className="landing-phone-title">New York</div>
+                  <div className="landing-phone-sub">Three Days in the City That Never Sleeps</div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -54,28 +74,6 @@ export default function Home() {
             <span className="landing-step-num">3</span>
             <h3 className="landing-step-title">Say &ldquo;Send it to Trips&rdquo;</h3>
             <p className="landing-step-desc">That&apos;s it. Your trip gets a shareable link — experience the magic.</p>
-          </div>
-        </div>
-      </section>
-
-      <section className="landing-preview">
-        <div className="landing-preview-inner">
-          <div className="landing-preview-label">How it looks</div>
-          <div className="landing-phone-frame">
-            <div className="landing-phone-screen">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="https://images.unsplash.com/photo-1496442226666-8d4d0e62e6e9?w=430&h=800&fit=crop&crop=center&q=80"
-                alt="New York trip preview"
-                className="landing-phone-img"
-              />
-              <div className="landing-phone-overlay" />
-              <div className="landing-phone-content">
-                <div className="landing-phone-pill">Thijs</div>
-                <div className="landing-phone-title">New York</div>
-                <div className="landing-phone-sub">Three Days in the City That Never Sleeps</div>
-              </div>
-            </div>
           </div>
         </div>
       </section>
