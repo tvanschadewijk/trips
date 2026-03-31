@@ -31,7 +31,7 @@ export default async function Home() {
               Your trips.<br />All details in your pocket.
             </h1>
             <p className="landing-hero-subtitle">
-              Push trip data from Claude or any AI assistant and get back a shareable,
+              Push trip data from Claude Cowork or Codex and get back a shareable,
               interactive itinerary — complete with maps, bookings, and day-by-day details.
             </p>
             <div className="landing-hero-actions">
