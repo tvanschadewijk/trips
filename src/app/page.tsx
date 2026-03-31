@@ -64,15 +64,15 @@ export default function Home() {
             <div className="landing-phone-screen">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src="https://images.unsplash.com/photo-1732045133230-1a670eef8620?w=430&h=800&fit=crop&q=80"
-                alt="Scotland trip preview"
+                src="https://images.unsplash.com/photo-1496442226666-8d4d0e62e6e9?w=430&h=800&fit=crop&crop=center&q=80"
+                alt="New York trip preview"
                 className="landing-phone-img"
               />
               <div className="landing-phone-overlay" />
               <div className="landing-phone-content">
-                <div className="landing-phone-pill">Thijs & Alexli</div>
-                <div className="landing-phone-title">Scotland</div>
-                <div className="landing-phone-sub">West Highland Way & Oban Coast</div>
+                <div className="landing-phone-pill">Thijs</div>
+                <div className="landing-phone-title">New York</div>
+                <div className="landing-phone-sub">Three Days in the City That Never Sleeps</div>
               </div>
             </div>
           </div>
