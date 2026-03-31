@@ -32,6 +32,7 @@ export default function Home() {
       </section>
 
       <section className="landing-steps">
+        <h2 className="landing-steps-heading">It could not be easier.</h2>
         <div className="landing-steps-inner">
           <div className="landing-step">
             <span className="landing-step-num">1</span>
