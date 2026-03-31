@@ -1,0 +1,118 @@
+.login {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  color: #FFFFFF;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.login-nav {
+  width: 100%;
+  padding: 16px 24px;
+}
+.login-logo {
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: #FFFFFF;
+  text-decoration: none;
+}
+
+.login-card {
+  margin-top: 80px;
+  width: 100%;
+  max-width: 380px;
+  padding: 36px 28px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+}
+
+.login-title {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin: 0 0 6px;
+}
+.login-desc {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.5);
+  margin: 0 0 24px;
+  line-height: 1.5;
+}
+.login-desc strong {
+  color: rgba(255, 255, 255, 0.8);
+  font-weight: 600;
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.login-input {
+  width: 100%;
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  color: #FFFFFF;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 15px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.login-input::placeholder { color: rgba(255, 255, 255, 0.3); }
+.login-input:focus { border-color: #2B7CE9; }
+
+.login-btn {
+  padding: 12px;
+  background: #2B7CE9;
+  color: #FFFFFF;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 15px;
+  font-weight: 600;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.login-btn:hover { background: #2468C8; }
+.login-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.login-error {
+  font-size: 13px;
+  color: #E5534B;
+  margin: 0;
+}
+
+/* Sent state */
+.login-sent {
+  text-align: center;
+}
+.login-sent-icon {
+  width: 48px;
+  height: 48px;
+  margin: 0 auto 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(43, 124, 233, 0.15);
+  border-radius: 14px;
+  color: #6AABF7;
+}
+.login-sent-icon svg { width: 24px; height: 24px; }
+
+.login-btn-text {
+  margin-top: 16px;
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.5);
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 13px;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+.login-btn-text:hover { color: #FFFFFF; }

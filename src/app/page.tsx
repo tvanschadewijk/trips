@@ -9,7 +9,7 @@ export default function Home() {
           <span className="landing-logo">trips</span>
           <div className="landing-nav-links">
             <Link href="/demo" className="landing-nav-link">Demo</Link>
-            <Link href="/dashboard" className="landing-btn-outline">Log in</Link>
+            <Link href="/login" className="landing-btn-outline">Log in</Link>
           </div>
         </div>
       </nav>
