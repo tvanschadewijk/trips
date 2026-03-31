@@ -38,10 +38,6 @@ export default async function Home() {
               <Link href="/dashboard" className="landing-btn-primary">Get started</Link>
               <Link href="/demo" className="landing-btn-secondary">See a demo</Link>
             </div>
-            <Link href="/guide" className="landing-tell-more">
-              How does this work?
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
-            </Link>
           </div>
           <div className="landing-hero-phone">
             <div className="landing-phone-frame">
@@ -89,6 +85,10 @@ export default async function Home() {
             <p className="landing-step-desc">That&apos;s it. Your trip gets a shareable link — experience the magic.</p>
           </div>
         </div>
+        <Link href="/guide" className="landing-tell-more">
+          How does this work?
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+        </Link>
       </section>
 
       <section className="landing-cta">
