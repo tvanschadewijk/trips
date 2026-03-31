@@ -1,7 +1,16 @@
+import { redirect } from 'next/navigation';
 import Link from 'next/link';
+import { createClient } from '@/lib/supabase/server';
 import '@/styles/landing.css';
 
-export default function Home() {
+export default async function Home() {
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) redirect('/dashboard');
+  } catch {
+    // Supabase not configured — show landing page
+  }
   return (
     <div className="landing">
       <nav className="landing-nav">
