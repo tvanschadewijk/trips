@@ -22,7 +22,7 @@
   --radius-badge: 10px;
   --radius-chip: 10px;
   --app-max-width: 430px;
-  --nav-height: 44px;
+  --nav-height: 56px;
   --date-strip-height: 54px;
 }
 
@@ -69,18 +69,21 @@
   flex-direction: column;
   overflow: hidden;
   position: relative;
+  touch-action: pan-y;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 /* ============================================
    NAV BAR
    ============================================ */
-.nav-bar { height: var(--nav-height); flex-shrink: 0; display: flex; align-items: center; gap: 4px; padding: 0 4px; z-index: 20; transition: background 0.3s, border-color 0.3s; background: var(--color-surface); border-bottom: 1px solid rgba(255,255,255,0.08); }
+.nav-bar { height: 56px; flex-shrink: 0; display: flex; align-items: center; gap: 4px; padding: 0 8px; z-index: 20; transition: background 0.3s, border-color 0.3s; background: var(--color-surface); border-bottom: 1px solid rgba(255,255,255,0.08); }
 .nav-bar.over-hero { background: transparent; border-bottom-color: transparent; }
 .nav-back { display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 12px; border: none; cursor: pointer; background: transparent; color: rgba(255,255,255,0.7); transition: background 0.15s; flex-shrink: 0; }
 .nav-back:hover { background: rgba(255,255,255,0.1); }
 .nav-bar.over-hero .nav-back { color: white; }
 .nav-bar.over-hero .nav-back:hover { background: rgba(255,255,255,0.15); }
-.nav-title-text { flex: 1; min-width: 0; }
+.nav-title-text { flex: 1; min-width: 0; padding-right: 8px; }
 
 /* ============================================
    DATE STRIP
@@ -99,7 +102,7 @@
 /* ============================================
    SWIPE CONTAINER
    ============================================ */
-.swipe-viewport { flex: 1; overflow: hidden; position: relative; }
+.swipe-viewport { flex: 1; overflow: hidden; position: relative; touch-action: pan-y; }
 .swipe-track { display: flex; height: 100%; transition: transform 0.35s cubic-bezier(0.25, 0.1, 0.25, 1); will-change: transform; }
 .swipe-track.dragging { transition: none; }
 
@@ -129,7 +132,7 @@
 /* ============================================
    DAY SLIDE
    ============================================ */
-.day-slide { padding: 20px 16px 32px; }
+.day-slide { padding: 20px 16px 32px; overflow-x: hidden; }
 .day-hero { position: relative; height: 220px; border-radius: var(--radius-card); overflow: hidden; margin-bottom: 16px; }
 .day-hero img { width: 100%; height: 100%; object-fit: cover; }
 .day-hero-gradient { position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,0.6), rgba(0,0,0,0.08) 55%, transparent); }

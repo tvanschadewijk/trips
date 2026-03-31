@@ -94,7 +94,7 @@
 }
 .dash-card-hero {
   position: relative;
-  height: 160px;
+  height: 200px;
   overflow: hidden;
 }
 .dash-card-hero img {
@@ -116,16 +116,17 @@
   right: 16px;
 }
 .dash-card-name {
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 800;
   letter-spacing: -0.02em;
-  line-height: 1.1;
+  line-height: 1.2;
 }
 .dash-card-subtitle {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 400;
   color: rgba(255, 255, 255, 0.7);
-  margin-top: 3px;
+  margin-top: 4px;
+  line-height: 1.4;
 }
 
 .dash-card-body {

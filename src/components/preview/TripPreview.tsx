@@ -138,11 +138,13 @@ export default function TripPreview({ trips, singleTrip = false }: TripPreviewPr
 
     vp.addEventListener('touchstart', onStart, { passive: true });
     vp.addEventListener('touchmove', onMove, { passive: false });
-    vp.addEventListener('touchend', onEnd);
+    vp.addEventListener('touchend', onEnd, { passive: true });
+    vp.addEventListener('touchcancel', onEnd, { passive: true });
     return () => {
       vp.removeEventListener('touchstart', onStart);
       vp.removeEventListener('touchmove', onMove);
       vp.removeEventListener('touchend', onEnd);
+      vp.removeEventListener('touchcancel', onEnd);
     };
   }, [activeTripIndex, currentSlide, totalSlides, goTo]);
 
@@ -483,8 +485,8 @@ export default function TripPreview({ trips, singleTrip = false }: TripPreviewPr
         >
           {/* Nav Bar */}
           <div className={`nav-bar ${isHero ? 'over-hero' : ''}`}>
-            {!singleTrip && (
-              <button className="nav-back" onClick={handleBack} title="All trips">
+            {(!singleTrip || !isHero) && (
+              <button className="nav-back" onClick={handleBack} title={isHero ? 'All trips' : 'Back to cover'}>
                 <Icon name="back" />
               </button>
             )}
