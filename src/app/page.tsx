@@ -61,7 +61,8 @@ export default async function Home() {
       </section>
 
       <section className="landing-steps">
-        <h2 className="landing-steps-heading">It could not be easier.</h2>
+        <h2 className="landing-steps-heading">Notes, emails, and apps — everywhere.</h2>
+        <p className="landing-steps-subheading">Your travel info is scattered across dozens of places. Trips brings it all together in one beautiful, pocket-friendly format.</p>
         <div className="landing-steps-inner">
           <div className="landing-step">
             <span className="landing-step-num">1</span>
