@@ -82,6 +82,48 @@
 .login-btn:hover { background: #2468C8; }
 .login-btn:disabled { opacity: 0.6; cursor: not-allowed; }
 
+/* Google button */
+.login-btn-google {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px;
+  background: #FFFFFF;
+  color: #1A1A1A;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 15px;
+  font-weight: 600;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.2s, box-shadow 0.2s;
+}
+.login-btn-google:hover { background: #F5F5F5; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+.login-btn-google:active { background: #EBEBEB; }
+
+/* Divider */
+.login-divider {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 20px 0;
+}
+.login-divider::before,
+.login-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.1);
+}
+.login-divider span {
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.3);
+  text-transform: lowercase;
+}
+
 .login-error {
   font-size: 13px;
   color: #E5534B;
