@@ -67,7 +67,7 @@ export default async function Home() {
             <span className="landing-step-num">1</span>
             <h3 className="landing-step-title">Install this Claude skill</h3>
             <p className="landing-step-desc">Download the file and drop it into your Claude project.</p>
-            <a href="/travel-itinerary.skill" download className="landing-btn-primary landing-btn-sm" style={{ gap: '8px' }}>
+            <a href="/trips.skill" download className="landing-btn-primary landing-btn-sm" style={{ gap: '8px' }}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
               Download skill
             </a>
