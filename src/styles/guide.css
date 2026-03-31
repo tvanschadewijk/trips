@@ -1,0 +1,296 @@
+.guide {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  color: #FFFFFF;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Nav */
+.guide-nav {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  background: rgba(26, 26, 26, 0.8);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+.guide-nav-inner {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 0 24px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.guide-logo {
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: #FFFFFF;
+  text-decoration: none;
+}
+.guide-btn-outline {
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 18px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.8);
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+  text-decoration: none;
+  transition: background 0.2s, border-color 0.2s;
+}
+.guide-btn-outline:hover { background: rgba(255, 255, 255, 0.06); border-color: rgba(255, 255, 255, 0.25); }
+
+/* Main */
+.guide-main {
+  flex: 1;
+  padding: 40px 24px 80px;
+}
+.guide-content {
+  max-width: 680px;
+  margin: 0 auto;
+}
+
+/* Back link */
+.guide-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.45);
+  text-decoration: none;
+  margin-bottom: 32px;
+  transition: color 0.15s;
+}
+.guide-back:hover { color: rgba(255, 255, 255, 0.7); }
+
+/* Title */
+.guide-title {
+  font-size: clamp(28px, 5vw, 38px);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  margin: 0 0 16px;
+  background: linear-gradient(180deg, #FFFFFF 30%, rgba(255, 255, 255, 0.65) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.guide-intro {
+  font-size: 16px;
+  line-height: 1.7;
+  color: rgba(255, 255, 255, 0.55);
+  margin: 0;
+  max-width: 560px;
+}
+
+/* Divider */
+.guide-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.08);
+  margin: 40px 0;
+}
+
+/* Section */
+.guide-section { margin-bottom: 8px; }
+.guide-section-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.guide-section-badge {
+  display: inline-flex;
+  padding: 4px 12px;
+  background: rgba(43, 124, 233, 0.15);
+  color: #6AABF7;
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 8px;
+  letter-spacing: 0.02em;
+}
+.guide-section-tag {
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.3);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.guide-section-title {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  margin: 0 0 10px;
+  color: #FFFFFF;
+}
+.guide-section-desc {
+  font-size: 15px;
+  line-height: 1.65;
+  color: rgba(255, 255, 255, 0.55);
+  margin: 0 0 16px;
+}
+.guide-section-desc strong { color: rgba(255, 255, 255, 0.8); font-weight: 600; }
+.guide-section-note {
+  font-size: 14px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.4);
+  margin: 12px 0 0;
+  font-style: italic;
+}
+
+/* Code block */
+.guide-code-block {
+  position: relative;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 16px 48px 16px 16px;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.75);
+  word-break: break-word;
+}
+.guide-copy-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.guide-copy-btn:hover { background: rgba(255, 255, 255, 0.12); color: rgba(255, 255, 255, 0.8); }
+
+/* OR divider */
+.guide-or {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin: 32px 0;
+}
+.guide-or::before,
+.guide-or::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.08);
+}
+.guide-or span {
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.25);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+/* Steps */
+.guide-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+.guide-step {
+  display: flex;
+  gap: 16px;
+}
+.guide-step-num {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(43, 124, 233, 0.15);
+  color: #6AABF7;
+  font-size: 14px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.guide-step-body { flex: 1; min-width: 0; }
+.guide-step-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #FFFFFF;
+  margin-bottom: 4px;
+}
+.guide-step-desc {
+  font-size: 14px;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.5);
+  margin: 0 0 10px;
+}
+.guide-step-desc strong { color: rgba(255, 255, 255, 0.75); font-weight: 600; }
+
+/* Download button */
+.guide-download-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background: #2B7CE9;
+  color: #FFFFFF;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 10px;
+  text-decoration: none;
+  transition: background 0.2s, transform 0.15s;
+}
+.guide-download-btn:hover { background: #2468C8; transform: translateY(-1px); }
+
+/* CTA link */
+.guide-cta {
+  margin-top: 32px;
+}
+.guide-cta-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #6AABF7;
+  text-decoration: none;
+  transition: color 0.15s;
+}
+.guide-cta-link:hover { color: #93C5FD; }
+
+/* Footer */
+.guide-footer {
+  padding: 24px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+.guide-footer-inner {
+  max-width: 680px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.guide-footer-logo {
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: rgba(255, 255, 255, 0.4);
+}
+.guide-footer-copy {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.25);
+}

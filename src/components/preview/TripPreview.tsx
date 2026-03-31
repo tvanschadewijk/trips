@@ -8,7 +8,7 @@ import '@/styles/preview.css';
 
 interface TripPreviewProps {
   trips: TripData[];
-  singleTrip?: boolean; // skip overview, go straight to trip
+  onDelete?: (index: number) => void;
 }
 
 function Icon({ name }: { name: string }) {
@@ -19,15 +19,19 @@ function formatDate(dateStr: string, opts: Intl.DateTimeFormatOptions) {
   return new Date(dateStr + 'T12:00:00').toLocaleDateString('en-GB', opts);
 }
 
-export default function TripPreview({ trips, singleTrip = false }: TripPreviewProps) {
-  const [activeTripIndex, setActiveTripIndex] = useState<number | null>(singleTrip ? 0 : null);
+export default function TripPreview({ trips: initialTrips, onDelete }: TripPreviewProps) {
+  const [trips, setTrips] = useState(initialTrips);
+  const [activeTripIndex, setActiveTripIndex] = useState<number | null>(null);
   const [currentSlide, setCurrentSlide] = useState(0);
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailContent, setDetailContent] = useState<{ title: string; html: string }>({ title: '', html: '' });
-  const [isAnimatingIn, setIsAnimatingIn] = useState(singleTrip);
+  const [isAnimatingIn, setIsAnimatingIn] = useState(false);
   const [isAnimatingOut, setIsAnimatingOut] = useState(false);
-  const [overviewFaded, setOverviewFaded] = useState(singleTrip);
+  const [overviewFaded, setOverviewFaded] = useState(false);
   const [cardVars, setCardVars] = useState({ top: '0px', right: '0px', bottom: '0px', left: '0px' });
+  const [showArchive, setShowArchive] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
 
   const trackRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -84,10 +88,10 @@ export default function TripPreview({ trips, singleTrip = false }: TripPreviewPr
   }, [trips]);
 
   const closeTrip = useCallback(() => {
-    if (activeTripIndex === null || singleTrip) return;
+    if (activeTripIndex === null) return;
     setIsAnimatingOut(true);
     setOverviewFaded(false);
-  }, [activeTripIndex, singleTrip]);
+  }, [activeTripIndex]);
 
   // Handle nav back
   const handleBack = useCallback(() => {
@@ -192,25 +196,18 @@ export default function TripPreview({ trips, singleTrip = false }: TripPreviewPr
         const dayIdx = t.days.findIndex(d => d.date === todayStr);
         const slideIdx = dayIdx >= 0 ? dayIdx + 1 : 1; // +1 because slide 0 is hero
 
-        if (singleTrip) {
-          // Already viewing this trip — just go to the day slide
-          if (i === 0) {
-            setTimeout(() => goTo(slideIdx), 100);
+        // Open the matching trip and navigate to the day
+        setActiveTripIndex(i);
+        setOverviewFaded(true);
+        setIsAnimatingIn(true);
+        setCurrentSlide(slideIdx);
+        setTimeout(() => {
+          if (trackRef.current) {
+            trackRef.current.style.transform = `translateX(-${slideIdx * 100}%)`;
           }
-        } else {
-          // Multi-trip: open the matching trip and navigate to the day
-          setActiveTripIndex(i);
-          setOverviewFaded(true);
-          setIsAnimatingIn(true);
-          setCurrentSlide(slideIdx);
-          setTimeout(() => {
-            if (trackRef.current) {
-              trackRef.current.style.transform = `translateX(-${slideIdx * 100}%)`;
-            }
-            const activeBtn = dateStripRef.current?.querySelector('.date-btn.active');
-            activeBtn?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
-          }, 100);
-        }
+          const activeBtn = dateStripRef.current?.querySelector('.date-btn.active');
+          activeBtn?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+        }, 100);
         break;
       }
     }
@@ -281,54 +278,76 @@ export default function TripPreview({ trips, singleTrip = false }: TripPreviewPr
     return () => window.removeEventListener('popstate', onPopState);
   }, [detailOpen]);
 
-  // Render overview cards
-  function renderOverview() {
-    return trips.map((td, idx) => {
-      const t = td.trip;
-      const img = t.overview_image || t.hero_image;
-      const startD = new Date(t.dates.start + 'T12:00:00');
-      const endD = new Date(t.dates.end + 'T12:00:00');
-      const startStr = startD.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-      const endStr = endD.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-      const nights = Math.round((endD.getTime() - startD.getTime()) / 86400000);
-      const dayCount = td.days.length;
-      const isPast = endD < new Date();
-      const statusLabel = isPast ? 'Completed' : (dayCount === 0 ? 'Planning' : `${nights} nights`);
+  // Delete trip
+  function handleDeleteTrip(idx: number) {
+    onDelete?.(idx);
+    setTrips(prev => prev.filter((_, i) => i !== idx));
+    setDeleteConfirm(null);
+  }
 
-      return (
-        <div key={idx} className="trip-card" role="button" tabIndex={0} aria-label={`${t.name} — ${t.subtitle}`} onClick={(e) => openTrip(idx, e.currentTarget)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openTrip(idx, e.currentTarget as HTMLElement); } }}>
-          <Image className="trip-card-img" src={img} alt={t.name} fill sizes="430px" style={{ objectFit: 'cover' }} />
-          <div className="trip-card-gradient" />
-          <div className="trip-card-badge">{statusLabel}</div>
-          <div className="trip-card-body">
-            <div className="trip-card-dates">{startStr} — {endStr}</div>
-            <div className="trip-card-name">{t.name}</div>
-            <div className="trip-card-subtitle">{t.subtitle}</div>
-            <div className="trip-card-stats">
+  // Split trips into upcoming and archive
+  const now = new Date();
+  now.setHours(12, 0, 0, 0);
+  const upcomingTrips: { td: TripData; origIdx: number }[] = [];
+  const archiveTrips: { td: TripData; origIdx: number }[] = [];
+  trips.forEach((td, idx) => {
+    const endD = new Date(td.trip.dates.end + 'T12:00:00');
+    if (endD < now) archiveTrips.push({ td, origIdx: idx });
+    else upcomingTrips.push({ td, origIdx: idx });
+  });
+
+  // Render overview cards
+  function renderTripCard(td: TripData, origIdx: number) {
+    const t = td.trip;
+    const img = t.overview_image || t.hero_image;
+    const startD = new Date(t.dates.start + 'T12:00:00');
+    const endD = new Date(t.dates.end + 'T12:00:00');
+    const startStr = startD.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    const endStr = endD.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    const nights = Math.round((endD.getTime() - startD.getTime()) / 86400000);
+    const dayCount = td.days.length;
+    const isPast = endD < now;
+    const statusLabel = isPast ? 'Completed' : (dayCount === 0 ? 'Planning' : `${nights} nights`);
+
+    return (
+      <div key={origIdx} className="trip-card" role="button" tabIndex={0} aria-label={`${t.name} — ${t.subtitle}`} onClick={(e) => {
+        if ((e.target as HTMLElement).closest('.trip-card-delete')) return;
+        openTrip(origIdx, e.currentTarget);
+      }} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openTrip(origIdx, e.currentTarget as HTMLElement); } }}>
+        <Image className="trip-card-img" src={img} alt={t.name} fill sizes="430px" style={{ objectFit: 'cover' }} />
+        <div className="trip-card-gradient" />
+        <div className="trip-card-badge">{statusLabel}</div>
+        <button className="trip-card-delete" onClick={(e) => { e.stopPropagation(); setDeleteConfirm(origIdx); }} aria-label={`Delete ${t.name}`}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+        </button>
+        <div className="trip-card-body">
+          <div className="trip-card-dates">{startStr} — {endStr}</div>
+          <div className="trip-card-name">{t.name}</div>
+          <div className="trip-card-subtitle">{t.subtitle}</div>
+          <div className="trip-card-stats">
+            <div className="trip-card-stat">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" /></svg>
+              {nights} nights
+            </div>
+            {dayCount > 0 ? (
               <div className="trip-card-stat">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" /></svg>
-                {nights} nights
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4" /><path d="M8 2v4" /><path d="M3 10h18" /></svg>
+                {dayCount} days
               </div>
-              {dayCount > 0 ? (
-                <div className="trip-card-stat">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4" /><path d="M8 2v4" /><path d="M3 10h18" /></svg>
-                  {dayCount} days
-                </div>
-              ) : (
-                <div className="trip-card-stat">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" /></svg>
-                  Coming soon
-                </div>
-              )}
+            ) : (
               <div className="trip-card-stat">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
-                {t.travelers.length}
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" /></svg>
+                Coming soon
               </div>
+            )}
+            <div className="trip-card-stat">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
+              {t.travelers.length}
             </div>
           </div>
         </div>
-      );
-    });
+      </div>
+    );
   }
 
   // Render hero slide
@@ -528,13 +547,67 @@ export default function TripPreview({ trips, singleTrip = false }: TripPreviewPr
   return (
     <div className="trip-app" ref={appRef}>
       {/* Overview Screen */}
-      {!singleTrip && (
-        <div className={`overview-screen ${overviewFaded ? 'faded' : ''}`}>
-          <div className="overview-header">
-            <h1 className="overview-title">Trips</h1>
-          </div>
-          <div className="overview-body">
-            {renderOverview()}
+      <div className={`overview-screen ${overviewFaded ? 'faded' : ''}`}>
+        <div className="overview-header">
+          {showArchive ? (
+            <>
+              <button className="overview-back" onClick={() => setShowArchive(false)} aria-label="Back to trips">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+              </button>
+              <h1 className="overview-title">Archive</h1>
+            </>
+          ) : (
+            <>
+              <h1 className="overview-title">Trips</h1>
+              <div className="overview-menu-wrap">
+                <button className="overview-menu-btn" onClick={() => setMenuOpen(!menuOpen)} aria-label="Settings menu">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+                </button>
+                {menuOpen && (
+                  <>
+                    <div className="overview-menu-backdrop" onClick={() => setMenuOpen(false)} />
+                    <div className="overview-menu">
+                      <button className="overview-menu-item" onClick={() => { setMenuOpen(false); setShowArchive(true); }}>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="5" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/></svg>
+                        Archive{archiveTrips.length > 0 ? ` (${archiveTrips.length})` : ''}
+                      </button>
+                      <button className="overview-menu-item overview-menu-item-danger" onClick={() => { setMenuOpen(false); window.location.href = '/'; }}>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                        Log out
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+        <div className="overview-body">
+          {showArchive ? (
+            archiveTrips.length > 0
+              ? archiveTrips.map(({ td, origIdx }) => renderTripCard(td, origIdx))
+              : <div className="overview-empty">No past trips yet</div>
+          ) : (
+            upcomingTrips.length > 0
+              ? upcomingTrips.map(({ td, origIdx }) => renderTripCard(td, origIdx))
+              : <div className="overview-empty">No upcoming trips</div>
+          )}
+        </div>
+      </div>
+
+      {/* Delete confirmation dialog */}
+      {deleteConfirm !== null && (
+        <div className="confirm-overlay" role="dialog" aria-modal="true" aria-label="Confirm deletion">
+          <div className="confirm-backdrop" onClick={() => setDeleteConfirm(null)} />
+          <div className="confirm-dialog">
+            <div className="confirm-title">Delete trip?</div>
+            <p className="confirm-message">
+              &ldquo;{trips[deleteConfirm]?.trip.name}&rdquo; will be permanently removed. This cannot be undone.
+            </p>
+            <div className="confirm-actions">
+              <button className="confirm-btn confirm-btn-cancel" onClick={() => setDeleteConfirm(null)}>Cancel</button>
+              <button className="confirm-btn confirm-btn-delete" onClick={() => handleDeleteTrip(deleteConfirm)}>Delete</button>
+            </div>
           </div>
         </div>
       )}
@@ -553,11 +626,9 @@ export default function TripPreview({ trips, singleTrip = false }: TripPreviewPr
         >
           {/* Nav Bar */}
           <div className={`nav-bar ${isHero ? 'over-hero' : ''}`}>
-            {(!singleTrip || !isHero) && (
-              <button className="nav-back" onClick={handleBack} aria-label={isHero ? 'All trips' : 'Back to cover'}>
-                <Icon name="back" />
-              </button>
-            )}
+            <button className="nav-back" onClick={handleBack} aria-label={isHero ? 'All trips' : 'Back to cover'}>
+              <Icon name="back" />
+            </button>
             <div className="nav-title-text">
               {!isHero && trip && (
                 <>
