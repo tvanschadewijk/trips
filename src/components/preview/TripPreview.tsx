@@ -153,7 +153,7 @@ export default function TripPreview({ trips, singleTrip = false }: TripPreviewPr
     const handler = (e: KeyboardEvent) => {
       if (activeTripIndex === null) return;
       if (detailOpen) {
-        if (e.key === 'Escape') setDetailOpen(false);
+        if (e.key === 'Escape') closeDetail();
         return;
       }
       if (e.key === 'ArrowRight') goTo(currentSlide + 1);
@@ -207,7 +207,27 @@ export default function TripPreview({ trips, singleTrip = false }: TripPreviewPr
       });
     }
     setDetailOpen(true);
+    window.history.pushState({ detail: true }, '');
   }
+
+  function closeDetail() {
+    if (detailOpen) {
+      setDetailOpen(false);
+      window.history.back();
+    }
+  }
+
+  // Handle browser back to close detail sheet
+  useEffect(() => {
+    const onPopState = (e: PopStateEvent) => {
+      if (detailOpen) {
+        e.preventDefault();
+        setDetailOpen(false);
+      }
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, [detailOpen]);
 
   // Render overview cards
   function renderOverview() {
@@ -540,10 +560,10 @@ export default function TripPreview({ trips, singleTrip = false }: TripPreviewPr
 
       {/* Detail sheet */}
       <div className={`detail-overlay ${detailOpen ? 'open' : ''}`}>
-        <div className="detail-backdrop" onClick={() => setDetailOpen(false)} />
+        <div className="detail-backdrop" onClick={closeDetail} />
         <div className="detail-sheet">
           <div className="detail-header">
-            <button className="detail-close" onClick={() => setDetailOpen(false)}>
+            <button className="detail-close" onClick={closeDetail}>
               <Icon name="back" />
             </button>
             <div className="text-nav-title" style={{ flex: 1, minWidth: 0, color: 'var(--color-text-primary)' }}>
