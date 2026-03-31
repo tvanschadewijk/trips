@@ -78,7 +78,7 @@
 /* ============================================
    NAV BAR
    ============================================ */
-.nav-bar { height: var(--nav-height); flex-shrink: 0; display: flex; align-items: center; gap: 4px; padding: 0 8px; padding-top: env(safe-area-inset-top); z-index: 20; transition: background 0.3s, border-color 0.3s; background: var(--color-surface); border-bottom: 1px solid rgba(255,255,255,0.08); }
+.nav-bar { height: calc(var(--nav-height) + env(safe-area-inset-top)); flex-shrink: 0; display: flex; align-items: center; gap: 4px; padding: 0 8px; padding-top: env(safe-area-inset-top); z-index: 20; transition: background 0.3s, border-color 0.3s; background: var(--color-surface); border-bottom: 1px solid rgba(255,255,255,0.08); }
 .nav-bar.over-hero { background: transparent; border-bottom-color: transparent; }
 .nav-back { display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 12px; border: none; cursor: pointer; background: transparent; color: rgba(255,255,255,0.7); transition: background 0.15s, transform 0.1s; flex-shrink: 0; }
 .nav-back:active { transform: scale(0.9); background: rgba(255,255,255,0.1); }
@@ -208,7 +208,7 @@
 .detail-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.3); }
 .detail-sheet { position: absolute; top: 0; right: 0; bottom: 0; width: 100%; max-width: var(--app-max-width); background: var(--color-card); transform: translateX(100%); transition: transform 0.35s cubic-bezier(0.25, 0.1, 0.25, 1); overflow-y: auto; -webkit-overflow-scrolling: touch; }
 .detail-overlay.open .detail-sheet { transform: translateX(0); }
-.detail-header { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 8px; padding: 0 4px; padding-top: env(safe-area-inset-top); height: calc(var(--nav-height) + env(safe-area-inset-top)); background: var(--color-card); border-bottom: 1px solid var(--color-border); }
+.detail-header { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 8px; padding: env(safe-area-inset-top) 4px 0; min-height: calc(var(--nav-height) + env(safe-area-inset-top)); background: var(--color-card); border-bottom: 1px solid var(--color-border); }
 .detail-close { display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; border: none; background: transparent; cursor: pointer; border-radius: 12px; color: var(--color-text-secondary); transition: background 0.15s, transform 0.1s; }
 .detail-close:active { transform: scale(0.9); background: rgba(0,0,0,0.05); }
 @media (hover: hover) { .detail-close:hover { background: rgba(0,0,0,0.05); } }
