@@ -143,118 +143,63 @@
   flex-wrap: wrap;
 }
 
-/* Features */
-.landing-features {
-  padding: 60px 24px 80px;
+/* Steps */
+.landing-steps {
+  padding: 80px 24px;
   border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
-.landing-features-inner {
+.landing-steps-inner {
   max-width: 960px;
   margin: 0 auto;
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 32px;
-}
-@media (max-width: 640px) {
-  .landing-features-inner { grid-template-columns: 1fr; gap: 24px; }
-}
-.landing-feature {
-  padding: 28px 24px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 16px;
-  transition: background 0.2s;
-}
-.landing-feature:hover { background: rgba(255, 255, 255, 0.05); }
-.landing-feature-icon {
-  width: 40px;
-  height: 40px;
   display: flex;
+  align-items: flex-start;
+  gap: 0;
+}
+.landing-step {
+  flex: 1;
+  text-align: center;
+  padding: 0 24px;
+}
+.landing-step-num {
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: rgba(43, 124, 233, 0.12);
-  border-radius: 10px;
-  margin-bottom: 16px;
+  width: 44px;
+  height: 44px;
+  background: rgba(43, 124, 233, 0.15);
   color: #6AABF7;
+  border-radius: 50%;
+  font-size: 18px;
+  font-weight: 800;
+  margin-bottom: 16px;
 }
-.landing-feature-icon svg { width: 20px; height: 20px; }
-.landing-feature-title {
-  font-size: 16px;
+.landing-step-title {
+  font-size: 17px;
   font-weight: 700;
   margin: 0 0 8px;
   color: #FFFFFF;
 }
-.landing-feature-desc {
+.landing-step-desc {
   font-size: 14px;
   font-weight: 400;
   line-height: 1.6;
   color: rgba(255, 255, 255, 0.5);
-  margin: 0;
+  margin: 0 0 16px;
 }
-
-/* Install section */
-.landing-install {
-  padding: 80px 24px;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-  text-align: center;
-}
-.landing-install-inner {
-  max-width: 480px;
-  margin: 0 auto;
-}
-.landing-install-icon {
-  width: 56px;
-  height: 56px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(43, 124, 233, 0.12);
-  border-radius: 16px;
-  margin: 0 auto 20px;
-  color: #6AABF7;
-}
-.landing-install-icon svg { width: 28px; height: 28px; }
-.landing-install-title {
-  font-size: 24px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  margin: 0 0 10px;
-}
-.landing-install-desc {
-  font-size: 15px;
-  line-height: 1.6;
-  color: rgba(255, 255, 255, 0.5);
-  margin: 0 0 28px;
-}
-.landing-install-steps {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin-bottom: 32px;
-  text-align: left;
-  max-width: 360px;
-  margin-left: auto;
-  margin-right: auto;
-}
-.landing-install-step {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.7);
-}
-.landing-install-step-num {
-  width: 28px;
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.landing-step-divider {
+  width: 1px;
+  min-height: 80px;
   background: rgba(255, 255, 255, 0.08);
-  border-radius: 50%;
-  font-size: 13px;
-  font-weight: 700;
-  color: rgba(255, 255, 255, 0.5);
   flex-shrink: 0;
+  margin-top: 20px;
+}
+.landing-btn-sm {
+  padding: 10px 22px;
+  font-size: 13px;
+}
+@media (max-width: 640px) {
+  .landing-steps-inner { flex-direction: column; align-items: center; gap: 32px; }
+  .landing-step-divider { width: 40px; min-height: 0; height: 1px; }
 }
 
 /* Phone preview */
