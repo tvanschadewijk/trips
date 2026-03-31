@@ -18,7 +18,7 @@ export default function Home() {
         <div className="landing-hero-inner">
           <div className="landing-hero-badge">Built for travelers who plan with AI</div>
           <h1 className="landing-hero-title">
-            Your trips,<br />beautifully presented.
+            Your trips.<br />All details in your pocket.
           </h1>
           <p className="landing-hero-subtitle">
             Push trip data from Claude or any AI assistant and get back a shareable,
