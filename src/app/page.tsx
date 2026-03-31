@@ -63,6 +63,37 @@ export default function Home() {
         </div>
       </section>
 
+      <section className="landing-install">
+        <div className="landing-install-inner">
+          <div className="landing-install-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456ZM16.894 20.567 16.5 21.75l-.394-1.183a2.25 2.25 0 0 0-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 0 0 1.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 0 0 1.423 1.423l1.183.394-1.183.394a2.25 2.25 0 0 0-1.423 1.423Z" /></svg>
+          </div>
+          <h2 className="landing-install-title">Install the Claude skill</h2>
+          <p className="landing-install-desc">
+            Download the skill file and add it to your Claude project.
+            Then just say &ldquo;save this to trips&rdquo; after planning any itinerary.
+          </p>
+          <div className="landing-install-steps">
+            <div className="landing-install-step">
+              <span className="landing-install-step-num">1</span>
+              <span>Download the skill file</span>
+            </div>
+            <div className="landing-install-step">
+              <span className="landing-install-step-num">2</span>
+              <span>Go to Claude &rarr; Project &rarr; Skills &rarr; Add skill</span>
+            </div>
+            <div className="landing-install-step">
+              <span className="landing-install-step-num">3</span>
+              <span>Plan a trip and say &ldquo;save this to trips&rdquo;</span>
+            </div>
+          </div>
+          <a href="/travel-itinerary.skill" download className="landing-btn-primary" style={{ gap: '8px' }}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="18" height="18"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
+            Download skill
+          </a>
+        </div>
+      </section>
+
       <section className="landing-preview">
         <div className="landing-preview-inner">
           <div className="landing-preview-label">How it looks</div>
