@@ -124,8 +124,10 @@ export default function TripPreview({ trips, singleTrip = false }: TripPreviewPr
       if (!ts.isDragging) return;
       const moveX = e.touches[0].clientX - ts.startX;
       const moveY = e.touches[0].clientY - ts.startY;
-      if (ts.isScrolling === null && (Math.abs(moveX) > 5 || Math.abs(moveY) > 5)) {
-        ts.isScrolling = Math.abs(moveY) > Math.abs(moveX);
+      if (ts.isScrolling === null && (Math.abs(moveX) > 10 || Math.abs(moveY) > 10)) {
+        // Bias toward vertical scroll: require horizontal movement to be
+        // noticeably dominant (>1.5× vertical) before treating as a swipe
+        ts.isScrolling = Math.abs(moveX) <= Math.abs(moveY) * 1.5;
       }
       if (ts.isScrolling) return;
       e.preventDefault();
