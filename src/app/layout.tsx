@@ -28,7 +28,7 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body style={{ margin: 0, padding: 0, height: '100%', overflow: 'hidden', background: '#2C2C2C' }}>
+      <body style={{ margin: 0, padding: 0, minHeight: '100dvh', background: '#1A1A1A' }}>
         {children}
       </body>
     </html>
