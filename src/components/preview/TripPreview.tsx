@@ -9,6 +9,7 @@ import '@/styles/preview.css';
 interface TripPreviewProps {
   trips: TripData[];
   onDelete?: (index: number) => void;
+  autoOpen?: boolean;
 }
 
 function Icon({ name }: { name: string }) {
@@ -19,15 +20,15 @@ function formatDate(dateStr: string, opts: Intl.DateTimeFormatOptions) {
   return new Date(dateStr + 'T12:00:00').toLocaleDateString('en-GB', opts);
 }
 
-export default function TripPreview({ trips: initialTrips, onDelete }: TripPreviewProps) {
+export default function TripPreview({ trips: initialTrips, onDelete, autoOpen }: TripPreviewProps) {
   const [trips, setTrips] = useState(initialTrips);
-  const [activeTripIndex, setActiveTripIndex] = useState<number | null>(null);
+  const [activeTripIndex, setActiveTripIndex] = useState<number | null>(autoOpen ? 0 : null);
   const [currentSlide, setCurrentSlide] = useState(0);
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailContent, setDetailContent] = useState<{ title: string; html: string }>({ title: '', html: '' });
   const [isAnimatingIn, setIsAnimatingIn] = useState(false);
   const [isAnimatingOut, setIsAnimatingOut] = useState(false);
-  const [overviewFaded, setOverviewFaded] = useState(false);
+  const [overviewFaded, setOverviewFaded] = useState(autoOpen ? true : false);
   const [cardVars, setCardVars] = useState({ top: '0px', right: '0px', bottom: '0px', left: '0px' });
   const [showArchive, setShowArchive] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -51,7 +52,7 @@ export default function TripPreview({ trips: initialTrips, onDelete }: TripPrevi
     const clamped = Math.max(0, Math.min(idx, totalSlides - 1));
     setCurrentSlide(clamped);
     if (trackRef.current) {
-      trackRef.current.style.transform = `translateX(-${clamped * 100}%)`;
+      trackRef.current.style.transform = `translateX(-${clamped * 100}cqi)`;
       trackRef.current.classList.remove('dragging');
     }
     // Scroll active date into view
@@ -88,10 +89,10 @@ export default function TripPreview({ trips: initialTrips, onDelete }: TripPrevi
   }, [trips]);
 
   const closeTrip = useCallback(() => {
-    if (activeTripIndex === null) return;
+    if (activeTripIndex === null || autoOpen) return;
     setIsAnimatingOut(true);
     setOverviewFaded(false);
-  }, [activeTripIndex]);
+  }, [activeTripIndex, autoOpen]);
 
   // Handle nav back
   const handleBack = useCallback(() => {
@@ -136,8 +137,7 @@ export default function TripPreview({ trips: initialTrips, onDelete }: TripPrevi
       if (ts.isScrolling) return;
       e.preventDefault();
       ts.dx = moveX;
-      const offset = -currentSlide * 100 + (ts.dx / vp.offsetWidth) * 100;
-      if (trackRef.current) trackRef.current.style.transform = `translateX(${offset}%)`;
+      if (trackRef.current) trackRef.current.style.transform = `translateX(calc(-${currentSlide * 100}cqi + ${ts.dx}px))`;
     };
     const onEnd = () => {
       const ts = touchState.current;
@@ -203,7 +203,7 @@ export default function TripPreview({ trips: initialTrips, onDelete }: TripPrevi
         setCurrentSlide(slideIdx);
         setTimeout(() => {
           if (trackRef.current) {
-            trackRef.current.style.transform = `translateX(-${slideIdx * 100}%)`;
+            trackRef.current.style.transform = `translateX(-${slideIdx * 100}cqi)`;
           }
           const activeBtn = dateStripRef.current?.querySelector('.date-btn.active');
           activeBtn?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });

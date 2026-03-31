@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { trip, days } = body;
+    const { trip, days, trip_id } = body;
 
     if (!trip?.name) {
       return NextResponse.json({ error: 'Trip name is required' }, { status: 400 });
@@ -19,34 +19,37 @@ export async function POST(request: NextRequest) {
 
     const supabase = createAdminClient();
 
-    // Check if a trip with this name already exists for the user
-    const { data: existing } = await supabase
-      .from('trips')
-      .select('id, share_id')
-      .eq('user_id', userId)
-      .eq('name', trip.name)
-      .single();
-
-    if (existing) {
-      // Update existing trip
-      const { error } = await supabase
+    // If trip_id is provided, update that specific trip
+    if (trip_id) {
+      const { data: existing } = await supabase
         .from('trips')
-        .update({
-          data: { trip, days },
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', existing.id);
+        .select('id, share_id')
+        .eq('id', trip_id)
+        .eq('user_id', userId)
+        .single();
 
-      if (error) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+      if (existing) {
+        const { error } = await supabase
+          .from('trips')
+          .update({
+            name: trip.name,
+            data: { trip, days },
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', existing.id);
+
+        if (error) {
+          return NextResponse.json({ error: error.message }, { status: 500 });
+        }
+
+        return NextResponse.json({
+          trip_id: existing.id,
+          share_id: existing.share_id,
+          url: `${request.nextUrl.origin}/t/${existing.share_id}`,
+          status: 'updated',
+        });
       }
-
-      return NextResponse.json({
-        trip_id: existing.id,
-        share_id: existing.share_id,
-        url: `${request.nextUrl.origin}/t/${existing.share_id}`,
-        status: 'updated',
-      });
+      // trip_id not found for this user — fall through to create
     }
 
     // Create new trip

@@ -45,5 +45,5 @@ export default async function TripPage({ params }: Props) {
     tripData = sample;
   }
 
-  return <TripPreview trips={[tripData]} />;
+  return <TripPreview trips={[tripData]} autoOpen />;
 }
