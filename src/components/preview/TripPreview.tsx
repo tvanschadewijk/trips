@@ -113,7 +113,14 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen }:
   // Handle nav back
   const handleBack = useCallback(() => {
     if (currentSlide > 0) goTo(0);
-    else if (autoOpen) window.history.back();
+    else if (autoOpen) {
+      const vt = (document as unknown as { startViewTransition?: (cb: () => void) => void }).startViewTransition;
+      if (vt) {
+        vt.call(document, () => { window.history.back(); });
+      } else {
+        window.history.back();
+      }
+    }
     else closeTrip();
   }, [currentSlide, goTo, autoOpen, closeTrip]);
 
@@ -474,6 +481,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen }:
               <div className="transport-route">{t.from || ''} → {t.to || ''} {t.duration ? `· ${t.duration}` : ''}</div>
             </div>
             {t.depart && <div className="text-mono">{t.depart}</div>}
+            <span className={`text-status status-badge status-${t.status || 'pending'}`}>{t.status || 'pending'}</span>
             {t.detail && <span className="tap-chevron"><Icon name="chevron" /></span>}
           </div>
         ))}

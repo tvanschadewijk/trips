@@ -22,6 +22,10 @@ export default function DashboardPage() {
   const [email, setEmail] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [vtTrip, setVtTrip] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') return sessionStorage.getItem('vt-trip');
+    return null;
+  });
 
   const loadTrips = useCallback(async () => {
     const supabase = createClient();
@@ -51,6 +55,14 @@ export default function DashboardPage() {
   }, [router]);
 
   useEffect(() => { loadTrips(); }, [loadTrips]);
+
+  // Clear view-transition marker after the transition captures the new state
+  useEffect(() => {
+    if (vtTrip) {
+      const t = setTimeout(() => { sessionStorage.removeItem('vt-trip'); setVtTrip(null); }, 1000);
+      return () => clearTimeout(t);
+    }
+  }, [vtTrip]);
 
   function copyLink(shareId: string) {
     const url = `${window.location.origin}/t/${shareId}`;
@@ -137,6 +149,7 @@ export default function DashboardPage() {
                       e.preventDefault();
                       const img = (e.currentTarget as HTMLElement).querySelector('img');
                       if (img) img.style.viewTransitionName = 'trip-hero';
+                      sessionStorage.setItem('vt-trip', trip.share_id);
                       vt.call(document, async () => {
                         router.push(`/t/${trip.share_id}`);
                         await new Promise<void>((resolve) => {
@@ -148,7 +161,7 @@ export default function DashboardPage() {
                   >
                     <div className="dash-card-hero">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={t.hero_image} alt={t.name} />
+                      <img src={t.hero_image} alt={t.name} style={vtTrip === trip.share_id ? { viewTransitionName: 'trip-hero' } as React.CSSProperties : undefined} />
                       <div className="dash-card-hero-gradient" />
                       <div className="dash-card-hero-text">
                         <div className="dash-card-name">{t.name}</div>
