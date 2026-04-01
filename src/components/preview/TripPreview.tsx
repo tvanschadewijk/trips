@@ -20,6 +20,52 @@ function formatDate(dateStr: string, opts: Intl.DateTimeFormatOptions) {
   return new Date(dateStr + 'T12:00:00').toLocaleDateString('en-GB', opts);
 }
 
+const MAX_VISIBLE_DOTS = 7;
+
+function SwipeDots({ total, current, onDotClick }: { total: number; current: number; onDotClick: (i: number) => void }) {
+  if (total <= MAX_VISIBLE_DOTS) {
+    return (
+      <div className="swipe-dots" role="tablist" aria-label="Trip slides">
+        {Array.from({ length: total }).map((_, i) => (
+          <div key={i} className={`swipe-dot ${i === current ? 'active' : ''}`}
+            role="tab" aria-selected={i === current} aria-label={i === 0 ? 'Overview' : `Day ${i}`}
+            tabIndex={i === current ? 0 : -1}
+            style={{ cursor: 'pointer' }} onClick={() => onDotClick(i)} />
+        ))}
+      </div>
+    );
+  }
+
+  // Windowed: show MAX_VISIBLE_DOTS dots centered on current, with edge dots shrinking
+  const half = Math.floor(MAX_VISIBLE_DOTS / 2);
+  let windowStart = current - half;
+  if (windowStart < 0) windowStart = 0;
+  if (windowStart + MAX_VISIBLE_DOTS > total) windowStart = total - MAX_VISIBLE_DOTS;
+
+  const hasLeft = windowStart > 0;
+  const hasRight = windowStart + MAX_VISIBLE_DOTS < total;
+
+  return (
+    <div className="swipe-dots" role="tablist" aria-label="Trip slides">
+      {hasLeft && <div className="swipe-dot-fade left" />}
+      {Array.from({ length: MAX_VISIBLE_DOTS }).map((_, vi) => {
+        const i = windowStart + vi;
+        const isEdge = (vi === 0 && hasLeft) || (vi === MAX_VISIBLE_DOTS - 1 && hasRight);
+        const isNearEdge = (vi === 1 && hasLeft) || (vi === MAX_VISIBLE_DOTS - 2 && hasRight);
+        const scale = isEdge ? 0.5 : isNearEdge ? 0.75 : 1;
+        return (
+          <div key={i} className={`swipe-dot ${i === current ? 'active' : ''}`}
+            role="tab" aria-selected={i === current} aria-label={i === 0 ? 'Overview' : `Day ${i}`}
+            tabIndex={i === current ? 0 : -1}
+            style={{ cursor: 'pointer', transform: `scale(${scale})`, opacity: isEdge ? 0.3 : undefined }}
+            onClick={() => onDotClick(i)} />
+        );
+      })}
+      {hasRight && <div className="swipe-dot-fade right" />}
+    </div>
+  );
+}
+
 export default function TripPreview({ trips: initialTrips, onDelete, autoOpen }: TripPreviewProps) {
   const [trips, setTrips] = useState(initialTrips);
   const [activeTripIndex, setActiveTripIndex] = useState<number | null>(autoOpen ? 0 : null);
@@ -701,14 +747,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen }:
           </div>
 
           {/* Swipe dots */}
-          <div className="swipe-dots" role="tablist" aria-label="Trip slides">
-            {Array.from({ length: totalSlides }).map((_, i) => (
-              <div key={i} className={`swipe-dot ${i === currentSlide ? 'active' : ''}`}
-                role="tab" aria-selected={i === currentSlide} aria-label={i === 0 ? 'Overview' : `Day ${i}`}
-                tabIndex={i === currentSlide ? 0 : -1}
-                style={{ cursor: 'pointer' }} onClick={() => goTo(i)} />
-            ))}
-          </div>
+          <SwipeDots total={totalSlides} current={currentSlide} onDotClick={goTo} />
         </div>
       )}
 

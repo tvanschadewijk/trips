@@ -195,10 +195,11 @@
 .day-header-plain .hero-stats-row .hero-stat-chip { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.8); }
 
 /* Swipe dots */
-.swipe-dots { position: absolute; bottom: calc(10px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); display: flex; gap: 5px; z-index: 20; padding: 4px 10px; background: rgba(0,0,0,0.4); border-radius: 12px; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
-.swipe-dot { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,0.35); transition: all 0.25s; position: relative; }
-.swipe-dot::before { content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 44px; height: 44px; }
+.swipe-dots { position: absolute; bottom: calc(10px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 5px; z-index: 20; padding: 4px 10px; background: rgba(0,0,0,0.4); border-radius: 12px; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+.swipe-dot { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,0.35); transition: all 0.25s, transform 0.25s; position: relative; flex-shrink: 0; }
+.swipe-dot::before { content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 28px; height: 28px; }
 .swipe-dot.active { background: white; width: 18px; border-radius: 3px; }
+.swipe-dot-fade { width: 4px; height: 4px; border-radius: 50%; background: rgba(255,255,255,0.15); flex-shrink: 0; }
 
 /* ============================================
    DETAIL SHEET
