@@ -348,30 +348,13 @@
 .demo-back-link svg { opacity: 0.8; }
 
 /* ============================================
-   SHARE BUTTON (NAV BAR)
-   ============================================ */
-.nav-share {
-  display: flex; align-items: center; justify-content: center;
-  width: 40px; height: 40px; border-radius: 12px;
-  border: none; cursor: pointer; background: transparent;
-  color: rgba(255,255,255,0.7); transition: background 0.15s, transform 0.1s;
-  flex-shrink: 0; margin-left: auto;
-}
-.nav-share:active { transform: scale(0.9); background: rgba(255,255,255,0.1); }
-.nav-bar.over-hero .nav-share { color: white; }
-@media (hover: hover) {
-  .nav-share:hover { background: rgba(255,255,255,0.1); }
-  .nav-bar.over-hero .nav-share:hover { background: rgba(255,255,255,0.15); }
-}
-
-/* ============================================
    FLOATING SAVE BUTTON (top, over hero image)
    ============================================ */
 .floating-save {
   position: absolute;
-  top: calc(var(--nav-height) + env(safe-area-inset-top) + 12px);
-  left: 0; right: 0;
-  display: flex; justify-content: center; z-index: 19;
+  top: calc(var(--nav-height) + env(safe-area-inset-top) + 8px);
+  right: 12px;
+  display: flex; justify-content: flex-end; z-index: 19;
   pointer-events: none;
 }
 .floating-save-btn {
@@ -396,66 +379,45 @@
   .floating-save-btn:hover:not(:disabled) { transform: scale(1.03); box-shadow: 0 4px 16px rgba(0,0,0,0.35), 0 12px 32px rgba(0,0,0,0.2); }
 }
 
-/* ============================================
-   SHARE SHEET
-   ============================================ */
-.share-overlay {
-  position: fixed; inset: 0; z-index: 200;
-  display: flex; align-items: flex-end; justify-content: center;
-}
-.share-backdrop {
-  position: absolute; inset: 0;
-  background: rgba(0,0,0,0.5); backdrop-filter: blur(4px);
-  animation: share-fade-in 0.2s ease-out;
-}
-.share-sheet {
-  position: relative; z-index: 1;
-  width: 100%; max-width: 430px;
-  background: var(--color-surface); border-radius: 20px 20px 0 0;
-  padding: 24px 20px calc(20px + env(safe-area-inset-bottom));
-  animation: share-slide-up 0.3s cubic-bezier(0.32, 0.72, 0, 1);
-}
-.share-sheet-title {
-  font-family: var(--font-sans); font-size: 17px; font-weight: 700;
-  color: #FFFFFF; text-align: center; margin-bottom: 24px;
-}
-.share-sheet-options {
-  display: flex; justify-content: center; gap: 32px; margin-bottom: 20px;
-}
-.share-option {
-  display: flex; flex-direction: column; align-items: center; gap: 8px;
-  background: none; border: none; cursor: pointer; color: rgba(255,255,255,0.7);
-  font-family: var(--font-sans); font-size: 12px; font-weight: 500;
-  transition: color 0.15s;
-}
-.share-option:hover { color: #FFFFFF; }
-.share-option-icon {
-  width: 52px; height: 52px; border-radius: 16px;
-  display: flex; align-items: center; justify-content: center;
-  transition: transform 0.15s;
-}
-.share-option:active .share-option-icon { transform: scale(0.92); }
-.share-option-whatsapp { background: #25D366; color: #FFFFFF; }
-.share-option-email { background: rgba(255,255,255,0.12); color: rgba(255,255,255,0.8); }
-.share-option-copy { background: rgba(255,255,255,0.12); color: rgba(255,255,255,0.8); }
-.share-sheet-cancel {
-  display: block; width: 100%; padding: 14px;
-  background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.6);
-  font-family: var(--font-sans); font-size: 15px; font-weight: 600;
-  border: none; border-radius: 14px; cursor: pointer;
-  transition: background 0.15s;
-}
-.share-sheet-cancel:hover { background: rgba(255,255,255,0.12); }
 
 @keyframes share-fade-in { from { opacity: 0; } to { opacity: 1; } }
-@keyframes share-slide-up { from { transform: translateY(100%); } to { transform: translateY(0); } }
 
 /* ============================================
    DESKTOP RESPONSIVE
    ============================================ */
+
+/* Desktop background wrapper — subtle radial glow behind the card */
+.trip-desktop-bg {
+  display: none;
+}
+
+/* Desktop scrollbar styling */
+@media (min-width: 768px) {
+  .slide::-webkit-scrollbar { width: 6px; }
+  .slide::-webkit-scrollbar-track { background: transparent; }
+  .slide::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 3px; }
+  .slide::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.25); }
+  .detail-sheet::-webkit-scrollbar { width: 6px; }
+  .detail-sheet::-webkit-scrollbar-track { background: transparent; }
+  .detail-sheet::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.12); border-radius: 3px; }
+  .detail-sheet::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.2); }
+  .slide { scrollbar-width: thin; scrollbar-color: rgba(0,0,0,0.15) transparent; }
+  .detail-sheet { scrollbar-width: thin; scrollbar-color: rgba(0,0,0,0.12) transparent; }
+}
+
 @media (min-width: 768px) {
   :root {
     --app-max-width: 520px;
+  }
+  .trip-desktop-bg {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    background:
+      radial-gradient(ellipse 60% 50% at 50% 40%, rgba(43,124,233,0.06) 0%, transparent 70%),
+      radial-gradient(ellipse 40% 60% at 30% 70%, rgba(139,92,246,0.04) 0%, transparent 60%);
+    pointer-events: none;
   }
   .trip-app {
     height: calc(100dvh - 40px);
@@ -466,15 +428,64 @@
   }
   .text-hero-title { font-size: 46px; }
   .text-hero-subtitle { font-size: 17px; }
+  .text-hero-summary { font-size: 15px; }
   .detail-sheet { border-radius: 24px 24px 0 0; }
+  .detail-body { padding: 24px 20px calc(40px + env(safe-area-inset-bottom)); }
+  .detail-header { padding: env(safe-area-inset-top) 8px 0; }
+  .day-hero { height: 260px; }
+  .day-section { transition: box-shadow 0.2s ease, transform 0.2s ease; }
+  .day-section:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.15), 0 8px 24px rgba(0,0,0,0.12); transform: translateY(-1px); }
+  .hero-body { padding-bottom: 48px; }
+  .hero-stats { gap: 32px; }
+  .hero-pill { padding: 6px 16px; }
+  .nav-back { width: 44px; height: 44px; border-radius: 14px; }
+  .date-btn { width: 46px; height: 46px; }
+  .date-btn-d { font-size: 16px; }
+  .day-slide { padding-left: max(20px, env(safe-area-inset-left)); padding-right: max(20px, env(safe-area-inset-right)); }
+  .day-section { padding: 20px; border-radius: 22px; }
+  .text-body { font-size: 15px; line-height: 1.6; }
+  .text-body-secondary { font-size: 15px; line-height: 1.6; }
+  .text-card-title { font-size: 24px; }
+  .text-card-title-light { font-size: 24px; }
+  .time-block { padding: 4px 0 4px 14px; }
+  /* Clickable items get pointer cursor on desktop */
+  .transport-row { cursor: pointer; border-radius: 12px; padding: 10px; margin: -10px 0; transition: background 0.15s; }
+  .transport-row:hover { background: rgba(43,124,233,0.04); }
+  .accom-card { cursor: pointer; border-radius: 12px; padding: 10px; margin: -10px 0; transition: background 0.15s; }
+  .accom-card:hover { background: rgba(43,124,233,0.04); }
+  .meal-row { cursor: pointer; border-radius: 12px; transition: background 0.15s; }
+  .meal-row:hover { background: rgba(43,124,233,0.04); }
 }
 @media (min-width: 1200px) {
   :root {
-    --app-max-width: 560px;
+    --app-max-width: 580px;
   }
   .trip-app {
     height: calc(100dvh - 60px);
     margin-top: 30px;
     margin-bottom: 30px;
+    border-radius: 28px;
+    box-shadow: 0 12px 80px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.08);
   }
+  .text-hero-title { font-size: 50px; }
+  .text-hero-subtitle { font-size: 18px; }
+  .day-hero { height: 280px; }
+  .day-hero-text { bottom: 18px; left: 20px; right: 20px; }
+  .hero-body { padding: 0 28px 52px; }
+  .hero-divider { width: 32px; }
+  .detail-body { padding: 28px 24px calc(40px + env(safe-area-inset-bottom)); }
+  .detail-sheet { border-radius: 28px 28px 0 0; }
+}
+@media (min-width: 1600px) {
+  :root {
+    --app-max-width: 620px;
+  }
+  .trip-app {
+    height: calc(100dvh - 80px);
+    margin-top: 40px;
+    margin-bottom: 40px;
+  }
+  .text-hero-title { font-size: 54px; }
+  .day-hero { height: 300px; }
+  .day-section { padding: 24px; }
 }

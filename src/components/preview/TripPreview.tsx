@@ -666,6 +666,8 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
   }
 
   return (
+    <>
+    <div className="trip-desktop-bg" />
     <div className="trip-app" ref={appRef}>
       {/* Overview Screen */}
       <div className={`overview-screen ${overviewFaded ? 'faded' : ''}`}>
@@ -838,5 +840,6 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
         </div>
       </div>
     </div>
+    </>
   );
 }

@@ -375,3 +375,14 @@
   .dash-grid { grid-template-columns: repeat(3, 1fr); }
   .dash-card-hero { height: 240px; }
 }
+@media (min-width: 1440px) {
+  .dash-nav-inner { padding: 0 60px; }
+  .dash-main { max-width: 1400px; padding: 48px 60px 120px; }
+  .dash-title { font-size: 36px; }
+  .dash-grid { gap: 28px; grid-template-columns: repeat(3, 1fr); }
+  .dash-card-hero { height: 260px; }
+  .dash-card-name { font-size: 24px; }
+  .dash-card-subtitle { font-size: 13px; }
+  .dash-card-body { padding: 16px 18px 18px; }
+  .dash-card-meta { font-size: 12px; }
+}
