@@ -64,6 +64,7 @@ export interface Transport {
   depart?: string;
   arrive?: string;
   duration?: string;
+  status?: string;
   detail?: TransportDetail;
 }
 
