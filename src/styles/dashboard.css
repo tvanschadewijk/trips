@@ -115,10 +115,11 @@
 
 /* Card */
 .dash-card {
+  position: relative;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 16px;
-  overflow: hidden;
+  overflow: visible;
   transition: border-color 0.2s, background 0.2s;
 }
 .dash-card:hover {
@@ -134,6 +135,7 @@
   position: relative;
   height: 200px;
   overflow: hidden;
+  border-radius: 15px 15px 0 0;
 }
 .dash-card-hero img {
   width: 100%;
@@ -208,7 +210,90 @@
 .dash-card-btn svg { width: 12px; height: 12px; }
 .dash-card-btn.copied { color: #2D8A56; background: rgba(45, 138, 86, 0.12); }
 
-/* Sign out */
+/* Card three-dot menu */
+.dash-card-menu-wrap {
+  position: absolute; top: 10px; right: 10px; z-index: 5;
+}
+.dash-card-menu-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px; border-radius: 8px;
+  border: none; cursor: pointer;
+  background: rgba(0,0,0,0.35); color: rgba(255,255,255,0.8);
+  backdrop-filter: blur(4px);
+  transition: background 0.15s, transform 0.1s;
+}
+.dash-card-menu-btn:hover { background: rgba(0,0,0,0.5); }
+.dash-card-menu-btn:active { transform: scale(0.92); }
+.dash-card-menu-backdrop {
+  position: fixed; inset: 0; z-index: 9;
+}
+.dash-card-menu {
+  position: absolute; top: 36px; right: 0; z-index: 10;
+  min-width: 150px;
+  background: #2C2C2C; border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 10px; padding: 4px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  animation: dash-menu-in 0.15s ease-out;
+}
+.dash-card-menu-item {
+  display: flex; align-items: center; gap: 8px;
+  width: 100%; padding: 9px 12px;
+  background: none; border: none; border-radius: 7px;
+  color: rgba(255,255,255,0.7); font-family: 'Inter', system-ui, sans-serif;
+  font-size: 13px; font-weight: 500; cursor: pointer;
+  transition: background 0.15s;
+}
+.dash-card-menu-item:hover { background: rgba(255,255,255,0.08); }
+.dash-card-menu-item-danger { color: #ef4444; }
+.dash-card-menu-item-danger:hover { background: rgba(239,68,68,0.1); }
+
+/* Delete confirmation */
+.dash-confirm-overlay {
+  position: fixed; inset: 0; z-index: 200;
+  display: flex; align-items: center; justify-content: center;
+}
+.dash-confirm-backdrop {
+  position: absolute; inset: 0;
+  background: rgba(0,0,0,0.6); backdrop-filter: blur(4px);
+  animation: share-fade-in 0.2s ease-out;
+}
+.dash-confirm-dialog {
+  position: relative; z-index: 1;
+  width: 90%; max-width: 340px;
+  background: #2C2C2C; border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 16px; padding: 24px;
+  box-shadow: 0 16px 48px rgba(0,0,0,0.5);
+  animation: dash-menu-in 0.2s ease-out;
+}
+.dash-confirm-title {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 17px; font-weight: 700; color: #fff;
+  margin-bottom: 8px;
+}
+.dash-confirm-message {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 14px; color: rgba(255,255,255,0.5);
+  line-height: 1.5; margin: 0 0 20px;
+}
+.dash-confirm-actions {
+  display: flex; gap: 10px; justify-content: flex-end;
+}
+.dash-confirm-btn {
+  padding: 9px 18px; border: none; border-radius: 10px;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 14px; font-weight: 600; cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+}
+.dash-confirm-btn:active { transform: scale(0.96); }
+.dash-confirm-btn:disabled { opacity: 0.5; cursor: wait; }
+.dash-confirm-cancel {
+  background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.7);
+}
+.dash-confirm-cancel:hover { background: rgba(255,255,255,0.12); }
+.dash-confirm-delete {
+  background: #ef4444; color: #fff;
+}
+.dash-confirm-delete:hover { background: #dc2626; }
 
 /* Empty state */
 .dash-empty {

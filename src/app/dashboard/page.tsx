@@ -30,6 +30,9 @@ export default function DashboardPage() {
   });
   const [copied, setCopied] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [cardMenuOpen, setCardMenuOpen] = useState<string | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [loading, setLoading] = useState(() => {
     if (typeof window !== 'undefined' && sessionStorage.getItem('dash-trips')) return false;
     return true;
@@ -96,6 +99,19 @@ export default function DashboardPage() {
     const supabase = createClient();
     await supabase.auth.signOut();
     router.push('/');
+  }
+
+  async function handleDelete(tripId: string) {
+    setDeleting(true);
+    const supabase = createClient();
+    const { error } = await supabase.from('trips').delete().eq('id', tripId);
+    if (!error) {
+      const updated = trips.filter(t => t.id !== tripId);
+      setTrips(updated);
+      sessionStorage.setItem('dash-trips', JSON.stringify(updated));
+    }
+    setDeleting(false);
+    setDeleteConfirm(null);
   }
 
   function formatDate(dateStr: string) {
@@ -203,6 +219,26 @@ export default function DashboardPage() {
                       </div>
                     </div>
                   </Link>
+                  <div className="dash-card-menu-wrap">
+                    <button
+                      className="dash-card-menu-btn"
+                      onClick={(e) => { e.stopPropagation(); setCardMenuOpen(cardMenuOpen === trip.id ? null : trip.id); }}
+                      aria-label="Trip options"
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
+                    </button>
+                    {cardMenuOpen === trip.id && (
+                      <>
+                        <div className="dash-card-menu-backdrop" onClick={() => setCardMenuOpen(null)} />
+                        <div className="dash-card-menu">
+                          <button className="dash-card-menu-item dash-card-menu-item-danger" onClick={() => { setCardMenuOpen(null); setDeleteConfirm(trip.id); }}>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                            Delete trip
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
                   <div className="dash-card-body">
                     <div className="dash-card-meta">
                       <span>{formatDate(t.dates.start)} — {formatDate(t.dates.end)}</span>
@@ -235,6 +271,25 @@ export default function DashboardPage() {
           </div>
         )}
       </main>
+
+      {/* Delete confirmation dialog */}
+      {deleteConfirm && (
+        <div className="dash-confirm-overlay">
+          <div className="dash-confirm-backdrop" onClick={() => !deleting && setDeleteConfirm(null)} />
+          <div className="dash-confirm-dialog">
+            <div className="dash-confirm-title">Delete trip?</div>
+            <p className="dash-confirm-message">
+              &ldquo;{trips.find(t => t.id === deleteConfirm)?.data.trip.name}&rdquo; will be permanently removed. This cannot be undone.
+            </p>
+            <div className="dash-confirm-actions">
+              <button className="dash-confirm-btn dash-confirm-cancel" onClick={() => setDeleteConfirm(null)} disabled={deleting}>Cancel</button>
+              <button className="dash-confirm-btn dash-confirm-delete" onClick={() => handleDelete(deleteConfirm)} disabled={deleting}>
+                {deleting ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
