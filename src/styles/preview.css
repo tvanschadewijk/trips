@@ -449,3 +449,32 @@
 
 @keyframes share-fade-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes share-slide-up { from { transform: translateY(100%); } to { transform: translateY(0); } }
+
+/* ============================================
+   DESKTOP RESPONSIVE
+   ============================================ */
+@media (min-width: 768px) {
+  :root {
+    --app-max-width: 520px;
+  }
+  .trip-app {
+    height: calc(100dvh - 40px);
+    margin-top: 20px;
+    margin-bottom: 20px;
+    border-radius: 24px;
+    box-shadow: 0 8px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.06);
+  }
+  .text-hero-title { font-size: 46px; }
+  .text-hero-subtitle { font-size: 17px; }
+  .detail-sheet { border-radius: 24px 24px 0 0; }
+}
+@media (min-width: 1200px) {
+  :root {
+    --app-max-width: 560px;
+  }
+  .trip-app {
+    height: calc(100dvh - 60px);
+    margin-top: 30px;
+    margin-bottom: 30px;
+  }
+}
