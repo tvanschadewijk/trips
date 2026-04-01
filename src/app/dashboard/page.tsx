@@ -18,10 +18,21 @@ interface DashTrip {
 
 export default function DashboardPage() {
   const router = useRouter();
-  const [trips, setTrips] = useState<DashTrip[]>([]);
-  const [email, setEmail] = useState<string | null>(null);
+  const [trips, setTrips] = useState<DashTrip[]>(() => {
+    if (typeof window !== 'undefined') {
+      try { const c = sessionStorage.getItem('dash-trips'); if (c) return JSON.parse(c); } catch {}
+    }
+    return [];
+  });
+  const [email, setEmail] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') return sessionStorage.getItem('dash-email') || null;
+    return null;
+  });
   const [copied, setCopied] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => {
+    if (typeof window !== 'undefined' && sessionStorage.getItem('dash-trips')) return false;
+    return true;
+  });
   const [vtTrip, setVtTrip] = useState<string | null>(() => {
     if (typeof window !== 'undefined') return sessionStorage.getItem('vt-trip');
     return null;
@@ -42,6 +53,7 @@ export default function DashboardPage() {
     }
 
     setEmail(user.email || null);
+    sessionStorage.setItem('dash-email', user.email || '');
 
     const { data, error } = await supabase
       .from('trips')
@@ -50,6 +62,7 @@ export default function DashboardPage() {
 
     if (!error && data) {
       setTrips(data as DashTrip[]);
+      sessionStorage.setItem('dash-trips', JSON.stringify(data));
     }
     setLoading(false);
   }, [router]);
