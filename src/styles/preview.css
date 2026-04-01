@@ -365,31 +365,35 @@
 }
 
 /* ============================================
-   FLOATING SAVE BUTTON
+   FLOATING SAVE BUTTON (top, over hero image)
    ============================================ */
 .floating-save {
-  position: absolute; bottom: 36px; left: 0; right: 0;
-  display: flex; justify-content: center; z-index: 25;
+  position: absolute;
+  top: calc(var(--nav-height) + env(safe-area-inset-top) + 12px);
+  left: 0; right: 0;
+  display: flex; justify-content: center; z-index: 19;
   pointer-events: none;
 }
 .floating-save-btn {
   pointer-events: auto;
   display: inline-flex; align-items: center; gap: 8px;
-  padding: 14px 28px;
-  background: #FFFFFF; color: #1A1A1A;
-  font-family: var(--font-sans); font-size: 15px; font-weight: 700;
+  padding: 10px 20px;
+  background: rgba(255, 255, 255, 0.95); color: #1A1A1A;
+  font-family: var(--font-sans); font-size: 14px; font-weight: 700;
   border: none; border-radius: 50px; cursor: pointer;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.1);
+  box-shadow: 0 2px 12px rgba(0,0,0,0.3), 0 8px 24px rgba(0,0,0,0.15);
+  backdrop-filter: blur(8px);
   transition: transform 0.15s, box-shadow 0.15s, background 0.2s;
 }
 .floating-save-btn:active { transform: scale(0.96); }
 .floating-save-btn:disabled { opacity: 0.7; cursor: wait; }
 .floating-save-btn.saved {
   background: rgba(45, 138, 86, 0.15); color: #2D8A56;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 2px 12px rgba(0,0,0,0.2), 0 8px 24px rgba(0,0,0,0.1);
 }
 @media (hover: hover) {
-  .floating-save-btn:hover:not(:disabled) { transform: scale(1.02); box-shadow: 0 6px 24px rgba(0,0,0,0.35); }
+  .floating-save-btn:hover:not(:disabled) { transform: scale(1.03); box-shadow: 0 4px 16px rgba(0,0,0,0.35), 0 12px 32px rgba(0,0,0,0.2); }
 }
 
 /* ============================================

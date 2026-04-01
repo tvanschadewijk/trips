@@ -7,18 +7,26 @@ interface Props {
   params: Promise<{ shareId: string }>;
 }
 
-async function fetchTrip(shareId: string): Promise<TripData | null> {
+async function fetchTrip(shareId: string): Promise<{ tripData: TripData; isOwner: boolean } | null> {
   try {
     const supabase = await createClient();
     const { data, error } = await supabase
       .from('trips')
-      .select('data')
+      .select('data, user_id')
       .eq('share_id', shareId)
       .eq('is_public', true)
       .single();
 
     if (error || !data) return null;
-    return data.data as TripData;
+
+    // Check if current user owns this trip
+    let isOwner = false;
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user && data.user_id === user.id) isOwner = true;
+    } catch { /* not logged in */ }
+
+    return { tripData: data.data as TripData, isOwner };
   } catch {
     // Supabase not connected yet — fall through to sample data
     return null;
@@ -29,9 +37,9 @@ export default async function TripPage({ params }: Props) {
   const { shareId } = await params;
 
   // Try Supabase first, fall back to sample data for dev
-  let tripData = await fetchTrip(shareId);
+  const result = await fetchTrip(shareId);
 
-  if (!tripData) {
+  if (!result) {
     // Fallback: show first sample trip with days
     const sample = sampleTrips.find(t => t.days.length > 0);
     if (!sample) {
@@ -42,8 +50,8 @@ export default async function TripPage({ params }: Props) {
         </div>
       );
     }
-    tripData = sample;
+    return <TripPreview trips={[sample]} autoOpen shareId={shareId} />;
   }
 
-  return <TripPreview trips={[tripData]} autoOpen shareId={shareId} />;
+  return <TripPreview trips={[result.tripData]} autoOpen shareId={result.isOwner ? undefined : shareId} />;
 }
