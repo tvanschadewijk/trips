@@ -13,6 +13,13 @@ export interface TripMeta {
   overview_image?: string;
   accent_color?: string;
   services?: Service[];
+  notes?: TripNote[];
+}
+
+export interface TripNote {
+  title: string;
+  icon?: string;
+  content: string;
 }
 
 export interface Service {
@@ -36,12 +43,21 @@ export interface Day {
   date: string;
   title: string;
   subtitle?: string;
+  description?: string;
   hero_image?: string;
   stats?: Stat[];
   blocks: Block[];
   transport?: Transport[];
   accommodation?: Accommodation | null;
   meals?: Meal[];
+  tips?: Tip[];
+}
+
+export interface Tip {
+  icon: string;
+  title: string;
+  content: string;
+  priority?: 'high' | 'normal';
 }
 
 export interface Stat {
@@ -54,6 +70,14 @@ export interface Block {
   time_label: string;
   content: string;
   type: string;
+  options?: Option[];
+}
+
+export interface Option {
+  label: string;
+  description?: string;
+  duration?: string;
+  note?: string;
 }
 
 export interface Transport {
@@ -64,6 +88,7 @@ export interface Transport {
   depart?: string;
   arrive?: string;
   duration?: string;
+  distance?: string;
   status?: string;
   detail?: TransportDetail;
 }
@@ -85,6 +110,23 @@ export interface TransportDetail {
   amenities?: string;
   cancellation_policy?: string;
   note?: string;
+  route?: string;
+  charging_stops?: ChargingStop[];
+  border?: BorderCrossing;
+}
+
+export interface ChargingStop {
+  name: string;
+  location?: string;
+  network?: string;
+  kw?: string;
+  note?: string;
+}
+
+export interface BorderCrossing {
+  name: string;
+  note?: string;
+  documents?: string;
 }
 
 export interface Accommodation {
@@ -116,6 +158,18 @@ export interface Meal {
   name: string;
   note?: string;
   status?: string;
+  detail?: MealDetail;
+}
+
+export interface MealDetail {
+  address?: string;
+  phone?: string;
+  cuisine?: string;
+  price_range?: string;
+  reservation?: string;
+  booking_platform?: string;
+  hours?: string;
+  note?: string;
 }
 
 // Database types

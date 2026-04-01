@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 import Image from 'next/image';
-import type { TripData, Day, Transport, Accommodation } from '@/lib/types';
+import type { TripData, Day, Transport, Accommodation, Tip, Meal } from '@/lib/types';
 import { ICONS } from './icons';
 import '@/styles/preview.css';
 
@@ -334,7 +334,37 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Detail sheet
-  function openDetail(type: 'transport' | 'accommodation', item: Transport | Accommodation) {
+  function openDetail(type: 'transport' | 'accommodation' | 'tip' | 'meal', item: Transport | Accommodation | Tip | Meal) {
+    if (type === 'tip') {
+      const tip = item as Tip;
+      setDetailContent({
+        title: tip.title,
+        html: `<div class="detail-tip-body"><p class="detail-tip-text">${tip.content}</p></div>`
+      });
+      setDetailOpen(true);
+      window.history.pushState({ detail: true }, '');
+      return;
+    }
+    if (type === 'meal') {
+      const m = item as Meal;
+      if (!m.detail) return;
+      const d = m.detail;
+      const fields: [string, string | undefined][] = [
+        ['Cuisine', d.cuisine], ['Price range', d.price_range], ['Address', d.address],
+        ['Phone', d.phone], ['Hours', d.hours],
+        ['Reservation', d.reservation], ['Booked via', d.booking_platform], ['Note', d.note],
+      ];
+      const rows = fields.filter(([, v]) => v).map(([l, v]) =>
+        `<div class="detail-row"><span class="detail-row-label">${l}</span><span class="detail-row-value${l === 'Phone' ? ' mono' : ''}">${l === 'Phone' ? `<a href="tel:${v}">${v}</a>` : v}</span></div>`
+      ).join('');
+      setDetailContent({
+        title: m.name,
+        html: `<div class="detail-info-section"><div class="detail-info-section-title"><span class="text-section-title">Restaurant Details</span></div>${rows}</div>`
+      });
+      setDetailOpen(true);
+      window.history.pushState({ detail: true }, '');
+      return;
+    }
     if (!item || !(item as Transport).detail && !(item as Accommodation).detail) return;
 
     if (type === 'transport') {
@@ -342,8 +372,10 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
       const d = t.detail!;
       const title = t.label || 'Transport';
       const fields: [string, string | undefined][] = [
-        ['Route', `${t.from || ''} → ${t.to || ''}`],
+        ['Route', `${t.from || ''} \u2192 ${t.to || ''}`],
         ['Departure', t.depart], ['Arrival', t.arrive], ['Duration', t.duration],
+        ['Distance', t.distance],
+        ['Driving route', d.route],
         ['Platform', d.platform], ['Flight', d.flight], ['Terminal', d.terminal], ['Gate', d.gate],
         ['Class', d.class], ['Cabin', d.cabin], ['Seats', d.seats || d.seat],
         ['Booking ref', d.booking_ref], ['Booked via', d.booking_platform],
@@ -353,9 +385,24 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
       const rows = fields.filter(([, v]) => v).map(([l, v]) =>
         `<div class="detail-row"><span class="detail-row-label">${l}</span><span class="detail-row-value">${v}</span></div>`
       ).join('');
+
+      let chargingHtml = '';
+      if (d.charging_stops?.length) {
+        const stops = d.charging_stops.map(s =>
+          `<div class="detail-charging-stop"><div class="detail-charging-name">${s.name}</div>${s.location ? `<div class="detail-charging-meta">${s.location}</div>` : ''}${s.network ? `<div class="detail-charging-meta">Network: ${s.network}${s.kw ? ` \u00b7 ${s.kw}` : ''}</div>` : ''}${s.note ? `<div class="detail-charging-note">${s.note}</div>` : ''}</div>`
+        ).join('');
+        chargingHtml = `<div class="detail-info-section"><div class="detail-info-section-title"><span class="text-section-title">Charging Stops</span></div>${stops}</div>`;
+      }
+
+      let borderHtml = '';
+      if (d.border) {
+        const b = d.border;
+        borderHtml = `<div class="detail-info-section"><div class="detail-info-section-title"><span class="text-section-title">Border Crossing</span></div><div class="detail-row"><span class="detail-row-label">Crossing</span><span class="detail-row-value">${b.name}</span></div>${b.documents ? `<div class="detail-row"><span class="detail-row-label">Documents</span><span class="detail-row-value">${b.documents}</span></div>` : ''}${b.note ? `<div class="detail-row"><span class="detail-row-label">Note</span><span class="detail-row-value">${b.note}</span></div>` : ''}</div>`;
+      }
+
       setDetailContent({
         title,
-        html: `<div class="detail-info-section"><div class="detail-info-section-title"><span class="text-section-title">${t.mode === 'plane' ? 'Flight' : 'Journey'} Details</span></div>${rows}</div>`
+        html: `<div class="detail-info-section"><div class="detail-info-section-title"><span class="text-section-title">${t.mode === 'plane' ? 'Flight' : t.mode === 'car' ? 'Driving' : 'Journey'} Details</span></div>${rows}</div>${chargingHtml}${borderHtml}`
       });
     } else {
       const a = item as Accommodation;
@@ -496,6 +543,24 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
               <div><div className="hero-stat-val">{formatDate(trip.dates.start, { day: 'numeric', month: 'short' })}</div><div className="hero-stat-lbl">start</div></div>
               <div><div className="hero-stat-val">{formatDate(trip.dates.end, { day: 'numeric', month: 'short' })}</div><div className="hero-stat-lbl">end</div></div>
             </div>
+            {trip.notes?.length ? (
+              <div className="hero-notes">
+                {trip.notes.map((note, ni) => (
+                  <button key={ni} className="hero-note-btn" onClick={() => {
+                    setDetailContent({
+                      title: note.title,
+                      html: `<div class="detail-tip-body"><p class="detail-tip-text">${note.content}</p></div>`
+                    });
+                    setDetailOpen(true);
+                    window.history.pushState({ detail: true }, '');
+                  }}>
+                    <span className="hero-note-icon"><Icon name={note.icon || 'info'} /></span>
+                    <span className="hero-note-label">{note.title}</span>
+                    <Icon name="chevron" />
+                  </button>
+                ))}
+              </div>
+            ) : null}
           </div>
           <button className="hero-hint" onClick={() => goTo(1)} aria-label="Explore day by day">
             explore
@@ -541,6 +606,10 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
       </div>
     );
 
+    const descSection = day.description ? (
+      <p className="day-description">{day.description}</p>
+    ) : null;
+
     const progSection = day.blocks?.length ? (
       <div className="day-section">
         <div className="day-section-title">
@@ -548,9 +617,23 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
         </div>
         <div className="time-blocks">
           {day.blocks.map((b, i) => (
-            <div key={i} className={`time-block ${b.type === 'transport' ? 'is-transport' : ''}`}>
+            <div key={i} className={`time-block ${b.type === 'transport' ? 'is-transport' : ''} ${b.type === 'options' ? 'is-options' : ''}`}>
               <p className="text-label-dark" style={{ margin: '0 0 2px' }}>{b.time_label}</p>
               <p className="text-body" style={{ margin: 0 }}>{b.content}</p>
+              {b.type === 'options' && b.options?.length ? (
+                <div className="options-list">
+                  {b.options.map((opt, oi) => (
+                    <div key={oi} className="option-card">
+                      <div className="option-header">
+                        <span className="option-label">{opt.label}</span>
+                        {opt.duration && <span className="option-duration">{opt.duration}</span>}
+                      </div>
+                      {opt.description && <p className="option-desc">{opt.description}</p>}
+                      {opt.note && <p className="option-note">{opt.note}</p>}
+                    </div>
+                  ))}
+                </div>
+              ) : null}
             </div>
           ))}
         </div>
@@ -568,7 +651,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
             <div className="transport-icon-wrap"><Icon name={t.mode || 'train'} /></div>
             <div className="transport-detail">
               <div className="text-name-accent">{t.label}</div>
-              <div className="transport-route">{t.from || ''} → {t.to || ''} {t.duration ? `· ${t.duration}` : ''}</div>
+              <div className="transport-route">{t.from || ''} \u2192 {t.to || ''} {t.duration ? `\u00b7 ${t.duration}` : ''}{t.distance ? ` \u00b7 ${t.distance}` : ''}</div>
             </div>
             {t.depart && <div className="text-mono">{t.depart}</div>}
             <span className={`text-status status-badge status-${t.status || 'pending'}`}>{t.status || 'pending'}</span>
@@ -639,13 +722,37 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
           <span className="text-section-title"><span className="section-icon"><Icon name="fork" /></span>Eating</span>
         </div>
         {day.meals.map((m, i) => (
-          <div key={i} className="meal-row">
+          <div key={i} className={`meal-row${m.detail ? ' meal-has-detail' : ''}`}
+            onClick={m.detail ? () => openDetail('meal', m) : undefined}>
             <span className="meal-type-badge">{m.type}</span>
             <div className="meal-detail">
               <div className="text-name">{m.name}</div>
               {m.note && <div className="text-small" style={{ marginTop: 1 }}>{m.note}</div>}
             </div>
             {m.status && <span className={`text-status status-badge status-${m.status}`} style={{ flexShrink: 0 }}>{m.status}</span>}
+            {m.detail && <div className="meal-chevron"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>}
+          </div>
+        ))}
+      </div>
+    ) : null;
+
+    const tipsSection = day.tips?.length ? (
+      <div className="day-section tips-section">
+        <div className="day-section-title">
+          <span className="text-section-title"><span className="section-icon"><Icon name="info" /></span>Tips</span>
+        </div>
+        {day.tips.map((tip, i) => (
+          <div key={i} className={`tip-row ${tip.priority === 'high' ? 'tip-high' : ''}`}
+            onClick={() => openDetail('tip', tip)}>
+            <div className="tip-icon-wrap">
+              <Icon name={tip.icon || 'info'} />
+            </div>
+            <div className="tip-content">
+              <div className="text-name">{tip.title}</div>
+            </div>
+            <div className="tip-chevron">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+            </div>
           </div>
         ))}
       </div>
@@ -655,11 +762,13 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
       <div key={day.day_number} className="slide">
         <div className="day-slide">
           {heroSection}
+          {descSection}
           {progSection}
           {transSection}
           {servicesSection}
           {accomSection}
           {mealsSection}
+          {tipsSection}
         </div>
       </div>
     );
