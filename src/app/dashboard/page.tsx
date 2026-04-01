@@ -61,8 +61,14 @@ export default function DashboardPage() {
       .order('updated_at', { ascending: false });
 
     if (!error && data) {
-      setTrips(data as DashTrip[]);
-      sessionStorage.setItem('dash-trips', JSON.stringify(data));
+      // Sort by trip start date ascending (soonest first)
+      const sorted = (data as DashTrip[]).sort((a, b) => {
+        const dateA = a.data?.trip?.dates?.start || '';
+        const dateB = b.data?.trip?.dates?.start || '';
+        return dateA.localeCompare(dateB);
+      });
+      setTrips(sorted);
+      sessionStorage.setItem('dash-trips', JSON.stringify(sorted));
     }
     setLoading(false);
   }, [router]);
