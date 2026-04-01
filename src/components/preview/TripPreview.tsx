@@ -101,6 +101,15 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen }:
     setOverviewFaded(false);
   }, [activeTripIndex, autoOpen]);
 
+  // Signal view transition readiness (coordinates with dashboard startViewTransition)
+  useEffect(() => {
+    const w = window as unknown as Record<string, unknown>;
+    if (typeof w.__tripTransitionResolve === 'function') {
+      (w.__tripTransitionResolve as () => void)();
+      w.__tripTransitionResolve = null;
+    }
+  }, []);
+
   // Handle nav back
   const handleBack = useCallback(() => {
     if (currentSlide > 0) goTo(0);
@@ -371,7 +380,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen }:
       <div className="slide">
         <div className="hero-slide">
           <div className="hero-bg">
-            <Image src={trip.hero_image} alt={trip.name} fill sizes="430px" priority style={{ objectFit: 'cover' }} />
+            <Image src={trip.hero_image} alt={trip.name} fill sizes="430px" priority style={{ objectFit: 'cover', viewTransitionName: 'trip-hero' } as React.CSSProperties} />
           </div>
           <div className="hero-overlay" />
           <div className="hero-body">

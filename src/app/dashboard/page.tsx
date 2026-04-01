@@ -128,7 +128,24 @@ export default function DashboardPage() {
 
               return (
                 <div key={trip.id} className="dash-card">
-                  <Link href={`/t/${trip.share_id}`} className="dash-card-link">
+                  <Link
+                    href={`/t/${trip.share_id}`}
+                    className="dash-card-link"
+                    onClick={(e) => {
+                      const vt = (document as unknown as { startViewTransition?: (cb: () => Promise<void>) => void }).startViewTransition;
+                      if (!vt) return; // let normal Link navigation happen
+                      e.preventDefault();
+                      const img = (e.currentTarget as HTMLElement).querySelector('img');
+                      if (img) img.style.viewTransitionName = 'trip-hero';
+                      vt.call(document, async () => {
+                        router.push(`/t/${trip.share_id}`);
+                        await new Promise<void>((resolve) => {
+                          (window as unknown as Record<string, unknown>).__tripTransitionResolve = resolve;
+                          setTimeout(resolve, 800);
+                        });
+                      });
+                    }}
+                  >
                     <div className="dash-card-hero">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={t.hero_image} alt={t.name} />

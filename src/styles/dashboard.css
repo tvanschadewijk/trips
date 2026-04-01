@@ -200,6 +200,35 @@
   color: rgba(255, 255, 255, 0.3);
 }
 .dash-empty-icon svg { width: 28px; height: 28px; }
+
+/* ============================================
+   VIEW TRANSITIONS
+   ============================================ */
+@supports (view-transition-name: hero) {
+  ::view-transition-group(trip-hero) {
+    animation-duration: 0.5s;
+    animation-timing-function: cubic-bezier(0.32, 0.72, 0, 1);
+  }
+  ::view-transition-old(trip-hero),
+  ::view-transition-new(trip-hero) {
+    animation: none;
+    mix-blend-mode: normal;
+    object-fit: cover;
+  }
+  ::view-transition-old(root) {
+    animation: vt-fade-out 0.25s ease-out forwards;
+  }
+  ::view-transition-new(root) {
+    animation: vt-fade-in 0.35s ease-out 0.1s both;
+  }
+}
+@keyframes vt-fade-out {
+  to { opacity: 0; }
+}
+@keyframes vt-fade-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
 .dash-empty h3 {
   font-size: 18px;
   font-weight: 600;
