@@ -32,14 +32,52 @@
   text-decoration: none;
 }
 .dash-nav-right {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 16px;
 }
-.dash-user-email {
-  font-size: 13px;
-  font-weight: 400;
-  color: rgba(255, 255, 255, 0.4);
+.dash-settings-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 36px; height: 36px; border-radius: 10px;
+  border: none; cursor: pointer;
+  background: transparent; color: rgba(255,255,255,0.4);
+  transition: background 0.15s, color 0.15s;
+}
+.dash-settings-btn:hover { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.7); }
+.dash-settings-backdrop {
+  position: fixed; inset: 0; z-index: 99;
+}
+.dash-settings-menu {
+  position: absolute; top: 44px; right: 0; z-index: 100;
+  min-width: 200px;
+  background: #2C2C2C; border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 12px; padding: 6px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  animation: dash-menu-in 0.15s ease-out;
+}
+.dash-settings-email {
+  padding: 10px 12px 8px;
+  font-size: 12px; font-weight: 500;
+  color: rgba(255,255,255,0.4);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.dash-settings-divider {
+  height: 1px; background: rgba(255,255,255,0.08);
+  margin: 2px 8px;
+}
+.dash-settings-item {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%; padding: 10px 12px;
+  background: none; border: none; border-radius: 8px;
+  color: rgba(255,255,255,0.7); font-family: 'Inter', system-ui, sans-serif;
+  font-size: 13px; font-weight: 500; cursor: pointer;
+  transition: background 0.15s;
+}
+.dash-settings-item:hover { background: rgba(255,255,255,0.08); }
+.dash-settings-item svg { opacity: 0.6; }
+@keyframes dash-menu-in {
+  from { opacity: 0; transform: translateY(-4px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 /* Main */
@@ -171,16 +209,6 @@
 .dash-card-btn.copied { color: #2D8A56; background: rgba(45, 138, 86, 0.12); }
 
 /* Sign out */
-.dash-btn-signout {
-  background: none;
-  border: none;
-  color: rgba(255, 255, 255, 0.35);
-  font-family: 'Inter', system-ui, sans-serif;
-  font-size: 12px;
-  cursor: pointer;
-  transition: color 0.15s;
-}
-.dash-btn-signout:hover { color: rgba(255, 255, 255, 0.7); }
 
 /* Empty state */
 .dash-empty {
