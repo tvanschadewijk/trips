@@ -346,3 +346,102 @@
   border-color: rgba(255, 255, 255, 0.2);
 }
 .demo-back-link svg { opacity: 0.8; }
+
+/* ============================================
+   SHARE BUTTON (NAV BAR)
+   ============================================ */
+.nav-share {
+  display: flex; align-items: center; justify-content: center;
+  width: 40px; height: 40px; border-radius: 12px;
+  border: none; cursor: pointer; background: transparent;
+  color: rgba(255,255,255,0.7); transition: background 0.15s, transform 0.1s;
+  flex-shrink: 0; margin-left: auto;
+}
+.nav-share:active { transform: scale(0.9); background: rgba(255,255,255,0.1); }
+.nav-bar.over-hero .nav-share { color: white; }
+@media (hover: hover) {
+  .nav-share:hover { background: rgba(255,255,255,0.1); }
+  .nav-bar.over-hero .nav-share:hover { background: rgba(255,255,255,0.15); }
+}
+
+/* ============================================
+   FLOATING SAVE BUTTON
+   ============================================ */
+.floating-save {
+  position: absolute; bottom: 36px; left: 0; right: 0;
+  display: flex; justify-content: center; z-index: 25;
+  pointer-events: none;
+}
+.floating-save-btn {
+  pointer-events: auto;
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 14px 28px;
+  background: #FFFFFF; color: #1A1A1A;
+  font-family: var(--font-sans); font-size: 15px; font-weight: 700;
+  border: none; border-radius: 50px; cursor: pointer;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.1);
+  transition: transform 0.15s, box-shadow 0.15s, background 0.2s;
+}
+.floating-save-btn:active { transform: scale(0.96); }
+.floating-save-btn:disabled { opacity: 0.7; cursor: wait; }
+.floating-save-btn.saved {
+  background: rgba(45, 138, 86, 0.15); color: #2D8A56;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+}
+@media (hover: hover) {
+  .floating-save-btn:hover:not(:disabled) { transform: scale(1.02); box-shadow: 0 6px 24px rgba(0,0,0,0.35); }
+}
+
+/* ============================================
+   SHARE SHEET
+   ============================================ */
+.share-overlay {
+  position: fixed; inset: 0; z-index: 200;
+  display: flex; align-items: flex-end; justify-content: center;
+}
+.share-backdrop {
+  position: absolute; inset: 0;
+  background: rgba(0,0,0,0.5); backdrop-filter: blur(4px);
+  animation: share-fade-in 0.2s ease-out;
+}
+.share-sheet {
+  position: relative; z-index: 1;
+  width: 100%; max-width: 430px;
+  background: var(--color-surface); border-radius: 20px 20px 0 0;
+  padding: 24px 20px calc(20px + env(safe-area-inset-bottom));
+  animation: share-slide-up 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+}
+.share-sheet-title {
+  font-family: var(--font-sans); font-size: 17px; font-weight: 700;
+  color: #FFFFFF; text-align: center; margin-bottom: 24px;
+}
+.share-sheet-options {
+  display: flex; justify-content: center; gap: 32px; margin-bottom: 20px;
+}
+.share-option {
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  background: none; border: none; cursor: pointer; color: rgba(255,255,255,0.7);
+  font-family: var(--font-sans); font-size: 12px; font-weight: 500;
+  transition: color 0.15s;
+}
+.share-option:hover { color: #FFFFFF; }
+.share-option-icon {
+  width: 52px; height: 52px; border-radius: 16px;
+  display: flex; align-items: center; justify-content: center;
+  transition: transform 0.15s;
+}
+.share-option:active .share-option-icon { transform: scale(0.92); }
+.share-option-whatsapp { background: #25D366; color: #FFFFFF; }
+.share-option-email { background: rgba(255,255,255,0.12); color: rgba(255,255,255,0.8); }
+.share-option-copy { background: rgba(255,255,255,0.12); color: rgba(255,255,255,0.8); }
+.share-sheet-cancel {
+  display: block; width: 100%; padding: 14px;
+  background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.6);
+  font-family: var(--font-sans); font-size: 15px; font-weight: 600;
+  border: none; border-radius: 14px; cursor: pointer;
+  transition: background 0.15s;
+}
+.share-sheet-cancel:hover { background: rgba(255,255,255,0.12); }
+
+@keyframes share-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes share-slide-up { from { transform: translateY(100%); } to { transform: translateY(0); } }

@@ -16,7 +16,8 @@ export default function LoginPage() {
     const supabase = createClient();
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (user) {
-        router.replace('/dashboard');
+        const params = new URLSearchParams(window.location.search);
+        router.replace(params.get('next') || '/dashboard');
       } else {
         setReady(true);
       }
@@ -25,10 +26,12 @@ export default function LoginPage() {
 
   async function handleGoogle() {
     const supabase = createClient();
+    const params = new URLSearchParams(window.location.search);
+    const next = params.get('next') || '/dashboard';
     await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/api/auth/callback`,
+        redirectTo: `${window.location.origin}/api/auth/callback?next=${encodeURIComponent(next)}`,
       },
     });
   }
