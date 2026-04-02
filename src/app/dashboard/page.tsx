@@ -13,6 +13,7 @@ interface DashTrip {
   share_id: string;
   data: TripData;
   is_public: boolean;
+  created_at: string;
   updated_at: string;
 }
 
@@ -61,7 +62,7 @@ export default function DashboardPage() {
 
     const { data, error } = await supabase
       .from('trips')
-      .select('id, name, share_id, data, is_public, updated_at')
+      .select('id, name, share_id, data, is_public, created_at, updated_at')
       .order('updated_at', { ascending: false });
 
     if (!error && data) {
@@ -128,6 +129,12 @@ export default function DashboardPage() {
     if (hrs < 24) return `${hrs}h ago`;
     const days = Math.floor(hrs / 24);
     return `${days}d ago`;
+  }
+
+  function wasUpdated(trip: DashTrip) {
+    if (!trip.created_at || !trip.updated_at) return false;
+    const diff = new Date(trip.updated_at).getTime() - new Date(trip.created_at).getTime();
+    return diff > 60_000; // more than 1 minute apart
   }
 
   if (loading) {
@@ -245,7 +252,7 @@ export default function DashboardPage() {
                       <span>{nights} nights</span>
                     </div>
                     <div className="dash-card-footer">
-                      <span className="dash-card-updated">Updated {timeAgo(trip.updated_at)}</span>
+                      {wasUpdated(trip) && <span className="dash-card-updated">Updated {timeAgo(trip.updated_at)}</span>}
                       <button
                         className={`dash-card-btn ${copied === trip.share_id ? 'copied' : ''}`}
                         onClick={() => copyLink(trip.share_id)}
