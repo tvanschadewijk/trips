@@ -28,7 +28,7 @@ export default async function Home() {
           <div className="landing-hero-text">
             <div className="landing-hero-badge">Built for travelers who plan with AI</div>
             <h1 className="landing-hero-title">
-              Create trips with ChatGPT or Claude.<br />Get a beautifully designed itinerary in your pocket.
+              Get a beautifully designed itinerary in your pocket.
             </h1>
             <p className="landing-hero-subtitle">
               Plan in ChatGPT or Claude, then turn your travel details into a shareable,
