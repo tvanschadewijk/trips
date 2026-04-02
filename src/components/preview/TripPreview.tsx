@@ -87,6 +87,10 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
   const [menuOpen, setMenuOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'already_saved' | 'already_owned' | 'error'>('idle');
+  const [brokenImages, setBrokenImages] = useState<Set<string>>(new Set());
+  const onImgError = useCallback((src: string) => {
+    setBrokenImages(prev => { const next = new Set(prev); next.add(src); return next; });
+  }, []);
 
   const trackRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -487,7 +491,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
         if ((e.target as HTMLElement).closest('.trip-card-delete')) return;
         openTrip(origIdx, e.currentTarget);
       }} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openTrip(origIdx, e.currentTarget as HTMLElement); } }}>
-        <Image className="trip-card-img" src={img} alt={t.name} fill sizes="430px" style={{ objectFit: 'cover' }} />
+        <Image className="trip-card-img" src={img} alt={t.name} fill sizes="430px" style={{ objectFit: 'cover', opacity: brokenImages.has(img) ? 0 : 1 }} onError={() => onImgError(img)} />
         <div className="trip-card-gradient" />
         <div className="trip-card-badge">{statusLabel}</div>
         <button className="trip-card-delete" onClick={(e) => { e.stopPropagation(); setDeleteConfirm(origIdx); }} aria-label={`Delete ${t.name}`}>
@@ -530,7 +534,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
       <div className="slide">
         <div className="hero-slide">
           <div className="hero-bg">
-            <Image src={trip.hero_image} alt={trip.name} fill sizes="430px" priority style={{ objectFit: 'cover', viewTransitionName: 'trip-hero' } as React.CSSProperties} />
+            <Image src={trip.hero_image} alt={trip.name} fill sizes="430px" priority style={{ objectFit: 'cover', viewTransitionName: 'trip-hero', opacity: brokenImages.has(trip.hero_image) ? 0 : 1 } as React.CSSProperties} onError={() => onImgError(trip.hero_image)} />
           </div>
           <div className="hero-overlay" />
           <div className="hero-body">
@@ -594,7 +598,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
 
     const heroSection = day.hero_image ? (
       <div className="day-hero">
-        <Image src={day.hero_image} alt={day.title} fill sizes="430px" style={{ objectFit: 'cover' }} />
+        <Image src={day.hero_image} alt={day.title} fill sizes="430px" style={{ objectFit: 'cover', opacity: brokenImages.has(day.hero_image) ? 0 : 1 }} onError={() => onImgError(day.hero_image!)} />
         <div className="day-hero-gradient" />
         <div className="day-hero-text">
           <p className="text-label" style={{ margin: '0 0 4px' }}>Day {day.day_number} &middot; {dateStr}</p>
