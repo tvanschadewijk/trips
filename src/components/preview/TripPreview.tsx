@@ -92,9 +92,11 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
   const viewportRef = useRef<HTMLDivElement>(null);
   const dateStripRef = useRef<HTMLDivElement>(null);
   const appRef = useRef<HTMLDivElement>(null);
+  const sheetRef = useRef<HTMLDivElement>(null);
 
   // Touch state
   const touchState = useRef({ startX: 0, startY: 0, dx: 0, isDragging: false, isScrolling: null as boolean | null });
+  const sheetDrag = useRef({ startY: 0, dy: 0, active: false });
   const didAutoNav = useRef(false);
 
   const trip = activeTripIndex !== null ? trips[activeTripIndex]?.trip : null;
@@ -437,6 +439,27 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
       setDetailOpen(false);
       window.history.back();
     }
+  }
+
+  // Bottom sheet drag-to-dismiss
+  function onSheetDragStart(e: React.TouchEvent) {
+    sheetDrag.current = { startY: e.touches[0].clientY, dy: 0, active: true };
+    sheetRef.current?.classList.add('dragging');
+  }
+  function onSheetDragMove(e: React.TouchEvent) {
+    if (!sheetDrag.current.active) return;
+    const dy = Math.max(0, e.touches[0].clientY - sheetDrag.current.startY);
+    sheetDrag.current.dy = dy;
+    if (sheetRef.current) sheetRef.current.style.transform = `translateY(${dy}px)`;
+  }
+  function onSheetDragEnd() {
+    if (!sheetDrag.current.active) return;
+    sheetDrag.current.active = false;
+    sheetRef.current?.classList.remove('dragging');
+    if (sheetDrag.current.dy > 100) {
+      closeDetail();
+    }
+    if (sheetRef.current) sheetRef.current.style.transform = '';
   }
 
   // Handle browser back to close detail sheet
@@ -963,14 +986,15 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
       {/* Detail sheet */}
       <div className={`detail-overlay ${detailOpen ? 'open' : ''}`} role="dialog" aria-modal="true" aria-label={detailContent.title}>
         <div className="detail-backdrop" onClick={closeDetail} />
-        <div className="detail-sheet">
+        <div className="detail-sheet" ref={sheetRef}>
+          <div className="detail-drag-handle" onTouchStart={onSheetDragStart} onTouchMove={onSheetDragMove} onTouchEnd={onSheetDragEnd} />
           <div className="detail-header">
-            <button className="detail-close" onClick={closeDetail} aria-label="Close details">
-              <Icon name="back" />
-            </button>
             <div className="text-nav-title" style={{ flex: 1, minWidth: 0, color: 'var(--color-text-primary)' }}>
               {detailContent.title}
             </div>
+            <button className="detail-close" onClick={closeDetail} aria-label="Close details">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>
+            </button>
           </div>
           <div className="detail-body" dangerouslySetInnerHTML={{ __html: detailContent.html }} />
         </div>
