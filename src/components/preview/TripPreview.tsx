@@ -878,7 +878,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
       {/* Trip Screen */}
       {activeTripIndex !== null && (
         <div
-          className={`trip-screen ${isAnimatingIn ? 'animating-in' : ''} ${isAnimatingOut ? 'animating-out' : ''}`}
+          className={`trip-screen ${isAnimatingIn ? 'animating-in' : ''} ${isAnimatingOut ? 'animating-out' : ''} ${detailOpen ? 'detail-behind' : ''}`}
           style={{
             display: 'flex',
             '--card-top': cardVars.top,
