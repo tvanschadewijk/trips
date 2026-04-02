@@ -172,6 +172,9 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
   const handleBack = useCallback(() => {
     if (currentSlide > 0) goTo(0);
     else if (autoOpen) {
+      // Re-set vt-trip so the dashboard can apply viewTransitionName on the matching card
+      const seg = window.location.pathname.split('/').pop();
+      if (seg) sessionStorage.setItem('vt-trip', seg);
       const vt = (document as unknown as { startViewTransition?: (cb: () => void) => void }).startViewTransition;
       if (vt) {
         vt.call(document, () => { window.history.back(); });
