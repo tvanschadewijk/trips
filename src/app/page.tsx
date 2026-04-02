@@ -61,7 +61,10 @@ export default async function Home() {
       </section>
 
       <section className="landing-steps">
-        <h2 className="landing-steps-heading">Notes, emails, and apps — everywhere.</h2>
+        <h2 className="landing-steps-heading">
+          Notes, emails, and apps — everywhere.
+          <span className="landing-steps-heading-accent">Not Anymore.</span>
+        </h2>
         <p className="landing-steps-subheading">Your travel info is scattered across dozens of places. Our Trips brings it all together in one beautiful, pocket-friendly format.</p>
         <div className="landing-steps-inner">
           <div className="landing-step">
