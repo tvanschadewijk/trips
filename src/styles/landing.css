@@ -139,11 +139,11 @@
   background: linear-gradient(
     120deg,
     #ffffff 0%,
-    #eefef5 18%,
-    #abf5cb 40%,
-    #42db92 56%,
+    #fff4e8 18%,
+    #ffd0a3 40%,
+    #ff8a3d 56%,
     #ffffff 74%,
-    #c8f9de 100%
+    #ffd9b8 100%
   );
   background-size: 220% 220%;
   background-position: 0% 50%;
@@ -213,6 +213,11 @@
   letter-spacing: -0.02em;
   text-align: center;
   margin: 0 0 12px;
+}
+.landing-steps-heading-accent {
+  display: block;
+  margin-top: 6px;
+  color: #6AABF7;
 }
 .landing-steps-subheading {
   font-size: 16px;
