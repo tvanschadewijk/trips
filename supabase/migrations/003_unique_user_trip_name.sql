@@ -1,9 +1,15 @@
--- Migration 003: Add UNIQUE constraint on (user_id, name) to prevent duplicate trips
+-- Migration 003: Deduplication safeguards
 --
 -- Problem: When the trips skill re-syncs a trip without a trip_id, the API creates
 -- a new row instead of updating the existing one, producing duplicates.
+--
+-- Solution: Code-level upsert matches on (user_id, name, start_date).
+-- No UNIQUE constraint on (user_id, name) because the same user may legitimately
+-- have multiple trips with the same name but different dates (e.g. "Scotland" twice).
+--
+-- This migration only cleans up existing duplicates from the India re-sync issue.
 
--- Step 1: Remove existing duplicates, keeping the most recently updated row per (user_id, name)
+-- Remove existing exact duplicates (same user_id + name), keeping the most recently updated
 DELETE FROM public.trips
 WHERE id IN (
   SELECT id FROM (
@@ -13,7 +19,3 @@ WHERE id IN (
   ) ranked
   WHERE rn > 1
 );
-
--- Step 2: Add unique constraint so future duplicates are impossible
-ALTER TABLE public.trips
-  ADD CONSTRAINT trips_user_id_name_unique UNIQUE (user_id, name);

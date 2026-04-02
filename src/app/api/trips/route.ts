@@ -52,13 +52,30 @@ export async function POST(request: NextRequest) {
       // trip_id not found for this user — fall through to upsert by name
     }
 
-    // Upsert by name: check if user already has a trip with this name
-    const { data: existingByName } = await supabase
-      .from('trips')
-      .select('id, share_id')
-      .eq('user_id', userId)
-      .eq('name', trip.name)
-      .single();
+    // Upsert by name + start date: check if user already has a matching trip
+    // Using both name and start date so "Scotland May" and "Scotland Sep" stay separate
+    let existingByName: { id: string; share_id: string } | null = null;
+    if (trip.dates?.start) {
+      const { data } = await supabase
+        .from('trips')
+        .select('id, share_id')
+        .eq('user_id', userId)
+        .eq('name', trip.name)
+        .eq('data->trip->dates->>start', trip.dates.start)
+        .single();
+      existingByName = data;
+    }
+    if (!existingByName) {
+      // Fallback: match by name only if no start date provided or no date match
+      const { data } = await supabase
+        .from('trips')
+        .select('id, share_id')
+        .eq('user_id', userId)
+        .eq('name', trip.name)
+        .single();
+      // Only use name-only match if there's exactly one result (single() errors on multiple)
+      existingByName = data;
+    }
 
     if (existingByName) {
       const { error: updateErr } = await supabase
@@ -93,30 +110,6 @@ export async function POST(request: NextRequest) {
       })
       .select('id, share_id')
       .single();
-
-    // Handle race condition: if another request just created this (user_id, name) pair
-    if (error?.code === '23505') {
-      const { data: raceWinner } = await supabase
-        .from('trips')
-        .select('id, share_id')
-        .eq('user_id', userId)
-        .eq('name', trip.name)
-        .single();
-
-      if (raceWinner) {
-        await supabase.from('trips').update({
-          data: { trip, days },
-          updated_at: new Date().toISOString(),
-        }).eq('id', raceWinner.id);
-
-        return NextResponse.json({
-          trip_id: raceWinner.id,
-          share_id: raceWinner.share_id,
-          url: `${request.nextUrl.origin}/t/${raceWinner.share_id}`,
-          status: 'updated',
-        });
-      }
-    }
 
     if (error || !newTrip) {
       return NextResponse.json({ error: error?.message || 'Failed to create trip' }, { status: 500 });
