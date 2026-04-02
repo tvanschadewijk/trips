@@ -814,14 +814,14 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
         <div className="overview-header">
           {showArchive ? (
             <>
-              <button className="overview-back" onClick={() => setShowArchive(false)} aria-label="Back to trips">
+              <button className="overview-back" onClick={() => setShowArchive(false)} aria-label="Back to Our Trips">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
               </button>
               <h1 className="overview-title">Archive</h1>
             </>
           ) : (
             <>
-              <h1 className="overview-title">Trips</h1>
+              <h1 className="overview-title">Our Trips</h1>
               <div className="overview-menu-wrap">
                 <button className="overview-menu-btn" onClick={() => setMenuOpen(!menuOpen)} aria-label="Settings menu">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>

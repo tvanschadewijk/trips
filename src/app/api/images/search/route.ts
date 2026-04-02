@@ -45,7 +45,7 @@ export async function GET(req: NextRequest) {
       download_url: links.download_location || '',
       description: (photo.description || photo.alt_description || '') as string,
       photographer: (user?.name || '') as string,
-      photographer_url: `${userLinks.html || ''}?utm_source=trips&utm_medium=referral`,
+      photographer_url: `${userLinks.html || ''}?utm_source=ourtrips&utm_medium=referral`,
     };
   });
 

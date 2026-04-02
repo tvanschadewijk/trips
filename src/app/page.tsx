@@ -15,7 +15,7 @@ export default async function Home() {
     <div className="landing">
       <nav className="landing-nav">
         <div className="landing-nav-inner">
-          <span className="landing-logo">trips</span>
+          <span className="landing-logo">Our Trips</span>
           <div className="landing-nav-links">
             <Link href="/demo" className="landing-nav-link">Demo</Link>
             <Link href="/login" className="landing-btn-outline">Log in</Link>
@@ -62,13 +62,13 @@ export default async function Home() {
 
       <section className="landing-steps">
         <h2 className="landing-steps-heading">Notes, emails, and apps — everywhere.</h2>
-        <p className="landing-steps-subheading">Your travel info is scattered across dozens of places. Trips brings it all together in one beautiful, pocket-friendly format.</p>
+        <p className="landing-steps-subheading">Your travel info is scattered across dozens of places. Our Trips brings it all together in one beautiful, pocket-friendly format.</p>
         <div className="landing-steps-inner">
           <div className="landing-step">
             <span className="landing-step-num">1</span>
             <h3 className="landing-step-title">Install this Claude skill</h3>
             <p className="landing-step-desc">Download the file and drop it into your Claude project.</p>
-            <a href="/trips.skill" download className="landing-btn-primary landing-btn-sm" style={{ gap: '8px' }}>
+            <a href="/our-trips.skill" download className="landing-btn-primary landing-btn-sm" style={{ gap: '8px' }}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
               Download skill
             </a>
@@ -82,7 +82,7 @@ export default async function Home() {
           <div className="landing-step-divider" />
           <div className="landing-step">
             <span className="landing-step-num">3</span>
-            <h3 className="landing-step-title">Say &ldquo;Send it to Trips&rdquo;</h3>
+            <h3 className="landing-step-title">Say &ldquo;Send it to Our Trips&rdquo;</h3>
             <p className="landing-step-desc">That&apos;s it. Your trip gets a shareable link — experience the magic.</p>
           </div>
         </div>
@@ -102,7 +102,7 @@ export default async function Home() {
 
       <footer className="landing-footer">
         <div className="landing-footer-inner">
-          <span className="landing-footer-logo">trips</span>
+          <span className="landing-footer-logo">Our Trips</span>
           <span className="landing-footer-copy">Built by Thijs van Schadewijk</span>
         </div>
       </footer>

@@ -2,8 +2,8 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Trips — Your trips, beautifully presented',
-  description: 'Interactive travel itinerary previews you can share with anyone.',
+  title: 'Our Trips — Your trips, beautifully presented',
+  description: 'Interactive travel itinerary previews from Our Trips that you can share with anyone.',
 };
 
 export const viewport: Viewport = {
