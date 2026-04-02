@@ -136,10 +136,40 @@
   line-height: 1.05;
   letter-spacing: -0.035em;
   margin: 0 0 20px;
-  background: linear-gradient(180deg, #FFFFFF 30%, rgba(255, 255, 255, 0.6) 100%);
+  background: linear-gradient(
+    120deg,
+    #ffffff 0%,
+    #eefef5 18%,
+    #abf5cb 40%,
+    #42db92 56%,
+    #ffffff 74%,
+    #c8f9de 100%
+  );
+  background-size: 220% 220%;
+  background-position: 0% 50%;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+  animation: landing-hero-title-glow 14s ease-in-out infinite;
+}
+
+@keyframes landing-hero-title-glow {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-hero-title {
+    animation: none;
+    background-position: 50% 50%;
+  }
 }
 .landing-hero-subtitle {
   font-size: 17px;
