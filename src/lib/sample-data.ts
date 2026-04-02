@@ -60,7 +60,7 @@ export const sampleTrips: TripData[] = [
       {
         day_number: 2, date: "2026-05-16", title: "Central Park & Museums", subtitle: "The Met, Strawberry Fields & Upper West Side",
         description: "A full day of culture and green space \u2014 morning strolls through Central Park, world-class art at The Met, and an evening on Broadway.",
-        hero_image: "https://images.unsplash.com/photo-1568515045052-f9a854d70bfd?w=800&h=500&fit=crop&crop=center&q=80",
+        hero_image: "https://images.unsplash.com/photo-1445346366695-5bf62de05412?w=800&h=500&fit=crop&crop=center&q=80",
         stats: [{ icon: "footprints", label: "Walking", value: "~16 km" }, { icon: "clock", label: "Full day", value: "AM\u2013PM" }],
         blocks: [
           { time_label: "Morning", content: "Early walk through Central Park \u2014 Bethesda Fountain, The Mall, Bow Bridge. Stop at Strawberry Fields (John Lennon memorial).", type: "activity" },

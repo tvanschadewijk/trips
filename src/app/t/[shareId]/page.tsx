@@ -50,7 +50,7 @@ export default async function TripPage({ params }: Props) {
         </div>
       );
     }
-    return <TripPreview trips={[sample]} autoOpen shareId={shareId} />;
+    return <TripPreview trips={[sample]} autoOpen />;
   }
 
   return <TripPreview trips={[result.tripData]} autoOpen shareId={result.isOwner ? undefined : shareId} />;
