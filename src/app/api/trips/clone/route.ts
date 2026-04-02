@@ -65,6 +65,24 @@ export async function POST(request: NextRequest) {
     .select('id, share_id')
     .single();
 
+  // Handle race condition: another clone request just created this (user_id, name) pair
+  if (insertErr?.code === '23505') {
+    const { data: raceWinner } = await admin
+      .from('trips')
+      .select('id, share_id')
+      .eq('user_id', user.id)
+      .eq('name', source.name)
+      .single();
+
+    if (raceWinner) {
+      return NextResponse.json({
+        trip_id: raceWinner.id,
+        share_id: raceWinner.share_id,
+        status: 'already_saved',
+      });
+    }
+  }
+
   if (insertErr || !newTrip) {
     return NextResponse.json({ error: insertErr?.message || 'Failed to save trip' }, { status: 500 });
   }

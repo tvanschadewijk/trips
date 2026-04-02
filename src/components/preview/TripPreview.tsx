@@ -6,6 +6,12 @@ import type { TripData, Day, Transport, Accommodation, Tip, Meal } from '@/lib/t
 import { ICONS } from './icons';
 import '@/styles/preview.css';
 
+/** Extract 3-letter IATA airport codes from a string like "Amsterdam (AMS) → New York (JFK)" */
+function extractIataCodes(s: string): string[] {
+  const matches = s.match(/\b[A-Z]{3}\b/g);
+  return matches || [];
+}
+
 interface TripPreviewProps {
   trips: TripData[];
   onDelete?: (index: number) => void;
@@ -661,13 +667,33 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
       </div>
     ) : null;
 
-    // Services matched to this day
+    // Services matched to this day — deduplicated against transport entries
     let servicesSection = null;
     if (trip?.services?.length) {
+      // Build set of route signatures from day's transport to avoid duplicating
+      const transportRoutes = new Set<string>();
+      if (day.transport?.length) {
+        for (const t of day.transport) {
+          const codes = extractIataCodes(`${t.from || ''} ${t.to || ''}`);
+          if (codes.length >= 2) transportRoutes.add(`${codes[0]}-${codes[codes.length - 1]}`);
+        }
+      }
+
       const dayServices = trip.services.filter(s => s.legs?.some(l => l.date === day.date));
       if (dayServices.length) {
         servicesSection = dayServices.map((svc, si) => {
-          const todayLegs = svc.legs!.filter(l => l.date === day.date);
+          // Filter out legs that already appear in the transport section
+          const todayLegs = svc.legs!.filter(l => {
+            if (l.date !== day.date) return false;
+            if (transportRoutes.size === 0) return true;
+            const legCodes = extractIataCodes(l.route);
+            if (legCodes.length >= 2) {
+              const sig = `${legCodes[0]}-${legCodes[legCodes.length - 1]}`;
+              return !transportRoutes.has(sig);
+            }
+            return true; // keep non-flight legs
+          });
+          if (todayLegs.length === 0) return null;
           return (
             <div key={si} className="day-section">
               <div className="day-section-title">
@@ -686,7 +712,8 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
               ))}
             </div>
           );
-        });
+        }).filter(Boolean);
+        if (servicesSection.length === 0) servicesSection = null;
       }
     }
 
