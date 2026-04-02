@@ -491,7 +491,7 @@
   .text-hero-summary { font-size: 15px; }
   .detail-sheet { border-radius: 24px 24px 0 0; }
   .detail-body { padding: 24px 20px calc(40px + env(safe-area-inset-bottom)); }
-  .detail-header { padding: 0 8px; }
+  .detail-header { padding: 18px 20px 14px; }
   .day-hero { height: 260px; }
   .day-section { transition: box-shadow 0.2s ease, transform 0.2s ease; }
   .day-section:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.15), 0 8px 24px rgba(0,0,0,0.12); transform: translateY(-1px); }
@@ -533,6 +533,7 @@
   .day-hero-text { bottom: 18px; left: 20px; right: 20px; }
   .hero-body { padding: 0 28px 52px; }
   .hero-divider { width: 32px; }
+  .detail-header { padding: 20px 24px 14px; }
   .detail-body { padding: 28px 24px calc(40px + env(safe-area-inset-bottom)); }
   .detail-sheet { border-radius: 28px 28px 0 0; }
 }
