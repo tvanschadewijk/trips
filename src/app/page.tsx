@@ -28,11 +28,11 @@ export default async function Home() {
           <div className="landing-hero-text">
             <div className="landing-hero-badge">Built for travelers who plan with AI</div>
             <h1 className="landing-hero-title">
-              Your trips.<br />All details in your pocket.
+              Create trips with ChatGPT or Claude.<br />Get a beautifully designed itinerary in your pocket.
             </h1>
             <p className="landing-hero-subtitle">
-              Push trip data from Claude Cowork or Codex and get back a shareable,
-              interactive itinerary — complete with maps, bookings, and day-by-day details.
+              Plan in ChatGPT or Claude, then turn your travel details into a shareable,
+              interactive itinerary with maps, bookings, and day-by-day plans.
             </p>
             <div className="landing-hero-actions">
               <Link href="/dashboard" className="landing-btn-primary">Get started</Link>
