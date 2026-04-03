@@ -31,11 +31,11 @@ export default async function Home() {
               Get a beautifully designed itinerary in your pocket.
             </h1>
             <p className="landing-hero-subtitle">
-              Plan in ChatGPT or Claude, then turn your travel details into a shareable,
+              Plan your trip in ChatGPT or Claude, then turn it into a shareable,
               interactive itinerary with maps, bookings, and day-by-day plans.
             </p>
             <div className="landing-hero-actions">
-              <Link href="/dashboard" className="landing-btn-primary">Get started</Link>
+              <Link href="/login" className="landing-btn-primary">Get started</Link>
               <Link href="/demo" className="landing-btn-secondary">See a demo</Link>
             </div>
           </div>
@@ -99,7 +99,7 @@ export default async function Home() {
         <div className="landing-cta-inner">
           <h2 className="landing-cta-title">Start sharing your trips</h2>
           <p className="landing-cta-desc">Free to use. Set up in under a minute.</p>
-          <Link href="/dashboard" className="landing-btn-primary">Create your account</Link>
+          <Link href="/login" className="landing-btn-primary">Create your account</Link>
         </div>
       </section>
 
