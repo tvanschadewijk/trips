@@ -497,9 +497,9 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
         <Image className="trip-card-img" src={img} alt={t.name} fill sizes="430px" style={{ objectFit: 'cover', opacity: brokenImages.has(img) ? 0 : 1 }} onError={() => onImgError(img)} />
         <div className="trip-card-gradient" />
         <div className="trip-card-badge">{statusLabel}</div>
-        <button className="trip-card-delete" onClick={(e) => { e.stopPropagation(); setDeleteConfirm(origIdx); }} aria-label={`Delete ${t.name}`}>
+        {onDelete && <button className="trip-card-delete" onClick={(e) => { e.stopPropagation(); setDeleteConfirm(origIdx); }} aria-label={`Delete ${t.name}`}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
-        </button>
+        </button>}
         <div className="trip-card-body">
           <div className="trip-card-dates">{startStr} — {endStr}</div>
           <div className="trip-card-name">{t.name}</div>
