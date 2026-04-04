@@ -181,12 +181,69 @@ export default function DashboardPage() {
         </div>
 
         {trips.length === 0 ? (
-          <div className="dash-empty">
-            <div className="dash-empty-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M9 6.75V15m6-6v8.25m.503 3.498 4.875-2.437c.381-.19.622-.58.622-1.006V4.82c0-.836-.88-1.38-1.628-1.006l-3.869 1.934c-.317.159-.69.159-1.006 0L9.503 3.252a1.125 1.125 0 0 0-1.006 0L3.622 5.689C3.24 5.88 3 6.27 3 6.695V19.18c0 .836.88 1.38 1.628 1.006l3.869-1.934c.317-.159.69-.159 1.006 0l4.994 2.497c.317.158.69.158 1.006 0Z" /></svg>
+          <div className="dash-onboard">
+            <div className="dash-onboard-header">
+              <div className="dash-onboard-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M9 6.75V15m6-6v8.25m.503 3.498 4.875-2.437c.381-.19.622-.58.622-1.006V4.82c0-.836-.88-1.38-1.628-1.006l-3.869 1.934c-.317.159-.69.159-1.006 0L9.503 3.252a1.125 1.125 0 0 0-1.006 0L3.622 5.689C3.24 5.88 3 6.27 3 6.695V19.18c0 .836.88 1.38 1.628 1.006l3.869-1.934c.317-.159.69-.159 1.006 0l4.994 2.497c.317.158.69.158 1.006 0Z" /></svg>
+              </div>
+              <h3>Create your first trip</h3>
+              <p>Turn any conversation with Claude into a beautiful, pocket-friendly itinerary. Here&apos;s how:</p>
             </div>
-            <h3>No trips yet</h3>
-            <p>Plan a trip with Claude using the travel itinerary skill, then say &ldquo;Save this to Our Trips&rdquo; to see it here.</p>
+
+            <div className="dash-onboard-steps">
+              <div className="dash-onboard-step">
+                <div className="dash-onboard-step-num">1</div>
+                <div className="dash-onboard-step-body">
+                  <div className="dash-onboard-step-title">Open Claude on your computer</div>
+                  <p className="dash-onboard-step-desc">
+                    Download <a href="https://claude.ai/download" target="_blank" rel="noopener noreferrer">Claude for Mac or Windows</a> if you haven&apos;t already, or use <a href="https://claude.ai" target="_blank" rel="noopener noreferrer">claude.ai</a> in your browser.
+                  </p>
+                </div>
+              </div>
+
+              <div className="dash-onboard-step">
+                <div className="dash-onboard-step-num">2</div>
+                <div className="dash-onboard-step-body">
+                  <div className="dash-onboard-step-title">Install the Our Trips skill</div>
+                  <p className="dash-onboard-step-desc">
+                    Start a CoWork session, then paste this into the chat:
+                  </p>
+                  <div className="dash-onboard-code">
+                    <code>Fetch https://ourtrips.to/our-trips.skill and add it to my skills.</code>
+                  </div>
+                  <p className="dash-onboard-step-note">
+                    Or <a href="/our-trips.skill" download>download the skill file</a> and add it manually. <Link href="/guide">Full guide</Link>
+                  </p>
+                </div>
+              </div>
+
+              <div className="dash-onboard-step">
+                <div className="dash-onboard-step-num">3</div>
+                <div className="dash-onboard-step-body">
+                  <div className="dash-onboard-step-title">Plan your trip with Claude</div>
+                  <p className="dash-onboard-step-desc">
+                    Talk about where you&apos;re going, what you want to do, where you&apos;re staying &mdash; anything. Claude will help you shape a full itinerary.
+                  </p>
+                </div>
+              </div>
+
+              <div className="dash-onboard-step">
+                <div className="dash-onboard-step-num">4</div>
+                <div className="dash-onboard-step-body">
+                  <div className="dash-onboard-step-title">Say &ldquo;Send it to Our Trips&rdquo;</div>
+                  <p className="dash-onboard-step-desc">
+                    When you&apos;re happy with the plan, just ask Claude to send it. Your trip will appear right here &mdash; ready to share or pull up on your phone while traveling.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="dash-onboard-footer">
+              <Link href="/demo" className="dash-onboard-demo-link">
+                See what a finished trip looks like
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+              </Link>
+            </div>
           </div>
         ) : (
           <div className="dash-grid">
