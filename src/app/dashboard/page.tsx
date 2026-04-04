@@ -63,6 +63,7 @@ export default function DashboardPage() {
     const { data, error } = await supabase
       .from('trips')
       .select('id, name, share_id, data, is_public, created_at, updated_at')
+      .eq('user_id', user.id)
       .order('updated_at', { ascending: false });
 
     if (!error && data) {
