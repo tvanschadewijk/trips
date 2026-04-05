@@ -195,9 +195,9 @@ export default function DashboardPage() {
               <div className="dash-onboard-step">
                 <div className="dash-onboard-step-num">1</div>
                 <div className="dash-onboard-step-body">
-                  <div className="dash-onboard-step-title">Open Claude or Codex on your computer</div>
+                  <div className="dash-onboard-step-title">Open Claude on your computer</div>
                   <p className="dash-onboard-step-desc">
-                    Download <a href="https://claude.ai/download" target="_blank" rel="noopener noreferrer">Claude for Mac or Windows</a> if you haven&apos;t already, or use <a href="https://claude.ai" target="_blank" rel="noopener noreferrer">claude.ai</a> in your browser.
+                    Download <a href="https://claude.ai/download" target="_blank" rel="noopener noreferrer">Claude for Mac or Windows</a> if you haven&apos;t already.
                   </p>
                 </div>
               </div>
@@ -252,6 +252,11 @@ export default function DashboardPage() {
                   </p>
                 </div>
               </div>
+            </div>
+
+            <div className="dash-onboard-compat">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+              <p>Also works with other AI agents that support skills, like <strong>Codex</strong> from OpenAI, <strong>Cline</strong>, and more.</p>
             </div>
 
             <div className="dash-onboard-footer">

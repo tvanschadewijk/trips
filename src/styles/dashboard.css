@@ -316,18 +316,18 @@
 
 /* Onboarding empty state */
 .dash-onboard {
-  max-width: 540px;
+  max-width: 580px;
   margin: 0 auto;
-  padding: 48px 0 32px;
+  padding: 56px 0 40px;
 }
 .dash-onboard-header {
   text-align: center;
-  margin-bottom: 36px;
+  margin-bottom: 44px;
 }
 .dash-onboard-icon {
-  width: 56px;
-  height: 56px;
-  margin: 0 auto 20px;
+  width: 60px;
+  height: 60px;
+  margin: 0 auto 24px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -335,15 +335,15 @@
   border-radius: 16px;
   color: #6AABF7;
 }
-.dash-onboard-icon svg { width: 28px; height: 28px; }
+.dash-onboard-icon svg { width: 30px; height: 30px; }
 .dash-onboard-header h3 {
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 700;
   color: rgba(255, 255, 255, 0.85);
-  margin: 0 0 8px;
+  margin: 0 0 10px;
 }
 .dash-onboard-header p {
-  font-size: 14px;
+  font-size: 15px;
   line-height: 1.6;
   color: rgba(255, 255, 255, 0.4);
   margin: 0;
@@ -357,8 +357,8 @@
 }
 .dash-onboard-step {
   display: flex;
-  gap: 16px;
-  padding: 20px 0;
+  gap: 18px;
+  padding: 24px 0;
   border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 .dash-onboard-step:last-child {
@@ -366,14 +366,14 @@
 }
 .dash-onboard-step-num {
   flex-shrink: 0;
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
   background: rgba(43, 124, 233, 0.12);
   border-radius: 50%;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   color: #6AABF7;
   margin-top: 1px;
@@ -383,15 +383,15 @@
   min-width: 0;
 }
 .dash-onboard-step-title {
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 600;
   color: rgba(255, 255, 255, 0.85);
-  margin-bottom: 6px;
+  margin-bottom: 8px;
   line-height: 1.3;
 }
 .dash-onboard-step-desc {
-  font-size: 13px;
-  line-height: 1.6;
+  font-size: 14px;
+  line-height: 1.65;
   color: rgba(255, 255, 255, 0.4);
   margin: 0;
 }
@@ -405,8 +405,8 @@
 
 /* Code block */
 .dash-onboard-code {
-  margin-top: 10px;
-  padding: 12px 14px;
+  margin-top: 12px;
+  padding: 14px 16px;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 10px;
@@ -433,8 +433,8 @@
 .dash-onboard-copy-btn.copied { color: #34d399; }
 .dash-onboard-code code {
   font-family: 'JetBrains Mono', ui-monospace, monospace;
-  font-size: 12px;
-  line-height: 1.5;
+  font-size: 13px;
+  line-height: 1.55;
   color: rgba(255, 255, 255, 0.6);
   white-space: pre-wrap;
   word-break: break-word;
@@ -442,9 +442,9 @@
 
 /* Note under code */
 .dash-onboard-step-note {
-  font-size: 12px;
+  font-size: 13px;
   color: rgba(255, 255, 255, 0.3);
-  margin: 10px 0 0;
+  margin: 12px 0 0;
   line-height: 1.5;
 }
 .dash-onboard-step-note a {
@@ -455,20 +455,47 @@
 }
 .dash-onboard-step-note a:hover { color: rgba(255, 255, 255, 0.7); }
 
+/* Compatibility note */
+.dash-onboard-compat {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-top: 28px;
+  padding: 14px 18px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 10px;
+}
+.dash-onboard-compat svg {
+  flex-shrink: 0;
+  color: rgba(255, 255, 255, 0.3);
+  margin-top: 1px;
+}
+.dash-onboard-compat p {
+  font-size: 13px;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.35);
+  margin: 0;
+}
+.dash-onboard-compat strong {
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.5);
+}
+
 /* Footer / demo link */
 .dash-onboard-footer {
   text-align: center;
-  margin-top: 32px;
+  margin-top: 40px;
 }
 .dash-onboard-demo-link {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
   color: #6AABF7;
   text-decoration: none;
-  padding: 10px 20px;
+  padding: 12px 24px;
   background: rgba(43, 124, 233, 0.1);
   border: 1px solid rgba(43, 124, 233, 0.2);
   border-radius: 10px;
