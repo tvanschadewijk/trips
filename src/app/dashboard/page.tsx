@@ -30,6 +30,7 @@ export default function DashboardPage() {
     return null;
   });
   const [copied, setCopied] = useState<string | null>(null);
+  const [skillCopied, setSkillCopied] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [cardMenuOpen, setCardMenuOpen] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
@@ -176,7 +177,7 @@ export default function DashboardPage() {
         <div className="dash-header">
           <div>
             <h1 className="dash-title">Your trips</h1>
-            <p className="dash-subtitle">{trips.length} trip{trips.length !== 1 ? 's' : ''}</p>
+            <p className="dash-subtitle">{trips.length === 0 ? 'You have no trips planned' : `${trips.length} trip${trips.length !== 1 ? 's' : ''}`}</p>
           </div>
         </div>
 
@@ -194,7 +195,7 @@ export default function DashboardPage() {
               <div className="dash-onboard-step">
                 <div className="dash-onboard-step-num">1</div>
                 <div className="dash-onboard-step-body">
-                  <div className="dash-onboard-step-title">Open Claude on your computer</div>
+                  <div className="dash-onboard-step-title">Open Claude or Codex on your computer</div>
                   <p className="dash-onboard-step-desc">
                     Download <a href="https://claude.ai/download" target="_blank" rel="noopener noreferrer">Claude for Mac or Windows</a> if you haven&apos;t already, or use <a href="https://claude.ai" target="_blank" rel="noopener noreferrer">claude.ai</a> in your browser.
                   </p>
@@ -210,6 +211,21 @@ export default function DashboardPage() {
                   </p>
                   <div className="dash-onboard-code">
                     <code>Fetch https://ourtrips.to/our-trips.skill and add it to my skills.</code>
+                    <button
+                      className={`dash-onboard-copy-btn ${skillCopied ? 'copied' : ''}`}
+                      onClick={() => {
+                        navigator.clipboard.writeText('Fetch https://ourtrips.to/our-trips.skill and add it to my skills.');
+                        setSkillCopied(true);
+                        setTimeout(() => setSkillCopied(false), 2000);
+                      }}
+                      title="Copy to clipboard"
+                    >
+                      {skillCopied ? (
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="20 6 9 17 4 12" /></svg>
+                      ) : (
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                      )}
+                    </button>
                   </div>
                   <p className="dash-onboard-step-note">
                     Or <a href="/our-trips.skill" download>download the skill file</a> and add it manually. <Link href="/guide">Full guide</Link>

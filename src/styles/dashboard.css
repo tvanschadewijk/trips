@@ -331,9 +331,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(43, 124, 233, 0.12);
   border-radius: 16px;
-  color: rgba(255, 255, 255, 0.3);
+  color: #6AABF7;
 }
 .dash-onboard-icon svg { width: 28px; height: 28px; }
 .dash-onboard-header h3 {
@@ -371,11 +371,11 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(43, 124, 233, 0.12);
   border-radius: 50%;
   font-size: 13px;
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.5);
+  color: #6AABF7;
   margin-top: 1px;
 }
 .dash-onboard-step-body {
@@ -411,7 +411,26 @@
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 10px;
   overflow-x: auto;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
 }
+.dash-onboard-copy-btn {
+  flex-shrink: 0;
+  margin-left: auto;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.4);
+  cursor: pointer;
+  padding: 5px 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s;
+}
+.dash-onboard-copy-btn:hover { background: rgba(255, 255, 255, 0.1); color: rgba(255, 255, 255, 0.7); }
+.dash-onboard-copy-btn.copied { color: #34d399; }
 .dash-onboard-code code {
   font-family: 'JetBrains Mono', ui-monospace, monospace;
   font-size: 12px;
@@ -444,14 +463,18 @@
 .dash-onboard-demo-link {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  font-weight: 500;
-  color: rgba(255, 255, 255, 0.4);
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #6AABF7;
   text-decoration: none;
-  transition: color 0.15s;
+  padding: 10px 20px;
+  background: rgba(43, 124, 233, 0.1);
+  border: 1px solid rgba(43, 124, 233, 0.2);
+  border-radius: 10px;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
-.dash-onboard-demo-link:hover { color: rgba(255, 255, 255, 0.7); }
+.dash-onboard-demo-link:hover { color: #fff; background: rgba(43, 124, 233, 0.18); border-color: rgba(43, 124, 233, 0.35); }
 .dash-onboard-demo-link svg { transition: transform 0.15s; }
 .dash-onboard-demo-link:hover svg { transform: translateX(3px); }
 
