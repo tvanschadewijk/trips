@@ -316,7 +316,7 @@
 
 /* Onboarding empty state */
 .dash-onboard {
-  max-width: 580px;
+  max-width: 720px;
   margin: 0 auto;
   padding: 56px 0 40px;
 }
@@ -363,6 +363,21 @@
 }
 .dash-onboard-step:last-child {
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+.dash-onboard-step-with-aside {
+  gap: 20px;
+  align-items: flex-start;
+}
+.dash-onboard-step-main {
+  display: flex;
+  gap: 18px;
+  flex: 1;
+  min-width: 0;
+}
+.dash-onboard-step-with-aside > .dash-onboard-compat {
+  flex-shrink: 0;
+  width: 220px;
+  margin-top: 0;
 }
 .dash-onboard-step-num {
   flex-shrink: 0;
@@ -459,9 +474,8 @@
 .dash-onboard-compat {
   display: flex;
   align-items: flex-start;
-  gap: 12px;
-  margin-top: 28px;
-  padding: 14px 18px;
+  gap: 10px;
+  padding: 12px 14px;
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.07);
   border-radius: 10px;
@@ -472,8 +486,8 @@
   margin-top: 1px;
 }
 .dash-onboard-compat p {
-  font-size: 13px;
-  line-height: 1.55;
+  font-size: 12px;
+  line-height: 1.5;
   color: rgba(255, 255, 255, 0.35);
   margin: 0;
 }
