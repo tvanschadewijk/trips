@@ -36,14 +36,14 @@ export default function LogoSuffix() {
   }, []);
 
   return (
-    <span className="logo-suffix">
-      .To{' '}
+    <>
+      <span className="logo-to">.To</span>{' '}
       <span
-        className="logo-destination"
+        className="logo-suffix"
         style={{ opacity: fade ? 1 : 0, transition: 'opacity 0.3s ease' }}
       >
         {destinations[index]}
       </span>
-    </span>
+    </>
   );
 }
