@@ -98,7 +98,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
   const appRef = useRef<HTMLDivElement>(null);
 
   // Touch state
-  const touchState = useRef({ startX: 0, startY: 0, dx: 0, isDragging: false, isScrolling: null as boolean | null });
+  const touchState = useRef({ startX: 0, startY: 0, startTime: 0, dx: 0, isDragging: false, isScrolling: null as boolean | null });
   const didAutoNav = useRef(false);
 
   const trip = activeTripIndex !== null ? trips[activeTripIndex]?.trip : null;
@@ -248,21 +248,30 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     if (!vp || activeTripIndex === null) return;
 
     const onStart = (e: TouchEvent) => {
-      touchState.current = { startX: e.touches[0].clientX, startY: e.touches[0].clientY, dx: 0, isDragging: true, isScrolling: null };
-      trackRef.current?.classList.add('dragging');
+      touchState.current = { startX: e.touches[0].clientX, startY: e.touches[0].clientY, startTime: Date.now(), dx: 0, isDragging: true, isScrolling: null };
     };
     const onMove = (e: TouchEvent) => {
       const ts = touchState.current;
       if (!ts.isDragging) return;
       const moveX = e.touches[0].clientX - ts.startX;
       const moveY = e.touches[0].clientY - ts.startY;
-      if (ts.isScrolling === null && (Math.abs(moveX) > 10 || Math.abs(moveY) > 10)) {
-        // Bias toward vertical scroll: require horizontal movement to be
-        // noticeably dominant (>1.5× vertical) before treating as a swipe
-        ts.isScrolling = Math.abs(moveX) <= Math.abs(moveY) * 1.5;
+      if (ts.isScrolling === null) {
+        const absX = Math.abs(moveX);
+        const absY = Math.abs(moveY);
+        const totalMove = Math.sqrt(moveX * moveX + moveY * moveY);
+        // Wait for at least 15px of total displacement before deciding direction.
+        // This prevents premature locking from tiny finger drift.
+        if (totalMove < 15) return;
+        // Use angle-based detection: only treat as a horizontal swipe when the
+        // gesture is within ~22° of the horizontal axis (absX > absY * 2.5).
+        // Everything else is treated as vertical scroll. This strongly biases
+        // toward keeping native scroll working, which is the main complaint.
+        ts.isScrolling = absX <= absY * 2.5;
       }
       if (ts.isScrolling) return;
+      // Confirmed horizontal swipe — take over from the browser
       e.preventDefault();
+      trackRef.current?.classList.add('dragging');
       ts.dx = moveX;
       if (trackRef.current) trackRef.current.style.transform = `translateX(calc(-${currentSlide * 100}cqi + ${ts.dx}px))`;
     };
@@ -270,10 +279,17 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
       const ts = touchState.current;
       if (!ts.isDragging) return;
       ts.isDragging = false;
-      if (ts.isScrolling) { trackRef.current?.classList.remove('dragging'); return; }
-      const threshold = vp.offsetWidth * 0.2;
-      if (ts.dx < -threshold && currentSlide < totalSlides - 1) goTo(currentSlide + 1);
-      else if (ts.dx > threshold && currentSlide > 0) goTo(currentSlide - 1);
+      trackRef.current?.classList.remove('dragging');
+      if (ts.isScrolling || ts.isScrolling === null) return;
+      // Use both distance threshold and velocity for swipe detection.
+      // A fast flick (velocity > 0.3px/ms) with at least 30px of movement
+      // should also trigger a slide change, even if below the 20% threshold.
+      const elapsed = Math.max(Date.now() - ts.startTime, 1);
+      const velocity = Math.abs(ts.dx) / elapsed;
+      const distThreshold = vp.offsetWidth * 0.2;
+      const isSwipe = Math.abs(ts.dx) > distThreshold || (velocity > 0.3 && Math.abs(ts.dx) > 30);
+      if (isSwipe && ts.dx < 0 && currentSlide < totalSlides - 1) goTo(currentSlide + 1);
+      else if (isSwipe && ts.dx > 0 && currentSlide > 0) goTo(currentSlide - 1);
       else goTo(currentSlide);
     };
 

@@ -109,7 +109,7 @@
 /* ============================================
    SWIPE CONTAINER
    ============================================ */
-.swipe-viewport { position: absolute; inset: 0; overflow: hidden; touch-action: pan-y; container-type: inline-size; }
+.swipe-viewport { position: absolute; inset: 0; overflow: hidden; touch-action: pan-y pinch-zoom; container-type: inline-size; }
 .swipe-track { display: flex; height: 100%; transition: transform 0.35s cubic-bezier(0.25, 0.1, 0.25, 1); will-change: transform; }
 .swipe-track.dragging { transition: none; }
 
