@@ -94,7 +94,7 @@
    ============================================ */
 .date-strip { position: absolute; top: calc(var(--nav-height) + env(safe-area-inset-top)); left: 0; right: 0; height: var(--date-strip-height); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-bottom: 1px solid rgba(255,255,255,0.08); box-shadow: none; background: rgba(44,44,44,0.96); z-index: 10; transition: height 0.3s, opacity 0.3s, top 0.3s; -webkit-mask-image: linear-gradient(to right, transparent, black 16px, black calc(100% - 16px), transparent); mask-image: linear-gradient(to right, transparent, black 16px, black calc(100% - 16px), transparent); }
 .date-strip.hidden { height: 0; min-height: 0; opacity: 0; pointer-events: none; overflow: hidden; border-bottom: none; }
-.date-strip-inner { display: flex; gap: 2px; padding: 8px 12px; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; height: 100%; align-items: center; }
+.date-strip-inner { display: flex; gap: 2px; padding: 8px 12px; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; height: 100%; align-items: center; touch-action: pan-x; }
 .date-strip-inner::-webkit-scrollbar { display: none; }
 .date-btn { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; width: 42px; height: 42px; border-radius: 50%; border: none; cursor: pointer; flex-shrink: 0; transition: all 0.2s ease-out; background: transparent; color: rgba(255,255,255,0.45); font-family: var(--font-sans); }
 .date-btn:active:not(.active) { background: rgba(255,255,255,0.12); transform: scale(0.92); }

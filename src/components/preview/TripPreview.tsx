@@ -95,6 +95,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
   const trackRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
   const dateStripRef = useRef<HTMLDivElement>(null);
+  const dateStripDragged = useRef(false);
   const appRef = useRef<HTMLDivElement>(null);
 
   // Touch state
@@ -304,6 +305,18 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
       vp.removeEventListener('touchcancel', onEnd);
     };
   }, [activeTripIndex, currentSlide, totalSlides, goTo]);
+
+  // Date strip: suppress click after drag/scroll
+  useEffect(() => {
+    const strip = dateStripRef.current;
+    if (!strip) return;
+    let startX = 0;
+    const onTouchStart = (e: TouchEvent) => { startX = e.touches[0].clientX; dateStripDragged.current = false; };
+    const onTouchMove = (e: TouchEvent) => { if (Math.abs(e.touches[0].clientX - startX) > 6) dateStripDragged.current = true; };
+    strip.addEventListener('touchstart', onTouchStart, { passive: true });
+    strip.addEventListener('touchmove', onTouchMove, { passive: true });
+    return () => { strip.removeEventListener('touchstart', onTouchStart); strip.removeEventListener('touchmove', onTouchMove); };
+  }, [activeTripIndex]);
 
   // Keyboard nav
   useEffect(() => {
@@ -932,7 +945,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
                 const d = date.getDate();
                 return (
                   <button key={day.day_number} className={`date-btn ${currentSlide === day.day_number ? 'active' : ''}`}
-                    onClick={() => goTo(day.day_number)}
+                    onClick={() => { if (!dateStripDragged.current) goTo(day.day_number); }}
                     aria-selected={currentSlide === day.day_number}
                     aria-label={`Day ${day.day_number}, ${date.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}`}>
                     <span className="date-btn-wd">{wd}</span>
