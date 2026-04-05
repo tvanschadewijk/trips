@@ -560,6 +560,106 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     );
   }
 
+  // --- Overview section builders ---
+
+  function buildLogisticsHtml(): { html: string; hasData: boolean } {
+    const legs: { day: number; date: string; t: Transport }[] = [];
+    for (const d of days) {
+      if (d.transport?.length) {
+        for (const t of d.transport) legs.push({ day: d.day_number, date: d.date, t });
+      }
+    }
+    if (!legs.length) return { html: '', hasData: false };
+    const rows = legs.map(({ day, date, t }) => {
+      const dateLabel = formatDate(date, { weekday: 'short', day: 'numeric', month: 'short' });
+      const route = [t.from, t.to].filter(Boolean).join(' → ');
+      const times = [t.depart, t.arrive].filter(Boolean).join(' – ');
+      return `<div class="detail-row" style="flex-direction:column;align-items:flex-start;gap:2px">
+        <div style="display:flex;justify-content:space-between;width:100%;align-items:center">
+          <span class="detail-row-label" style="width:auto">Day ${day} · ${dateLabel}</span>
+          ${t.status ? `<span class="text-status status-badge status-${t.status}">${t.status}</span>` : ''}
+        </div>
+        <span class="detail-row-value" style="text-align:left;font-size:15px;font-weight:600">${t.label || route}</span>
+        ${route && t.label ? `<span class="detail-row-value" style="text-align:left;font-size:13px;color:var(--color-text-muted)">${route}</span>` : ''}
+        ${times || t.duration ? `<span class="detail-row-value" style="text-align:left;font-size:13px;color:var(--color-text-muted)">${[times, t.duration].filter(Boolean).join(' · ')}</span>` : ''}
+      </div>`;
+    }).join('');
+    return { html: `<div class="detail-info-section"><div class="detail-info-section-title"><span class="text-section-title">All Transport</span></div>${rows}</div>`, hasData: true };
+  }
+
+  function buildAccommodationHtml(): { html: string; hasData: boolean } {
+    const seen = new Set<string>();
+    const accoms: { a: Accommodation; dayStart: number; dateStart: string }[] = [];
+    for (const d of days) {
+      if (d.accommodation && !seen.has(d.accommodation.name)) {
+        seen.add(d.accommodation.name);
+        accoms.push({ a: d.accommodation, dayStart: d.day_number, dateStart: d.date });
+      }
+    }
+    if (!accoms.length) return { html: '', hasData: false };
+    const rows = accoms.map(({ a, dateStart }) => {
+      const dateLabel = formatDate(dateStart, { weekday: 'short', day: 'numeric', month: 'short' });
+      const meta = [a.price, a.rating, a.nights ? `${a.nights} night${a.nights > 1 ? 's' : ''}` : ''].filter(Boolean).join(' · ');
+      return `<div class="detail-row" style="flex-direction:column;align-items:flex-start;gap:2px">
+        <div style="display:flex;justify-content:space-between;width:100%;align-items:center">
+          <span class="detail-row-label" style="width:auto">From ${dateLabel}</span>
+          ${a.status ? `<span class="text-status status-badge status-${a.status}">${a.status}</span>` : ''}
+        </div>
+        <span class="detail-row-value" style="text-align:left;font-size:15px;font-weight:600">${a.name}</span>
+        ${meta ? `<span class="detail-row-value" style="text-align:left;font-size:13px;color:var(--color-text-muted)">${meta}</span>` : ''}
+        ${a.note ? `<span class="detail-row-value" style="text-align:left;font-size:13px;color:var(--color-text-secondary)">${a.note}</span>` : ''}
+      </div>`;
+    }).join('');
+    return { html: `<div class="detail-info-section"><div class="detail-info-section-title"><span class="text-section-title">Where You're Staying</span></div>${rows}</div>`, hasData: true };
+  }
+
+  function buildBudgetHtml(): { html: string; hasData: boolean } {
+    const items: { category: string; label: string; amount: string }[] = [];
+    const seenAccom = new Set<string>();
+    for (const d of days) {
+      if (d.accommodation?.price && !seenAccom.has(d.accommodation.name)) {
+        seenAccom.add(d.accommodation.name);
+        items.push({ category: 'Accommodation', label: d.accommodation.name, amount: d.accommodation.price });
+      }
+      if (d.meals?.length) {
+        for (const m of d.meals) {
+          if (m.detail?.price_range) items.push({ category: 'Dining', label: m.name, amount: m.detail.price_range });
+        }
+      }
+    }
+    if (!items.length) return { html: '', hasData: false };
+    // Group by category
+    const groups = new Map<string, typeof items>();
+    for (const item of items) {
+      if (!groups.has(item.category)) groups.set(item.category, []);
+      groups.get(item.category)!.push(item);
+    }
+    let html = '';
+    for (const [cat, entries] of groups) {
+      const rows = entries.map(e =>
+        `<div class="detail-row"><span class="detail-row-label" style="width:auto;flex:1">${e.label}</span><span class="detail-row-value" style="flex:none">${e.amount}</span></div>`
+      ).join('');
+      html += `<div class="detail-info-section"><div class="detail-info-section-title"><span class="text-section-title">${cat}</span></div>${rows}</div>`;
+    }
+    return { html, hasData: true };
+  }
+
+  function buildThingsToDoHtml(): { html: string; hasData: boolean } {
+    const dayBlocks = days.filter(d => d.blocks?.length);
+    if (!dayBlocks.length) return { html: '', hasData: false };
+    const sections = dayBlocks.map(d => {
+      const dateLabel = formatDate(d.date, { weekday: 'short', day: 'numeric', month: 'short' });
+      const activities = d.blocks
+        .filter(b => b.type === 'activity')
+        .map(b => `<div class="detail-row" style="flex-direction:column;align-items:flex-start;gap:1px;padding:6px 0">
+          <span class="detail-row-label" style="width:auto;font-size:11px;text-transform:uppercase;letter-spacing:0.04em">${b.time_label}</span>
+          <span class="detail-row-value" style="text-align:left;font-size:14px">${b.content}</span>
+        </div>`).join('');
+      return `<div class="detail-info-section"><div class="detail-info-section-title"><span class="text-section-title">Day ${d.day_number} · ${dateLabel} — ${d.title}</span></div>${activities}</div>`;
+    }).join('');
+    return { html: sections, hasData: true };
+  }
+
   // Render hero slide
   function renderHeroSlide() {
     if (!trip) return null;
@@ -604,6 +704,35 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
                 ))}
               </div>
             ) : null}
+            {(() => {
+              const logistics = buildLogisticsHtml();
+              const accommodation = buildAccommodationHtml();
+              const budget = buildBudgetHtml();
+              const thingsToDo = buildThingsToDoHtml();
+              const sections = [
+                { icon: 'route', label: 'Logistics', ...logistics },
+                { icon: 'bed', label: 'Accommodation', ...accommodation },
+                { icon: 'info', label: 'Budget', ...budget },
+                { icon: 'footprints', label: 'Things to Do', ...thingsToDo },
+              ].filter(s => s.hasData);
+              if (!sections.length) return null;
+              return (
+                <div className="hero-overview-btns">
+                  <div className="hero-overview-label">Overview</div>
+                  {sections.map((s, i) => (
+                    <button key={i} className="hero-note-btn" onClick={() => {
+                      setDetailContent({ title: s.label, html: s.html });
+                      setDetailOpen(true);
+                      window.history.pushState({ detail: true }, '');
+                    }}>
+                      <span className="hero-note-icon"><Icon name={s.icon} /></span>
+                      <span className="hero-note-label">{s.label}</span>
+                      <Icon name="chevron" />
+                    </button>
+                  ))}
+                </div>
+              );
+            })()}
           </div>
           <button className="hero-hint" onClick={() => goTo(1)} aria-label="Explore day by day">
             explore
