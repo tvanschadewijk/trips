@@ -126,9 +126,10 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
         strip.scrollTo({ left: scrollLeft, behavior: 'smooth' });
       }
     }, 50);
-    // Reset slide scroll position
+    // Reset scroll position of ALL slides (so previous day isn't scrolled down
+    // when the user swipes back to it)
     const slides = trackRef.current?.querySelectorAll('.slide');
-    if (slides?.[clamped]) (slides[clamped] as HTMLElement).scrollTop = 0;
+    slides?.forEach((s) => { (s as HTMLElement).scrollTop = 0; });
   }, [totalSlides]);
 
   // Open trip with grow animation
