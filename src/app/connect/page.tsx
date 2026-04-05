@@ -2,6 +2,7 @@
 
 import { Suspense, useState, useEffect } from 'react';
 import Link from 'next/link';
+import LogoSuffix from '@/components/ui/LogoSuffix';
 import { useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import '@/styles/connect.css';
@@ -12,7 +13,7 @@ export default function ConnectPage() {
   return (
     <Suspense fallback={
       <div className="connect">
-        <nav className="connect-nav"><span className="connect-logo">Our Trips</span></nav>
+        <nav className="connect-nav"><span className="connect-logo">Our Trips<LogoSuffix /></span></nav>
         <div className="connect-card"><div className="connect-center"><p className="connect-desc">Loading...</p></div></div>
       </div>
     }>
@@ -102,7 +103,7 @@ function ConnectInner() {
   return (
     <div className="connect">
       <nav className="connect-nav">
-        <Link href="/" className="connect-logo">Our Trips</Link>
+        <Link href="/" className="connect-logo">Our Trips<LogoSuffix /></Link>
       </nav>
 
       <div className="connect-card">

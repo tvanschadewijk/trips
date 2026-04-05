@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
+import LogoSuffix from '@/components/ui/LogoSuffix';
 import '@/styles/landing.css';
 
 export default async function Home() {
@@ -15,7 +16,7 @@ export default async function Home() {
     <div className="landing">
       <nav className="landing-nav">
         <div className="landing-nav-inner">
-          <span className="landing-logo">Our Trips</span>
+          <span className="landing-logo">Our Trips<LogoSuffix /></span>
           <div className="landing-nav-links">
             <Link href="/demo" className="landing-nav-link">Demo</Link>
             <Link href="/login" className="landing-btn-outline">Log in</Link>
@@ -62,7 +63,7 @@ export default async function Home() {
 
       <section className="landing-steps">
         <h2 className="landing-steps-heading">
-          Trip Planning Today: notes, emails, and apps everywhere.
+          Trip planning is notes, emails, and apps everywhere.
           <span className="landing-steps-heading-accent">Not Anymore</span>
         </h2>
         <p className="landing-steps-subheading">Our Trips brings all your itinerary information together in a beautiful, pocket-friendly format.</p>

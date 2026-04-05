@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import LogoSuffix from '@/components/ui/LogoSuffix';
 import '@/styles/guide.css';
 
 export default function GuidePage() {
@@ -6,7 +7,7 @@ export default function GuidePage() {
     <div className="guide">
       <nav className="guide-nav">
         <div className="guide-nav-inner">
-          <Link href="/" className="guide-logo">Our Trips</Link>
+          <Link href="/" className="guide-logo">Our Trips<LogoSuffix /></Link>
           <Link href="/login" className="guide-btn-outline">Log in</Link>
         </div>
       </nav>
@@ -32,7 +33,7 @@ export default function GuidePage() {
               <span className="guide-section-badge">Option A</span>
               <span className="guide-section-tag">Easiest</span>
             </div>
-            <h2 className="guide-section-title">Ask Claude to grab it</h2>
+            <h2 className="guide-section-title">Ask Claude CoWork or Codex to grab it</h2>
             <p className="guide-section-desc">
               If your CoWork session has internet access, you don&apos;t need to download anything.
               Just paste this into your chat:

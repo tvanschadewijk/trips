@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import LogoSuffix from '@/components/ui/LogoSuffix';
 import { createClient } from '@/lib/supabase/client';
 import '@/styles/login.css';
 
@@ -41,7 +42,7 @@ export default function LoginPage() {
   return (
     <div className="login">
       <nav className="login-nav">
-        <Link href="/" className="login-logo">Our Trips</Link>
+        <Link href="/" className="login-logo">Our Trips<LogoSuffix /></Link>
       </nav>
 
       <div className="login-card">
