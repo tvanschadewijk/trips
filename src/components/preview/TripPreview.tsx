@@ -744,7 +744,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
                 { icon: 'route', label: 'Logistics', ...logistics },
                 { icon: 'bed', label: 'Accommodation', ...accommodation },
                 { icon: 'info', label: 'Budget', ...budget },
-                { icon: thingsToDo.allDone ? 'check' : 'warning', label: thingsToDo.allDone ? 'Ready to Go' : 'Things to Do', ...thingsToDo },
+                { icon: thingsToDo.allDone ? 'check' : 'warning', label: thingsToDo.allDone ? 'Ready to Go' : 'Action Items', ...thingsToDo },
               ].filter(s => s.hasData);
               if (!sections.length) return null;
               return (
