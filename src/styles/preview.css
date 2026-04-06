@@ -347,6 +347,7 @@
    SCREEN TRANSITIONS
    ============================================ */
 .trip-screen { position: absolute; inset: 0; z-index: 30; flex-direction: column; background: var(--color-surface); overflow: hidden; transition: transform 0.35s cubic-bezier(0.25, 0.1, 0.25, 1), border-radius 0.35s cubic-bezier(0.25, 0.1, 0.25, 1); }
+.trip-screen.pre-animate { transform: translate(var(--card-tx), var(--card-ty)) scale(var(--card-sx), var(--card-sy)); border-radius: 20px; opacity: 0; will-change: transform, opacity, border-radius; }
 .trip-screen.animating-in,
 .trip-screen.animating-out { will-change: transform, opacity, border-radius; }
 .trip-screen.animating-in { animation: tripGrowIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards; }

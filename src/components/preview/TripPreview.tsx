@@ -81,6 +81,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
   const [detailContent, setDetailContent] = useState<{ title: string; html: string }>({ title: '', html: '' });
   const [isAnimatingIn, setIsAnimatingIn] = useState(false);
   const [isAnimatingOut, setIsAnimatingOut] = useState(false);
+  const [deferredSlides, setDeferredSlides] = useState(autoOpen);
   const [overviewFaded, setOverviewFaded] = useState(autoOpen ? true : false);
   const [cardVars, setCardVars] = useState({ top: '0px', right: '0px', bottom: '0px', left: '0px', originX: '50%', originY: '50%', scaleX: '1', scaleY: '1', tx: '0px', ty: '0px' });
   const [showArchive, setShowArchive] = useState(false);
@@ -166,10 +167,21 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
       ty: ty + 'px',
     });
 
+    // Mount the trip screen without animation class first so the browser
+    // can paint the initial (scaled-down) frame, then start the animation
+    // on the next frame — this avoids main-thread contention between
+    // React's mount render and the CSS animation.
+    setDeferredSlides(false);
     setActiveTripIndex(idx);
     setCurrentSlide(0);
     setOverviewFaded(true);
-    setIsAnimatingIn(true);
+    // Double rAF: first rAF queues after React commits, second after the
+    // browser paints the committed DOM — animation starts jank-free.
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        setIsAnimatingIn(true);
+      });
+    });
   }, [trips]);
 
   const closeTrip = useCallback(() => {
@@ -252,9 +264,13 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     if (!isAnimatingIn && !isAnimatingOut) return;
     const duration = isAnimatingIn ? 500 : 400;
     const timer = setTimeout(() => {
-      if (isAnimatingIn) setIsAnimatingIn(false);
+      if (isAnimatingIn) {
+        setIsAnimatingIn(false);
+        setDeferredSlides(true); // render day slides now that animation is done
+      }
       if (isAnimatingOut) {
         setIsAnimatingOut(false);
+        setDeferredSlides(false);
         setActiveTripIndex(null);
       }
     }, duration);
@@ -1088,7 +1104,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
       {/* Trip Screen */}
       {activeTripIndex !== null && (
         <div
-          className={`trip-screen ${isAnimatingIn ? 'animating-in' : ''} ${isAnimatingOut ? 'animating-out' : ''} ${detailOpen ? 'detail-behind' : ''}`}
+          className={`trip-screen ${!isAnimatingIn && !isAnimatingOut && !deferredSlides && !autoOpen ? 'pre-animate' : ''} ${isAnimatingIn ? 'animating-in' : ''} ${isAnimatingOut ? 'animating-out' : ''} ${detailOpen ? 'detail-behind' : ''}`}
           style={{
             display: 'flex',
             '--card-top': cardVars.top,
@@ -1142,7 +1158,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
           <div className="swipe-viewport" ref={viewportRef}>
             <div className="swipe-track" ref={trackRef}>
               {renderHeroSlide()}
-              {days.map(day => renderDaySlide(day))}
+              {deferredSlides && days.map(day => renderDaySlide(day))}
             </div>
           </div>
 
