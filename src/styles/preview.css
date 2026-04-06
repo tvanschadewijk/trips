@@ -348,19 +348,19 @@
    ============================================ */
 .trip-screen { position: absolute; inset: 0; z-index: 30; flex-direction: column; background: var(--color-surface); overflow: hidden; transition: transform 0.35s cubic-bezier(0.25, 0.1, 0.25, 1), border-radius 0.35s cubic-bezier(0.25, 0.1, 0.25, 1); }
 .trip-screen.animating-in,
-.trip-screen.animating-out { will-change: clip-path, opacity; contain: layout paint; }
-.trip-screen.animating-in { animation: tripGrowIn 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
-.trip-screen.animating-out { animation: tripShrinkOut 0.45s cubic-bezier(0.4, 0.0, 0.2, 1) forwards; }
+.trip-screen.animating-out { will-change: transform, opacity, border-radius; }
+.trip-screen.animating-in { animation: tripGrowIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+.trip-screen.animating-out { animation: tripShrinkOut 0.4s cubic-bezier(0.4, 0.0, 0.2, 1) forwards; }
 
 @keyframes tripGrowIn {
-  0%   { clip-path: inset(var(--card-top) var(--card-right) var(--card-bottom) var(--card-left) round 20px); opacity: 0; }
-  15%  { opacity: 1; }
-  100% { clip-path: inset(0 0 0 0 round 0px); opacity: 1; }
+  0%   { transform: translate(var(--card-tx), var(--card-ty)) scale(var(--card-sx), var(--card-sy)); border-radius: 20px; opacity: 0; }
+  8%   { opacity: 1; }
+  100% { transform: translate(0, 0) scale(1, 1); border-radius: 0px; opacity: 1; }
 }
 @keyframes tripShrinkOut {
-  0% { clip-path: inset(0 0 0 0 round 0px); opacity: 1; }
-  80% { opacity: 1; }
-  100% { clip-path: inset(var(--card-top) var(--card-right) var(--card-bottom) var(--card-left) round 20px); opacity: 0; }
+  0%   { transform: translate(0, 0) scale(1, 1); border-radius: 0px; opacity: 1; }
+  85%  { opacity: 1; }
+  100% { transform: translate(var(--card-tx), var(--card-ty)) scale(var(--card-sx), var(--card-sy)); border-radius: 20px; opacity: 0; }
 }
 .overview-screen { transition: opacity 0.35s cubic-bezier(0.22, 1, 0.36, 1); }
 .overview-screen.faded { opacity: 0.3; pointer-events: none; }

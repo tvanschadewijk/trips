@@ -82,7 +82,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
   const [isAnimatingIn, setIsAnimatingIn] = useState(false);
   const [isAnimatingOut, setIsAnimatingOut] = useState(false);
   const [overviewFaded, setOverviewFaded] = useState(autoOpen ? true : false);
-  const [cardVars, setCardVars] = useState({ top: '0px', right: '0px', bottom: '0px', left: '0px' });
+  const [cardVars, setCardVars] = useState({ top: '0px', right: '0px', bottom: '0px', left: '0px', originX: '50%', originY: '50%', scaleX: '1', scaleY: '1', tx: '0px', ty: '0px' });
   const [showArchive, setShowArchive] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
@@ -142,11 +142,28 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     const appRect = appEl.getBoundingClientRect();
     const cardRect = cardEl.getBoundingClientRect();
 
+    const appW = appRect.width;
+    const appH = appRect.height;
+    const sX = cardRect.width / appW;
+    const sY = cardRect.height / appH;
+    // Center of card relative to app container
+    const cardCX = cardRect.left - appRect.left + cardRect.width / 2;
+    const cardCY = cardRect.top - appRect.top + cardRect.height / 2;
+    // How far that center is from the center of the container
+    const tx = cardCX - appW / 2;
+    const ty = cardCY - appH / 2;
+
     setCardVars({
       top: (cardRect.top - appRect.top) + 'px',
       right: (appRect.right - cardRect.right) + 'px',
       bottom: (appRect.bottom - cardRect.bottom) + 'px',
       left: (cardRect.left - appRect.left) + 'px',
+      originX: '50%',
+      originY: '50%',
+      scaleX: String(sX),
+      scaleY: String(sY),
+      tx: tx + 'px',
+      ty: ty + 'px',
     });
 
     setActiveTripIndex(idx);
@@ -233,7 +250,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
   // when element enters the DOM and animation starts in the same frame
   useEffect(() => {
     if (!isAnimatingIn && !isAnimatingOut) return;
-    const duration = isAnimatingIn ? 550 : 450;
+    const duration = isAnimatingIn ? 500 : 400;
     const timer = setTimeout(() => {
       if (isAnimatingIn) setIsAnimatingIn(false);
       if (isAnimatingOut) {
@@ -1078,6 +1095,10 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
             '--card-right': cardVars.right,
             '--card-bottom': cardVars.bottom,
             '--card-left': cardVars.left,
+            '--card-sx': cardVars.scaleX,
+            '--card-sy': cardVars.scaleY,
+            '--card-tx': cardVars.tx,
+            '--card-ty': cardVars.ty,
           } as React.CSSProperties}
         >
           {/* Nav Bar */}
