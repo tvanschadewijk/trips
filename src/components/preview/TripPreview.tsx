@@ -644,20 +644,51 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     return { html, hasData: true };
   }
 
-  function buildThingsToDoHtml(): { html: string; hasData: boolean } {
-    const dayBlocks = days.filter(d => d.blocks?.length);
-    if (!dayBlocks.length) return { html: '', hasData: false };
-    const sections = dayBlocks.map(d => {
-      const dateLabel = formatDate(d.date, { weekday: 'short', day: 'numeric', month: 'short' });
-      const activities = d.blocks
-        .filter(b => b.type === 'activity')
-        .map(b => `<div class="detail-row" style="flex-direction:column;align-items:flex-start;gap:1px;padding:6px 0">
-          <span class="detail-row-label" style="width:auto;font-size:11px;text-transform:uppercase;letter-spacing:0.04em">${b.time_label}</span>
-          <span class="detail-row-value" style="text-align:left;font-size:14px">${b.content}</span>
-        </div>`).join('');
-      return `<div class="detail-info-section"><div class="detail-info-section-title"><span class="text-section-title">Day ${d.day_number} · ${dateLabel} — ${d.title}</span></div>${activities}</div>`;
-    }).join('');
-    return { html: sections, hasData: true };
+  function buildThingsToDoHtml(): { html: string; hasData: boolean; allDone: boolean } {
+    const todoItems: { label: string; detail: string; done: boolean }[] = [];
+    const seenAccom = new Set<string>();
+
+    for (const d of days) {
+      // Pending transport bookings
+      if (d.transport?.length) {
+        for (const t of d.transport) {
+          const done = t.status === 'booked' || t.status === 'confirmed';
+          todoItems.push({ label: t.label || `${t.from} → ${t.to}`, detail: `Day ${d.day_number} · ${t.mode}`, done });
+        }
+      }
+      // Pending accommodation bookings (deduplicated)
+      if (d.accommodation && !seenAccom.has(d.accommodation.name)) {
+        seenAccom.add(d.accommodation.name);
+        const done = d.accommodation.status === 'booked' || d.accommodation.status === 'confirmed';
+        todoItems.push({ label: d.accommodation.name, detail: `Accommodation · ${d.accommodation.nights || 1} night${(d.accommodation.nights || 1) > 1 ? 's' : ''}`, done });
+      }
+      // Pending meal reservations
+      if (d.meals?.length) {
+        for (const m of d.meals) {
+          const done = m.status === 'booked' || m.status === 'confirmed';
+          todoItems.push({ label: m.name, detail: `Day ${d.day_number} · ${m.type}`, done });
+        }
+      }
+    }
+
+    if (!todoItems.length) return { html: '', hasData: false, allDone: false };
+
+    const allDone = todoItems.every(t => t.done);
+    const rows = todoItems.map(t =>
+      `<div class="detail-row" style="gap:10px;align-items:center">
+        <span class="todo-check ${t.done ? 'done' : ''}">${t.done ? '&#10003;' : ''}</span>
+        <span style="flex:1;min-width:0">
+          <span class="detail-row-value" style="text-align:left;font-size:14px;display:block${t.done ? ';text-decoration:line-through;opacity:0.45' : ''}">${t.label}</span>
+          <span class="detail-row-label" style="width:auto;font-size:12px">${t.detail}</span>
+        </span>
+      </div>`
+    ).join('');
+
+    const header = allDone
+      ? `<div class="todo-ready"><span class="todo-ready-icon">&#10003;</span> Trip is ready to go</div>`
+      : `<div class="detail-info-section-title"><span class="text-section-title">Action Items</span></div>`;
+
+    return { html: `<div class="detail-info-section">${header}${rows}</div>`, hasData: true, allDone };
   }
 
   // Render hero slide
@@ -713,7 +744,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
                 { icon: 'route', label: 'Logistics', ...logistics },
                 { icon: 'bed', label: 'Accommodation', ...accommodation },
                 { icon: 'info', label: 'Budget', ...budget },
-                { icon: 'footprints', label: 'Things to Do', ...thingsToDo },
+                { icon: thingsToDo.allDone ? 'check' : 'warning', label: thingsToDo.allDone ? 'Ready to Go' : 'Things to Do', ...thingsToDo },
               ].filter(s => s.hasData);
               if (!sections.length) return null;
               return (

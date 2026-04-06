@@ -116,7 +116,7 @@
 /* ============================================
    SLIDE
    ============================================ */
-.slide { flex: 0 0 100cqi; width: 100cqi; height: 100%; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; scroll-behavior: smooth; overscroll-behavior: contain; }
+.slide { flex: 0 0 100cqi; width: 100cqi; height: 100%; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
 
 /* ============================================
    HERO SLIDE
@@ -141,6 +141,10 @@
 .hero-note-btn svg:last-child { opacity: 0.3; width: 12px; height: 12px; flex-shrink: 0; }
 .hero-overview-btns { display: flex; flex-direction: column; gap: 6px; margin-top: 20px; }
 .hero-overview-label { font-family: var(--font-sans); font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(255,255,255,0.35); margin-bottom: 2px; }
+.todo-check { display: flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--color-border); flex-shrink: 0; font-size: 13px; color: transparent; transition: all 0.15s; }
+.todo-check.done { border-color: #34c759; background: #34c759; color: white; }
+.todo-ready { display: flex; align-items: center; gap: 8px; padding: 14px 0; font-family: var(--font-sans); font-size: 15px; font-weight: 600; color: #34c759; }
+.todo-ready-icon { display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: #34c759; color: white; font-size: 14px; flex-shrink: 0; }
 .hero-hint { position: absolute; bottom: 14px; right: 20px; display: flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 500; color: rgba(255,255,255,0.35); letter-spacing: 0.02em; animation: nudge 2.5s ease-in-out infinite; cursor: pointer; -webkit-tap-highlight-color: transparent; border: none; background: none; padding: 8px 12px; margin: -8px -12px; border-radius: 12px; transition: color 0.15s, background 0.15s; z-index: 2; font-family: var(--font-sans); }
 .hero-hint:active { color: rgba(255,255,255,0.6); background: rgba(255,255,255,0.08); }
 @media (hover: hover) { .hero-hint:hover { color: rgba(255,255,255,0.6); background: rgba(255,255,255,0.08); } }
