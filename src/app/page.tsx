@@ -33,7 +33,7 @@ export default async function Home() {
             </h1>
             <p className="landing-hero-subtitle">
               Plan your trip in ChatGPT or Claude, then turn it into a shareable,
-              interactive itinerary with maps, bookings, and day-by-day plans.
+              interactive itinerary with bookings, photos, and day-by-day plans.
             </p>
             <div className="landing-hero-actions">
               <Link href="/login" className="landing-btn-primary">Get started</Link>
