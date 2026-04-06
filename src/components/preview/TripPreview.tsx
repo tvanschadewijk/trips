@@ -233,7 +233,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
   // when element enters the DOM and animation starts in the same frame
   useEffect(() => {
     if (!isAnimatingIn && !isAnimatingOut) return;
-    const duration = isAnimatingIn ? 500 : 450;
+    const duration = isAnimatingIn ? 550 : 450;
     const timer = setTimeout(() => {
       if (isAnimatingIn) setIsAnimatingIn(false);
       if (isAnimatingOut) {
