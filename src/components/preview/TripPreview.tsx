@@ -719,20 +719,22 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
             </div>
             {trip.notes?.length ? (
               <div className="hero-notes">
-                {trip.notes.map((note, ni) => (
-                  <button key={ni} className="hero-note-btn" onClick={() => {
-                    setDetailContent({
-                      title: note.title,
-                      html: `<div class="detail-tip-body"><p class="detail-tip-text">${note.content}</p></div>`
-                    });
-                    setDetailOpen(true);
-                    window.history.pushState({ detail: true }, '');
-                  }}>
-                    <span className="hero-note-icon"><Icon name={note.icon || 'info'} /></span>
-                    <span className="hero-note-label">{note.title}</span>
-                    <Icon name="chevron" />
-                  </button>
-                ))}
+                <button className="hero-note-btn" onClick={() => {
+                  const notesHtml = trip.notes!.map(note =>
+                    `<div class="detail-info-section">
+                      <div class="detail-info-section-title"><span class="text-section-title">${note.title}</span></div>
+                      <div class="detail-tip-body"><p class="detail-tip-text">${note.content}</p></div>
+                    </div>`
+                  ).join('');
+                  setDetailContent({ title: 'Trip Notes', html: notesHtml });
+                  setDetailOpen(true);
+                  window.history.pushState({ detail: true }, '');
+                }}>
+                  <span className="hero-note-icon"><Icon name="info" /></span>
+                  <span className="hero-note-label">Trip Notes</span>
+                  <span className="hero-note-count">{trip.notes.length}</span>
+                  <Icon name="chevron" />
+                </button>
               </div>
             ) : null}
             {(() => {
