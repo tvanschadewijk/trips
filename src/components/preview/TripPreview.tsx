@@ -81,7 +81,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
   const [detailContent, setDetailContent] = useState<{ title: string; html: string }>({ title: '', html: '' });
   const [isAnimatingIn, setIsAnimatingIn] = useState(false);
   const [isAnimatingOut, setIsAnimatingOut] = useState(false);
-  const [deferredSlides, setDeferredSlides] = useState(autoOpen);
+  const [deferredSlides, setDeferredSlides] = useState(false);
   const [overviewFaded, setOverviewFaded] = useState(autoOpen ? true : false);
   const [cardVars, setCardVars] = useState({ top: '0px', right: '0px', bottom: '0px', left: '0px', originX: '50%', originY: '50%', scaleX: '1', scaleY: '1', tx: '0px', ty: '0px' });
   const [transitionImg, setTransitionImg] = useState<{ src: string; rect: DOMRect; appRect: DOMRect } | null>(null);
@@ -166,12 +166,20 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
   }, [activeTripIndex, autoOpen]);
 
   // Signal view transition readiness (coordinates with dashboard startViewTransition)
+  // and defer heavy day slides until after the transition settles
   useEffect(() => {
     const w = window as unknown as Record<string, unknown>;
     if (typeof w.__tripTransitionResolve === 'function') {
       (w.__tripTransitionResolve as () => void)();
       w.__tripTransitionResolve = null;
     }
+    // Defer day-slide rendering until after the initial paint so the View
+    // Transition animation (or autoOpen mount) isn't blocked by heavy renders
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        setDeferredSlides(true);
+      });
+    });
   }, []);
 
   // Handle nav back
@@ -365,7 +373,6 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
         // Open the matching trip and navigate to the day
         setActiveTripIndex(i);
         setOverviewFaded(true);
-        setIsAnimatingIn(true);
         setCurrentSlide(slideIdx);
         setTimeout(() => {
           if (trackRef.current) {
