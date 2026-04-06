@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Offline — Our Trips</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background: #1A1A1A;
+      color: #fff;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+      text-align: center;
+      -webkit-font-smoothing: antialiased;
+    }
+    .icon {
+      font-size: 4rem;
+      margin-bottom: 1.5rem;
+      opacity: 0.7;
+    }
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+    }
+    p {
+      color: rgba(255, 255, 255, 0.5);
+      font-size: 0.95rem;
+      line-height: 1.5;
+      max-width: 320px;
+    }
+    .tip {
+      margin-top: 2rem;
+      padding: 1rem 1.25rem;
+      background: rgba(255, 255, 255, 0.06);
+      border-radius: 12px;
+      font-size: 0.85rem;
+      color: rgba(255, 255, 255, 0.4);
+      max-width: 320px;
+    }
+    button {
+      margin-top: 1.5rem;
+      padding: 0.75rem 1.5rem;
+      background: rgba(255, 255, 255, 0.1);
+      color: #fff;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 10px;
+      font-family: inherit;
+      font-size: 0.9rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    button:active { background: rgba(255, 255, 255, 0.15); }
+  </style>
+</head>
+<body>
+  <div class="icon">&#9992;&#65039;</div>
+  <h1>You're offline</h1>
+  <p>Trips you've visited before are saved on your device. Go back to view them.</p>
+  <button onclick="history.back()">Go back</button>
+  <div class="tip">
+    Tip: Open a trip while connected to save it for offline viewing.
+  </div>
+</body>
+</html>
