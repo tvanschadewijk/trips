@@ -84,6 +84,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
   const [deferredSlides, setDeferredSlides] = useState(autoOpen);
   const [overviewFaded, setOverviewFaded] = useState(autoOpen ? true : false);
   const [cardVars, setCardVars] = useState({ top: '0px', right: '0px', bottom: '0px', left: '0px', originX: '50%', originY: '50%', scaleX: '1', scaleY: '1', tx: '0px', ty: '0px' });
+  const [transitionImg, setTransitionImg] = useState<{ src: string; rect: DOMRect; appRect: DOMRect } | null>(null);
   const [showArchive, setShowArchive] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
@@ -133,7 +134,10 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     slides?.forEach((s) => { (s as HTMLElement).scrollTop = 0; });
   }, [totalSlides]);
 
-  // Open trip with grow animation
+  // Open trip with grow animation — uses a lightweight image overlay so the
+  // CSS animation runs on a plain <img> (100% compositor) while React mounts
+  // the heavy trip-screen off-screen. Once the overlay finishes, we reveal
+  // the real content and clean up.
   const openTrip = useCallback((idx: number, cardEl: HTMLElement) => {
     const td = trips[idx];
     if (!td.days.length) return;
@@ -143,45 +147,16 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     const appRect = appEl.getBoundingClientRect();
     const cardRect = cardEl.getBoundingClientRect();
 
-    const appW = appRect.width;
-    const appH = appRect.height;
-    const sX = cardRect.width / appW;
-    const sY = cardRect.height / appH;
-    // Center of card relative to app container
-    const cardCX = cardRect.left - appRect.left + cardRect.width / 2;
-    const cardCY = cardRect.top - appRect.top + cardRect.height / 2;
-    // How far that center is from the center of the container
-    const tx = cardCX - appW / 2;
-    const ty = cardCY - appH / 2;
+    // Start the lightweight overlay animation immediately
+    setTransitionImg({ src: td.trip.hero_image, rect: cardRect, appRect: appRect });
+    setOverviewFaded(true);
 
-    setCardVars({
-      top: (cardRect.top - appRect.top) + 'px',
-      right: (appRect.right - cardRect.right) + 'px',
-      bottom: (appRect.bottom - cardRect.bottom) + 'px',
-      left: (cardRect.left - appRect.left) + 'px',
-      originX: '50%',
-      originY: '50%',
-      scaleX: String(sX),
-      scaleY: String(sY),
-      tx: tx + 'px',
-      ty: ty + 'px',
-    });
-
-    // Mount the trip screen without animation class first so the browser
-    // can paint the initial (scaled-down) frame, then start the animation
-    // on the next frame — this avoids main-thread contention between
-    // React's mount render and the CSS animation.
+    // Mount the trip-screen hidden (opacity 0) — React renders while the
+    // overlay is animating, so no contention.
     setDeferredSlides(false);
     setActiveTripIndex(idx);
     setCurrentSlide(0);
-    setOverviewFaded(true);
-    // Double rAF: first rAF queues after React commits, second after the
-    // browser paints the committed DOM — animation starts jank-free.
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        setIsAnimatingIn(true);
-      });
-    });
+    setIsAnimatingIn(true);
   }, [trips]);
 
   const closeTrip = useCallback(() => {
@@ -262,11 +237,12 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
   // when element enters the DOM and animation starts in the same frame
   useEffect(() => {
     if (!isAnimatingIn && !isAnimatingOut) return;
-    const duration = isAnimatingIn ? 500 : 400;
+    const duration = isAnimatingIn ? 480 : 400;
     const timer = setTimeout(() => {
       if (isAnimatingIn) {
         setIsAnimatingIn(false);
-        setDeferredSlides(true); // render day slides now that animation is done
+        setTransitionImg(null); // remove the overlay
+        setDeferredSlides(true); // render day slides now
       }
       if (isAnimatingOut) {
         setIsAnimatingOut(false);
@@ -1104,7 +1080,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
       {/* Trip Screen */}
       {activeTripIndex !== null && (
         <div
-          className={`trip-screen ${!isAnimatingIn && !isAnimatingOut && !deferredSlides && !autoOpen ? 'pre-animate' : ''} ${isAnimatingIn ? 'animating-in' : ''} ${isAnimatingOut ? 'animating-out' : ''} ${detailOpen ? 'detail-behind' : ''}`}
+          className={`trip-screen ${isAnimatingIn ? 'fade-in' : ''} ${isAnimatingOut ? 'animating-out' : ''} ${detailOpen ? 'detail-behind' : ''}`}
           style={{
             display: 'flex',
             '--card-top': cardVars.top,
@@ -1193,6 +1169,37 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
           )}
         </div>
       )}
+
+      {/* Transition overlay — lightweight <img> animates from card to fullscreen
+           on the compositor thread while React mounts the heavy trip-screen */}
+      {transitionImg && (() => {
+        const { src, rect, appRect: ar } = transitionImg;
+        const left = rect.left - ar.left;
+        const top = rect.top - ar.top;
+        // End-state: how much to scale the card image to fill the container
+        const endSx = ar.width / rect.width;
+        const endSy = ar.height / rect.height;
+        // End-state: translate so the scaled image starts at 0,0
+        // translate in unscaled coords, then scale from top-left origin
+        return (
+          <div
+            className="trip-transition-overlay"
+            style={{
+              '--tt-left': left + 'px',
+              '--tt-top': top + 'px',
+              '--tt-w': rect.width + 'px',
+              '--tt-h': rect.height + 'px',
+              '--tt-end-tx': (-left) + 'px',
+              '--tt-end-ty': (-top) + 'px',
+              '--tt-end-sx': String(endSx),
+              '--tt-end-sy': String(endSy),
+            } as React.CSSProperties}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={src} alt="" />
+          </div>
+        );
+      })()}
 
       {/* Detail sheet */}
       <div className={`detail-overlay ${detailOpen ? 'open' : ''}`} role="dialog" aria-modal="true" aria-label={detailContent.title}>

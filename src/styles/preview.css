@@ -347,21 +347,40 @@
    SCREEN TRANSITIONS
    ============================================ */
 .trip-screen { position: absolute; inset: 0; z-index: 30; flex-direction: column; background: var(--color-surface); overflow: hidden; transition: transform 0.35s cubic-bezier(0.25, 0.1, 0.25, 1), border-radius 0.35s cubic-bezier(0.25, 0.1, 0.25, 1); }
-.trip-screen.pre-animate { transform: translate(var(--card-tx), var(--card-ty)) scale(var(--card-sx), var(--card-sy)); border-radius: 20px; opacity: 0; will-change: transform, opacity, border-radius; }
-.trip-screen.animating-in,
-.trip-screen.animating-out { will-change: transform, opacity, border-radius; }
-.trip-screen.animating-in { animation: tripGrowIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
-.trip-screen.animating-out { animation: tripShrinkOut 0.4s cubic-bezier(0.4, 0.0, 0.2, 1) forwards; }
+/* While transition overlay is playing, trip-screen sits behind it invisible,
+   then fades in as the overlay reaches fullscreen */
+.trip-screen.fade-in { animation: tripFadeIn 0.48s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+.trip-screen.animating-out { will-change: transform, opacity; animation: tripShrinkOut 0.4s cubic-bezier(0.4, 0.0, 0.2, 1) forwards; }
 
-@keyframes tripGrowIn {
-  0%   { transform: translate(var(--card-tx), var(--card-ty)) scale(var(--card-sx), var(--card-sy)); border-radius: 20px; opacity: 0; }
-  8%   { opacity: 1; }
-  100% { transform: translate(0, 0) scale(1, 1); border-radius: 0px; opacity: 1; }
+@keyframes tripFadeIn {
+  0%   { opacity: 0; }
+  60%  { opacity: 0; }
+  100% { opacity: 1; }
 }
 @keyframes tripShrinkOut {
-  0%   { transform: translate(0, 0) scale(1, 1); border-radius: 0px; opacity: 1; }
+  0%   { transform: translate(0, 0) scale(1, 1); opacity: 1; }
   85%  { opacity: 1; }
-  100% { transform: translate(var(--card-tx), var(--card-ty)) scale(var(--card-sx), var(--card-sy)); border-radius: 20px; opacity: 0; }
+  100% { transform: translate(var(--card-tx), var(--card-ty)) scale(var(--card-sx), var(--card-sy)); opacity: 0; }
+}
+
+/* Lightweight transition overlay — only animates transform + opacity on a
+   single <img> so it's 100% compositor-driven, zero main-thread work */
+.trip-transition-overlay {
+  position: absolute; inset: 0; z-index: 35; pointer-events: none; overflow: hidden;
+}
+.trip-transition-overlay img {
+  position: absolute;
+  left: var(--tt-left); top: var(--tt-top);
+  width: var(--tt-w); height: var(--tt-h);
+  object-fit: cover;
+  border-radius: 16px;
+  transform-origin: top left;
+  will-change: transform, opacity;
+  animation: ttGrow 0.48s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+@keyframes ttGrow {
+  0%   { transform: translate(0, 0) scale(1, 1); opacity: 1; }
+  100% { transform: translate(var(--tt-end-tx), var(--tt-end-ty)) scale(var(--tt-end-sx), var(--tt-end-sy)); border-radius: 0px; opacity: 1; }
 }
 .overview-screen { transition: opacity 0.35s cubic-bezier(0.22, 1, 0.36, 1); }
 .overview-screen.faded { opacity: 0.3; pointer-events: none; }
