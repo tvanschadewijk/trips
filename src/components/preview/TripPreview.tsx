@@ -81,10 +81,8 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
   const [detailContent, setDetailContent] = useState<{ title: string; html: string }>({ title: '', html: '' });
   const [isAnimatingIn, setIsAnimatingIn] = useState(false);
   const [isAnimatingOut, setIsAnimatingOut] = useState(false);
-  const [deferredSlides, setDeferredSlides] = useState(false);
   const [overviewFaded, setOverviewFaded] = useState(autoOpen ? true : false);
-  const [cardVars, setCardVars] = useState({ top: '0px', right: '0px', bottom: '0px', left: '0px', scaleX: '1', scaleY: '1', tx: '0px', ty: '0px' });
-  const tripScreenRef = useRef<HTMLDivElement>(null);
+  const [cardVars, setCardVars] = useState({ top: '0px', right: '0px', bottom: '0px', left: '0px' });
   const [showArchive, setShowArchive] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
@@ -134,9 +132,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     slides?.forEach((s) => { (s as HTMLElement).scrollTop = 0; });
   }, [totalSlides]);
 
-  // Open trip with FLIP animation — mount the trip-screen at its final
-  // position, then use the Web Animations API to animate from the card's
-  // position. Web Animations API runs entirely on the compositor thread.
+  // Open trip with grow animation
   const openTrip = useCallback((idx: number, cardEl: HTMLElement) => {
     const td = trips[idx];
     if (!td.days.length) return;
@@ -146,41 +142,17 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     const appRect = appEl.getBoundingClientRect();
     const cardRect = cardEl.getBoundingClientRect();
 
-    const sX = cardRect.width / appRect.width;
-    const sY = cardRect.height / appRect.height;
-    const tx = (cardRect.left - appRect.left) + cardRect.width / 2 - appRect.width / 2;
-    const ty = (cardRect.top - appRect.top) + cardRect.height / 2 - appRect.height / 2;
-
     setCardVars({
       top: (cardRect.top - appRect.top) + 'px',
       right: (appRect.right - cardRect.right) + 'px',
       bottom: (appRect.bottom - cardRect.bottom) + 'px',
       left: (cardRect.left - appRect.left) + 'px',
-      scaleX: String(sX), scaleY: String(sY),
-      tx: tx + 'px', ty: ty + 'px',
     });
 
-    setDeferredSlides(false);
     setActiveTripIndex(idx);
     setCurrentSlide(0);
     setOverviewFaded(true);
     setIsAnimatingIn(true);
-
-    // FLIP: after React renders the trip-screen at fullscreen, animate FROM
-    // the card position. requestAnimationFrame ensures the DOM is committed.
-    requestAnimationFrame(() => {
-      const el = tripScreenRef.current;
-      if (!el) return;
-      el.animate([
-        { transform: `translate(${tx}px, ${ty}px) scale(${sX}, ${sY})`, borderRadius: '16px', opacity: 0.6 },
-        { transform: 'translate(0, 0) scale(1, 1)', borderRadius: '0px', opacity: 1 },
-      ], {
-        duration: 480,
-        easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
-        fill: 'forwards',
-        composite: 'replace',
-      });
-    });
   }, [trips]);
 
   const closeTrip = useCallback(() => {
@@ -190,20 +162,12 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
   }, [activeTripIndex, autoOpen]);
 
   // Signal view transition readiness (coordinates with dashboard startViewTransition)
-  // and defer heavy day slides until after the transition settles
   useEffect(() => {
     const w = window as unknown as Record<string, unknown>;
     if (typeof w.__tripTransitionResolve === 'function') {
       (w.__tripTransitionResolve as () => void)();
       w.__tripTransitionResolve = null;
     }
-    // Defer day-slide rendering until after the initial paint so the View
-    // Transition animation (or autoOpen mount) isn't blocked by heavy renders
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        setDeferredSlides(true);
-      });
-    });
   }, []);
 
   // Handle nav back
@@ -269,15 +233,11 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
   // when element enters the DOM and animation starts in the same frame
   useEffect(() => {
     if (!isAnimatingIn && !isAnimatingOut) return;
-    const duration = isAnimatingIn ? 500 : 400;
+    const duration = isAnimatingIn ? 500 : 450;
     const timer = setTimeout(() => {
-      if (isAnimatingIn) {
-        setIsAnimatingIn(false);
-        setDeferredSlides(true);
-      }
+      if (isAnimatingIn) setIsAnimatingIn(false);
       if (isAnimatingOut) {
         setIsAnimatingOut(false);
-        setDeferredSlides(false);
         setActiveTripIndex(null);
       }
     }, duration);
@@ -396,6 +356,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
         // Open the matching trip and navigate to the day
         setActiveTripIndex(i);
         setOverviewFaded(true);
+        setIsAnimatingIn(true);
         setCurrentSlide(slideIdx);
         setTimeout(() => {
           if (trackRef.current) {
@@ -1110,14 +1071,13 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
       {/* Trip Screen */}
       {activeTripIndex !== null && (
         <div
-          ref={tripScreenRef}
-          className={`trip-screen ${isAnimatingOut ? 'animating-out' : ''} ${detailOpen ? 'detail-behind' : ''}`}
+          className={`trip-screen ${isAnimatingIn ? 'animating-in' : ''} ${isAnimatingOut ? 'animating-out' : ''} ${detailOpen ? 'detail-behind' : ''}`}
           style={{
             display: 'flex',
-            '--card-tx': cardVars.tx,
-            '--card-ty': cardVars.ty,
-            '--card-sx': cardVars.scaleX,
-            '--card-sy': cardVars.scaleY,
+            '--card-top': cardVars.top,
+            '--card-right': cardVars.right,
+            '--card-bottom': cardVars.bottom,
+            '--card-left': cardVars.left,
           } as React.CSSProperties}
         >
           {/* Nav Bar */}
@@ -1161,7 +1121,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
           <div className="swipe-viewport" ref={viewportRef}>
             <div className="swipe-track" ref={trackRef}>
               {renderHeroSlide()}
-              {deferredSlides && days.map(day => renderDaySlide(day))}
+              {days.map(day => renderDaySlide(day))}
             </div>
           </div>
 
