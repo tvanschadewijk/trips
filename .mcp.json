@@ -1,9 +1,0 @@
-{
-  "mcpServers": {
-    "our-trips": {
-      "command": "/opt/homebrew/bin/npx",
-      "args": ["tsx", "index.ts"],
-      "cwd": "/Users/thijsvanschadewijk/Documents/Development/Trips/scripts/mcp-server"
-    }
-  }
-}
