@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback, useEffect } from 'react';
+import { flushSync } from 'react-dom';
 import Image from 'next/image';
 import type { TripData, Day, Transport, Accommodation, Tip, Meal } from '@/lib/types';
 import { ICONS } from './icons';
@@ -28,6 +29,7 @@ function formatDate(dateStr: string, opts: Intl.DateTimeFormatOptions) {
 }
 
 const MAX_VISIBLE_DOTS = 7;
+const TRIP_HERO_TRANSITION_NAME = 'trip-hero';
 
 function SwipeDots({ total, current, onDotClick }: { total: number; current: number; onDotClick: (i: number) => void }) {
   if (total <= MAX_VISIBLE_DOTS) {
@@ -79,10 +81,8 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
   const [currentSlide, setCurrentSlide] = useState(0);
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailContent, setDetailContent] = useState<{ title: string; html: string }>({ title: '', html: '' });
-  const [isAnimatingIn, setIsAnimatingIn] = useState(false);
-  const [isAnimatingOut, setIsAnimatingOut] = useState(false);
   const [overviewFaded, setOverviewFaded] = useState(autoOpen ? true : false);
-  const [cardVars, setCardVars] = useState({ top: '0px', right: '0px', bottom: '0px', left: '0px' });
+  const [transitionTripIndex, setTransitionTripIndex] = useState<number | null>(autoOpen ? 0 : null);
   const [showArchive, setShowArchive] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
@@ -96,7 +96,6 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
   const viewportRef = useRef<HTMLDivElement>(null);
   const dateStripRef = useRef<HTMLDivElement>(null);
   const dateStripDragged = useRef(false);
-  const appRef = useRef<HTMLDivElement>(null);
 
   // Touch state
   const touchState = useRef({ startX: 0, startY: 0, startTime: 0, dx: 0, isDragging: false, isScrolling: null as boolean | null });
@@ -106,6 +105,19 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
   const days = activeTripIndex !== null ? trips[activeTripIndex]?.days || [] : [];
   const totalSlides = 1 + days.length;
   const isHero = currentSlide === 0;
+
+  const startViewTransition = useCallback((update: () => void) => {
+    const vt = (document as Document & {
+      startViewTransition?: (callback: () => void) => { finished: Promise<void> };
+    }).startViewTransition;
+
+    if (!vt) {
+      update();
+      return null;
+    }
+
+    return vt.call(document, update);
+  }, []);
 
   const goTo = useCallback((idx: number) => {
     const clamped = Math.max(0, Math.min(idx, totalSlides - 1));
@@ -137,29 +149,48 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     const td = trips[idx];
     if (!td.days.length) return;
 
-    const appEl = appRef.current;
-    if (!appEl) return;
-    const appRect = appEl.getBoundingClientRect();
-    const cardRect = cardEl.getBoundingClientRect();
+    const heroFrame = cardEl.querySelector('.trip-card-media') as HTMLElement | null;
+    if (heroFrame) {
+      heroFrame.style.viewTransitionName = TRIP_HERO_TRANSITION_NAME;
+    }
 
-    setCardVars({
-      top: (cardRect.top - appRect.top) + 'px',
-      right: (appRect.right - cardRect.right) + 'px',
-      bottom: (appRect.bottom - cardRect.bottom) + 'px',
-      left: (cardRect.left - appRect.left) + 'px',
+    flushSync(() => {
+      setTransitionTripIndex(idx);
     });
 
-    setActiveTripIndex(idx);
-    setCurrentSlide(0);
-    setOverviewFaded(true);
-    setIsAnimatingIn(true);
-  }, [trips]);
+    startViewTransition(() => {
+      flushSync(() => {
+        setActiveTripIndex(idx);
+        setCurrentSlide(0);
+        setOverviewFaded(true);
+      });
+    });
+  }, [startViewTransition, trips]);
 
   const closeTrip = useCallback(() => {
     if (activeTripIndex === null || autoOpen) return;
-    setIsAnimatingOut(true);
-    setOverviewFaded(false);
-  }, [activeTripIndex, autoOpen]);
+
+    flushSync(() => {
+      setTransitionTripIndex(activeTripIndex);
+    });
+
+    const transition = startViewTransition(() => {
+      flushSync(() => {
+        setOverviewFaded(false);
+        setCurrentSlide(0);
+        setActiveTripIndex(null);
+      });
+    });
+
+    if (transition) {
+      transition.finished.finally(() => {
+        setTransitionTripIndex(null);
+      });
+      return;
+    }
+
+    setTransitionTripIndex(null);
+  }, [activeTripIndex, autoOpen, startViewTransition]);
 
   // Signal view transition readiness (coordinates with dashboard startViewTransition)
   useEffect(() => {
@@ -228,21 +259,6 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shareId]);
-
-  // Animation end — use timeout as fallback since animationend may not fire
-  // when element enters the DOM and animation starts in the same frame
-  useEffect(() => {
-    if (!isAnimatingIn && !isAnimatingOut) return;
-    const duration = isAnimatingIn ? 500 : 450;
-    const timer = setTimeout(() => {
-      if (isAnimatingIn) setIsAnimatingIn(false);
-      if (isAnimatingOut) {
-        setIsAnimatingOut(false);
-        setActiveTripIndex(null);
-      }
-    }, duration);
-    return () => clearTimeout(timer);
-  }, [isAnimatingIn, isAnimatingOut]);
 
   // Touch handlers
   useEffect(() => {
@@ -354,9 +370,9 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
         const slideIdx = dayIdx >= 0 ? dayIdx + 1 : 1; // +1 because slide 0 is hero
 
         // Open the matching trip and navigate to the day
+        setTransitionTripIndex(i);
         setActiveTripIndex(i);
         setOverviewFaded(true);
-        setIsAnimatingIn(true);
         setCurrentSlide(slideIdx);
         setTimeout(() => {
           if (trackRef.current) {
@@ -524,8 +540,13 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
         if ((e.target as HTMLElement).closest('.trip-card-delete')) return;
         openTrip(origIdx, e.currentTarget);
       }} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openTrip(origIdx, e.currentTarget as HTMLElement); } }}>
-        <Image className="trip-card-img" src={img} alt={t.name} fill sizes="430px" style={{ objectFit: 'cover', opacity: brokenImages.has(img) ? 0 : 1 }} onError={() => onImgError(img)} />
-        <div className="trip-card-gradient" />
+        <div
+          className="trip-card-media"
+          style={activeTripIndex === null && transitionTripIndex === origIdx ? { viewTransitionName: TRIP_HERO_TRANSITION_NAME } as React.CSSProperties : undefined}
+        >
+          <Image className="trip-card-img" src={img} alt={t.name} fill sizes="430px" style={{ objectFit: 'cover', opacity: brokenImages.has(img) ? 0 : 1 }} onError={() => onImgError(img)} />
+          <div className="trip-card-gradient" />
+        </div>
         <div className="trip-card-badge">{statusLabel}</div>
         {onDelete && <button className="trip-card-delete" onClick={(e) => { e.stopPropagation(); setDeleteConfirm(origIdx); }} aria-label={`Delete ${t.name}`}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
@@ -697,10 +718,15 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     return (
       <div className="slide">
         <div className="hero-slide">
-          <div className="hero-bg">
-            <Image src={trip.hero_image} alt={trip.name} fill sizes="430px" priority style={{ objectFit: 'cover', viewTransitionName: 'trip-hero', opacity: brokenImages.has(trip.hero_image) ? 0 : 1 } as React.CSSProperties} onError={() => onImgError(trip.hero_image)} />
+          <div
+            className="hero-frame"
+            style={activeTripIndex !== null && transitionTripIndex === activeTripIndex ? { viewTransitionName: TRIP_HERO_TRANSITION_NAME } as React.CSSProperties : undefined}
+          >
+            <div className="hero-bg">
+              <Image src={trip.hero_image} alt={trip.name} fill sizes="430px" priority style={{ objectFit: 'cover', opacity: brokenImages.has(trip.hero_image) ? 0 : 1 }} onError={() => onImgError(trip.hero_image)} />
+            </div>
+            <div className="hero-overlay" />
           </div>
-          <div className="hero-overlay" />
           <div className="hero-body">
             <div className="hero-pill">
               <Icon name="users" />
@@ -1001,7 +1027,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
   return (
     <>
     <div className="trip-desktop-bg" />
-    <div className="trip-app" ref={appRef}>
+    <div className="trip-app">
       {/* Overview Screen */}
       <div className={`overview-screen ${overviewFaded ? 'faded' : ''}`}>
         <div className="overview-header">
@@ -1071,14 +1097,8 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
       {/* Trip Screen */}
       {activeTripIndex !== null && (
         <div
-          className={`trip-screen ${isAnimatingIn ? 'animating-in' : ''} ${isAnimatingOut ? 'animating-out' : ''} ${detailOpen ? 'detail-behind' : ''}`}
-          style={{
-            display: 'flex',
-            '--card-top': cardVars.top,
-            '--card-right': cardVars.right,
-            '--card-bottom': cardVars.bottom,
-            '--card-left': cardVars.left,
-          } as React.CSSProperties}
+          className={`trip-screen ${detailOpen ? 'detail-behind' : ''}`}
+          style={{ display: 'flex' }}
         >
           {/* Nav Bar */}
           <div className={`nav-bar ${isHero ? 'over-hero' : ''}`}>

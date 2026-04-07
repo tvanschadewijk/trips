@@ -284,8 +284,8 @@ export default function DashboardPage() {
                       const vt = (document as unknown as { startViewTransition?: (cb: () => Promise<void>) => void }).startViewTransition;
                       if (!vt) return; // let normal Link navigation happen
                       e.preventDefault();
-                      const img = (e.currentTarget as HTMLElement).querySelector('img');
-                      if (img) img.style.viewTransitionName = 'trip-hero';
+                      const frame = (e.currentTarget as HTMLElement).querySelector('.dash-card-hero-frame') as HTMLElement | null;
+                      if (frame) frame.style.viewTransitionName = 'trip-hero';
                       sessionStorage.setItem('vt-trip', trip.share_id);
                       vt.call(document, async () => {
                         router.push(`/t/${trip.share_id}`);
@@ -297,9 +297,11 @@ export default function DashboardPage() {
                     }}
                   >
                     <div className="dash-card-hero">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={t.hero_image} alt={t.name} style={vtTrip === trip.share_id ? { viewTransitionName: 'trip-hero' } as React.CSSProperties : undefined} />
-                      <div className="dash-card-hero-gradient" />
+                      <div className="dash-card-hero-frame" style={vtTrip === trip.share_id ? { viewTransitionName: 'trip-hero' } as React.CSSProperties : undefined}>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={t.hero_image} alt={t.name} />
+                        <div className="dash-card-hero-gradient" />
+                      </div>
                       <div className="dash-card-hero-text">
                         <div className="dash-card-name">{t.name}</div>
                         <div className="dash-card-subtitle">{t.subtitle}</div>
