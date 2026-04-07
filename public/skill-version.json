@@ -1,0 +1,5 @@
+{
+  "version": 2,
+  "changelog": "Use PATCH for incremental trip updates instead of full re-upload",
+  "download_url": "https://ourtrips.to/our-trips.skill"
+}
