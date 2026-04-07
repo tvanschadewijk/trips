@@ -19,6 +19,7 @@ export default async function Home() {
           <span className="landing-logo">Our Trips<LogoSuffix /></span>
           <div className="landing-nav-links">
             <Link href="/demo" className="landing-nav-link">Demo</Link>
+            <Link href="/blog" className="landing-nav-link">Blog</Link>
             <Link href="/login" className="landing-btn-outline">Log in</Link>
           </div>
         </div>
