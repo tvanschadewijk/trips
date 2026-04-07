@@ -20,6 +20,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return {
     title: `${post.title} — Our Trips Blog`,
     description: post.excerpt,
+    alternates: {
+      canonical: `https://ourtrips.to/blog/${post.slug}`,
+    },
     openGraph: {
       title: post.title,
       description: post.excerpt,
@@ -28,6 +31,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       locale: 'en_US',
       type: 'article',
       publishedTime: post.date,
+      modifiedTime: post.lastUpdated,
+      authors: ['Thijs van Schadewijk'],
     },
     twitter: {
       card: 'summary_large_image',
@@ -42,23 +47,75 @@ export default async function BlogPostPage({ params }: Props) {
   const post = getPost(slug);
   if (!post) notFound();
 
-  const jsonLd = {
-    '@context': 'https://schema.org',
-    '@type': 'Article',
-    headline: post.title,
-    description: post.excerpt,
-    datePublished: post.date,
-    author: {
-      '@type': 'Person',
-      name: 'Thijs van Schadewijk',
+  const jsonLd: Record<string, unknown>[] = [
+    {
+      '@context': 'https://schema.org',
+      '@type': 'Article',
+      headline: post.title,
+      description: post.excerpt,
+      datePublished: post.date,
+      dateModified: post.lastUpdated,
+      author: {
+        '@type': 'Person',
+        name: 'Thijs van Schadewijk',
+        url: 'https://ourtrips.to',
+      },
+      publisher: {
+        '@type': 'Organization',
+        name: 'Our Trips',
+        url: 'https://ourtrips.to',
+        logo: {
+          '@type': 'ImageObject',
+          url: 'https://ourtrips.to/icons/icon-192.png',
+        },
+      },
+      mainEntityOfPage: {
+        '@type': 'WebPage',
+        '@id': `https://ourtrips.to/blog/${post.slug}`,
+      },
+      image: `https://ourtrips.to/blog/${post.slug}/opengraph-image`,
+      articleSection: post.tag,
     },
-    publisher: {
-      '@type': 'Organization',
-      name: 'Our Trips',
-      url: 'https://ourtrips.to',
+    {
+      '@context': 'https://schema.org',
+      '@type': 'BreadcrumbList',
+      itemListElement: [
+        {
+          '@type': 'ListItem',
+          position: 1,
+          name: 'Home',
+          item: 'https://ourtrips.to',
+        },
+        {
+          '@type': 'ListItem',
+          position: 2,
+          name: 'Blog',
+          item: 'https://ourtrips.to/blog',
+        },
+        {
+          '@type': 'ListItem',
+          position: 3,
+          name: post.title,
+          item: `https://ourtrips.to/blog/${post.slug}`,
+        },
+      ],
     },
-    mainEntityOfPage: `https://ourtrips.to/blog/${post.slug}`,
-  };
+  ];
+
+  if (post.faq.length > 0) {
+    jsonLd.push({
+      '@context': 'https://schema.org',
+      '@type': 'FAQPage',
+      mainEntity: post.faq.map((item) => ({
+        '@type': 'Question',
+        name: item.question,
+        acceptedAnswer: {
+          '@type': 'Answer',
+          text: item.answer,
+        },
+      })),
+    });
+  }
 
   return (
     <div className="blog">
@@ -87,16 +144,45 @@ export default async function BlogPostPage({ params }: Props) {
                 year: 'numeric',
               })}
             </span>
+            {post.lastUpdated !== post.date && (
+              <span className="blog-article-updated">
+                Updated {new Date(post.lastUpdated).toLocaleDateString('en-US', {
+                  month: 'long',
+                  day: 'numeric',
+                  year: 'numeric',
+                })}
+              </span>
+            )}
             <span className="blog-article-tag">{post.tag}</span>
           </div>
 
           <h1 className="blog-article-title">{post.title}</h1>
           <p className="blog-article-subtitle">{post.subtitle}</p>
 
+          <div className="blog-article-author">
+            <span className="blog-article-author-name">By Thijs van Schadewijk</span>
+            <span className="blog-article-author-sep">&middot;</span>
+            <span className="blog-article-author-time">{post.readingTime}</span>
+          </div>
+
           <div
             className="blog-article-body"
             dangerouslySetInnerHTML={{ __html: post.body }}
           />
+
+          {post.faq.length > 0 && (
+            <div className="blog-faq">
+              <h2 className="blog-faq-title">Frequently Asked Questions</h2>
+              <div className="blog-faq-list">
+                {post.faq.map((item, i) => (
+                  <div key={i} className="blog-faq-item">
+                    <h3 className="blog-faq-question">{item.question}</h3>
+                    <p className="blog-faq-answer">{item.answer}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="blog-article-cta">
             <div className="blog-article-cta-title">Ready to try it?</div>

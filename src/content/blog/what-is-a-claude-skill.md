@@ -4,20 +4,26 @@ subtitle: "Everything you need to know about Claude's skill system - what they a
 excerpt: "Claude skills are portable files that give Claude new abilities - from planning trips to generating reports. Here's how the skill ecosystem works and how to get started."
 tag: Guide
 date: 2026-04-07
+lastUpdated: 2026-04-07
 readingTime: "5 min read"
+faq:
+  - q: "Are Claude skills free?"
+    a: "Most Claude skills are free. They're just files you install into your session. You do need access to Claude CoWork or Codex, which may require a Claude subscription."
+  - q: "Do Claude skills work with ChatGPT?"
+    a: "No. Claude skills (.skill files) only work with Claude CoWork and Codex. ChatGPT has its own extension system (Custom GPTs and plugins)."
+  - q: "How do I install a Claude skill?"
+    a: "Two ways: paste a fetch command like 'Fetch [URL] and add it to my skills' into your Claude chat, or manually upload the .skill file through the Customize panel in CoWork."
+  - q: "What's the difference between a Claude skill and an MCP server?"
+    a: "MCP servers provide live tool connections (like database access or API integrations). Skills are portable instruction files that bundle prompts, schemas, and API connections into a single shareable package. Skills are simpler to install and share."
+  - q: "Can I build my own Claude skill?"
+    a: "Yes. If you have a workflow you repeat often, you can package it as a .skill file with instructions, schemas, and API connections. Share it with anyone by sending them the file."
 ---
 
-If you've been using Claude for a while, you've probably run into the word "skill" at some point. Maybe someone told you to install one. Maybe you saw a `.skill` file floating around on Twitter. But nobody really explained what it is.
-
-So let's fix that.
-
-## The short version
-
-A skill is a file you give to Claude. It teaches Claude how to do something specific. Drop it in, and Claude picks up a new ability - no prompting, no setup, no instructions to copy-paste every time.
+A **Claude skill** is a portable file (ending in `.skill`) that teaches Claude how to perform a specific task. Install one into your Claude session and Claude picks up a new ability - no prompting, no setup, no instructions to copy-paste every time. Skills work in Claude CoWork and Codex.
 
 It's the difference between telling someone how to cook a recipe from scratch every time you want dinner, versus just handing them the cookbook.
 
-## How is this different from prompts or custom instructions?
+## How are skills different from prompts or custom instructions?
 
 Before skills existed, there were basically two ways to get Claude to do something specific:
 
@@ -33,7 +39,7 @@ Before skills existed, there were basically two ways to get Claude to do somethi
 | Custom instructions | Persistent | Medium | Not shareable |
 | **Skill** | **Per-session** | **High** | **A file you can share** |
 
-## Where do skills work?
+## Where do Claude skills work?
 
 Two places right now:
 
@@ -41,7 +47,7 @@ Two places right now:
 
 **Codex** - the coding environment. Developers use skills here for things like deployment workflows, code patterns, or API integrations.
 
-## What's actually inside a skill file?
+## What's inside a skill file?
 
 A `.skill` file is a bundle. Depending on the skill, it might contain:
 
@@ -64,7 +70,7 @@ The ecosystem is still early but growing fast. A few categories:
 
 **Data** - structured extraction, analysis workflows, formatted outputs for specific tools or dashboards.
 
-## How to install one
+## How to install a Claude skill
 
 Takes 30 seconds. Two options:
 
@@ -86,7 +92,7 @@ Claude downloads it, installs it, done.
 
 Active for the rest of your session.
 
-## Where to find skills
+## Where to find Claude skills
 
 Still early days, but there are a few places:
 
@@ -95,7 +101,7 @@ Still early days, but there are a few places:
 - **GitHub** - developers share skills in repos and Claude communities
 - **Build your own** - if you have a workflow you repeat often, you can package it as a skill
 
-## Why this matters
+## Why Claude skills matter
 
 The big deal with skills is that they lower the bar. You don't need to be good at prompt engineering to get good output from Claude. Someone else already did that work and packaged it into a file you can install.
 

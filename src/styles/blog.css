@@ -340,6 +340,72 @@
   line-height: 1.6;
 }
 
+/* Author byline */
+.blog-article-author {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 32px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.35);
+}
+.blog-article-author-name {
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.5);
+}
+.blog-article-author-sep {
+  color: rgba(255, 255, 255, 0.2);
+}
+.blog-article-author-time {
+  color: rgba(255, 255, 255, 0.35);
+}
+
+/* Updated date */
+.blog-article-updated {
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.3);
+  font-style: italic;
+}
+
+/* FAQ section */
+.blog-faq {
+  margin-top: 48px;
+  padding-top: 40px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+.blog-faq-title {
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: #FFFFFF;
+  margin: 0 0 24px;
+}
+.blog-faq-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.blog-faq-item {
+  padding: 20px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+}
+.blog-faq-question {
+  font-size: 16px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  margin: 0 0 8px;
+  line-height: 1.4;
+}
+.blog-faq-answer {
+  font-size: 14px;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.5);
+  margin: 0;
+}
+
 /* Article CTA */
 .blog-article-cta {
   margin-top: 48px;

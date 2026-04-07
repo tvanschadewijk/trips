@@ -4,20 +4,32 @@ subtitle: "Turn any Claude conversation into a shareable, interactive travel iti
 excerpt: "Claude skills are small files that give Claude new abilities. The Our Trips skill turns any travel conversation into a beautiful, pocket-friendly itinerary you can share with anyone."
 tag: Guide
 date: 2026-04-05
+lastUpdated: 2026-04-07
 readingTime: "6 min read"
+faq:
+  - q: "Does the Our Trips skill work with ChatGPT?"
+    a: "Not yet. The Our Trips skill currently works with Claude CoWork and Codex only. ChatGPT support through Custom GPTs is being explored."
+  - q: "Do I need an account to view a trip?"
+    a: "No. Anyone with the link can view the itinerary without creating an account."
+  - q: "Is the Our Trips skill free?"
+    a: "Yes. The skill is free to install and use. You just need access to Claude CoWork or Codex."
+  - q: "Can I edit the itinerary after it's created?"
+    a: "Yes. You can continue refining the itinerary in your Claude conversation and send an updated version to Our Trips at any time."
 ---
+
+The **Our Trips skill** is a Claude skill that turns any travel conversation into a shareable, mobile-friendly itinerary on [ourtrips.to](https://ourtrips.to). Install the skill, plan your trip through conversation, and say "Send it to Our Trips" to get a link you can pull up on your phone or share with anyone.
 
 We've all been there. You spend 20 minutes going back and forth with Claude about your trip to Portugal, and you end up with a genuinely solid itinerary. Great restaurants, realistic timing, good mix of activities. But then what? You copy-paste it into Apple Notes. Or a Google Doc. Or you just... leave it in the chat and hope you'll find it later.
 
 That's the problem. The planning part is easy now. It's the *keeping and sharing* part that still sucks. **Claude skills fix that.**
 
-## So what's a skill?
+## What is a Claude skill?
 
 A skill is a file (ending in `.skill`) that you drop into Claude. It teaches Claude how to do something specific. In this case, the **Our Trips skill** teaches Claude how to take your travel conversation and turn it into a proper itinerary on [ourtrips.to](https://ourtrips.to) - with a link you can pull up on your phone.
 
 Skills work in **Claude CoWork** and **Codex**. If you've messed around with MCP servers or custom instructions before, skills are basically the next step - portable, shareable, single-purpose.
 
-## Step 1: Install it
+## Step 1: Install the Our Trips skill
 
 Two ways. Both take 30 seconds.
 
@@ -75,9 +87,9 @@ What you get:
 
 It's a real page, designed for mobile. Not a PDF. Not a screenshot of your chat.
 
-## Why bother? Google Docs exist.
+## Why use Our Trips instead of Google Docs?
 
-Sure. But a Google Doc is a wall of text on a white background. Try reading that on your phone while standing in Shibuya trying to figure out where lunch is.
+Sure, Google Docs exist. But a Google Doc is a wall of text on a white background. Try reading that on your phone while standing in Shibuya trying to figure out where lunch is.
 
 Our Trips gives you something that's actually designed to be used while traveling. Days you can swipe through. Tap on a restaurant to see the details. Everything in one place, loads fast, works offline.
 

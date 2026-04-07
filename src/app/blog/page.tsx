@@ -8,6 +8,9 @@ export const metadata: Metadata = {
   title: 'Blog — Our Trips',
   description:
     'Guides, tips, and tutorials on AI-powered trip planning with Claude skills. Learn how to create beautiful, shareable travel itineraries.',
+  alternates: {
+    canonical: 'https://ourtrips.to/blog',
+  },
   openGraph: {
     title: 'Blog — Our Trips',
     description:
