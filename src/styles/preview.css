@@ -122,6 +122,7 @@
    HERO SLIDE
    ============================================ */
 .hero-slide { position: relative; min-height: 100%; display: flex; flex-direction: column; justify-content: flex-end; }
+.hero-frame { position: absolute; inset: 0; overflow: hidden; contain: paint; }
 .hero-bg { position: absolute; inset: 0; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%); }
 .hero-bg img { width: 100%; height: 100%; object-fit: cover; }
 .hero-overlay { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(to top, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.52) 40%, rgba(0,0,0,0.32) 70%, rgba(0,0,0,0.25) 100%); }
@@ -323,6 +324,7 @@
 /* Trip card in overview */
 .trip-card { position: relative; border-radius: var(--radius-card); overflow: hidden; margin-bottom: 16px; cursor: pointer; height: 240px; box-shadow: var(--shadow-card); transform: scale(1); transition: transform 0.25s cubic-bezier(0.25, 0.1, 0.25, 1), box-shadow 0.25s ease; background: var(--color-surface); }
 .trip-card:active { transform: scale(0.97); box-shadow: var(--shadow-card-hover); }
+.trip-card-media { position: absolute; inset: 0; overflow: hidden; border-radius: inherit; contain: paint; }
 .trip-card-img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.4s cubic-bezier(0.25, 0.1, 0.25, 1); }
 @media (hover: hover) { .trip-card:hover .trip-card-img { transform: scale(1.03); } }
 .trip-card-gradient { position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,0.78) 0%, rgba(0,0,0,0.35) 40%, rgba(0,0,0,0.05) 100%); }
@@ -348,21 +350,22 @@
    SCREEN TRANSITIONS
    ============================================ */
 .trip-screen { position: absolute; inset: 0; z-index: 30; flex-direction: column; background: var(--color-surface); overflow: hidden; transition: transform 0.35s cubic-bezier(0.25, 0.1, 0.25, 1), border-radius 0.35s cubic-bezier(0.25, 0.1, 0.25, 1); }
-.trip-screen.animating-in { animation: tripGrowIn 0.5s cubic-bezier(0.4, 0.0, 0.0, 1) forwards; }
-.trip-screen.animating-out { animation: tripShrinkOut 0.45s cubic-bezier(0.4, 0.0, 0.2, 1) forwards; }
-
-@keyframes tripGrowIn {
-  0% { clip-path: inset(var(--card-top) var(--card-right) var(--card-bottom) var(--card-left) round 20px); opacity: 0.5; }
-  40% { opacity: 1; }
-  100% { clip-path: inset(0 0 0 0 round 0px); opacity: 1; }
-}
-@keyframes tripShrinkOut {
-  0% { clip-path: inset(0 0 0 0 round 0px); opacity: 1; }
-  60% { opacity: 1; }
-  100% { clip-path: inset(var(--card-top) var(--card-right) var(--card-bottom) var(--card-left) round 20px); opacity: 0; }
-}
 .overview-screen { transition: opacity 0.3s ease; }
 .overview-screen.faded { opacity: 0.3; pointer-events: none; }
+
+@supports (view-transition-name: hero) {
+  ::view-transition-group(trip-hero) {
+    animation-duration: 0.42s;
+    animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  ::view-transition-old(trip-hero),
+  ::view-transition-new(trip-hero) {
+    animation: none;
+    mix-blend-mode: normal;
+    object-fit: cover;
+    overflow: clip;
+  }
+}
 
 /* ============================================
    CONFIRM DIALOG
