@@ -534,13 +534,16 @@
   ::view-transition-group(trip-hero) {
     animation-duration: 0.5s;
     animation-timing-function: cubic-bezier(0.32, 0.72, 0, 1);
+    border-radius: 20px;
+    overflow: hidden;
   }
   ::view-transition-old(trip-hero),
   ::view-transition-new(trip-hero) {
     animation: none;
     mix-blend-mode: normal;
     object-fit: cover;
-    overflow: clip;
+    overflow: hidden;
+    border-radius: 20px;
   }
   ::view-transition-old(root) {
     animation: vt-fade-out 0.25s ease-out forwards;
