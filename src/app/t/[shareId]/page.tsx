@@ -7,12 +7,12 @@ interface Props {
   params: Promise<{ shareId: string }>;
 }
 
-async function fetchTrip(shareId: string): Promise<{ tripData: TripData; isOwner: boolean } | null> {
+async function fetchTrip(shareId: string): Promise<{ tripData: TripData; isOwner: boolean; tripId: string } | null> {
   try {
     const supabase = await createClient();
     const { data, error } = await supabase
       .from('trips')
-      .select('data, user_id')
+      .select('id, data, user_id')
       .eq('share_id', shareId)
       .eq('is_public', true)
       .single();
@@ -26,7 +26,7 @@ async function fetchTrip(shareId: string): Promise<{ tripData: TripData; isOwner
       if (user && data.user_id === user.id) isOwner = true;
     } catch { /* not logged in */ }
 
-    return { tripData: data.data as TripData, isOwner };
+    return { tripData: data.data as TripData, isOwner, tripId: data.id };
   } catch {
     // Supabase not connected yet — fall through to sample data
     return null;
@@ -53,5 +53,5 @@ export default async function TripPage({ params }: Props) {
     return <TripPreview trips={[sample]} autoOpen />;
   }
 
-  return <TripPreview trips={[result.tripData]} autoOpen shareId={result.isOwner ? undefined : shareId} />;
+  return <TripPreview trips={[result.tripData]} autoOpen shareId={result.isOwner ? undefined : shareId} tripId={result.isOwner ? result.tripId : undefined} />;
 }

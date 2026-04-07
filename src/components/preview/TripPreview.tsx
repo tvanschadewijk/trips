@@ -18,6 +18,7 @@ interface TripPreviewProps {
   onDelete?: (index: number) => void;
   autoOpen?: boolean;
   shareId?: string;
+  tripId?: string;
 }
 
 function Icon({ name }: { name: string }) {
@@ -75,7 +76,7 @@ function SwipeDots({ total, current, onDotClick }: { total: number; current: num
   );
 }
 
-export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, shareId }: TripPreviewProps) {
+export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, shareId, tripId }: TripPreviewProps) {
   const [trips, setTrips] = useState(initialTrips);
   const [activeTripIndex, setActiveTripIndex] = useState<number | null>(autoOpen ? 0 : null);
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -96,6 +97,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
   const viewportRef = useRef<HTMLDivElement>(null);
   const dateStripRef = useRef<HTMLDivElement>(null);
   const dateStripDragged = useRef(false);
+  const detailBodyRef = useRef<HTMLDivElement>(null);
 
   // Touch state
   const touchState = useRef({ startX: 0, startY: 0, startTime: 0, dx: 0, isDragging: false, isScrolling: null as boolean | null });
@@ -504,6 +506,75 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     return () => window.removeEventListener('popstate', onPopState);
   }, [detailOpen]);
 
+  // Toggle action item status (owner only)
+  function handleToggleStatus(dayNumber: number, itemType: string, itemIndex: number, newStatus: 'booked' | 'pending') {
+    if (!tripId || activeTripIndex === null) return;
+
+    // Optimistic update
+    flushSync(() => {
+      setTrips(prev => {
+        const updated = [...prev];
+        const tripCopy = JSON.parse(JSON.stringify(updated[activeTripIndex])) as TripData;
+        const day = tripCopy.days.find(d => d.day_number === dayNumber);
+        if (!day) return prev;
+
+        const statusVal = newStatus === 'booked' ? 'booked' : undefined;
+
+        if (itemType === 'transport' && day.transport?.[itemIndex]) {
+          day.transport[itemIndex].status = statusVal;
+        } else if (itemType === 'accommodation' && day.accommodation) {
+          // Update all days with same accommodation name
+          const accomName = day.accommodation.name;
+          for (const d of tripCopy.days) {
+            if (d.accommodation?.name === accomName) {
+              d.accommodation.status = statusVal;
+            }
+          }
+        } else if (itemType === 'meal' && day.meals?.[itemIndex]) {
+          day.meals[itemIndex].status = statusVal;
+        }
+
+        updated[activeTripIndex] = tripCopy;
+        return updated;
+      });
+    });
+
+    // Rebuild detail content from updated state
+    const thingsToDo = buildThingsToDoHtml();
+    setDetailContent({
+      title: thingsToDo.allDone ? 'Ready to Go' : 'Action Items',
+      html: thingsToDo.html,
+    });
+
+    // Persist to database
+    fetch(`/api/trips/${tripId}/toggle-status`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ day_number: dayNumber, item_type: itemType, item_index: itemIndex, new_status: newStatus }),
+    }).catch(() => { /* silently fail — optimistic update stands */ });
+  }
+
+  // Event delegation for action item clicks
+  useEffect(() => {
+    const el = detailBodyRef.current;
+    if (!el || !tripId) return;
+
+    const handler = (e: MouseEvent) => {
+      const row = (e.target as HTMLElement).closest('.todo-item') as HTMLElement | null;
+      if (!row) return;
+
+      const dayNumber = Number(row.dataset.day);
+      const itemType = row.dataset.type!;
+      const itemIndex = Number(row.dataset.index);
+      const wasDone = row.dataset.done === 'true';
+
+      handleToggleStatus(dayNumber, itemType, itemIndex, wasDone ? 'pending' : 'booked');
+    };
+
+    el.addEventListener('click', handler);
+    return () => el.removeEventListener('click', handler);
+  });
+
   // Delete trip
   function handleDeleteTrip(idx: number) {
     onDelete?.(idx);
@@ -666,37 +737,40 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
   }
 
   function buildThingsToDoHtml(): { html: string; hasData: boolean; allDone: boolean } {
-    const todoItems: { label: string; detail: string; done: boolean }[] = [];
+    const todoItems: { label: string; detail: string; done: boolean; dayNumber: number; itemType: string; itemIndex: number }[] = [];
     const seenAccom = new Set<string>();
 
     for (const d of days) {
       // Pending transport bookings
       if (d.transport?.length) {
-        for (const t of d.transport) {
+        for (let i = 0; i < d.transport.length; i++) {
+          const t = d.transport[i];
           const done = t.status === 'booked' || t.status === 'confirmed';
-          todoItems.push({ label: t.label || `${t.from} → ${t.to}`, detail: `Day ${d.day_number} · ${t.mode}`, done });
+          todoItems.push({ label: t.label || `${t.from} → ${t.to}`, detail: `Day ${d.day_number} · ${t.mode}`, done, dayNumber: d.day_number, itemType: 'transport', itemIndex: i });
         }
       }
       // Pending accommodation bookings (deduplicated)
       if (d.accommodation && !seenAccom.has(d.accommodation.name)) {
         seenAccom.add(d.accommodation.name);
         const done = d.accommodation.status === 'booked' || d.accommodation.status === 'confirmed';
-        todoItems.push({ label: d.accommodation.name, detail: `Accommodation · ${d.accommodation.nights || 1} night${(d.accommodation.nights || 1) > 1 ? 's' : ''}`, done });
+        todoItems.push({ label: d.accommodation.name, detail: `Accommodation · ${d.accommodation.nights || 1} night${(d.accommodation.nights || 1) > 1 ? 's' : ''}`, done, dayNumber: d.day_number, itemType: 'accommodation', itemIndex: 0 });
       }
       // Pending meal reservations
       if (d.meals?.length) {
-        for (const m of d.meals) {
+        for (let i = 0; i < d.meals.length; i++) {
+          const m = d.meals[i];
           const done = m.status === 'booked' || m.status === 'confirmed';
-          todoItems.push({ label: m.name, detail: `Day ${d.day_number} · ${m.type}`, done });
+          todoItems.push({ label: m.name, detail: `Day ${d.day_number} · ${m.type}`, done, dayNumber: d.day_number, itemType: 'meal', itemIndex: i });
         }
       }
     }
 
     if (!todoItems.length) return { html: '', hasData: false, allDone: false };
 
+    const interactive = tripId ? ' todo-interactive' : '';
     const allDone = todoItems.every(t => t.done);
     const rows = todoItems.map(t =>
-      `<div class="detail-row" style="gap:10px;align-items:center">
+      `<div class="detail-row todo-item${interactive}" data-day="${t.dayNumber}" data-type="${t.itemType}" data-index="${t.itemIndex}" data-done="${t.done}" style="gap:10px;align-items:center">
         <span class="todo-check ${t.done ? 'done' : ''}">${t.done ? '&#10003;' : ''}</span>
         <span style="flex:1;min-width:0">
           <span class="detail-row-value" style="text-align:left;font-size:14px;display:block${t.done ? ';text-decoration:line-through;opacity:0.45' : ''}">${t.label}</span>
@@ -1189,7 +1263,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>
             </button>
           </div>
-          <div className="detail-body" dangerouslySetInnerHTML={{ __html: detailContent.html }} />
+          <div ref={detailBodyRef} className="detail-body" dangerouslySetInnerHTML={{ __html: detailContent.html }} />
         </div>
       </div>
     </div>
