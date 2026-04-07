@@ -52,7 +52,18 @@ function ConnectInner() {
 
       if (user) {
         setUserEmail(user.email || null);
-        setStep('authorize');
+        // Auto-authorize if already logged in — skip the button click
+        setStep('sending');
+        try {
+          const authRes = await fetch('/api/auth/device/authorize', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ code }),
+          });
+          setStep(authRes.ok ? 'done' : 'error');
+        } catch {
+          setStep('error');
+        }
       } else {
         setStep('login');
       }
