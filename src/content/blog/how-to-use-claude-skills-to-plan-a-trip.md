@@ -7,96 +7,91 @@ date: 2026-04-07
 readingTime: "6 min read"
 ---
 
-If you've ever planned a trip by chatting with Claude, you know the drill: you end up with a great itinerary buried in a conversation thread. Copying it into a doc, formatting it, making it shareable — that's the annoying part. **Claude skills fix this.**
+We've all been there. You spend 20 minutes going back and forth with Claude about your trip to Portugal, and you end up with a genuinely solid itinerary. Great restaurants, realistic timing, good mix of activities. But then what? You copy-paste it into Apple Notes. Or a Google Doc. Or you just... leave it in the chat and hope you'll find it later.
 
-A skill is a small file you add to Claude that teaches it a new capability. The **Our Trips skill** lets Claude take any travel conversation and turn it into a beautifully designed, interactive itinerary with a shareable link — complete with day-by-day plans, bookings, photos, and tips.
+That's the problem. The planning part is easy now. It's the *keeping and sharing* part that still sucks. **Claude skills fix that.**
 
-Here's how to set it up and use it, step by step.
+## So what's a skill?
 
-## What is a Claude skill?
+A skill is a file (ending in `.skill`) that you drop into Claude. It teaches Claude how to do something specific. In this case, the **Our Trips skill** teaches Claude how to take your travel conversation and turn it into a proper itinerary on [ourtrips.to](https://ourtrips.to) - with a link you can pull up on your phone.
 
-Think of a skill as a plugin for Claude. It's a file (ending in `.skill`) that you drop into a Claude CoWork session or Codex environment. Once installed, Claude gains new abilities — in this case, the ability to format your travel plans and send them to [ourtrips.to](https://ourtrips.to), where they become an interactive mobile-friendly itinerary.
+Skills work in **Claude CoWork** and **Codex**. If you've messed around with MCP servers or custom instructions before, skills are basically the next step - portable, shareable, single-purpose.
 
-Skills are part of Claude's agent ecosystem. They work in **Claude CoWork** (Anthropic's collaborative workspace) and **Codex** (the coding environment). If you've used MCP servers or custom instructions before, skills are the next evolution — they're portable, shareable, and purpose-built.
+## Step 1: Install it
 
-## Step 1: Install the Our Trips skill
+Two ways. Both take 30 seconds.
 
-You have two options, both take about 30 seconds.
+### The easy way
 
-### Option A: Ask Claude to fetch it (easiest)
-
-If your CoWork session has internet access, just paste this into your chat:
+Paste this into your Claude chat:
 
 ```
 Fetch https://ourtrips.to/our-trips.skill and add it to my skills.
 ```
 
-Claude will download and install the skill automatically. Done.
+Done. Claude grabs the file and installs it.
 
-### Option B: Upload it manually
+### The manual way
 
-1. **Download** the skill file from [ourtrips.to/our-trips.skill](https://ourtrips.to/our-trips.skill)
-2. Open the **Customize** menu in your CoWork session
-3. Find **Skills**, click **Add skill**, and select the file
+1. Download the skill file from [ourtrips.to/our-trips.skill](https://ourtrips.to/our-trips.skill)
+2. Open **Customize** in your CoWork session
+3. Go to **Skills**, hit **Add skill**, pick the file
 
-That's it. The skill is now active for the rest of your session.
+Either way, it takes a few seconds and you're set for the rest of the session.
 
-## Step 2: Plan your trip with Claude
+## Step 2: Plan your trip like you normally would
 
-Now just talk to Claude like you normally would. Tell it where you're going, how long you'll be there, what you're interested in, your budget — anything that helps shape the trip. For example:
+Nothing changes here. Just talk to Claude about your trip. Where you're going, how long, what you like, what you don't. The more specific you are, the better the result.
 
-> I'm planning a 5-day trip to Tokyo in May with my partner. We love street food, hidden temples, and vinyl record shops. Budget is moderate — we'll splurge on one nice dinner but keep the rest casual. We're staying in Shimokitazawa.
+Something like:
 
-Claude will research, suggest activities, organize days, recommend restaurants, and build out a full itinerary through the conversation. This is the part you already know and love.
+> We're going to Tokyo for 5 days in May. Two of us. We're into street food, weird little record shops, and temples that aren't packed with tourists. Moderate budget - one fancy dinner, the rest casual. Staying in Shimokitazawa.
 
-A few tips for better results:
+Claude does the rest. It'll suggest places, organize your days, figure out what makes sense geographically so you're not zigzagging across the city. You can go back and forth, swap things, ask it to add more food spots or cut an activity that doesn't fit.
 
-- **Enable web search** so Claude can pull current opening hours, reviews, and prices
-- **Turn on Extended Thinking** for more detailed, well-organized itineraries
-- **Be specific** about your travel style — "we walk a lot" or "we need downtime after lunch" makes a huge difference
-- **Iterate** — ask Claude to swap activities, adjust timing, or add backup options
+A few things that actually make a difference:
+
+- **Turn on web search** - Claude can look up current hours, prices, and whether that restaurant you want is still open
+- **Use Extended Thinking** - the itineraries come out way more detailed and organized
+- **Say how you travel** - "we walk everywhere" or "we need a break after lunch" changes the whole plan
+- Don't be afraid to push back and ask for changes. That's the whole point.
 
 ## Step 3: Say "Send it to Our Trips"
 
-When you're happy with the itinerary, just tell Claude:
+That's literally it. When the itinerary looks good:
 
 > Send it to Our Trips
 
-Claude will format your entire trip into a structured itinerary and send it to ourtrips.to. You'll get back a **shareable link** that you can open on any device.
+Claude packages the whole thing up and sends it. You get a link back. Open it on your phone, your laptop, send it to whoever you're traveling with. No account needed to view it.
 
-The itinerary includes:
+What you get:
 
-- **Day-by-day schedule** with timings and descriptions
-- **Accommodation details** — check-in/out, booking platform, cancellation policy
-- **Transport info** — flights, trains, walking directions
-- **Restaurant picks** with reservation notes
-- **Tips and notes** for each day
-- **A hero image** that captures the destination
+- A day-by-day plan with times and descriptions
+- Hotel info with check-in/out and booking details
+- Transport - flights, trains, how to get between places
+- Restaurant picks with notes on reservations
+- Tips for each day
+- A nice hero photo of the destination
 
-The result is a beautiful, mobile-optimized page you can pull up on your phone while traveling — no app download required.
+It's a real page, designed for mobile. Not a PDF. Not a screenshot of your chat.
 
-## Why not just use a Google Doc?
+## Why bother? Google Docs exist.
 
-You could. But here's what you'd miss:
+Sure. But a Google Doc is a wall of text on a white background. Try reading that on your phone while standing in Shibuya trying to figure out where lunch is.
 
-- **Design.** Our Trips itineraries are designed for mobile. They look great in your pocket — not like a wall of text on a spreadsheet.
-- **Shareability.** Send one link. Anyone can view it, no account needed.
-- **Structure.** Days are navigable. Swipe between them. Tap for details on any activity, hotel, or flight.
-- **Speed.** One sentence to Claude and it's done. No copying, no formatting, no fiddling.
+Our Trips gives you something that's actually designed to be used while traveling. Days you can swipe through. Tap on a restaurant to see the details. Everything in one place, loads fast, works offline.
 
-## Does this work with ChatGPT?
+And the main thing - it takes one sentence to create. No formatting, no fiddling, no copy-pasting between apps.
 
-Currently, the Our Trips skill is built for **Claude CoWork and Codex**. Support for ChatGPT (via Custom GPTs) is on the roadmap — the underlying API already supports it, so stay tuned.
+## What about ChatGPT?
 
-If you're using Claude for trip planning already, this is the missing piece. Your conversations become real, shareable itineraries that actually work when you're on the ground.
+Right now, the skill only works with **Claude CoWork and Codex**. ChatGPT support (through Custom GPTs) is something we're looking into - the API can already handle it, it's just a matter of building the integration.
 
-## Get started in 30 seconds
-
-Ready to try it? Here's the quick version:
+## Try it
 
 1. Tell Claude: `Fetch https://ourtrips.to/our-trips.skill and add it to my skills.`
-2. Plan your trip through conversation
-3. Say **"Send it to Our Trips"**
-4. Open your shareable link on any device
+2. Plan your trip
+3. Say "Send it to Our Trips"
+4. Open the link
 
-That's it. Your next trip is one conversation away.
+Takes about a minute. Your next trip doesn't have to live in a chat thread.

@@ -1,122 +1,119 @@
 ---
 title: "What is a Claude Skill? A Beginner's Guide"
-subtitle: "Everything you need to know about Claude's skill system — what they are, how they work, and why they matter."
-excerpt: "Claude skills are portable files that give Claude new abilities — from planning trips to generating reports. Here's how the skill ecosystem works and how to get started."
+subtitle: "Everything you need to know about Claude's skill system - what they are, how they work, and why they matter."
+excerpt: "Claude skills are portable files that give Claude new abilities - from planning trips to generating reports. Here's how the skill ecosystem works and how to get started."
 tag: Guide
 date: 2026-04-07
 readingTime: "5 min read"
 ---
 
-You've probably heard the term "Claude skill" floating around, especially if you use Claude for anything beyond basic chat. But what actually *is* a skill? And why should you care?
+If you've been using Claude for a while, you've probably run into the word "skill" at some point. Maybe someone told you to install one. Maybe you saw a `.skill` file floating around on Twitter. But nobody really explained what it is.
 
-Here's the short version: **a skill is a small file that teaches Claude how to do something new.** It's like installing an app on your phone, except you're installing a capability into Claude.
+So let's fix that.
 
-## Skills vs. prompts vs. custom instructions
+## The short version
 
-Before skills, you had two ways to customize Claude:
+A skill is a file you give to Claude. It teaches Claude how to do something specific. Drop it in, and Claude picks up a new ability - no prompting, no setup, no instructions to copy-paste every time.
 
-- **Prompts** — you write detailed instructions every time you start a conversation
-- **Custom instructions** — you set persistent context that applies to all conversations
+It's the difference between telling someone how to cook a recipe from scratch every time you want dinner, versus just handing them the cookbook.
 
-Both work, but they have limits. Prompts are tedious to repeat. Custom instructions are broad and can't include complex logic.
+## How is this different from prompts or custom instructions?
 
-**Skills are different.** A skill is a self-contained file (ending in `.skill`) that bundles instructions, schemas, API connections, and logic into one portable package. You install it once, and Claude gains a new ability — no prompt engineering required.
+Before skills existed, there were basically two ways to get Claude to do something specific:
 
-Think of it this way:
+**Prompts** - you write out exactly what you want every time. Works fine for one-off things, gets old fast when you need the same behavior repeatedly.
+
+**Custom instructions** - you set some persistent context that Claude remembers across conversations. Better, but it's pretty limited. You can't include schemas, API calls, or complex logic.
+
+**Skills** sit a level above both. A `.skill` file bundles instructions, data schemas, API connections, and reference docs into one package. Install it once, and Claude just knows what to do.
 
 | Approach | Persistence | Complexity | Portability |
 |----------|-------------|------------|-------------|
 | Prompt | Per-conversation | Low | Copy-paste |
 | Custom instructions | Persistent | Medium | Not shareable |
-| **Skill** | **Per-session** | **High** | **File you can share** |
+| **Skill** | **Per-session** | **High** | **A file you can share** |
 
-## How skills work
+## Where do skills work?
 
-Skills are part of Claude's **agent ecosystem**. They work in two environments:
+Two places right now:
 
-### Claude CoWork
+**Claude CoWork** - Anthropic's collaborative workspace. You chat with Claude, share files, work on stuff together. Skills plug right into your session.
 
-CoWork is Anthropic's collaborative workspace where you can chat with Claude, share files, and work on projects together. When you add a skill to a CoWork session, Claude can use it throughout that session.
+**Codex** - the coding environment. Developers use skills here for things like deployment workflows, code patterns, or API integrations.
 
-### Codex
+## What's actually inside a skill file?
 
-Codex is Claude's coding environment. Skills work here too — developers use them to add specialized capabilities like deployment workflows, code review patterns, or API integrations.
+A `.skill` file is a bundle. Depending on the skill, it might contain:
 
-### What's inside a skill file?
+- **Instructions** - what Claude should do and how to do it
+- **Schemas** - the shape of data Claude needs to produce
+- **API connections** - endpoints Claude can hit to send or receive data
+- **Reference docs** - examples and documentation Claude can lean on
 
-A `.skill` file is a packaged bundle that typically contains:
+Once installed, Claude reads all of it. You don't have to explain anything. Just ask Claude to do the thing, and it knows how.
 
-- **Instructions** — what Claude should do and how
-- **Schemas** — the structure of data Claude should produce
-- **API connections** — endpoints Claude can call to send or fetch data
-- **References** — documentation and examples Claude can use
+## What kind of stuff can skills do?
 
-When you install a skill, Claude reads all of this and knows exactly how to use the new capability. You don't need to explain anything — just ask Claude to do the thing.
+The ecosystem is still early but growing fast. A few categories:
 
-## What can skills do?
+**Travel** - the [Our Trips skill](https://ourtrips.to) takes any travel conversation and turns it into a proper shareable itinerary. Plan your trip, say "send it to Our Trips," and you get a mobile-friendly page with your full day-by-day plan.
 
-The skill ecosystem is growing fast. Here are some categories:
+**Productivity** - skills that generate reports, format documents, create presentations. Instead of explaining the output format every single time, the skill just handles it.
 
-### Travel
-The [Our Trips skill](https://ourtrips.to) turns any travel conversation into a beautiful, shareable itinerary. You plan your trip with Claude, say "send it to Our Trips," and get back a mobile-friendly page with day-by-day plans, bookings, and tips.
+**Development** - code generation with specific patterns, deployment pipelines, database migrations. The skill bakes in best practices so Claude follows them without being told.
 
-### Productivity
-Skills can generate reports, format documents, create presentations, or manage project workflows. Instead of explaining the output format every time, the skill handles it.
+**Data** - structured extraction, analysis workflows, formatted outputs for specific tools or dashboards.
 
-### Development
-Developers use skills for code generation with specific patterns, deployment pipelines, database migrations, and API integrations. The skill encodes best practices so Claude follows them automatically.
+## How to install one
 
-### Data & analysis
-Skills can structure data extraction, run analysis workflows, and format outputs for specific tools or dashboards.
+Takes 30 seconds. Two options:
 
-## How to install a skill
+### Just ask Claude to grab it
 
-Installing a skill takes about 30 seconds. You have two options:
-
-### Option 1: Ask Claude to fetch it
-
-If your session has internet access, just tell Claude the URL:
+If your session has internet access:
 
 ```
 Fetch https://ourtrips.to/our-trips.skill and add it to my skills.
 ```
 
-Claude downloads and installs it automatically.
+Claude downloads it, installs it, done.
 
-### Option 2: Upload manually
+### Or upload it yourself
 
-1. Download the `.skill` file to your computer
-2. Open the **Customize** menu in your CoWork session
-3. Click **Add skill** and select the file
+1. Download the `.skill` file
+2. Open **Customize** in your CoWork session
+3. Hit **Add skill**, pick the file
 
-That's it. The skill is active for the rest of your session.
+Active for the rest of your session.
 
-## How to find skills
+## Where to find skills
 
-The skill ecosystem is still early, but growing quickly. Here are a few ways to discover skills:
+Still early days, but there are a few places:
 
-- **Direct from creators** — many tools and services publish their own skills (like [Our Trips](https://ourtrips.to))
-- **Skill directories** — sites like [agentskills.so](https://agentskills.so) and [mcpmarket.com](https://mcpmarket.com) catalog available skills
-- **Community sharing** — developers share skills on GitHub and in Claude communities
-- **Build your own** — if you have a specific workflow, you can create a custom skill
+- **Directly from creators** - lots of tools publish their own skills (like [Our Trips](https://ourtrips.to))
+- **Directories** - [agentskills.so](https://agentskills.so) and [mcpmarket.com](https://mcpmarket.com) list available skills
+- **GitHub** - developers share skills in repos and Claude communities
+- **Build your own** - if you have a workflow you repeat often, you can package it as a skill
 
-## Why skills matter
+## Why this matters
 
-Skills represent a shift in how we interact with AI. Instead of crafting the perfect prompt, you install a capability once and it just works. This has a few big implications:
+The big deal with skills is that they lower the bar. You don't need to be good at prompt engineering to get good output from Claude. Someone else already did that work and packaged it into a file you can install.
 
-- **Lower barrier to entry.** Non-technical users can access complex workflows by installing a skill — no prompt engineering needed.
-- **Consistency.** A skill produces the same quality output every time, because the instructions and schemas are baked in.
-- **Shareability.** You can send a `.skill` file to a friend or colleague, and they get the exact same capability.
-- **Composability.** You can install multiple skills in one session. Claude can use all of them together.
+A few things that follow from that:
 
-## Getting started
+- **Anyone can use them.** Non-technical people get access to complex workflows by dragging in a file.
+- **Output is consistent.** The skill defines the format, so you get the same quality every time.
+- **They're shareable.** Send the file to a friend. They get the exact same capability.
+- **They stack.** Install multiple skills in one session and Claude can use all of them.
 
-The easiest way to understand skills is to try one. Here's a quick start:
+## Try one
+
+Easiest way to get it is to just do it:
 
 1. Open a Claude CoWork session
 2. Tell Claude: `Fetch https://ourtrips.to/our-trips.skill and add it to my skills.`
-3. Plan a trip through conversation
-4. Say **"Send it to Our Trips"**
-5. Open your shareable itinerary link
+3. Plan a trip
+4. Say "Send it to Our Trips"
+5. Open the link
 
-You'll see the difference immediately — Claude goes from a chatbot to a tool that produces real, usable output. That's the power of skills.
+You'll feel the difference right away. Claude stops being a chatbot and starts being a tool that makes something real.
