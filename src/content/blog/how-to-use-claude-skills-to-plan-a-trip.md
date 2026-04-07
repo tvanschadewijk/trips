@@ -3,7 +3,7 @@ title: "How to Use Claude Skills to Plan a Trip"
 subtitle: "Turn any Claude conversation into a shareable, interactive travel itinerary in under a minute."
 excerpt: "Claude skills are small files that give Claude new abilities. The Our Trips skill turns any travel conversation into a beautiful, pocket-friendly itinerary you can share with anyone."
 tag: Guide
-date: 2026-04-07
+date: 2026-04-05
 readingTime: "6 min read"
 ---
 
