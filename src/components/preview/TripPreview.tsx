@@ -539,13 +539,6 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
       });
     });
 
-    // Rebuild detail content from updated state
-    const thingsToDo = buildThingsToDoHtml();
-    setDetailContent({
-      title: thingsToDo.allDone ? 'Ready to Go' : 'Action Items',
-      html: thingsToDo.html,
-    });
-
     // Persist to database
     fetch(`/api/trips/${tripId}/toggle-status`, {
       method: 'POST',
@@ -567,8 +560,34 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
       const itemType = row.dataset.type!;
       const itemIndex = Number(row.dataset.index);
       const wasDone = row.dataset.done === 'true';
+      const nowDone = !wasDone;
 
-      handleToggleStatus(dayNumber, itemType, itemIndex, wasDone ? 'pending' : 'booked');
+      // Update DOM directly to avoid stale closure
+      row.dataset.done = String(nowDone);
+      const check = row.querySelector('.todo-check');
+      if (check) {
+        check.classList.toggle('done', nowDone);
+        check.innerHTML = nowDone ? '&#10003;' : '';
+      }
+      const value = row.querySelector('.detail-row-value') as HTMLElement | null;
+      if (value) {
+        value.style.textDecoration = nowDone ? 'line-through' : 'none';
+        value.style.opacity = nowDone ? '0.45' : '1';
+      }
+
+      // Update header if all items are now done (or not)
+      const allRows = el.querySelectorAll('.todo-item');
+      const allDone = Array.from(allRows).every(r => (r as HTMLElement).dataset.done === 'true');
+      const header = el.querySelector('.detail-info-section-title, .todo-ready');
+      if (header) {
+        if (allDone) {
+          header.outerHTML = '<div class="todo-ready"><span class="todo-ready-icon">&#10003;</span> Trip is ready to go</div>';
+        } else {
+          header.outerHTML = '<div class="detail-info-section-title"><span class="text-section-title">Action Items</span></div>';
+        }
+      }
+
+      handleToggleStatus(dayNumber, itemType, itemIndex, nowDone ? 'booked' : 'pending');
     };
 
     el.addEventListener('click', handler);
