@@ -340,6 +340,33 @@
   line-height: 1.6;
 }
 
+/* Copy button on code blocks */
+.copy-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 4px 12px;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.copy-btn:hover {
+  background: rgba(255, 255, 255, 0.14);
+  color: rgba(255, 255, 255, 0.8);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+.copy-btn-copied {
+  color: #6AABF7;
+  background: rgba(43, 124, 233, 0.15);
+  border-color: rgba(43, 124, 233, 0.3);
+}
+
 /* Author byline */
 .blog-article-author {
   display: flex;

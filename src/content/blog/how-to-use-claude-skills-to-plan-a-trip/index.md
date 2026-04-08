@@ -6,15 +6,6 @@ tag: Guide
 date: 2026-04-05
 lastUpdated: 2026-04-07
 readingTime: "6 min read"
-faq:
-  - q: "Does the Our Trips skill work with ChatGPT?"
-    a: "Not yet. The Our Trips skill currently works with Claude CoWork and Codex only. ChatGPT support through Custom GPTs is being explored."
-  - q: "Do I need an account to view a trip?"
-    a: "No. Anyone with the link can view the itinerary without creating an account."
-  - q: "Is the Our Trips skill free?"
-    a: "Yes. The skill is free to install and use. You just need access to Claude CoWork or Codex."
-  - q: "Can I edit the itinerary after it's created?"
-    a: "Yes. You can continue refining the itinerary in your Claude conversation and send an updated version to Our Trips at any time."
 ---
 
 The **Our Trips skill** is a Claude skill that turns any travel conversation into a shareable, mobile-friendly itinerary on [ourtrips.to](https://ourtrips.to). Install the skill, plan your trip through conversation, and say "Send it to Our Trips" to get a link you can pull up on your phone or share with anyone.
@@ -37,7 +28,7 @@ Two ways. Both take 30 seconds.
 
 Paste this into your Claude chat:
 
-```
+```copy
 Fetch https://ourtrips.to/our-trips.skill and add it to my skills.
 ```
 

@@ -23,20 +23,53 @@ export interface BlogPost {
 
 const contentDir = path.join(process.cwd(), 'src/content/blog');
 
-function parsePost(filename: string): BlogPost {
-  const slug = filename.replace(/\.md$/, '');
-  const raw = fs.readFileSync(path.join(contentDir, filename), 'utf-8');
+/**
+ * Parse FAQ from a separate faq.md file.
+ * Each FAQ item is an h2 heading (question) followed by paragraph text (answer).
+ */
+function parseFaqFile(faqPath: string): FaqItem[] {
+  if (!fs.existsSync(faqPath)) return [];
+  const raw = fs.readFileSync(faqPath, 'utf-8').trim();
+  if (!raw) return [];
+
+  const items: FaqItem[] = [];
+  const sections = raw.split(/^## /m).filter(Boolean);
+
+  for (const section of sections) {
+    const lines = section.split('\n');
+    const question = lines[0].trim();
+    const answer = lines
+      .slice(1)
+      .join('\n')
+      .trim();
+    if (question && answer) {
+      items.push({ question, answer });
+    }
+  }
+
+  return items;
+}
+
+function parsePost(slug: string): BlogPost {
+  const dirPath = path.join(contentDir, slug);
+  const indexPath = path.join(dirPath, 'index.md');
+  const faqPath = path.join(dirPath, 'faq.md');
+
+  const raw = fs.readFileSync(indexPath, 'utf-8');
   const { data, content } = matter(raw);
   const body = marked.parse(content, { async: false }) as string;
 
-  const date = typeof data.date === 'string' ? data.date : new Date(data.date).toISOString().slice(0, 10);
+  const date =
+    typeof data.date === 'string'
+      ? data.date
+      : new Date(data.date).toISOString().slice(0, 10);
   const lastUpdated = data.lastUpdated
-    ? (typeof data.lastUpdated === 'string' ? data.lastUpdated : new Date(data.lastUpdated).toISOString().slice(0, 10))
+    ? typeof data.lastUpdated === 'string'
+      ? data.lastUpdated
+      : new Date(data.lastUpdated).toISOString().slice(0, 10)
     : date;
 
-  const faq: FaqItem[] = Array.isArray(data.faq)
-    ? data.faq.map((item: { q: string; a: string }) => ({ question: item.q, answer: item.a }))
-    : [];
+  const faq = parseFaqFile(faqPath);
 
   return {
     slug,
@@ -53,13 +86,17 @@ function parsePost(filename: string): BlogPost {
 }
 
 export function getPost(slug: string): BlogPost | undefined {
-  const filename = `${slug}.md`;
-  const filepath = path.join(contentDir, filename);
-  if (!fs.existsSync(filepath)) return undefined;
-  return parsePost(filename);
+  const dirPath = path.join(contentDir, slug);
+  const indexPath = path.join(dirPath, 'index.md');
+  if (!fs.existsSync(indexPath)) return undefined;
+  return parsePost(slug);
 }
 
 export function getAllPosts(): BlogPost[] {
-  const files = fs.readdirSync(contentDir).filter((f) => f.endsWith('.md'));
-  return files.map(parsePost).sort((a, b) => b.date.localeCompare(a.date));
+  const entries = fs.readdirSync(contentDir, { withFileTypes: true });
+  const slugs = entries
+    .filter((e) => e.isDirectory())
+    .map((e) => e.name)
+    .filter((name) => fs.existsSync(path.join(contentDir, name, 'index.md')));
+  return slugs.map(parsePost).sort((a, b) => b.date.localeCompare(a.date));
 }

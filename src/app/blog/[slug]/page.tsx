@@ -2,6 +2,7 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import LogoSuffix from '@/components/ui/LogoSuffix';
+import CopyCodeBlocks from '@/components/blog/CopyCodeBlocks';
 import { getPost, getAllPosts } from '@/lib/blog/posts';
 import '@/styles/blog.css';
 
@@ -169,6 +170,7 @@ export default async function BlogPostPage({ params }: Props) {
             className="blog-article-body"
             dangerouslySetInnerHTML={{ __html: post.body }}
           />
+          <CopyCodeBlocks />
 
           {post.faq.length > 0 && (
             <div className="blog-faq">

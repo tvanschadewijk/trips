@@ -6,17 +6,6 @@ tag: Guide
 date: 2026-04-07
 lastUpdated: 2026-04-07
 readingTime: "5 min read"
-faq:
-  - q: "Are Claude skills free?"
-    a: "Most Claude skills are free. They're just files you install into your session. You do need access to Claude CoWork or Codex, which may require a Claude subscription."
-  - q: "Do Claude skills work with ChatGPT?"
-    a: "No. Claude skills (.skill files) only work with Claude CoWork and Codex. ChatGPT has its own extension system (Custom GPTs and plugins)."
-  - q: "How do I install a Claude skill?"
-    a: "Two ways: paste a fetch command like 'Fetch [URL] and add it to my skills' into your Claude chat, or manually upload the .skill file through the Customize panel in CoWork."
-  - q: "What's the difference between a Claude skill and an MCP server?"
-    a: "MCP servers provide live tool connections (like database access or API integrations). Skills are portable instruction files that bundle prompts, schemas, and API connections into a single shareable package. Skills are simpler to install and share."
-  - q: "Can I build my own Claude skill?"
-    a: "Yes. If you have a workflow you repeat often, you can package it as a .skill file with instructions, schemas, and API connections. Share it with anyone by sending them the file."
 ---
 
 A **Claude skill** is a portable file (ending in `.skill`) that teaches Claude how to perform a specific task. Install one into your Claude session and Claude picks up a new ability - no prompting, no setup, no instructions to copy-paste every time. Skills work in Claude CoWork and Codex.
@@ -78,7 +67,7 @@ Takes 30 seconds. Two options:
 
 If your session has internet access:
 
-```
+```copy
 Fetch https://ourtrips.to/our-trips.skill and add it to my skills.
 ```
 
