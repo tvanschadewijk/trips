@@ -3,8 +3,8 @@ title: "Why I Created Our Trips"
 subtitle: "My story of discovering AI tools that actually make stuff — and why trip planning needed something better than a markdown file."
 excerpt: "From messy ChatGPT itineraries in 2023 to building a full travel platform with Claude skills — the founding story of Our Trips."
 tag: Story
-date: 2026-04-08
-lastUpdated: 2026-04-08
+date: 2026-04-01
+lastUpdated: 2026-04-01
 readingTime: "4 min read"
 ---
 
