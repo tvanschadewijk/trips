@@ -3,22 +3,22 @@ import ServiceWorkerRegistrar from '@/components/ServiceWorkerRegistrar';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Our Trips — Your trips, beautifully presented',
+  title: 'OurTrips — Your trips, beautifully presented',
   description:
     'Create and share beautiful, interactive travel itineraries. Plan day-by-day, add places, and share a stunning preview with anyone.',
   metadataBase: new URL('https://ourtrips.to'),
   openGraph: {
-    title: 'Our Trips — Your trips, beautifully presented',
+    title: 'OurTrips — Your trips, beautifully presented',
     description:
       'Create and share beautiful, interactive travel itineraries. Plan day-by-day, add places, and share a stunning preview with anyone.',
     url: 'https://ourtrips.to',
-    siteName: 'Our Trips',
+    siteName: 'OurTrips',
     locale: 'en_US',
     type: 'website',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Our Trips — Your trips, beautifully presented',
+    title: 'OurTrips — Your trips, beautifully presented',
     description:
       'Create and share beautiful, interactive travel itineraries. Plan day-by-day, add places, and share a stunning preview with anyone.',
   },
@@ -30,7 +30,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
-    title: 'Our Trips',
+    title: 'OurTrips',
   },
 };
 

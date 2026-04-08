@@ -7,7 +7,7 @@ export default function GuidePage() {
     <div className="guide">
       <nav className="guide-nav">
         <div className="guide-nav-inner">
-          <Link href="/" className="guide-logo">Our Trips<LogoSuffix /></Link>
+          <Link href="/" className="guide-logo">OurTrips<LogoSuffix /></Link>
           <Link href="/login" className="guide-btn-outline">Log in</Link>
         </div>
       </nav>
@@ -19,9 +19,9 @@ export default function GuidePage() {
             Back
           </Link>
 
-          <h1 className="guide-title">How to install the Our Trips skill</h1>
+          <h1 className="guide-title">How to install the OurTrips skill</h1>
           <p className="guide-intro">
-            A skill is a small file that teaches Claude new tricks. Once you add the Our Trips skill
+            A skill is a small file that teaches Claude new tricks. Once you add the OurTrips skill
             to your CoWork session, Claude will know how to turn your travel plans into a
             beautiful, shareable itinerary. It takes about 30 seconds.
           </p>
@@ -45,7 +45,7 @@ export default function GuidePage() {
               </button>
             </div>
             <p className="guide-section-note">
-              Claude will fetch the skill file from Our Trips and install it for you. Done!
+              Claude will fetch the skill file from OurTrips and install it for you. Done!
             </p>
           </section>
 
@@ -110,7 +110,7 @@ export default function GuidePage() {
             <p className="guide-section-desc">
               Once the skill is installed, just plan your trip with Claude like you normally would.
               When you&apos;re happy with the itinerary, say something like
-              <strong> &ldquo;Send it to Our Trips&rdquo;</strong> and Claude will create a shareable,
+              <strong> &ldquo;Send it to OurTrips&rdquo;</strong> and Claude will create a shareable,
               interactive itinerary you can pull up on your phone while traveling.
             </p>
           </section>
@@ -126,7 +126,7 @@ export default function GuidePage() {
 
       <footer className="guide-footer">
         <div className="guide-footer-inner">
-          <span className="guide-footer-logo">Our Trips</span>
+          <span className="guide-footer-logo">OurTrips</span>
           <span className="guide-footer-copy">Built by Thijs van Schadewijk</span>
         </div>
       </footer>
