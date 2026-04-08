@@ -741,24 +741,26 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     const seenAccom = new Set<string>();
 
     for (const d of days) {
-      // Pending transport bookings
+      // Transport bookings — only items with an explicit status are actionable
       if (d.transport?.length) {
         for (let i = 0; i < d.transport.length; i++) {
           const t = d.transport[i];
+          if (!t.status) continue;
           const done = t.status === 'booked' || t.status === 'confirmed';
           todoItems.push({ label: t.label || `${t.from} → ${t.to}`, detail: `Day ${d.day_number} · ${t.mode}`, done, dayNumber: d.day_number, itemType: 'transport', itemIndex: i });
         }
       }
-      // Pending accommodation bookings (deduplicated)
-      if (d.accommodation && !seenAccom.has(d.accommodation.name)) {
+      // Accommodation bookings (deduplicated) — only items with an explicit status
+      if (d.accommodation && d.accommodation.status && !seenAccom.has(d.accommodation.name)) {
         seenAccom.add(d.accommodation.name);
         const done = d.accommodation.status === 'booked' || d.accommodation.status === 'confirmed';
         todoItems.push({ label: d.accommodation.name, detail: `Accommodation · ${d.accommodation.nights || 1} night${(d.accommodation.nights || 1) > 1 ? 's' : ''}`, done, dayNumber: d.day_number, itemType: 'accommodation', itemIndex: 0 });
       }
-      // Pending meal reservations
+      // Meal reservations — only items with an explicit status
       if (d.meals?.length) {
         for (let i = 0; i < d.meals.length; i++) {
           const m = d.meals[i];
+          if (!m.status) continue;
           const done = m.status === 'booked' || m.status === 'confirmed';
           todoItems.push({ label: m.name, detail: `Day ${d.day_number} · ${m.type}`, done, dayNumber: d.day_number, itemType: 'meal', itemIndex: i });
         }
