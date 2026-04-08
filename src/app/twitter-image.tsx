@@ -18,7 +18,7 @@ export default async function Image() {
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          background: 'linear-gradient(135deg, #1A1A1A 0%, #2D2D2D 50%, #1A1A1A 100%)',
+          background: 'linear-gradient(135deg, #08090a 0%, #191a1b 50%, #08090a 100%)',
           fontFamily: 'sans-serif',
         }}
       >
@@ -31,7 +31,7 @@ export default async function Image() {
             width: 80,
             height: 80,
             borderRadius: 40,
-            background: 'rgba(255,255,255,0.08)',
+            background: 'rgba(255,255,255,0.05)',
             marginBottom: 32,
           }}
         >
@@ -63,8 +63,8 @@ export default async function Image() {
           <span
             style={{
               fontSize: 56,
-              fontWeight: 800,
-              color: 'white',
+              fontWeight: 600,
+              color: '#f7f8f8',
               letterSpacing: '-1px',
             }}
           >
@@ -76,7 +76,7 @@ export default async function Image() {
         <div
           style={{
             fontSize: 24,
-            color: 'rgba(255,255,255,0.6)',
+            color: '#8a8f98',
             fontWeight: 400,
             letterSpacing: '0.5px',
           }}
@@ -92,14 +92,14 @@ export default async function Image() {
             marginTop: 48,
             padding: '10px 24px',
             borderRadius: 100,
-            background: 'rgba(255,255,255,0.06)',
-            border: '1px solid rgba(255,255,255,0.1)',
+            background: 'rgba(255,255,255,0.04)',
+            border: '1px solid rgba(255,255,255,0.08)',
           }}
         >
           <span
             style={{
               fontSize: 18,
-              color: 'rgba(255,255,255,0.5)',
+              color: '#8a8f98',
               fontWeight: 500,
             }}
           >

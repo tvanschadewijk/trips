@@ -25,7 +25,7 @@ export default async function Image({ params }: { params: Promise<{ slug: string
           flexDirection: 'column',
           justifyContent: 'center',
           padding: '80px',
-          background: 'linear-gradient(135deg, #1A1A1A 0%, #0F0F0F 50%, #1A1A2E 100%)',
+          background: 'linear-gradient(135deg, #08090a 0%, #0f1011 50%, #08090a 100%)',
           fontFamily: 'system-ui, -apple-system, sans-serif',
         }}
       >
@@ -40,8 +40,8 @@ export default async function Image({ params }: { params: Promise<{ slug: string
           <div
             style={{
               fontSize: '20px',
-              fontWeight: 800,
-              color: '#FFFFFF',
+              fontWeight: 600,
+              color: '#f7f8f8',
               letterSpacing: '-0.03em',
             }}
           >
@@ -50,8 +50,8 @@ export default async function Image({ params }: { params: Promise<{ slug: string
           <div
             style={{
               fontSize: '14px',
-              color: '#6AABF7',
-              background: 'rgba(43, 124, 233, 0.15)',
+              color: '#7170ff',
+              background: 'rgba(94, 106, 210, 0.15)',
               padding: '4px 12px',
               borderRadius: '12px',
               fontWeight: 600,
@@ -63,8 +63,8 @@ export default async function Image({ params }: { params: Promise<{ slug: string
         <div
           style={{
             fontSize: '48px',
-            fontWeight: 800,
-            color: '#FFFFFF',
+            fontWeight: 600,
+            color: '#f7f8f8',
             lineHeight: 1.15,
             letterSpacing: '-0.03em',
             maxWidth: '900px',
@@ -77,7 +77,7 @@ export default async function Image({ params }: { params: Promise<{ slug: string
           <div
             style={{
               fontSize: '22px',
-              color: 'rgba(255, 255, 255, 0.5)',
+              color: '#8a8f98',
               lineHeight: 1.5,
               maxWidth: '800px',
             }}
@@ -91,7 +91,7 @@ export default async function Image({ params }: { params: Promise<{ slug: string
             bottom: '60px',
             left: '80px',
             fontSize: '16px',
-            color: 'rgba(255, 255, 255, 0.3)',
+            color: '#62666d',
           }}
         >
           ourtrips.to
