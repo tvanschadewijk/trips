@@ -12,13 +12,13 @@ The **Our Trips skill** is a Claude skill that turns any travel conversation int
 
 We've all been there. You spend 20 minutes going back and forth with Claude about your trip to Portugal, and you end up with a genuinely solid itinerary. Great restaurants, realistic timing, good mix of activities. But then what? You copy-paste it into Apple Notes. Or a Google Doc. Or you just... leave it in the chat and hope you'll find it later.
 
-That's the problem. The planning part is easy now. It's the *keeping and sharing* part that still sucks. **Claude skills fix that.**
+That's the problem. The planning part is easy now. It's the *keeping and sharing* part that still sucks. **OurTrips.To fixes that with a Claude Skill.**
 
 ## What is a Claude skill?
 
 A skill is a file (ending in `.skill`) that you drop into Claude. It teaches Claude how to do something specific. In this case, the **Our Trips skill** teaches Claude how to take your travel conversation and turn it into a proper itinerary on [ourtrips.to](https://ourtrips.to) - with a link you can pull up on your phone.
 
-Skills work in **Claude CoWork** and **Codex**. If you've messed around with MCP servers or custom instructions before, skills are basically the next step - portable, shareable, single-purpose.
+Skills work in **Claude CoWork** and **Codex**.
 
 ## Step 1: Install the Our Trips skill
 
@@ -26,7 +26,7 @@ Two ways. Both take 30 seconds.
 
 ### The easy way
 
-Paste this into your Claude chat:
+Paste this into your Claude Cowork or Codex chat:
 
 ```copy
 Fetch https://ourtrips.to/our-trips.skill and add it to my skills.
@@ -37,7 +37,7 @@ Done. Claude grabs the file and installs it.
 ### The manual way
 
 1. Download the skill file from [ourtrips.to/our-trips.skill](https://ourtrips.to/our-trips.skill)
-2. Open **Customize** in your CoWork session
+2. Open **Customize** in your Cowork session
 3. Go to **Skills**, hit **Add skill**, pick the file
 
 Either way, it takes a few seconds and you're set for the rest of the session.
@@ -54,10 +54,13 @@ Claude does the rest. It'll suggest places, organize your days, figure out what 
 
 A few things that actually make a difference:
 
-- **Turn on web search** - Claude can look up current hours, prices, and whether that restaurant you want is still open
+- **Turn on browser use** (with the Claude Chrome extension) - Claude can look up current prices, and whether that hotel you want still has availability.
+
 - **Use Extended Thinking** - the itineraries come out way more detailed and organized
-- **Say how you travel** - "we walk everywhere" or "we need a break after lunch" changes the whole plan
-- Don't be afraid to push back and ask for changes. That's the whole point.
+
+- **Teach Claude how you travel** - "we walk everywhere" or "we need a break after lunch" changes the whole plan. I fed Claude 7 years of travel history so it knows what we do and like. 
+
+  
 
 ## Step 3: Say "Send it to Our Trips"
 
@@ -74,9 +77,9 @@ What you get:
 - Transport - flights, trains, how to get between places
 - Restaurant picks with notes on reservations
 - Tips for each day
-- A nice hero photo of the destination
+- A nice hero photo of the destination (assuming Unsplash has it covered, otherwise it might sometimes be another image)
 
-It's a real page, designed for mobile. Not a PDF. Not a screenshot of your chat.
+It's 100% designed for mobile to be usable on the road.
 
 ## Why use Our Trips instead of Google Docs?
 
