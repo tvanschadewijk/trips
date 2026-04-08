@@ -3,7 +3,8 @@
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  background: #1A1A1A;
+  font-feature-settings: "cv01", "ss03";
+  background: #08090a;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow: auto !important;
@@ -12,13 +13,13 @@ body {
   margin: 0;
   padding: 0;
   min-height: 100dvh;
-  background: #1A1A1A;
+  background: #08090a;
   overflow: auto !important;
 }
 .logo-to {
   margin-right: 0.35em;
 }
 .logo-suffix {
-  color: rgba(255, 255, 255, 0.35) !important;
+  color: #62666d !important;
   font-weight: inherit !important;
 }
