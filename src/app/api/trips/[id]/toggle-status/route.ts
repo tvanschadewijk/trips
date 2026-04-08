@@ -39,7 +39,7 @@ export async function POST(
     return NextResponse.json({ error: 'Invalid parameters' }, { status: 400 });
   }
 
-  const statusValue = new_status === 'booked' ? 'booked' : undefined;
+  const statusValue = new_status === 'booked' ? 'booked' : 'pending';
 
   const data = trip.data as { trip: Record<string, unknown>; days: Array<Record<string, unknown>> };
 
@@ -53,11 +53,7 @@ export async function POST(
     for (const d of data.days) {
       const acc = d.accommodation as Record<string, unknown> | undefined;
       if (acc && acc.name === accomName) {
-        if (statusValue) {
-          acc.status = statusValue;
-        } else {
-          delete acc.status;
-        }
+        acc.status = statusValue;
       }
     }
   } else {
@@ -74,11 +70,7 @@ export async function POST(
       return NextResponse.json({ error: `${item_type} at index ${item_index} not found` }, { status: 404 });
     }
 
-    if (statusValue) {
-      arr[item_index].status = statusValue;
-    } else {
-      delete arr[item_index].status;
-    }
+    arr[item_index].status = statusValue;
   }
 
   const { error: updateError } = await admin

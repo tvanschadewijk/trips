@@ -518,7 +518,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
         const day = tripCopy.days.find(d => d.day_number === dayNumber);
         if (!day) return prev;
 
-        const statusVal = newStatus === 'booked' ? 'booked' : undefined;
+        const statusVal = newStatus === 'booked' ? 'booked' : 'pending';
 
         if (itemType === 'transport' && day.transport?.[itemIndex]) {
           day.transport[itemIndex].status = statusVal;
