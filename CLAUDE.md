@@ -1,4 +1,9 @@
 @AGENTS.md
+@DESIGN.md
+
+## Design
+
+- For all UI and design work, follow the design system defined in `DESIGN.md`. It defines colors, typography, spacing, components, and visual principles for this project.
 
 ## Workflow
 
