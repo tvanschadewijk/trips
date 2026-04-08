@@ -22,13 +22,9 @@ But I kept thinking about itineraries.
 
 When Claude Cowork launched in early 2026, I immediately started using it to plan new trips. It was really good. It gave me a nice document — typically a markdown file with all the information laid out. But I realized I needed something better. Two things kept bothering me:
 
-**1. Involving co-travelers**
+**Involving co-travelers**
 
-I need to involve and convince my co-travelers — like my wife. And reading through a markdown file is really not her thing.
-
-**2. Visual appeal**
-
-I wanted something visual. So during one of my first Cowork sessions, I asked Claude to create a travel-agent-style presentation, as if it needed to *sell* the trip to my wife. The results were amazing and looked fantastic. This was for a trip to India we're planning for next year.
+I need to involve and convince my co-travelers — like my wife. And reading through a markdown file is really not her thing. She likes to look at visuals.So during one of my first Cowork sessions, I asked Claude to create a travel-agent-style presentation, as if it needed to *sell* the trip to my wife. The results were amazing and looked fantastic. An added benefit of this visual presentation was that it was also a whole lot more accessible.and structured compared to a text document. It worked great on mobile, had nicely designed features to read it per day per activity type etcetera. 
 
 ## The best of both worlds
 
@@ -36,7 +32,7 @@ That experience made me think: how do we get the best of both worlds?
 
 We can chat with the best AI tools available — and right now, Claude Cowork is definitely one of them — but the output should be a **rich, visual presentation**, not just a document. Sure, you *can* turn any document into a website. But if everyone has to do that repeatedly for every trip, it's a waste of tokens and effort.
 
-That's how I came to **Our Trips** — a website to store all the itineraries we plan, for all kinds of destinations. The site comes with a [Claude skill](/blog/what-is-a-claude-skill) that you install, connecting directly to your conversation about your trips. When you're finished planning, you simply ask Claude to send the details to Our Trips, and a beautiful visual presentation is created.
+That's how I came to **Our Trips.To** — a website to store all the itineraries we plan, for all kinds of destinations. The site comes with a [Claude skill](/blog/what-is-a-claude-skill) that you install, connecting directly to your conversation about your trips. When you're finished planning, you simply ask Claude to send the details to Our Trips, and a beautiful visual presentation is created.
 
 ```copy
 Fetch https://ourtrips.to/our-trips.skill and add it to my skills.
@@ -44,6 +40,6 @@ Fetch https://ourtrips.to/our-trips.skill and add it to my skills.
 
 ## A passion project
 
-That's the founding story. I'm making it available for free and have no interest in monetizing it right now — although I might add features in the future if many people start using it. I might consider some affiliate links to cover server costs, but for now, this is just a passion project. It's mostly a tool for the trips my wife and I plan ourselves.
+That's the founding story. I'm making it available for free and have no interest in monetizing it right now — although I might add features in the future if many people start using it to pay for server costs etc.
 
-I hope you like it. If you do, feel free to reach out to me on [X](https://x.com/AStartupDad).
+I hope you like it. If you do, feel free to reach out to me on @tvanschadewijk on X.

@@ -8,7 +8,7 @@ lastUpdated: 2026-04-07
 readingTime: "5 min read"
 ---
 
-A **Claude skill** is a portable file (ending in `.skill`) that teaches Claude how to perform a specific task. Install one into your Claude session and Claude picks up a new ability - no prompting, no setup, no instructions to copy-paste every time. Skills work in Claude CoWork and Codex.
+A **Claude skill** is a portable file (ending in `.skill`) that teaches Claude how to perform a specific task. Install one into your Claude app and Claude picks up a new ability - no prompting, no setup, no instructions to copy-paste every time. Skills work in Claude Cowork and Codex.
 
 It's the difference between telling someone how to cook a recipe from scratch every time you want dinner, versus just handing them the cookbook.
 
@@ -32,7 +32,7 @@ Before skills existed, there were basically two ways to get Claude to do somethi
 
 Two places right now:
 
-**Claude CoWork** - Anthropic's collaborative workspace. You chat with Claude, share files, work on stuff together. Skills plug right into your session.
+**Claude Cowork** - Anthropic's collaborative workspace. You chat with Claude, share files, work on stuff together. Skills will be triggered by certain keywords (like "Create my trip").
 
 **Codex** - the coding environment. Developers use skills here for things like deployment workflows, code patterns, or API integrations.
 
@@ -51,7 +51,7 @@ Once installed, Claude reads all of it. You don't have to explain anything. Just
 
 The ecosystem is still early but growing fast. A few categories:
 
-**Travel** - the [Our Trips skill](https://ourtrips.to) takes any travel conversation and turns it into a proper shareable itinerary. Plan your trip, say "send it to Our Trips," and you get a mobile-friendly page with your full day-by-day plan.
+**Travel** - the [Our Trips skill](https://ourtrips.to) takes any travel conversation and turns it into a proper shareable itinerary. Plan your trip, say "send it to Our Trips," and you get a rich mobile-friendly page with your full day-by-day plan.
 
 **Productivity** - skills that generate reports, format documents, create presentations. Instead of explaining the output format every single time, the skill just handles it.
 
@@ -61,7 +61,7 @@ The ecosystem is still early but growing fast. A few categories:
 
 ## How to install a Claude skill
 
-Takes 30 seconds. Two options:
+It takes 30 seconds. Two options:
 
 ### Just ask Claude to grab it
 
@@ -76,10 +76,10 @@ Claude downloads it, installs it, done.
 ### Or upload it yourself
 
 1. Download the `.skill` file
-2. Open **Customize** in your CoWork session
+2. Open **Customize** in your Cowork settings
 3. Hit **Add skill**, pick the file
 
-Active for the rest of your session.
+
 
 ## Where to find Claude skills
 
@@ -105,10 +105,10 @@ A few things that follow from that:
 
 Easiest way to get it is to just do it:
 
-1. Open a Claude CoWork session
+1. Open a Claude Cowork session
 2. Tell Claude: `Fetch https://ourtrips.to/our-trips.skill and add it to my skills.`
 3. Plan a trip
 4. Say "Send it to Our Trips"
 5. Open the link
 
-You'll feel the difference right away. Claude stops being a chatbot and starts being a tool that makes something real.
+Experience the magic :) 
