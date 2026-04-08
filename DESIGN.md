@@ -161,6 +161,35 @@ The color system is almost entirely achromatic — dark backgrounds with white/g
 - Font: 12px weight 510
 - Use: Toolbar actions, quick-access controls
 
+### Hero Gradient Text
+
+The hero headline uses an animated gradient text effect — a brand signature that adds warmth and motion to the otherwise achromatic design. This is the ONLY place warm colors appear in the UI.
+
+**Gradient Definition:**
+- Direction: `120deg`
+- Stops: `#ffffff 0%`, `#fff4e8 18%`, `#ffd0a3 40%`, `#ff8a3d 56%`, `#ffffff 74%`, `#ffd9b8 100%`
+- Background-size: `220% 220%`
+- Animation: `14s ease-in-out infinite` cycling background-position from `0% 50%` to `100% 50%`
+
+**Implementation:**
+```css
+.hero-title {
+  background: linear-gradient(120deg, #ffffff 0%, #fff4e8 18%, #ffd0a3 40%, #ff8a3d 56%, #ffffff 74%, #ffd9b8 100%);
+  background-size: 220% 220%;
+  background-position: 0% 50%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: hero-title-glow 14s ease-in-out infinite;
+}
+```
+
+**Usage Guidelines:**
+- Use ONLY on the primary hero headline on the landing page
+- The warm peach-to-orange palette is the only non-achromatic element in the design system
+- Always include `prefers-reduced-motion` fallback
+- Works best at display sizes (48px+) with weight 510
+
 ### Cards & Containers
 - Background: `rgba(255,255,255,0.02)` to `rgba(255,255,255,0.05)` (never solid — always translucent)
 - Border: `1px solid rgba(255,255,255,0.08)` (standard) or `1px solid rgba(255,255,255,0.05)` (subtle)

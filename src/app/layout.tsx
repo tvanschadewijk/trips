@@ -39,7 +39,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   viewportFit: 'cover',
   userScalable: false,
-  themeColor: '#1A1A1A',
+  themeColor: '#08090a',
 };
 
 export default function RootLayout({
@@ -53,11 +53,11 @@ export default function RootLayout({
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
-          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Inter:wght@300..800&family=JetBrains+Mono:wght@400;500&display=swap"
           rel="stylesheet"
         />
       </head>
-      <body style={{ margin: 0, padding: 0, minHeight: '100dvh', background: '#1A1A1A' }}>
+      <body style={{ margin: 0, padding: 0, minHeight: '100dvh', background: '#08090a' }}>
         <ServiceWorkerRegistrar />
         {children}
       </body>
