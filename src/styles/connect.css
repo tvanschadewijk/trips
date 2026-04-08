@@ -1,11 +1,13 @@
 .connect {
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  color: #FFFFFF;
+  font-family: 'Inter Variable', 'Inter', system-ui, -apple-system, sans-serif;
+  font-feature-settings: "cv01", "ss03";
+  color: #f7f8f8;
   -webkit-font-smoothing: antialiased;
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
   align-items: center;
+  background: #08090a;
 }
 
 .connect-nav {
@@ -14,9 +16,9 @@
 }
 .connect-logo {
   font-size: 20px;
-  font-weight: 800;
-  letter-spacing: -0.03em;
-  color: #FFFFFF;
+  font-weight: 590;
+  letter-spacing: -0.24px;
+  color: #f7f8f8;
   text-decoration: none;
 }
 
@@ -25,9 +27,9 @@
   width: 100%;
   max-width: 400px;
   padding: 36px 28px;
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.02);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 20px;
+  border-radius: 12px;
 }
 
 .connect-center { text-align: center; }
@@ -39,29 +41,32 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(43, 124, 233, 0.15);
-  border-radius: 16px;
-  color: #6AABF7;
+  background: rgba(94, 106, 210, 0.15);
+  border-radius: 12px;
+  color: #7170ff;
 }
 .connect-icon svg { width: 26px; height: 26px; }
-.connect-icon-success { background: rgba(45, 138, 86, 0.15); color: #4ADE80; }
+.connect-icon-success { background: rgba(39, 166, 68, 0.15); color: #27a644; }
 .connect-icon-error { background: rgba(229, 83, 75, 0.15); color: #F87171; }
 
 .connect-title {
   font-size: 22px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
+  font-weight: 590;
+  letter-spacing: -0.288px;
   margin: 0 0 8px;
+  color: #f7f8f8;
 }
 .connect-desc {
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.5);
+  font-size: 15px;
+  font-weight: 400;
+  color: #8a8f98;
   margin: 0 0 24px;
-  line-height: 1.55;
+  line-height: 1.6;
+  letter-spacing: -0.165px;
 }
 .connect-desc strong {
-  color: rgba(255, 255, 255, 0.8);
-  font-weight: 600;
+  color: #d0d6e0;
+  font-weight: 510;
 }
 
 .connect-form {
@@ -72,29 +77,30 @@
 .connect-input {
   width: 100%;
   padding: 12px 14px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 10px;
-  color: #FFFFFF;
-  font-family: 'Inter', system-ui, sans-serif;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  color: #d0d6e0;
+  font-family: 'Inter Variable', 'Inter', system-ui, sans-serif;
   font-size: 15px;
+  font-weight: 400;
   outline: none;
   transition: border-color 0.2s;
 }
-.connect-input::placeholder { color: rgba(255, 255, 255, 0.3); }
-.connect-input:focus { border-color: #2B7CE9; }
+.connect-input::placeholder { color: #62666d; }
+.connect-input:focus { border-color: #5e6ad2; }
 
 .connect-btn {
   padding: 12px;
-  background: #2B7CE9;
-  color: #FFFFFF;
-  font-family: 'Inter', system-ui, sans-serif;
+  background: #5e6ad2;
+  color: #f7f8f8;
+  font-family: 'Inter Variable', 'Inter', system-ui, sans-serif;
   font-size: 15px;
-  font-weight: 600;
+  font-weight: 510;
   border: none;
-  border-radius: 10px;
+  border-radius: 6px;
   cursor: pointer;
   transition: background 0.2s;
   width: 100%;
 }
-.connect-btn:hover { background: #2468C8; }
+.connect-btn:hover { background: #828fff; }
