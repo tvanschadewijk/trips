@@ -19,7 +19,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const post = getPost(slug);
   if (!post) return {};
   return {
-    title: `${post.title} — Our Trips Blog`,
+    title: `${post.title} — OurTrips Blog`,
     description: post.excerpt,
     alternates: {
       canonical: `https://ourtrips.to/blog/${post.slug}`,
@@ -28,7 +28,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       title: post.title,
       description: post.excerpt,
       url: `https://ourtrips.to/blog/${post.slug}`,
-      siteName: 'Our Trips',
+      siteName: 'OurTrips',
       locale: 'en_US',
       type: 'article',
       publishedTime: post.date,
@@ -63,7 +63,7 @@ export default async function BlogPostPage({ params }: Props) {
       },
       publisher: {
         '@type': 'Organization',
-        name: 'Our Trips',
+        name: 'OurTrips',
         url: 'https://ourtrips.to',
         logo: {
           '@type': 'ImageObject',
@@ -122,7 +122,7 @@ export default async function BlogPostPage({ params }: Props) {
     <div className="blog">
       <nav className="blog-nav">
         <div className="blog-nav-inner">
-          <Link href="/" className="blog-logo">Our Trips<LogoSuffix /></Link>
+          <Link href="/" className="blog-logo">OurTrips<LogoSuffix /></Link>
           <div className="blog-nav-links">
             <Link href="/blog" className="blog-nav-link">Blog</Link>
             <Link href="/login" className="blog-btn-outline">Log in</Link>
@@ -189,7 +189,7 @@ export default async function BlogPostPage({ params }: Props) {
           <div className="blog-article-cta">
             <div className="blog-article-cta-title">Ready to try it?</div>
             <p className="blog-article-cta-desc">
-              Install the Our Trips skill and turn your next Claude conversation into a shareable itinerary.
+              Install the OurTrips skill and turn your next Claude conversation into a shareable itinerary.
             </p>
             <Link href="/guide" className="blog-article-cta-btn">
               Get started
@@ -201,7 +201,7 @@ export default async function BlogPostPage({ params }: Props) {
 
       <footer className="blog-footer">
         <div className="blog-footer-inner">
-          <span className="blog-footer-logo">Our Trips</span>
+          <span className="blog-footer-logo">OurTrips</span>
           <span className="blog-footer-copy">Built by Thijs van Schadewijk</span>
         </div>
       </footer>
