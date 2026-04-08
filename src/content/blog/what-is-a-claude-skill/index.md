@@ -51,7 +51,7 @@ Once installed, Claude reads all of it. You don't have to explain anything. Just
 
 The ecosystem is still early but growing fast. A few categories:
 
-**Travel** - the [Our Trips skill](https://ourtrips.to) takes any travel conversation and turns it into a proper shareable itinerary. Plan your trip, say "send it to Our Trips," and you get a rich mobile-friendly page with your full day-by-day plan.
+**Travel** - the [OurTrips skill](https://ourtrips.to) takes any travel conversation and turns it into a proper shareable itinerary. Plan your trip, say "send it to OurTrips," and you get a rich mobile-friendly page with your full day-by-day plan.
 
 **Productivity** - skills that generate reports, format documents, create presentations. Instead of explaining the output format every single time, the skill just handles it.
 
@@ -85,7 +85,7 @@ Claude downloads it, installs it, done.
 
 Still early days, but there are a few places:
 
-- **Directly from creators** - lots of tools publish their own skills (like [Our Trips](https://ourtrips.to))
+- **Directly from creators** - lots of tools publish their own skills (like [OurTrips](https://ourtrips.to))
 - **Directories** - [agentskills.so](https://agentskills.so) and [mcpmarket.com](https://mcpmarket.com) list available skills
 - **GitHub** - developers share skills in repos and Claude communities
 - **Build your own** - if you have a workflow you repeat often, you can package it as a skill
@@ -108,7 +108,7 @@ Easiest way to get it is to just do it:
 1. Open a Claude Cowork session
 2. Tell Claude: `Fetch https://ourtrips.to/our-trips.skill and add it to my skills.`
 3. Plan a trip
-4. Say "Send it to Our Trips"
+4. Say "Send it to OurTrips"
 5. Open the link
 
 Experience the magic :) 

@@ -1,7 +1,7 @@
 ---
-title: "Why I Created Our Trips"
+title: "Why I Created OurTrips"
 subtitle: "My story of discovering AI tools that actually make stuff — and why trip planning needed something better than a markdown file."
-excerpt: "From messy ChatGPT itineraries in 2023 to building a full travel platform with Claude skills — the founding story of Our Trips."
+excerpt: "From messy ChatGPT itineraries in 2023 to building a full travel platform with Claude skills — the founding story of OurTrips."
 tag: Story
 date: 2026-04-01
 lastUpdated: 2026-04-01
@@ -32,7 +32,7 @@ That experience made me think: how do we get the best of both worlds?
 
 We can chat with the best AI tools available — and right now, Claude Cowork is definitely one of them — but the output should be a **rich, visual presentation**, not just a document. Sure, you *can* turn any document into a website. But if everyone has to do that repeatedly for every trip, it's a waste of tokens and effort.
 
-That's how I came to **Our Trips.To** — a website to store all the itineraries we plan, for all kinds of destinations. The site comes with a [Claude skill](/blog/what-is-a-claude-skill) that you install, connecting directly to your conversation about your trips. When you're finished planning, you simply ask Claude to send the details to Our Trips, and a beautiful visual presentation is created.
+That's how I came to **OurTrips.To** — a website to store all the itineraries we plan, for all kinds of destinations. The site comes with a [Claude skill](/blog/what-is-a-claude-skill) that you install, connecting directly to your conversation about your trips. When you're finished planning, you simply ask Claude to send the details to OurTrips, and a beautiful visual presentation is created.
 
 ```copy
 Fetch https://ourtrips.to/our-trips.skill and add it to my skills.

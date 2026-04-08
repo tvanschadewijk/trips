@@ -68,7 +68,7 @@ export default async function Image() {
               letterSpacing: '-1px',
             }}
           >
-            Our Trips
+            OurTrips
           </span>
         </div>
 

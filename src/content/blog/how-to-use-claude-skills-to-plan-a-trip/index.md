@@ -1,14 +1,14 @@
 ---
 title: "How to Use Claude Skills to Plan a Trip"
 subtitle: "Turn any Claude conversation into a shareable, interactive travel itinerary in under a minute."
-excerpt: "Claude skills are small files that give Claude new abilities. The Our Trips skill turns any travel conversation into a beautiful, pocket-friendly itinerary you can share with anyone."
+excerpt: "Claude skills are small files that give Claude new abilities. The OurTrips skill turns any travel conversation into a beautiful, pocket-friendly itinerary you can share with anyone."
 tag: Guide
 date: 2026-04-05
 lastUpdated: 2026-04-07
 readingTime: "6 min read"
 ---
 
-The **Our Trips skill** is a Claude skill that turns any travel conversation into a shareable, mobile-friendly itinerary on [ourtrips.to](https://ourtrips.to). Install the skill, plan your trip through conversation, and say "Send it to Our Trips" to get a link you can pull up on your phone or share with anyone.
+The **OurTrips skill** is a Claude skill that turns any travel conversation into a shareable, mobile-friendly itinerary on [ourtrips.to](https://ourtrips.to). Install the skill, plan your trip through conversation, and say "Send it to OurTrips" to get a link you can pull up on your phone or share with anyone.
 
 We've all been there. You spend 20 minutes going back and forth with Claude about your trip to Portugal, and you end up with a genuinely solid itinerary. Great restaurants, realistic timing, good mix of activities. But then what? You copy-paste it into Apple Notes. Or a Google Doc. Or you just... leave it in the chat and hope you'll find it later.
 
@@ -16,11 +16,11 @@ That's the problem. The planning part is easy now. It's the *keeping and sharing
 
 ## What is a Claude skill?
 
-A skill is a file (ending in `.skill`) that you drop into Claude. It teaches Claude how to do something specific. In this case, the **Our Trips skill** teaches Claude how to take your travel conversation and turn it into a proper itinerary on [ourtrips.to](https://ourtrips.to) - with a link you can pull up on your phone.
+A skill is a file (ending in `.skill`) that you drop into Claude. It teaches Claude how to do something specific. In this case, the **OurTrips skill** teaches Claude how to take your travel conversation and turn it into a proper itinerary on [ourtrips.to](https://ourtrips.to) - with a link you can pull up on your phone.
 
 Skills work in **Claude CoWork** and **Codex**.
 
-## Step 1: Install the Our Trips skill
+## Step 1: Install the OurTrips skill
 
 Two ways. Both take 30 seconds.
 
@@ -62,11 +62,11 @@ A few things that actually make a difference:
 
   
 
-## Step 3: Say "Send it to Our Trips"
+## Step 3: Say "Send it to OurTrips"
 
 That's literally it. When the itinerary looks good:
 
-> Send it to Our Trips
+> Send it to OurTrips
 
 Claude packages the whole thing up and sends it. You get a link back. Open it on your phone, your laptop, send it to whoever you're traveling with. No account needed to view it.
 
@@ -81,11 +81,11 @@ What you get:
 
 It's 100% designed for mobile to be usable on the road.
 
-## Why use Our Trips instead of Google Docs?
+## Why use OurTrips instead of Google Docs?
 
 Sure, Google Docs exist. But a Google Doc is a wall of text on a white background. Try reading that on your phone while standing in Shibuya trying to figure out where lunch is.
 
-Our Trips gives you something that's actually designed to be used while traveling. Days you can swipe through. Tap on a restaurant to see the details. Everything in one place, loads fast, works offline.
+OurTrips gives you something that's actually designed to be used while traveling. Days you can swipe through. Tap on a restaurant to see the details. Everything in one place, loads fast, works offline.
 
 And the main thing - it takes one sentence to create. No formatting, no fiddling, no copy-pasting between apps.
 
@@ -97,7 +97,7 @@ Right now, the skill only works with **Claude CoWork and Codex**. ChatGPT suppor
 
 1. Tell Claude: `Fetch https://ourtrips.to/our-trips.skill and add it to my skills.`
 2. Plan your trip
-3. Say "Send it to Our Trips"
+3. Say "Send it to OurTrips"
 4. Open the link
 
 Takes about a minute. Your next trip doesn't have to live in a chat thread.

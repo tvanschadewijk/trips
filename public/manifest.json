@@ -1,6 +1,6 @@
 {
-  "name": "Our Trips",
-  "short_name": "Our Trips",
+  "name": "OurTrips",
+  "short_name": "OurTrips",
   "description": "Your trips, beautifully presented — works offline",
   "start_url": "/",
   "display": "standalone",

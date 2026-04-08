@@ -1,4 +1,4 @@
-// Our Trips — Service Worker
+// OurTrips — Service Worker
 // Caches trip pages, assets, and images for offline viewing
 
 const CACHE_VERSION = 'v1';

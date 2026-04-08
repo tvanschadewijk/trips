@@ -1,7 +1,7 @@
 import { ImageResponse } from 'next/og';
 import { getPost, getAllPosts } from '@/lib/blog/posts';
 
-export const alt = 'Our Trips Blog';
+export const alt = 'OurTrips Blog';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 
@@ -12,7 +12,7 @@ export function generateStaticParams() {
 export default async function Image({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const post = getPost(slug);
-  const title = post?.title ?? 'Our Trips Blog';
+  const title = post?.title ?? 'OurTrips Blog';
   const subtitle = post?.subtitle ?? '';
 
   return new ImageResponse(
@@ -45,7 +45,7 @@ export default async function Image({ params }: { params: Promise<{ slug: string
               letterSpacing: '-0.03em',
             }}
           >
-            Our Trips
+            OurTrips
           </div>
           <div
             style={{

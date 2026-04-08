@@ -1,6 +1,6 @@
 import { ImageResponse } from 'next/og';
 
-export const alt = 'Our Trips Blog — AI Trip Planning Guides';
+export const alt = 'OurTrips Blog — AI Trip Planning Guides';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 
@@ -35,7 +35,7 @@ export default async function Image() {
               letterSpacing: '-0.03em',
             }}
           >
-            Our Trips
+            OurTrips
           </div>
           <div
             style={{
