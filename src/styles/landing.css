@@ -32,11 +32,20 @@
   font-weight: 800;
   letter-spacing: -0.03em;
   color: #FFFFFF;
+  white-space: nowrap;
+  min-width: 0;
 }
 .landing-nav-links {
   display: flex;
   align-items: center;
   gap: 20px;
+  flex-shrink: 0;
+}
+@media (max-width: 640px) {
+  .landing-nav-inner { padding: 0 16px; }
+  .landing-logo { font-size: 17px; }
+  .landing-logo .logo-suffix { display: none; }
+  .landing-nav-links { gap: 16px; }
 }
 .landing-nav-link {
   font-size: 14px;
