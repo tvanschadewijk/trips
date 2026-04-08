@@ -142,7 +142,7 @@ export default function DashboardPage() {
   if (loading) {
     return (
       <div className="dash" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100dvh' }}>
-        <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: 14 }}>Loading...</span>
+        <span style={{ color: '#8a8f98', fontSize: 14 }}>Loading...</span>
       </div>
     );
   }

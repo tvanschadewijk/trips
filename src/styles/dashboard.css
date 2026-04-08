@@ -1,6 +1,7 @@
 .dash {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  color: #FFFFFF;
+  font-feature-settings: "cv01", "ss03";
+  color: #f7f8f8;
   -webkit-font-smoothing: antialiased;
   min-height: 100dvh;
 }
@@ -12,8 +13,8 @@
   z-index: 50;
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  background: rgba(26, 26, 26, 0.85);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(8, 9, 10, 0.85);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 .dash-nav-inner {
   max-width: 1200px;
@@ -26,9 +27,9 @@
 }
 .dash-logo {
   font-size: 20px;
-  font-weight: 800;
+  font-weight: 590;
   letter-spacing: -0.03em;
-  color: #FFFFFF;
+  color: #f7f8f8;
   text-decoration: none;
 }
 .dash-nav-right {
@@ -38,27 +39,27 @@
 }
 .dash-settings-btn {
   display: flex; align-items: center; justify-content: center;
-  width: 36px; height: 36px; border-radius: 10px;
+  width: 36px; height: 36px; border-radius: 8px;
   border: none; cursor: pointer;
-  background: transparent; color: rgba(255,255,255,0.4);
+  background: transparent; color: #8a8f98;
   transition: background 0.15s, color 0.15s;
 }
-.dash-settings-btn:hover { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.7); }
+.dash-settings-btn:hover { background: rgba(255,255,255,0.05); color: #d0d6e0; }
 .dash-settings-backdrop {
   position: fixed; inset: 0; z-index: 99;
 }
 .dash-settings-menu {
   position: absolute; top: 44px; right: 0; z-index: 100;
   min-width: 200px;
-  background: #2C2C2C; border: 1px solid rgba(255,255,255,0.1);
+  background: #191a1b; border: 1px solid rgba(255,255,255,0.08);
   border-radius: 12px; padding: 6px;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  box-shadow: rgba(0,0,0,0.2) 0px 0px 0px 1px, 0 8px 32px rgba(0,0,0,0.4);
   animation: dash-menu-in 0.15s ease-out;
 }
 .dash-settings-email {
   padding: 10px 12px 8px;
-  font-size: 12px; font-weight: 500;
-  color: rgba(255,255,255,0.4);
+  font-size: 12px; font-weight: 510;
+  color: #62666d;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .dash-settings-divider {
@@ -68,12 +69,12 @@
 .dash-settings-item {
   display: flex; align-items: center; gap: 10px;
   width: 100%; padding: 10px 12px;
-  background: none; border: none; border-radius: 8px;
-  color: rgba(255,255,255,0.7); font-family: 'Inter', system-ui, sans-serif;
-  font-size: 13px; font-weight: 500; cursor: pointer;
+  background: none; border: none; border-radius: 6px;
+  color: #d0d6e0; font-family: 'Inter', system-ui, sans-serif;
+  font-size: 13px; font-weight: 510; cursor: pointer;
   transition: background 0.15s;
 }
-.dash-settings-item:hover { background: rgba(255,255,255,0.08); }
+.dash-settings-item:hover { background: rgba(255,255,255,0.05); }
 .dash-settings-item svg { opacity: 0.6; }
 @keyframes dash-menu-in {
   from { opacity: 0; transform: translateY(-4px) scale(0.97); }
@@ -93,13 +94,14 @@
 }
 .dash-title {
   font-size: 28px;
-  font-weight: 800;
+  font-weight: 590;
   letter-spacing: -0.02em;
   margin: 0;
+  color: #f7f8f8;
 }
 .dash-subtitle {
   font-size: 14px;
-  color: rgba(255, 255, 255, 0.4);
+  color: #8a8f98;
   margin: 4px 0 0;
 }
 
@@ -116,15 +118,15 @@
 /* Card */
 .dash-card {
   position: relative;
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.02);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 16px;
+  border-radius: 8px;
   overflow: visible;
   transition: border-color 0.2s, background 0.2s;
 }
 .dash-card:hover {
   border-color: rgba(255, 255, 255, 0.14);
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.04);
 }
 .dash-card-link {
   display: block;
@@ -135,7 +137,7 @@
   position: relative;
   height: 200px;
   overflow: hidden;
-  border-radius: 15px 15px 0 0;
+  border-radius: 7px 7px 0 0;
 }
 .dash-card-hero-frame {
   position: relative;
@@ -165,14 +167,15 @@
 }
 .dash-card-name {
   font-size: 20px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
+  font-weight: 590;
+  letter-spacing: -0.24px;
   line-height: 1.2;
+  color: #f7f8f8;
 }
 .dash-card-subtitle {
   font-size: 12px;
   font-weight: 400;
-  color: rgba(255, 255, 255, 0.7);
+  color: #d0d6e0;
   margin-top: 4px;
   line-height: 1.4;
 }
@@ -185,7 +188,7 @@
   justify-content: space-between;
   font-family: 'JetBrains Mono', monospace;
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.4);
+  color: #8a8f98;
   margin-bottom: 14px;
 }
 
@@ -196,27 +199,27 @@
 }
 .dash-card-updated {
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.25);
+  color: #62666d;
 }
 .dash-card-btn {
   display: inline-flex;
   align-items: center;
   gap: 5px;
   padding: 5px 12px;
-  background: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.02);
+  color: #d0d6e0;
   font-family: 'Inter', system-ui, sans-serif;
   font-size: 11px;
-  font-weight: 600;
-  border: none;
-  border-radius: 8px;
+  font-weight: 510;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
   cursor: pointer;
   text-decoration: none;
   transition: background 0.15s, color 0.15s;
 }
-.dash-card-btn:hover { background: rgba(255, 255, 255, 0.14); color: #FFFFFF; }
+.dash-card-btn:hover { background: rgba(255, 255, 255, 0.05); color: #f7f8f8; }
 .dash-card-btn svg { width: 12px; height: 12px; }
-.dash-card-btn.copied { color: #2D8A56; background: rgba(45, 138, 86, 0.12); }
+.dash-card-btn.copied { color: #27a644; background: rgba(39, 166, 68, 0.1); }
 
 /* Card three-dot menu */
 .dash-card-menu-wrap {
@@ -224,7 +227,7 @@
 }
 .dash-card-menu-btn {
   display: flex; align-items: center; justify-content: center;
-  width: 32px; height: 32px; border-radius: 8px;
+  width: 32px; height: 32px; border-radius: 6px;
   border: none; cursor: pointer;
   background: rgba(0,0,0,0.35); color: rgba(255,255,255,0.8);
   backdrop-filter: blur(4px);
@@ -238,20 +241,20 @@
 .dash-card-menu {
   position: absolute; top: 36px; right: 0; z-index: 10;
   min-width: 150px;
-  background: #2C2C2C; border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 10px; padding: 4px;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  background: #191a1b; border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 8px; padding: 4px;
+  box-shadow: rgba(0,0,0,0.2) 0px 0px 0px 1px, 0 8px 32px rgba(0,0,0,0.4);
   animation: dash-menu-in 0.15s ease-out;
 }
 .dash-card-menu-item {
   display: flex; align-items: center; gap: 8px;
   width: 100%; padding: 9px 12px;
-  background: none; border: none; border-radius: 7px;
-  color: rgba(255,255,255,0.7); font-family: 'Inter', system-ui, sans-serif;
-  font-size: 13px; font-weight: 500; cursor: pointer;
+  background: none; border: none; border-radius: 6px;
+  color: #d0d6e0; font-family: 'Inter', system-ui, sans-serif;
+  font-size: 13px; font-weight: 510; cursor: pointer;
   transition: background 0.15s;
 }
-.dash-card-menu-item:hover { background: rgba(255,255,255,0.08); }
+.dash-card-menu-item:hover { background: rgba(255,255,255,0.05); }
 .dash-card-menu-item-danger { color: #ef4444; }
 .dash-card-menu-item-danger:hover { background: rgba(239,68,68,0.1); }
 
@@ -268,36 +271,37 @@
 .dash-confirm-dialog {
   position: relative; z-index: 1;
   width: 90%; max-width: 340px;
-  background: #2C2C2C; border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 16px; padding: 24px;
-  box-shadow: 0 16px 48px rgba(0,0,0,0.5);
+  background: #191a1b; border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px; padding: 24px;
+  box-shadow: rgba(0,0,0,0.2) 0px 0px 0px 1px, 0 16px 48px rgba(0,0,0,0.5);
   animation: dash-menu-in 0.2s ease-out;
 }
 .dash-confirm-title {
   font-family: 'Inter', system-ui, sans-serif;
-  font-size: 17px; font-weight: 700; color: #fff;
+  font-size: 17px; font-weight: 590; color: #f7f8f8;
   margin-bottom: 8px;
 }
 .dash-confirm-message {
   font-family: 'Inter', system-ui, sans-serif;
-  font-size: 14px; color: rgba(255,255,255,0.5);
+  font-size: 14px; color: #8a8f98;
   line-height: 1.5; margin: 0 0 20px;
 }
 .dash-confirm-actions {
   display: flex; gap: 10px; justify-content: flex-end;
 }
 .dash-confirm-btn {
-  padding: 9px 18px; border: none; border-radius: 10px;
+  padding: 9px 18px; border: none; border-radius: 6px;
   font-family: 'Inter', system-ui, sans-serif;
-  font-size: 14px; font-weight: 600; cursor: pointer;
+  font-size: 14px; font-weight: 510; cursor: pointer;
   transition: background 0.15s, transform 0.1s;
 }
 .dash-confirm-btn:active { transform: scale(0.96); }
 .dash-confirm-btn:disabled { opacity: 0.5; cursor: wait; }
 .dash-confirm-cancel {
-  background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.7);
+  background: rgba(255,255,255,0.02); color: #d0d6e0;
+  border: 1px solid rgba(255,255,255,0.08);
 }
-.dash-confirm-cancel:hover { background: rgba(255,255,255,0.12); }
+.dash-confirm-cancel:hover { background: rgba(255,255,255,0.05); }
 .dash-confirm-delete {
   background: #ef4444; color: #fff;
 }
@@ -307,7 +311,7 @@
 .dash-empty {
   text-align: center;
   padding: 80px 20px;
-  color: rgba(255, 255, 255, 0.4);
+  color: #8a8f98;
 }
 .dash-empty-icon {
   width: 56px;
@@ -316,9 +320,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.06);
-  border-radius: 16px;
-  color: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 12px;
+  color: #62666d;
 }
 .dash-empty-icon svg { width: 28px; height: 28px; }
 
@@ -339,21 +343,21 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(43, 124, 233, 0.12);
-  border-radius: 16px;
-  color: #6AABF7;
+  background: rgba(94, 106, 210, 0.12);
+  border-radius: 12px;
+  color: #7170ff;
 }
 .dash-onboard-icon svg { width: 30px; height: 30px; }
 .dash-onboard-header h3 {
   font-size: 22px;
-  font-weight: 700;
-  color: rgba(255, 255, 255, 0.85);
+  font-weight: 590;
+  color: #f7f8f8;
   margin: 0 0 10px;
 }
 .dash-onboard-header p {
   font-size: 15px;
   line-height: 1.6;
-  color: rgba(255, 255, 255, 0.4);
+  color: #8a8f98;
   margin: 0;
 }
 
@@ -367,10 +371,10 @@
   display: flex;
   gap: 18px;
   padding: 24px 0;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
 }
 .dash-onboard-step:last-child {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 .dash-onboard-step-with-aside {
   gap: 20px;
@@ -394,11 +398,11 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(43, 124, 233, 0.12);
+  background: rgba(94, 106, 210, 0.12);
   border-radius: 50%;
   font-size: 14px;
-  font-weight: 700;
-  color: #6AABF7;
+  font-weight: 590;
+  color: #7170ff;
   margin-top: 1px;
 }
 .dash-onboard-step-body {
@@ -407,32 +411,32 @@
 }
 .dash-onboard-step-title {
   font-size: 16px;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.85);
+  font-weight: 510;
+  color: #f7f8f8;
   margin-bottom: 8px;
   line-height: 1.3;
 }
 .dash-onboard-step-desc {
   font-size: 14px;
   line-height: 1.65;
-  color: rgba(255, 255, 255, 0.4);
+  color: #8a8f98;
   margin: 0;
 }
 .dash-onboard-step-desc a {
-  color: rgba(255, 255, 255, 0.6);
+  color: #d0d6e0;
   text-decoration: underline;
   text-underline-offset: 2px;
   transition: color 0.15s;
 }
-.dash-onboard-step-desc a:hover { color: #fff; }
+.dash-onboard-step-desc a:hover { color: #f7f8f8; }
 
 /* Code block */
 .dash-onboard-code {
   margin-top: 12px;
   padding: 14px 16px;
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.02);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 10px;
+  border-radius: 8px;
   overflow-x: auto;
   display: flex;
   align-items: flex-start;
@@ -441,10 +445,10 @@
 .dash-onboard-copy-btn {
   flex-shrink: 0;
   margin-left: auto;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 6px;
-  color: rgba(255, 255, 255, 0.4);
+  color: #62666d;
   cursor: pointer;
   padding: 5px 6px;
   display: flex;
@@ -452,13 +456,13 @@
   justify-content: center;
   transition: background 0.15s, color 0.15s;
 }
-.dash-onboard-copy-btn:hover { background: rgba(255, 255, 255, 0.1); color: rgba(255, 255, 255, 0.7); }
-.dash-onboard-copy-btn.copied { color: #34d399; }
+.dash-onboard-copy-btn:hover { background: rgba(255, 255, 255, 0.08); color: #d0d6e0; }
+.dash-onboard-copy-btn.copied { color: #10b981; }
 .dash-onboard-code code {
   font-family: 'JetBrains Mono', ui-monospace, monospace;
   font-size: 13px;
   line-height: 1.55;
-  color: rgba(255, 255, 255, 0.6);
+  color: #d0d6e0;
   white-space: pre-wrap;
   word-break: break-word;
 }
@@ -466,17 +470,17 @@
 /* Note under code */
 .dash-onboard-step-note {
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.3);
+  color: #62666d;
   margin: 12px 0 0;
   line-height: 1.5;
 }
 .dash-onboard-step-note a {
-  color: rgba(255, 255, 255, 0.45);
+  color: #8a8f98;
   text-decoration: underline;
   text-underline-offset: 2px;
   transition: color 0.15s;
 }
-.dash-onboard-step-note a:hover { color: rgba(255, 255, 255, 0.7); }
+.dash-onboard-step-note a:hover { color: #d0d6e0; }
 
 /* Compatibility note */
 .dash-onboard-compat {
@@ -484,24 +488,24 @@
   align-items: flex-start;
   gap: 10px;
   padding: 12px 14px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
 }
 .dash-onboard-compat svg {
   flex-shrink: 0;
-  color: rgba(255, 255, 255, 0.3);
+  color: #62666d;
   margin-top: 1px;
 }
 .dash-onboard-compat p {
   font-size: 12px;
   line-height: 1.5;
-  color: rgba(255, 255, 255, 0.35);
+  color: #62666d;
   margin: 0;
 }
 .dash-onboard-compat strong {
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.5);
+  font-weight: 510;
+  color: #8a8f98;
 }
 
 /* Footer / demo link */
@@ -514,16 +518,16 @@
   align-items: center;
   gap: 8px;
   font-size: 15px;
-  font-weight: 600;
-  color: #6AABF7;
+  font-weight: 510;
+  color: #7170ff;
   text-decoration: none;
   padding: 12px 24px;
-  background: rgba(43, 124, 233, 0.1);
-  border: 1px solid rgba(43, 124, 233, 0.2);
-  border-radius: 10px;
+  background: rgba(94, 106, 210, 0.1);
+  border: 1px solid rgba(94, 106, 210, 0.2);
+  border-radius: 8px;
   transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
-.dash-onboard-demo-link:hover { color: #fff; background: rgba(43, 124, 233, 0.18); border-color: rgba(43, 124, 233, 0.35); }
+.dash-onboard-demo-link:hover { color: #828fff; background: rgba(94, 106, 210, 0.18); border-color: rgba(94, 106, 210, 0.35); }
 .dash-onboard-demo-link svg { transition: transform 0.15s; }
 .dash-onboard-demo-link:hover svg { transform: translateX(3px); }
 
@@ -561,8 +565,8 @@
 }
 .dash-empty h3 {
   font-size: 18px;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.6);
+  font-weight: 510;
+  color: #d0d6e0;
   margin: 0 0 8px;
 }
 .dash-empty p {
@@ -580,11 +584,11 @@
   .dash-nav-inner { padding: 0 40px; height: 64px; }
   .dash-logo { font-size: 22px; }
   .dash-main { padding: 40px 40px 100px; }
-  .dash-title { font-size: 32px; }
+  .dash-title { font-size: 32px; letter-spacing: -0.704px; }
   .dash-header { margin-bottom: 36px; }
   .dash-grid { gap: 24px; }
   .dash-card { transition: border-color 0.2s, background 0.2s, transform 0.25s, box-shadow 0.25s; }
-  .dash-card:hover { transform: translateY(-4px); box-shadow: 0 12px 40px rgba(0,0,0,0.3); }
+  .dash-card:hover { transform: translateY(-4px); box-shadow: rgba(0,0,0,0.2) 0px 0px 0px 1px, 0 12px 40px rgba(0,0,0,0.3); }
   .dash-card-hero { height: 220px; }
   .dash-card-name { font-size: 22px; }
 }
@@ -598,7 +602,7 @@
   .dash-title { font-size: 36px; }
   .dash-grid { gap: 28px; grid-template-columns: repeat(3, 1fr); }
   .dash-card-hero { height: 260px; }
-  .dash-card-name { font-size: 24px; }
+  .dash-card-name { font-size: 24px; letter-spacing: -0.288px; }
   .dash-card-subtitle { font-size: 13px; }
   .dash-card-body { padding: 16px 18px 18px; }
   .dash-card-meta { font-size: 12px; }
