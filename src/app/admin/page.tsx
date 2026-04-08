@@ -223,7 +223,6 @@ export default function AdminPage() {
       </nav>
 
       <main className="admin-main">
-        {/* Date range controls */}
         <div className="admin-controls">
           <div className="admin-presets">
             {[
@@ -243,30 +242,13 @@ export default function AdminPage() {
             ))}
           </div>
           <div className="admin-date-range">
-            <input
-              type="date"
-              className="admin-date-input"
-              value={rangeFrom}
-              onChange={e => setRangeFrom(e.target.value)}
-            />
+            <input type="date" className="admin-date-input" value={rangeFrom} onChange={e => setRangeFrom(e.target.value)} />
             <span className="admin-date-sep">to</span>
-            <input
-              type="date"
-              className="admin-date-input"
-              value={rangeTo}
-              onChange={e => setRangeTo(e.target.value)}
-            />
-            <button
-              className="admin-apply-btn"
-              onClick={applyCustomRange}
-              disabled={!rangeFrom || !rangeTo}
-            >
-              Apply
-            </button>
+            <input type="date" className="admin-date-input" value={rangeTo} onChange={e => setRangeTo(e.target.value)} />
+            <button className="admin-apply-btn" onClick={applyCustomRange} disabled={!rangeFrom || !rangeTo}>Apply</button>
           </div>
         </div>
 
-        {/* KPI cards */}
         <div className="admin-kpi-grid">
           <div className="admin-kpi-card">
             <div className="admin-kpi-label">Total Users</div>
@@ -276,26 +258,19 @@ export default function AdminPage() {
           <div className="admin-kpi-card">
             <div className="admin-kpi-label">Total Trips</div>
             <div className="admin-kpi-value">{data.trips.total.toLocaleString()}</div>
-            <div className="admin-kpi-sub">
-              {data.range.from ? 'In selected range' : 'All time'}
-            </div>
+            <div className="admin-kpi-sub">{data.range.from ? 'In selected range' : 'All time'}</div>
           </div>
           <div className="admin-kpi-card">
             <div className="admin-kpi-label">Avg Trips / User</div>
             <div className="admin-kpi-value">{data.trips.avg_per_user}</div>
-            <div className="admin-kpi-sub">
-              Among {data.trips.unique_users_with_trips} users with trips
-            </div>
+            <div className="admin-kpi-sub">Among {data.trips.unique_users_with_trips} users with trips</div>
           </div>
         </div>
 
-        {/* Users chart */}
         <div className="admin-chart-card">
           <div className="admin-chart-header">
             <h3 className="admin-chart-title">Users</h3>
-            <span className="admin-chart-sub">
-              Cumulative total and new signups per {data.granularity === 'day' ? 'day' : 'month'}
-            </span>
+            <span className="admin-chart-sub">Cumulative total and new signups per {data.granularity === 'day' ? 'day' : 'month'}</span>
           </div>
           <div className="admin-chart-body">
             {data.users.per_bucket.length > 0 ? (
@@ -308,38 +283,11 @@ export default function AdminPage() {
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
-                  <XAxis
-                    dataKey="bucket"
-                    tickFormatter={(v) => formatBucket(v, data.granularity)}
-                    stroke="rgba(255,255,255,0.2)"
-                    tick={{ fill: 'rgba(255,255,255,0.4)', fontSize: 12 }}
-                    axisLine={{ stroke: 'rgba(255,255,255,0.08)' }}
-                    interval={data.granularity === 'day' && data.users.per_bucket.length > 14 ? Math.floor(data.users.per_bucket.length / 10) : 'preserveStartEnd'}
-                  />
-                  <YAxis
-                    stroke="rgba(255,255,255,0.2)"
-                    tick={{ fill: 'rgba(255,255,255,0.4)', fontSize: 12 }}
-                    axisLine={{ stroke: 'rgba(255,255,255,0.08)' }}
-                    allowDecimals={false}
-                  />
+                  <XAxis dataKey="bucket" tickFormatter={(v) => formatBucket(v, data.granularity)} stroke="rgba(255,255,255,0.2)" tick={{ fill: 'rgba(255,255,255,0.4)', fontSize: 12 }} axisLine={{ stroke: 'rgba(255,255,255,0.08)' }} interval={data.granularity === 'day' && data.users.per_bucket.length > 14 ? Math.floor(data.users.per_bucket.length / 10) : 'preserveStartEnd'} />
+                  <YAxis stroke="rgba(255,255,255,0.2)" tick={{ fill: 'rgba(255,255,255,0.4)', fontSize: 12 }} axisLine={{ stroke: 'rgba(255,255,255,0.08)' }} allowDecimals={false} />
                   <Tooltip content={<CustomTooltip formatter={(v) => formatBucketLong(v, data.granularity)} />} />
-                  <Area
-                    type="monotone"
-                    dataKey="total_users"
-                    name="Total users"
-                    stroke="#5e6ad2"
-                    fill="url(#gradUsers)"
-                    strokeWidth={2}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="new_users"
-                    name="New users"
-                    stroke="#7170ff"
-                    fill="none"
-                    strokeWidth={1.5}
-                    strokeDasharray="4 3"
-                  />
+                  <Area type="monotone" dataKey="total_users" name="Total users" stroke="#5e6ad2" fill="url(#gradUsers)" strokeWidth={2} />
+                  <Area type="monotone" dataKey="new_users" name="New users" stroke="#7170ff" fill="none" strokeWidth={1.5} strokeDasharray="4 3" />
                 </AreaChart>
               </ResponsiveContainer>
             ) : (
@@ -348,13 +296,10 @@ export default function AdminPage() {
           </div>
         </div>
 
-        {/* Trips chart */}
         <div className="admin-chart-card">
           <div className="admin-chart-header">
             <h3 className="admin-chart-title">Trips created</h3>
-            <span className="admin-chart-sub">
-              New trips per {data.granularity === 'day' ? 'day' : 'month'}
-            </span>
+            <span className="admin-chart-sub">New trips per {data.granularity === 'day' ? 'day' : 'month'}</span>
           </div>
           <div className="admin-chart-body">
             {data.trips.per_bucket.length > 0 ? (
@@ -367,28 +312,10 @@ export default function AdminPage() {
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
-                  <XAxis
-                    dataKey="bucket"
-                    tickFormatter={(v) => formatBucket(v, data.granularity)}
-                    stroke="rgba(255,255,255,0.2)"
-                    tick={{ fill: 'rgba(255,255,255,0.4)', fontSize: 12 }}
-                    axisLine={{ stroke: 'rgba(255,255,255,0.08)' }}
-                    interval={data.granularity === 'day' && data.trips.per_bucket.length > 14 ? Math.floor(data.trips.per_bucket.length / 10) : 'preserveStartEnd'}
-                  />
-                  <YAxis
-                    stroke="rgba(255,255,255,0.2)"
-                    tick={{ fill: 'rgba(255,255,255,0.4)', fontSize: 12 }}
-                    axisLine={{ stroke: 'rgba(255,255,255,0.08)' }}
-                    allowDecimals={false}
-                  />
+                  <XAxis dataKey="bucket" tickFormatter={(v) => formatBucket(v, data.granularity)} stroke="rgba(255,255,255,0.2)" tick={{ fill: 'rgba(255,255,255,0.4)', fontSize: 12 }} axisLine={{ stroke: 'rgba(255,255,255,0.08)' }} interval={data.granularity === 'day' && data.trips.per_bucket.length > 14 ? Math.floor(data.trips.per_bucket.length / 10) : 'preserveStartEnd'} />
+                  <YAxis stroke="rgba(255,255,255,0.2)" tick={{ fill: 'rgba(255,255,255,0.4)', fontSize: 12 }} axisLine={{ stroke: 'rgba(255,255,255,0.08)' }} allowDecimals={false} />
                   <Tooltip content={<CustomTooltip formatter={(v) => formatBucketLong(v, data.granularity)} />} />
-                  <Bar
-                    dataKey="trips"
-                    name="Trips"
-                    fill="url(#gradTrips)"
-                    radius={[4, 4, 0, 0]}
-                    maxBarSize={data.granularity === 'day' ? 24 : 48}
-                  />
+                  <Bar dataKey="trips" name="Trips" fill="url(#gradTrips)" radius={[4, 4, 0, 0]} maxBarSize={data.granularity === 'day' ? 24 : 48} />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
