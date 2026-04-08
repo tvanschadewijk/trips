@@ -42,11 +42,11 @@ export default function LoginPage() {
   return (
     <div className="login">
       <nav className="login-nav">
-        <Link href="/" className="login-logo">Our Trips<LogoSuffix /></Link>
+        <Link href="/" className="login-logo">OurTrips<LogoSuffix /></Link>
       </nav>
 
       <div className="login-card">
-        <h2 className="login-title">Sign in to Our Trips</h2>
+        <h2 className="login-title">Sign in to OurTrips</h2>
         <p className="login-desc">Sign in to manage and share your trips.</p>
 
         <button type="button" className="login-btn-google" onClick={handleGoogle}>

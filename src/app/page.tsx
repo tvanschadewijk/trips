@@ -16,7 +16,7 @@ export default async function Home() {
     <div className="landing">
       <nav className="landing-nav">
         <div className="landing-nav-inner">
-          <span className="landing-logo">Our Trips<LogoSuffix /></span>
+          <span className="landing-logo">OurTrips<LogoSuffix /></span>
           <div className="landing-nav-links">
             <Link href="/demo" className="landing-nav-link">Demo</Link>
             <Link href="/blog" className="landing-nav-link">Blog</Link>
@@ -67,7 +67,7 @@ export default async function Home() {
           Trip planning is notes, emails, and apps everywhere.
           <span className="landing-steps-heading-accent">Not Anymore</span>
         </h2>
-        <p className="landing-steps-subheading">Our Trips brings all your itinerary information together in a beautiful, pocket-friendly format.</p>
+        <p className="landing-steps-subheading">OurTrips brings all your itinerary information together in a beautiful, pocket-friendly format.</p>
         <div className="landing-steps-inner">
           <div className="landing-step">
             <span className="landing-step-num">1</span>
@@ -87,7 +87,7 @@ export default async function Home() {
           <div className="landing-step-divider" />
           <div className="landing-step">
             <span className="landing-step-num">3</span>
-            <h3 className="landing-step-title">Say &ldquo;Send it to Our Trips&rdquo;</h3>
+            <h3 className="landing-step-title">Say &ldquo;Send it to OurTrips&rdquo;</h3>
             <p className="landing-step-desc">That&apos;s it. Your trip gets a shareable link — experience the magic.</p>
           </div>
         </div>
@@ -107,7 +107,7 @@ export default async function Home() {
 
       <footer className="landing-footer">
         <div className="landing-footer-inner">
-          <span className="landing-footer-logo">Our Trips</span>
+          <span className="landing-footer-logo">OurTrips</span>
           <span className="landing-footer-copy">Built by Thijs van Schadewijk</span>
         </div>
       </footer>
