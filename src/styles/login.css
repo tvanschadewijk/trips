@@ -1,11 +1,13 @@
 .login {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  color: #FFFFFF;
+  font-feature-settings: "cv01", "ss03";
+  color: #f7f8f8;
   -webkit-font-smoothing: antialiased;
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
   align-items: center;
+  background: #08090a;
 }
 
 .login-nav {
@@ -14,9 +16,9 @@
 }
 .login-logo {
   font-size: 20px;
-  font-weight: 800;
+  font-weight: 590;
   letter-spacing: -0.03em;
-  color: #FFFFFF;
+  color: #f7f8f8;
   text-decoration: none;
 }
 
@@ -25,27 +27,27 @@
   width: calc(100% - 48px);
   max-width: 380px;
   padding: 36px 28px;
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.02);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 20px;
+  border-radius: 8px;
   animation: login-card-in 0.4s ease-out;
 }
 
 .login-title {
   font-size: 22px;
-  font-weight: 700;
+  font-weight: 510;
   letter-spacing: -0.01em;
   margin: 0 0 6px;
 }
 .login-desc {
   font-size: 14px;
-  color: rgba(255, 255, 255, 0.5);
+  color: #8a8f98;
   margin: 0 0 24px;
   line-height: 1.5;
 }
 .login-desc strong {
-  color: rgba(255, 255, 255, 0.8);
-  font-weight: 600;
+  color: #d0d6e0;
+  font-weight: 510;
 }
 
 
@@ -57,18 +59,18 @@
   gap: 10px;
   width: 100%;
   padding: 12px;
-  background: #FFFFFF;
-  color: #1A1A1A;
+  background: #5e6ad2;
+  color: #ffffff;
   font-family: 'Inter', system-ui, sans-serif;
   font-size: 15px;
-  font-weight: 600;
+  font-weight: 510;
   border: none;
-  border-radius: 10px;
+  border-radius: 6px;
   cursor: pointer;
   transition: background 0.2s, box-shadow 0.2s, transform 0.15s;
 }
-.login-btn-google:hover { background: #F5F5F5; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
-.login-btn-google:active { background: #EBEBEB; transform: scale(0.98); }
+.login-btn-google:hover { background: #828fff; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+.login-btn-google:active { background: #7170ff; transform: scale(0.98); }
 
 @keyframes login-card-in {
   from { opacity: 0; transform: translateY(12px); }
@@ -84,12 +86,9 @@
     margin-top: 0;
     max-width: 400px;
     padding: 44px 36px;
-    background: rgba(255, 255, 255, 0.05);
-    border-color: rgba(255, 255, 255, 0.1);
     box-shadow: 0 8px 40px rgba(0,0,0,0.3);
   }
   .login-title { font-size: 24px; }
-  .login-btn-google { padding: 14px; font-size: 16px; border-radius: 12px; }
+  .login-btn-google { padding: 14px; font-size: 16px; border-radius: 6px; }
   .login-btn-google:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(0,0,0,0.2); }
 }
-
