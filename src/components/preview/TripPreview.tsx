@@ -671,7 +671,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
           <span class="detail-row-label" style="width:auto">Day ${day} · ${dateLabel}</span>
           ${t.status ? `<span class="text-status status-badge status-${t.status}">${t.status}</span>` : ''}
         </div>
-        <span class="detail-row-value" style="text-align:left;font-size:15px;font-weight:600">${t.label || route}</span>
+        <span class="detail-row-value" style="text-align:left;font-size:15px;font-weight:510">${t.label || route}</span>
         ${route && t.label ? `<span class="detail-row-value" style="text-align:left;font-size:13px;color:var(--color-text-muted)">${route}</span>` : ''}
         ${times || t.duration ? `<span class="detail-row-value" style="text-align:left;font-size:13px;color:var(--color-text-muted)">${[times, t.duration].filter(Boolean).join(' · ')}</span>` : ''}
       </div>`;
@@ -697,7 +697,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
           <span class="detail-row-label" style="width:auto">From ${dateLabel}</span>
           ${a.status ? `<span class="text-status status-badge status-${a.status}">${a.status}</span>` : ''}
         </div>
-        <span class="detail-row-value" style="text-align:left;font-size:15px;font-weight:600">${a.name}</span>
+        <span class="detail-row-value" style="text-align:left;font-size:15px;font-weight:510">${a.name}</span>
         ${meta ? `<span class="detail-row-value" style="text-align:left;font-size:13px;color:var(--color-text-muted)">${meta}</span>` : ''}
         ${a.note ? `<span class="detail-row-value" style="text-align:left;font-size:13px;color:var(--color-text-secondary)">${a.note}</span>` : ''}
       </div>`;
@@ -806,7 +806,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
           <div className="hero-body">
             <div className="hero-pill">
               <Icon name="users" />
-              <span className="text-hero-meta" style={{ textTransform: 'none', letterSpacing: '0.03em', fontWeight: 500 }}>
+              <span className="text-hero-meta" style={{ textTransform: 'none', letterSpacing: '0.03em', fontWeight: 510 }}>
                 {trip.travelers.join(' & ')}
               </span>
             </div>
