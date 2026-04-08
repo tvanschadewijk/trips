@@ -39,6 +39,7 @@ export default function DashboardPage() {
     if (typeof window !== 'undefined' && sessionStorage.getItem('dash-trips')) return false;
     return true;
   });
+  const [isAdmin, setIsAdmin] = useState(false);
   const [vtTrip, setVtTrip] = useState<string | null>(() => {
     if (typeof window !== 'undefined') return sessionStorage.getItem('vt-trip');
     return null;
@@ -60,6 +61,14 @@ export default function DashboardPage() {
 
     setEmail(user.email || null);
     sessionStorage.setItem('dash-email', user.email || '');
+
+    // Check admin role
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single();
+    if (profile?.role === 'admin') setIsAdmin(true);
 
     const { data, error } = await supabase
       .from('trips')
@@ -162,6 +171,12 @@ export default function DashboardPage() {
                 <div className="dash-settings-menu">
                   <div className="dash-settings-email">{email}</div>
                   <div className="dash-settings-divider" />
+                  {isAdmin && (
+                    <Link href="/admin" className="dash-settings-item" onClick={() => setSettingsOpen(false)}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+                      Analytics
+                    </Link>
+                  )}
                   <button className="dash-settings-item" onClick={() => { setSettingsOpen(false); handleSignOut(); }}>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
                     Sign out

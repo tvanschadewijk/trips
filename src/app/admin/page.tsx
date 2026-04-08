@@ -18,28 +18,37 @@ import { createClient } from '@/lib/supabase/client';
 import '@/styles/admin.css';
 
 interface AnalyticsData {
+  granularity: 'day' | 'month';
   users: {
     total: number;
     new_in_range: number;
-    per_month: { month: string; new_users: number; total_users: number }[];
+    per_bucket: { bucket: string; new_users: number; total_users: number }[];
   };
   trips: {
     total: number;
     unique_users_with_trips: number;
     avg_per_user: number;
-    per_month: { month: string; trips: number }[];
+    per_bucket: { bucket: string; trips: number }[];
   };
   range: { from: string | null; to: string | null };
 }
 
-function formatMonth(month: string) {
-  const [y, m] = month.split('-');
+function formatBucket(bucket: string, granularity: 'day' | 'month') {
+  if (granularity === 'day') {
+    const d = new Date(bucket + 'T12:00:00');
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  }
+  const [y, m] = bucket.split('-');
   const date = new Date(Number(y), Number(m) - 1);
   return date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
 }
 
-function formatMonthLong(month: string) {
-  const [y, m] = month.split('-');
+function formatBucketLong(bucket: string, granularity: 'day' | 'month') {
+  if (granularity === 'day') {
+    const d = new Date(bucket + 'T12:00:00');
+    return d.toLocaleDateString('en-US', { weekday: 'short', month: 'long', day: 'numeric', year: 'numeric' });
+  }
+  const [y, m] = bucket.split('-');
   const date = new Date(Number(y), Number(m) - 1);
   return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 }
@@ -71,17 +80,17 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Date range
   const [rangeFrom, setRangeFrom] = useState('');
   const [rangeTo, setRangeTo] = useState('');
   const [activePreset, setActivePreset] = useState<string>('all');
 
-  const fetchData = useCallback(async (from?: string, to?: string) => {
+  const fetchData = useCallback(async (from?: string, to?: string, granularity?: 'day' | 'month') => {
     setLoading(true);
     setError(null);
     const params = new URLSearchParams();
     if (from) params.set('from', from);
     if (to) params.set('to', to);
+    if (granularity) params.set('granularity', granularity);
     const qs = params.toString();
 
     const res = await fetch(`/api/admin/analytics${qs ? `?${qs}` : ''}`);
@@ -105,7 +114,6 @@ export default function AdminPage() {
   }, [router]);
 
   useEffect(() => {
-    // Check auth first
     const supabase = createClient();
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) {
@@ -149,13 +157,16 @@ export default function AdminPage() {
     const toStr = to.toISOString().split('T')[0];
     setRangeFrom(fromStr);
     setRangeTo(toStr);
-    fetchData(fromStr, toStr);
+    const gran = (preset === '7d' || preset === '30d') ? 'day' as const : 'month' as const;
+    fetchData(fromStr, toStr, gran);
   }
 
   function applyCustomRange() {
     if (!rangeFrom || !rangeTo) return;
     setActivePreset('custom');
-    fetchData(rangeFrom, rangeTo);
+    const diffDays = Math.round((new Date(rangeTo).getTime() - new Date(rangeFrom).getTime()) / 86400000);
+    const gran = diffDays <= 30 ? 'day' as const : 'month' as const;
+    fetchData(rangeFrom, rangeTo, gran);
   }
 
   if (loading && !data) {
@@ -278,16 +289,18 @@ export default function AdminPage() {
           </div>
         </div>
 
-        {/* Users per month chart */}
+        {/* Users chart */}
         <div className="admin-chart-card">
           <div className="admin-chart-header">
             <h3 className="admin-chart-title">Users</h3>
-            <span className="admin-chart-sub">Cumulative total and new signups per month</span>
+            <span className="admin-chart-sub">
+              Cumulative total and new signups per {data.granularity === 'day' ? 'day' : 'month'}
+            </span>
           </div>
           <div className="admin-chart-body">
-            {data.users.per_month.length > 0 ? (
+            {data.users.per_bucket.length > 0 ? (
               <ResponsiveContainer width="100%" height={300}>
-                <AreaChart data={data.users.per_month} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
+                <AreaChart data={data.users.per_bucket} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
                   <defs>
                     <linearGradient id="gradUsers" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="0%" stopColor="#5e6ad2" stopOpacity={0.3} />
@@ -296,11 +309,12 @@ export default function AdminPage() {
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
                   <XAxis
-                    dataKey="month"
-                    tickFormatter={formatMonth}
+                    dataKey="bucket"
+                    tickFormatter={(v) => formatBucket(v, data.granularity)}
                     stroke="rgba(255,255,255,0.2)"
                     tick={{ fill: 'rgba(255,255,255,0.4)', fontSize: 12 }}
                     axisLine={{ stroke: 'rgba(255,255,255,0.08)' }}
+                    interval={data.granularity === 'day' && data.users.per_bucket.length > 14 ? Math.floor(data.users.per_bucket.length / 10) : 'preserveStartEnd'}
                   />
                   <YAxis
                     stroke="rgba(255,255,255,0.2)"
@@ -308,7 +322,7 @@ export default function AdminPage() {
                     axisLine={{ stroke: 'rgba(255,255,255,0.08)' }}
                     allowDecimals={false}
                   />
-                  <Tooltip content={<CustomTooltip formatter={formatMonthLong} />} />
+                  <Tooltip content={<CustomTooltip formatter={(v) => formatBucketLong(v, data.granularity)} />} />
                   <Area
                     type="monotone"
                     dataKey="total_users"
@@ -334,16 +348,18 @@ export default function AdminPage() {
           </div>
         </div>
 
-        {/* Trips per month chart */}
+        {/* Trips chart */}
         <div className="admin-chart-card">
           <div className="admin-chart-header">
             <h3 className="admin-chart-title">Trips created</h3>
-            <span className="admin-chart-sub">New trips per month</span>
+            <span className="admin-chart-sub">
+              New trips per {data.granularity === 'day' ? 'day' : 'month'}
+            </span>
           </div>
           <div className="admin-chart-body">
-            {data.trips.per_month.length > 0 ? (
+            {data.trips.per_bucket.length > 0 ? (
               <ResponsiveContainer width="100%" height={260}>
-                <BarChart data={data.trips.per_month} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
+                <BarChart data={data.trips.per_bucket} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
                   <defs>
                     <linearGradient id="gradTrips" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="0%" stopColor="#7170ff" stopOpacity={0.8} />
@@ -352,11 +368,12 @@ export default function AdminPage() {
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
                   <XAxis
-                    dataKey="month"
-                    tickFormatter={formatMonth}
+                    dataKey="bucket"
+                    tickFormatter={(v) => formatBucket(v, data.granularity)}
                     stroke="rgba(255,255,255,0.2)"
                     tick={{ fill: 'rgba(255,255,255,0.4)', fontSize: 12 }}
                     axisLine={{ stroke: 'rgba(255,255,255,0.08)' }}
+                    interval={data.granularity === 'day' && data.trips.per_bucket.length > 14 ? Math.floor(data.trips.per_bucket.length / 10) : 'preserveStartEnd'}
                   />
                   <YAxis
                     stroke="rgba(255,255,255,0.2)"
@@ -364,13 +381,13 @@ export default function AdminPage() {
                     axisLine={{ stroke: 'rgba(255,255,255,0.08)' }}
                     allowDecimals={false}
                   />
-                  <Tooltip content={<CustomTooltip formatter={formatMonthLong} />} />
+                  <Tooltip content={<CustomTooltip formatter={(v) => formatBucketLong(v, data.granularity)} />} />
                   <Bar
                     dataKey="trips"
                     name="Trips"
                     fill="url(#gradTrips)"
                     radius={[4, 4, 0, 0]}
-                    maxBarSize={48}
+                    maxBarSize={data.granularity === 'day' ? 24 : 48}
                   />
                 </BarChart>
               </ResponsiveContainer>
