@@ -269,9 +269,12 @@
 /* ============================================
    DETAIL SHEET
    ============================================ */
-.detail-overlay { position: absolute; inset: 0; z-index: 100; }
+.trip-screen.detail-behind { transform: scale(0.94); border-radius: 16px; transition: transform 0.35s cubic-bezier(0.25, 0.1, 0.25, 1), border-radius 0.35s cubic-bezier(0.25, 0.1, 0.25, 1); }
+.detail-overlay { position: absolute; inset: 0; z-index: 100; pointer-events: none; opacity: 0; transition: opacity 0.3s; }
+.detail-overlay.open { pointer-events: auto; opacity: 1; }
 .detail-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.3); }
-.detail-sheet { position: absolute; left: 0; right: 0; bottom: 0; width: 100%; max-width: var(--app-max-width); max-height: 70%; background: #191a1b; border-radius: 20px 20px 0 0; overflow-y: auto; -webkit-overflow-scrolling: touch; will-change: transform; }
+.detail-sheet { position: absolute; left: 0; right: 0; bottom: 0; width: 100%; max-width: var(--app-max-width); max-height: 70%; background: #191a1b; border-radius: 20px 20px 0 0; transform: translateY(100%); transition: transform 0.35s cubic-bezier(0.25, 0.1, 0.25, 1); overflow-y: auto; -webkit-overflow-scrolling: touch; will-change: transform; }
+.detail-overlay.open .detail-sheet { transform: translateY(0); }
 .detail-header { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 8px; padding: 18px 20px 14px; background: #191a1b; border-bottom: 1px solid rgba(255,255,255,0.08); }
 .detail-close { display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; border: none; background: transparent; cursor: pointer; border-radius: 12px; color: rgba(255,255,255,0.6); transition: background 0.15s, transform 0.1s; }
 .detail-close:active { transform: scale(0.9); background: rgba(255,255,255,0.08); }
@@ -300,7 +303,8 @@
 /* ============================================
    OVERVIEW SCREEN
    ============================================ */
-.overview-screen { height: 100%; display: flex; flex-direction: column; overflow: hidden; }
+.overview-screen { height: 100%; display: flex; flex-direction: column; overflow: hidden; transition: opacity 0.3s ease; }
+.overview-screen.faded { opacity: 0.3; pointer-events: none; }
 .overview-header { padding: calc(52px + env(safe-area-inset-top)) 24px 20px; flex-shrink: 0; display: flex; align-items: center; gap: 8px; }
 .overview-title { font-family: var(--font-sans); font-size: 34px; font-weight: 800; letter-spacing: -0.025em; color: #FFFFFF; margin: 0; flex: 1; }
 .overview-back { display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 10px; border: none; background: transparent; color: rgba(255,255,255,0.7); cursor: pointer; transition: background 0.15s, transform 0.1s; flex-shrink: 0; margin-left: -8px; }
@@ -349,7 +353,7 @@
 /* ============================================
    SCREEN TRANSITIONS
    ============================================ */
-.trip-screen { position: absolute; inset: 0; z-index: 30; flex-direction: column; background: var(--color-surface); overflow: hidden; }
+.trip-screen { position: absolute; inset: 0; z-index: 30; flex-direction: column; background: var(--color-surface); overflow: hidden; transition: transform 0.35s cubic-bezier(0.25, 0.1, 0.25, 1), border-radius 0.35s cubic-bezier(0.25, 0.1, 0.25, 1); }
 
 @supports (view-transition-name: hero) {
   ::view-transition-group(trip-hero) {
