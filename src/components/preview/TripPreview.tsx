@@ -156,12 +156,9 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
       heroFrame.style.viewTransitionName = TRIP_HERO_TRANSITION_NAME;
     }
 
-    flushSync(() => {
-      setTransitionTripIndex(idx);
-    });
-
     startViewTransition(() => {
       flushSync(() => {
+        setTransitionTripIndex(idx);
         setActiveTripIndex(idx);
         setCurrentSlide(0);
         setOverviewFaded(true);

@@ -357,10 +357,11 @@
 
 @supports (view-transition-name: hero) {
   ::view-transition-group(trip-hero) {
-    animation-duration: 0.42s;
+    animation-duration: 0.32s;
     animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
     border-radius: 20px;
     overflow: hidden;
+    will-change: transform;
   }
   ::view-transition-old(trip-hero),
   ::view-transition-new(trip-hero) {

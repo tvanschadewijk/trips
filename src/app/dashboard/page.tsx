@@ -94,7 +94,7 @@ export default function DashboardPage() {
   // Clear view-transition marker after the transition captures the new state
   useEffect(() => {
     if (vtTrip) {
-      const t = setTimeout(() => { sessionStorage.removeItem('vt-trip'); setVtTrip(null); }, 1000);
+      const t = setTimeout(() => { sessionStorage.removeItem('vt-trip'); setVtTrip(null); }, 400);
       return () => clearTimeout(t);
     }
   }, [vtTrip]);
@@ -306,7 +306,7 @@ export default function DashboardPage() {
                         router.push(`/t/${trip.share_id}`);
                         await new Promise<void>((resolve) => {
                           (window as unknown as Record<string, unknown>).__tripTransitionResolve = resolve;
-                          setTimeout(resolve, 800);
+                          setTimeout(resolve, 350);
                         });
                       });
                     }}
