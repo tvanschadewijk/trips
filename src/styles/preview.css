@@ -371,6 +371,11 @@
     overflow: hidden;
     border-radius: 20px;
   }
+  /* Instant swap — only the hero morphs, no page-level crossfade */
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none;
+  }
 }
 
 /* ============================================

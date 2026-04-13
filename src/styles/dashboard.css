@@ -546,19 +546,11 @@
     overflow: hidden;
     border-radius: 20px;
   }
-  ::view-transition-old(root) {
-    animation: vt-fade-out 0.18s ease-out forwards;
-  }
+  /* Instant swap — only the hero morphs, no page-level crossfade */
+  ::view-transition-old(root),
   ::view-transition-new(root) {
-    animation: vt-fade-in 0.24s ease-out both;
+    animation: none;
   }
-}
-@keyframes vt-fade-out {
-  to { opacity: 0; }
-}
-@keyframes vt-fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
 }
 .dash-empty h3 {
   font-size: 18px;
