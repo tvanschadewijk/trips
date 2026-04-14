@@ -295,6 +295,8 @@ export default function DashboardPage() {
                   <Link
                     href={`/t/${trip.share_id}`}
                     className="dash-card-link"
+                    onMouseEnter={() => { const img = new window.Image(); img.src = t.hero_image; }}
+                    onTouchStart={() => { const img = new window.Image(); img.src = t.hero_image; }}
                     onClick={(e) => {
                       const vt = (document as unknown as { startViewTransition?: (cb: () => Promise<void>) => void }).startViewTransition;
                       if (!vt) return; // let normal Link navigation happen
@@ -306,7 +308,7 @@ export default function DashboardPage() {
                         router.push(`/t/${trip.share_id}`);
                         await new Promise<void>((resolve) => {
                           (window as unknown as Record<string, unknown>).__tripTransitionResolve = resolve;
-                          setTimeout(resolve, 350);
+                          setTimeout(resolve, 600);
                         });
                       });
                     }}

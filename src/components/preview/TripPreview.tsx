@@ -191,14 +191,29 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     setTransitionTripIndex(null);
   }, [activeTripIndex, autoOpen, startViewTransition]);
 
-  // Signal view transition readiness (coordinates with dashboard startViewTransition)
+  // Signal view transition readiness — wait for hero image decode so the
+  // transition captures a fully-painted state instead of a placeholder
   useEffect(() => {
     const w = window as unknown as Record<string, unknown>;
-    if (typeof w.__tripTransitionResolve === 'function') {
-      (w.__tripTransitionResolve as () => void)();
-      w.__tripTransitionResolve = null;
-    }
-  }, []);
+    if (typeof w.__tripTransitionResolve !== 'function') return;
+
+    const url = trips[0]?.trip.hero_image;
+    if (!url) { (w.__tripTransitionResolve as () => void)(); w.__tripTransitionResolve = null; return; }
+
+    const img = new window.Image();
+    img.src = url;
+    img.decode().then(() => {
+      if (typeof w.__tripTransitionResolve === 'function') {
+        (w.__tripTransitionResolve as () => void)();
+        w.__tripTransitionResolve = null;
+      }
+    }).catch(() => {
+      if (typeof w.__tripTransitionResolve === 'function') {
+        (w.__tripTransitionResolve as () => void)();
+        w.__tripTransitionResolve = null;
+      }
+    });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Handle nav back
   const handleBack = useCallback(() => {
@@ -815,7 +830,8 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
             style={activeTripIndex !== null && transitionTripIndex === activeTripIndex ? { viewTransitionName: TRIP_HERO_TRANSITION_NAME } as React.CSSProperties : undefined}
           >
             <div className="hero-bg">
-              <Image src={trip.hero_image} alt={trip.name} fill sizes="430px" priority style={{ objectFit: 'cover', opacity: brokenImages.has(trip.hero_image) ? 0 : 1 }} onError={() => onImgError(trip.hero_image)} />
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={trip.hero_image} alt={trip.name} style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: brokenImages.has(trip.hero_image) ? 0 : 1 }} onError={() => onImgError(trip.hero_image)} />
             </div>
             <div className="hero-overlay" />
           </div>

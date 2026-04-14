@@ -367,8 +367,9 @@
   ::view-transition-new(trip-hero) {
     animation: none;
     mix-blend-mode: normal;
+    height: 100%;
     object-fit: cover;
-    overflow: hidden;
+    overflow: clip;
     border-radius: 20px;
   }
   /* Instant swap — only the hero morphs, no page-level crossfade */
