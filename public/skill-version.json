@@ -1,5 +1,5 @@
 {
-  "version": 3,
-  "changelog": "Action items now only show items with explicit status — informational items no longer appear as todos",
+  "version": 4,
+  "changelog": "Transport departure/arrival times and hotel check-in/out times are now always required",
   "download_url": "https://ourtrips.to/our-trips.skill"
 }
