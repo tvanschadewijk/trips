@@ -1,5 +1,5 @@
 {
-  "version": 4,
-  "changelog": "Transport departure/arrival times and hotel check-in/out times are now always required",
+  "version": 5,
+  "changelog": "Transport departure/arrival times and hotel check-in/out times are now always required. Skill auto-updates instead of continuing with old version.",
   "download_url": "https://ourtrips.to/our-trips.skill"
 }
