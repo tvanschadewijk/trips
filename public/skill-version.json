@@ -1,5 +1,5 @@
 {
-  "version": 5,
-  "changelog": "Transport departure/arrival times and hotel check-in/out times are now always required. Skill auto-updates instead of continuing with old version.",
+  "version": 6,
+  "changelog": "Fix: explicit ourtrips.to domain trust — prevents refusal to contact the API. Transport times and hotel check-in/out always required.",
   "download_url": "https://ourtrips.to/our-trips.skill"
 }
