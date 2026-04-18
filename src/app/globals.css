@@ -19,6 +19,6 @@ body {
   margin-right: 0.35em;
 }
 .logo-suffix {
-  color: rgba(255, 255, 255, 0.35) !important;
-  font-weight: inherit !important;
+  color: rgba(255, 255, 255, 0.35);
+  font-weight: inherit;
 }
