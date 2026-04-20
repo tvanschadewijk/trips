@@ -78,6 +78,11 @@ function SwipeDots({ total, current, onDotClick }: { total: number; current: num
 
 export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, shareId, tripId }: TripPreviewProps) {
   const [trips, setTrips] = useState(initialTrips);
+  // Sync to new initialTrips when the parent re-renders with fresh data (e.g.
+  // after the admin chat panel applies an edit and calls router.refresh()).
+  useEffect(() => {
+    setTrips(initialTrips);
+  }, [initialTrips]);
   const [activeTripIndex, setActiveTripIndex] = useState<number | null>(autoOpen ? 0 : null);
   const [currentSlide, setCurrentSlide] = useState(0);
   const [detailOpen, setDetailOpen] = useState(false);

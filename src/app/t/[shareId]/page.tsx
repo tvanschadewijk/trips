@@ -1,13 +1,21 @@
 import TripPreview from '@/components/preview/TripPreview';
+import TripChatPanel from '@/components/chat/TripChatPanel';
 import { createClient } from '@/lib/supabase/server';
 import { sampleTrips } from '@/lib/sample-data';
+import { checkIsAdmin, loadChatHistory } from '@/lib/trip-chat/history';
 import type { TripData } from '@/lib/types';
 
 interface Props {
   params: Promise<{ shareId: string }>;
 }
 
-async function fetchTrip(shareId: string): Promise<{ tripData: TripData; isOwner: boolean; tripId: string } | null> {
+async function fetchTripAndViewer(shareId: string): Promise<{
+  tripData: TripData;
+  tripId: string;
+  isOwner: boolean;
+  isAdmin: boolean;
+  viewerUserId: string | null;
+} | null> {
   try {
     const supabase = await createClient();
     const { data, error } = await supabase
@@ -19,14 +27,25 @@ async function fetchTrip(shareId: string): Promise<{ tripData: TripData; isOwner
 
     if (error || !data) return null;
 
-    // Check if current user owns this trip
     let isOwner = false;
+    let isAdmin = false;
+    let viewerUserId: string | null = null;
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (user && data.user_id === user.id) isOwner = true;
+      if (user) {
+        viewerUserId = user.id;
+        if (data.user_id === user.id) isOwner = true;
+        isAdmin = await checkIsAdmin(user.id);
+      }
     } catch { /* not logged in */ }
 
-    return { tripData: data.data as TripData, isOwner, tripId: data.id };
+    return {
+      tripData: data.data as TripData,
+      tripId: data.id,
+      isOwner,
+      isAdmin,
+      viewerUserId,
+    };
   } catch {
     // Supabase not connected yet — fall through to sample data
     return null;
@@ -36,8 +55,7 @@ async function fetchTrip(shareId: string): Promise<{ tripData: TripData; isOwner
 export default async function TripPage({ params }: Props) {
   const { shareId } = await params;
 
-  // Try Supabase first, fall back to sample data for dev
-  const result = await fetchTrip(shareId);
+  const result = await fetchTripAndViewer(shareId);
 
   if (!result) {
     // Fallback: show first sample trip with days
@@ -53,5 +71,24 @@ export default async function TripPage({ params }: Props) {
     return <TripPreview trips={[sample]} autoOpen />;
   }
 
-  return <TripPreview trips={[result.tripData]} autoOpen shareId={result.isOwner ? undefined : shareId} tripId={result.isOwner ? result.tripId : undefined} />;
+  // Admin-only chat panel. Load last N messages for initial render so the user
+  // sees their prior conversation immediately when they open the panel.
+  let initialChatMessages: Awaited<ReturnType<typeof loadChatHistory>> = [];
+  if (result.isAdmin && result.viewerUserId) {
+    initialChatMessages = await loadChatHistory(result.tripId, result.viewerUserId);
+  }
+
+  return (
+    <>
+      <TripPreview
+        trips={[result.tripData]}
+        autoOpen
+        shareId={result.isOwner ? undefined : shareId}
+        tripId={result.isOwner ? result.tripId : undefined}
+      />
+      {result.isAdmin && (
+        <TripChatPanel tripId={result.tripId} initialMessages={initialChatMessages} />
+      )}
+    </>
+  );
 }
