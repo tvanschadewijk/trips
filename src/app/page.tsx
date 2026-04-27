@@ -78,13 +78,13 @@ export default async function Home() {
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src="https://images.unsplash.com/photo-1528127269322-539801943592?w=1400&h=1750&fit=crop&crop=center&q=85"
-                alt="A quiet Paris street at golden hour"
+                alt="Limestone karsts rising from the water in Hạ Long Bay"
                 className="landing-hero-image"
                 loading="eager"
               />
             </div>
             <figcaption className="landing-hero-caption">
-              <span className="place">Paris, VII<sup>e</sup></span>
+              <span className="place">Hạ Long Bay, Vietnam</span>
               <span className="meta">from an OurTrips itinerary, 2026</span>
             </figcaption>
           </figure>
