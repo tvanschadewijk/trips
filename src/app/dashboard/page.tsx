@@ -298,6 +298,17 @@ export default function DashboardPage() {
                     onMouseEnter={() => { const img = new window.Image(); img.src = t.hero_image; }}
                     onTouchStart={() => { const img = new window.Image(); img.src = t.hero_image; }}
                     onClick={(e) => {
+                      // Stash a snapshot of the trip cover so loading.tsx can
+                      // paint the same photo + title under the morphing hero.
+                      try {
+                        sessionStorage.setItem(`vt-trip-${trip.share_id}`, JSON.stringify({
+                          heroImage: t.hero_image,
+                          name: t.name,
+                          subtitle: t.subtitle,
+                          start: t.dates.start,
+                          end: t.dates.end,
+                        }));
+                      } catch {}
                       const vt = (document as unknown as { startViewTransition?: (cb: () => Promise<void>) => void }).startViewTransition;
                       if (!vt) return; // let normal Link navigation happen
                       e.preventDefault();
