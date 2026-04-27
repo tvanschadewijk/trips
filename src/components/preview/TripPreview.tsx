@@ -1230,12 +1230,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
             </button>
             <div className="nav-title-text">
               {!isHero && trip && (
-                <>
-                  <div className="text-nav-title">{trip.name} — {trip.subtitle}</div>
-                  <div className="text-nav-dates">
-                    {formatDate(trip.dates.start, { day: 'numeric', month: 'short', year: 'numeric' })} — {formatDate(trip.dates.end, { day: 'numeric', month: 'short', year: 'numeric' })}
-                  </div>
-                </>
+                <div className="text-nav-title">{trip.name} — {trip.subtitle}</div>
               )}
             </div>
           </div>

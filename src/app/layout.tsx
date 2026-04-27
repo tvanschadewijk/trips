@@ -39,7 +39,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   viewportFit: 'cover',
   userScalable: false,
-  themeColor: '#1A1A1A',
+  themeColor: '#FBF7F1',
 };
 
 export default function RootLayout({
@@ -57,7 +57,7 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body style={{ margin: 0, padding: 0, minHeight: '100dvh', background: '#1A1A1A' }}>
+      <body style={{ margin: 0, padding: 0, minHeight: '100dvh', background: '#FBF7F1' }}>
         <ServiceWorkerRegistrar />
         {children}
       </body>
