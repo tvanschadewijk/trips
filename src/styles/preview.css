@@ -138,8 +138,10 @@
 .hero-bg img { width: 100%; height: 100%; object-fit: cover; }
 .hero-overlay { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(to top, rgba(26,20,16,0.62) 0%, rgba(26,20,16,0.32) 35%, rgba(26,20,16,0.10) 65%, transparent 100%); }
 .hero-body { position: relative; z-index: 1; padding: 0 24px calc(40px + env(safe-area-inset-bottom)); }
-.hero-pill { display: inline-flex; align-items: center; gap: 6px; padding: 5px 13px; background: rgba(251,247,241,0.18); backdrop-filter: blur(10px) saturate(140%); -webkit-backdrop-filter: blur(10px) saturate(140%); border: 1px solid rgba(251,247,241,0.22); border-radius: 999px; margin-bottom: 16px; }
-.hero-pill svg { color: rgba(251,247,241,0.9); }
+/* Traveler pill — editorial badge style: terracotta wash + ink, not glass-on-photo */
+.hero-pill { display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px; background: var(--color-accent-light); backdrop-filter: blur(10px) saturate(140%); -webkit-backdrop-filter: blur(10px) saturate(140%); border: 1px solid rgba(193, 79, 42, 0.22); border-radius: 999px; margin-bottom: 16px; box-shadow: rgba(26, 20, 16, 0.2) 0 6px 18px -6px; }
+.hero-pill svg { color: var(--color-accent-deep); }
+.hero-pill .text-hero-meta { color: var(--color-accent-deep) !important; text-shadow: none !important; letter-spacing: 0.04em !important; font-weight: 580 !important; }
 .hero-divider { width: 28px; height: 1px; background: rgba(251,247,241,0.35); border-radius: 1px; margin: 16px 0; }
 .hero-stats { display: flex; gap: 24px; margin-top: 24px; }
 .hero-stat-val { font-family: var(--font-mono); font-size: 15px; font-weight: 500; color: #FBF7F1; }
