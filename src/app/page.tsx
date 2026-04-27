@@ -59,7 +59,7 @@ export default async function Home() {
           <div className="landing-hero-text">
             <div className="landing-hero-badge">An Itinerary, Rediscovered</div>
             <h1 className="landing-hero-title">
-              Your next trip, <em>beautifully</em> written.
+              Your next trip, <em>beautifully</em> planned.
             </h1>
             <p className="landing-hero-subtitle">
               Built for agentic AI — Claude CoWork, Codex, and other agents that run skills.
