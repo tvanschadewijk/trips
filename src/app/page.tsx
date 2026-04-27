@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation';
+import { headers } from 'next/headers';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import LogoSuffix from '@/components/ui/LogoSuffix';
@@ -6,9 +7,20 @@ import '@/styles/landing.css';
 
 export default async function Home() {
   try {
+    const hdrs = await headers();
+    const referer = hdrs.get('referer');
+    const host = hdrs.get('host');
+    let fromInternal = false;
+    if (referer && host) {
+      try {
+        const url = new URL(referer);
+        fromInternal = url.host === host && url.pathname !== '/';
+      } catch {}
+    }
+
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
+    if (user && !fromInternal) {
       const today = new Date().toISOString().slice(0, 10);
       const { data: trips } = await supabase
         .from('trips')
