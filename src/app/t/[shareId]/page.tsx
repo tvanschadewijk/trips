@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import TripPreview from '@/components/preview/TripPreview';
 import TripChatPanel from '@/components/chat/TripChatPanel';
 import { createClient } from '@/lib/supabase/server';
@@ -7,6 +8,33 @@ import type { TripData } from '@/lib/types';
 
 interface Props {
   params: Promise<{ shareId: string }>;
+}
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { shareId } = await params;
+  try {
+    const supabase = await createClient();
+    const { data } = await supabase
+      .from('trips')
+      .select('data')
+      .eq('share_id', shareId)
+      .eq('is_public', true)
+      .single();
+    const trip = data?.data?.trip as TripData['trip'] | undefined;
+    if (trip) {
+      const title = `${trip.name} — OurTrips`;
+      const description = trip.subtitle || trip.summary || `An itinerary on OurTrips.`;
+      return {
+        title,
+        description,
+        openGraph: { title, description, type: 'article' },
+        twitter: { card: 'summary_large_image', title, description },
+      };
+    }
+  } catch {
+    // fall through
+  }
+  return {};
 }
 
 async function fetchTripAndViewer(shareId: string): Promise<{
