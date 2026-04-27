@@ -137,7 +137,7 @@
 .hero-bg { position: absolute; inset: 0; background: linear-gradient(135deg, #2A1F18 0%, #1A1410 60%, #0F0B08 100%); }
 .hero-bg img { width: 100%; height: 100%; object-fit: cover; }
 .hero-overlay { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(to top, rgba(26,20,16,0.62) 0%, rgba(26,20,16,0.32) 35%, rgba(26,20,16,0.10) 65%, transparent 100%); }
-.hero-body { position: relative; z-index: 1; padding: 0 24px calc(40px + env(safe-area-inset-bottom)); }
+.hero-body { position: relative; z-index: 1; padding: calc(var(--nav-height) + env(safe-area-inset-top) + 24px) 24px calc(40px + env(safe-area-inset-bottom)); }
 /* Traveler pill — editorial badge style: terracotta wash + ink, not glass-on-photo */
 .hero-pill { display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px; background: var(--color-accent-light); backdrop-filter: blur(10px) saturate(140%); -webkit-backdrop-filter: blur(10px) saturate(140%); border: 1px solid rgba(193, 79, 42, 0.22); border-radius: 999px; margin-bottom: 16px; box-shadow: rgba(26, 20, 16, 0.2) 0 6px 18px -6px; }
 .hero-pill svg { color: var(--color-accent-deep); }
