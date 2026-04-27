@@ -85,7 +85,6 @@ export default async function Home() {
             </div>
             <figcaption className="landing-hero-caption">
               <span className="place">Hạ Long Bay, Vietnam</span>
-              <span className="meta">from an OurTrips itinerary, 2026</span>
             </figcaption>
           </figure>
         </div>
