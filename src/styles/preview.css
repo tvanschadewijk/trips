@@ -36,10 +36,8 @@
 /* ============================================
    TEXT STYLES
    ============================================ */
-/* Hero text sits over a photographic backdrop. Title is anchored to the
-   top of the hero, clear of the back button, so the bottom paper stack
-   doesn't push it into the nav. */
-.text-hero-title { position: absolute; top: calc(var(--nav-height) + env(safe-area-inset-top) + 14px); left: 24px; right: 24px; z-index: 2; font-family: var(--font-serif); font-optical-sizing: auto; font-variation-settings: 'SOFT' 50, 'opsz' 144; font-size: 46px; font-weight: 380; line-height: 1.0; letter-spacing: -0.022em; color: var(--color-accent); text-shadow: 0 1px 2px rgba(0,0,0,0.45), 0 8px 28px rgba(0,0,0,0.4); margin: 0; }
+/* Hero text sits over a photographic backdrop — terracotta serif headline. */
+.text-hero-title { font-family: var(--font-serif); font-optical-sizing: auto; font-variation-settings: 'SOFT' 50, 'opsz' 144; font-size: 38px; font-weight: 380; line-height: 1.0; letter-spacing: -0.022em; color: var(--color-accent); text-shadow: 0 1px 2px rgba(0,0,0,0.45), 0 8px 28px rgba(0,0,0,0.4); margin: 0; }
 .text-hero-subtitle { font-family: var(--font-serif); font-optical-sizing: auto; font-style: italic; font-size: 17px; font-weight: 360; line-height: 1.45; color: rgba(251,247,241,0.95); text-shadow: 0 1px 2px rgba(0,0,0,0.4); }
 .text-hero-meta { font-family: var(--font-sans); font-size: 11px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(251,247,241,0.92); text-shadow: 0 1px 2px rgba(0,0,0,0.35); }
 .text-hero-summary { font-family: var(--font-sans); font-size: 14px; font-weight: 420; line-height: 1.6; color: rgba(251,247,241,0.92); text-shadow: 0 1px 2px rgba(0,0,0,0.3); }
@@ -168,8 +166,8 @@
    plate so the body copy doesn't fight the photo.
    ============================================ */
 .hero-paper {
-  margin-top: 18px;
-  padding: 20px 22px 22px;
+  margin-top: 14px;
+  padding: 16px 18px 16px;
   display: flex;
   flex-direction: column;
   background: rgba(251, 247, 241, 0.62);
@@ -192,9 +190,9 @@
 }
 .hero-paper .hero-divider {
   background: var(--color-border);
-  width: 36px;
+  width: 32px;
   height: 1px;
-  margin: 14px 0 16px;
+  margin: 10px 0 12px;
   border-radius: 0;
 }
 .hero-paper .text-hero-summary {
@@ -207,27 +205,28 @@
   margin: 0;
 }
 .hero-paper .hero-stats {
-  margin-top: 20px;
-  padding-top: 18px;
+  margin-top: 14px;
+  padding-top: 12px;
   border-top: 1px solid var(--color-border);
-  gap: 32px;
+  gap: 22px;
 }
 .hero-paper .hero-stat-val {
   color: var(--color-text-primary);
   font-family: var(--font-serif);
   font-optical-sizing: auto;
-  font-size: 24px;
+  font-size: 19px;
   font-weight: 420;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.008em;
+  line-height: 1.05;
 }
 .hero-paper .hero-stat-lbl {
   color: var(--color-text-muted);
   font-family: var(--font-sans);
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 600;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  margin-top: 4px;
+  margin-top: 3px;
 }
 
 /* Continue-to-today CTA — primary terracotta pill on the cover when
