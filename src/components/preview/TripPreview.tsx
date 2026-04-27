@@ -848,13 +848,15 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
               </span>
             </div>
             <h1 className="text-hero-title">{trip.name}</h1>
-            <p className="text-hero-subtitle" style={{ marginTop: 6 }}>{trip.subtitle}</p>
-            <div className="hero-divider" />
-            <p className="text-hero-summary">{trip.summary}</p>
-            <div className="hero-stats">
-              <div><div className="hero-stat-val">{days.length > 0 ? days.length - 1 : '?'}</div><div className="hero-stat-lbl">nights</div></div>
-              <div><div className="hero-stat-val">{formatDate(trip.dates.start, { day: 'numeric', month: 'short' })}</div><div className="hero-stat-lbl">start</div></div>
-              <div><div className="hero-stat-val">{formatDate(trip.dates.end, { day: 'numeric', month: 'short' })}</div><div className="hero-stat-lbl">end</div></div>
+            <div className="hero-paper">
+              <p className="text-hero-subtitle">{trip.subtitle}</p>
+              <div className="hero-divider" />
+              <p className="text-hero-summary">{trip.summary}</p>
+              <div className="hero-stats">
+                <div><div className="hero-stat-val">{days.length > 0 ? days.length - 1 : '?'}</div><div className="hero-stat-lbl">nights</div></div>
+                <div><div className="hero-stat-val">{formatDate(trip.dates.start, { day: 'numeric', month: 'short' })}</div><div className="hero-stat-lbl">start</div></div>
+                <div><div className="hero-stat-val">{formatDate(trip.dates.end, { day: 'numeric', month: 'short' })}</div><div className="hero-stat-lbl">end</div></div>
+              </div>
             </div>
             {trip.notes?.length ? (
               <div className="hero-notes">
