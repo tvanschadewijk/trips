@@ -263,7 +263,7 @@ function MessageBubble({ m }: { m: ChatMessage }) {
 
 const collapsedTabStyle: React.CSSProperties = {
   position: 'fixed',
-  right: 24,
+  left: 24,
   bottom: 24,
   padding: '12px 18px',
   background: '#FFFFFF',
@@ -280,7 +280,7 @@ const collapsedTabStyle: React.CSSProperties = {
 
 const panelStyle: React.CSSProperties = {
   position: 'fixed',
-  right: 24,
+  left: 24,
   bottom: 24,
   width: 420,
   maxWidth: 'calc(100vw - 48px)',
