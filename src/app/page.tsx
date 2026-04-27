@@ -62,9 +62,10 @@ export default async function Home() {
               Your next trip, <em>beautifully</em> written.
             </h1>
             <p className="landing-hero-subtitle">
-              Plan in ChatGPT or Claude like you already do. OurTrips turns the conversation
-              into a shareable, day-by-day itinerary — photographs, bookings, addresses, all
-              in one place.
+              Built for agentic AI — Claude CoWork, Codex, and other agents that run skills.
+              Talk your trip through, then say the word: OurTrips turns the conversation into
+              a shareable, day-by-day itinerary — photographs, bookings, addresses, all in
+              one place.
             </p>
             <div className="landing-hero-actions">
               <Link href="/login" className="landing-btn-primary">Start a trip</Link>
