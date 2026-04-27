@@ -199,11 +199,11 @@
 }
 .hero-paper .hero-stat-val {
   color: var(--color-text-primary);
-  font-family: var(--font-serif);
-  font-optical-sizing: auto;
-  font-size: 24px;
-  font-weight: 420;
-  letter-spacing: -0.01em;
+  font-family: var(--font-sans);
+  font-feature-settings: 'tnum' on, 'cv11' on, 'ss01' on;
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.012em;
 }
 .hero-paper .hero-stat-lbl {
   color: var(--color-text-muted);
