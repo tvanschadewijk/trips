@@ -62,9 +62,9 @@ export default async function TripPage({ params }: Props) {
     const sample = sampleTrips.find(t => t.days.length > 0);
     if (!sample) {
       return (
-        <div style={{ color: 'white', padding: 40, textAlign: 'center', fontFamily: 'Inter, sans-serif' }}>
-          <h1 style={{ fontSize: 24, marginBottom: 8 }}>Trip not found</h1>
-          <p style={{ color: 'rgba(255,255,255,0.5)' }}>This link may be invalid or the trip may have been removed.</p>
+        <div style={{ minHeight: '100dvh', background: '#FBF7F1', color: '#1A1410', padding: 60, textAlign: 'center', fontFamily: 'Inter, system-ui, sans-serif' }}>
+          <h1 style={{ fontFamily: '"Fraunces", Georgia, serif', fontSize: 32, fontWeight: 400, letterSpacing: '-0.012em', marginBottom: 12 }}>Trip not found</h1>
+          <p style={{ color: '#6B6157', fontSize: 15 }}>This link may be invalid or the trip may have been removed.</p>
         </div>
       );
     }

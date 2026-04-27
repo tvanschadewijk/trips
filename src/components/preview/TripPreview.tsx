@@ -943,7 +943,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
       <div className="day-header-plain">
         <p className="text-label-dark">Day {day.day_number} &middot; {dateStr}</p>
         <h2 className="text-card-title" style={{ marginTop: 4 }}>{day.title}</h2>
-        {day.subtitle && <p className="text-body-italic" style={{ marginTop: 4, color: 'rgba(255,255,255,0.55)' }}>{day.subtitle}</p>}
+        {day.subtitle && <p className="text-body-italic" style={{ marginTop: 4 }}>{day.subtitle}</p>}
         {statsChips}
       </div>
     );
