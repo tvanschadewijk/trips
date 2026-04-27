@@ -8,8 +8,25 @@ export default async function Home() {
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
-    if (user) redirect('/dashboard');
-  } catch {
+    if (user) {
+      const today = new Date().toISOString().slice(0, 10);
+      const { data: trips } = await supabase
+        .from('trips')
+        .select('share_id, data')
+        .eq('user_id', user.id);
+      const active = trips?.find(t => {
+        const start = t.data?.trip?.dates?.start;
+        const end = t.data?.trip?.dates?.end;
+        return start && end && start <= today && today <= end;
+      });
+      if (active) redirect(`/t/${active.share_id}`);
+      redirect('/dashboard');
+    }
+  } catch (err) {
+    // redirect() throws to signal navigation — re-throw so Next.js handles it
+    if (err && typeof err === 'object' && 'digest' in err && typeof (err as { digest: unknown }).digest === 'string' && (err as { digest: string }).digest.startsWith('NEXT_REDIRECT')) {
+      throw err;
+    }
     // Supabase not configured — show landing page
   }
   return (
