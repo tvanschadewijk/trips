@@ -36,8 +36,9 @@
 /* ============================================
    TEXT STYLES
    ============================================ */
-/* Hero text sits over a photographic backdrop, so it stays light. */
-.text-hero-title { font-family: var(--font-serif); font-optical-sizing: auto; font-variation-settings: 'SOFT' 50, 'opsz' 144; font-size: 46px; font-weight: 360; line-height: 1.0; letter-spacing: -0.022em; color: #FBF7F1; text-shadow: 0 1px 2px rgba(0,0,0,0.35), 0 8px 24px rgba(0,0,0,0.25); }
+/* Hero text sits over a photographic backdrop. Title takes the editorial
+   terracotta accent — a magazine-cover headline against the photo. */
+.text-hero-title { font-family: var(--font-serif); font-optical-sizing: auto; font-variation-settings: 'SOFT' 50, 'opsz' 144; font-size: 46px; font-weight: 380; line-height: 1.0; letter-spacing: -0.022em; color: var(--color-accent); text-shadow: 0 1px 2px rgba(0,0,0,0.45), 0 8px 28px rgba(0,0,0,0.4); }
 .text-hero-subtitle { font-family: var(--font-serif); font-optical-sizing: auto; font-style: italic; font-size: 17px; font-weight: 360; line-height: 1.45; color: rgba(251,247,241,0.95); text-shadow: 0 1px 2px rgba(0,0,0,0.4); }
 .text-hero-meta { font-family: var(--font-sans); font-size: 11px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(251,247,241,0.92); text-shadow: 0 1px 2px rgba(0,0,0,0.35); }
 .text-hero-summary { font-family: var(--font-sans); font-size: 14px; font-weight: 420; line-height: 1.6; color: rgba(251,247,241,0.92); text-shadow: 0 1px 2px rgba(0,0,0,0.3); }
@@ -145,47 +146,44 @@
 .hero-stat-lbl { font-size: 10px; font-weight: 600; color: rgba(251,247,241,0.6); text-transform: uppercase; letter-spacing: 0.14em; margin-top: 2px; }
 .hero-notes,
 .hero-overview-btns {
-  display: flex; flex-direction: column; gap: 4px;
+  display: flex; flex-direction: column; gap: 0;
   margin-top: 18px;
-  background: rgba(251, 247, 241, 0.94);
+  background: rgba(251, 247, 241, 0.96);
   backdrop-filter: blur(16px) saturate(140%);
   -webkit-backdrop-filter: blur(16px) saturate(140%);
   border: 1px solid rgba(232, 225, 214, 0.7);
-  border-radius: 4px;
-  padding: 10px;
-  box-shadow: rgba(26, 20, 16, 0.18) 0 16px 40px -10px;
+  border-radius: 12px;
+  padding: 14px 16px 8px;
+  box-shadow: rgba(26, 20, 16, 0.22) 0 18px 44px -12px;
 }
 .hero-overview-btns { margin-top: 24px; }
 .hero-note-btn {
-  display: flex; align-items: center; gap: 10px;
+  display: flex; align-items: center; gap: 12px;
   width: 100%;
-  padding: 10px 12px;
+  padding: 14px 4px;
   border: none;
-  border-radius: 4px;
   background: transparent;
   cursor: pointer;
   transition: background 0.15s;
   font-family: var(--font-sans);
   color: var(--color-text-primary);
   -webkit-tap-highlight-color: transparent;
+  border-radius: 0;
 }
-.hero-note-btn + .hero-note-btn { border-top: 1px solid var(--color-border); border-radius: 0; }
-.hero-note-btn:first-child { border-radius: 4px 4px 0 0; }
-.hero-note-btn:last-child { border-radius: 0 0 4px 4px; }
-.hero-note-btn:only-child { border-radius: 4px; }
+.hero-note-btn + .hero-note-btn { border-top: 1px solid var(--color-border); }
 .hero-note-btn:active { background: var(--color-surface-deep); }
 @media (hover: hover) { .hero-note-btn:hover { background: var(--color-surface-deep); } }
-.hero-note-icon { display: flex; align-items: center; justify-content: center; width: 22px; height: 22px; flex-shrink: 0; color: var(--color-accent); opacity: 0.85; }
-.hero-note-label { flex: 1; font-family: var(--font-serif); font-optical-sizing: auto; font-size: 16px; font-weight: 420; letter-spacing: -0.005em; text-align: left; color: var(--color-text-primary); }
+.hero-note-icon { display: flex; align-items: center; justify-content: center; width: 22px; height: 22px; flex-shrink: 0; color: var(--color-accent); opacity: 1; }
+.hero-note-label { flex: 1; font-family: var(--font-serif); font-optical-sizing: auto; font-size: 17px; font-weight: 440; letter-spacing: -0.008em; text-align: left; color: var(--color-text-primary); }
 .hero-note-count { font-family: var(--font-mono); font-size: 11px; font-weight: 500; color: var(--color-accent-deep); background: var(--color-accent-light); padding: 2px 8px; border-radius: 999px; flex-shrink: 0; }
-.hero-note-btn svg:last-child { opacity: 0.45; width: 12px; height: 12px; flex-shrink: 0; color: var(--color-text-muted); }
+.hero-note-btn svg:last-child { opacity: 1; width: 14px; height: 14px; flex-shrink: 0; color: var(--color-text-muted); }
 .hero-overview-label {
   font-family: var(--font-sans);
   font-size: 11px; font-weight: 600;
-  text-transform: uppercase; letter-spacing: 0.14em;
-  color: rgba(251, 247, 241, 0.85);
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
-  margin-bottom: 6px;
+  text-transform: uppercase; letter-spacing: 0.18em;
+  color: var(--color-accent);
+  margin: 0 0 4px;
+  padding: 0 4px;
 }
 .todo-check { display: flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--color-border-strong); flex-shrink: 0; font-size: 13px; color: transparent; transition: all 0.15s; pointer-events: none; }
 .todo-check.done { border-color: var(--color-success); background: var(--color-success); color: #FBF7F1; }
