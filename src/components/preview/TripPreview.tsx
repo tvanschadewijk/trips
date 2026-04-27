@@ -841,12 +841,6 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
             <div className="hero-overlay" />
           </div>
           <div className="hero-body">
-            <div className="hero-pill">
-              <Icon name="users" />
-              <span className="text-hero-meta" style={{ textTransform: 'none', letterSpacing: '0.03em', fontWeight: 500 }}>
-                {trip.travelers.join(' & ')}
-              </span>
-            </div>
             <h1 className="text-hero-title">{trip.name}</h1>
             <div className="hero-paper">
               <p className="text-hero-subtitle">{trip.subtitle}</p>
