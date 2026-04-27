@@ -88,8 +88,8 @@
 /* ============================================
    NAV BAR
    ============================================ */
-.nav-bar { position: absolute; top: 0; left: 0; right: 0; height: calc(var(--nav-height) + env(safe-area-inset-top)); display: flex; align-items: center; gap: 4px; padding: 0 8px; padding-top: env(safe-area-inset-top); z-index: 20; transition: background 0.3s, border-color 0.3s; background: rgba(251, 247, 241, 0.88); backdrop-filter: blur(14px) saturate(140%); -webkit-backdrop-filter: blur(14px) saturate(140%); border-bottom: 1px solid var(--color-border); }
-.nav-bar.over-hero { background: transparent; border-bottom-color: transparent; backdrop-filter: none; -webkit-backdrop-filter: none; }
+.nav-bar { position: absolute; top: 0; left: 0; right: 0; height: calc(var(--nav-height) + env(safe-area-inset-top)); display: flex; align-items: center; gap: 4px; padding: 0 8px; padding-top: env(safe-area-inset-top); z-index: 20; transition: background 0.3s, border-color 0.3s; background: var(--color-surface); border-bottom: 1px solid var(--color-border); }
+.nav-bar.over-hero { background: transparent; border-bottom-color: transparent; }
 .nav-back { display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 12px; border: none; cursor: pointer; background: transparent; color: var(--color-text-secondary); transition: background 0.15s, transform 0.1s; flex-shrink: 0; }
 .nav-back:active { transform: scale(0.9); background: var(--color-surface-deep); }
 .nav-bar.over-hero .nav-back { color: #FBF7F1; }
@@ -102,7 +102,7 @@
 /* ============================================
    DATE STRIP
    ============================================ */
-.date-strip { position: absolute; top: calc(var(--nav-height) + env(safe-area-inset-top)); left: 0; right: 0; height: var(--date-strip-height); backdrop-filter: blur(14px) saturate(140%); -webkit-backdrop-filter: blur(14px) saturate(140%); border-bottom: 1px solid var(--color-border); box-shadow: none; background: rgba(251, 247, 241, 0.92); z-index: 10; transition: height 0.3s, opacity 0.3s, top 0.3s; -webkit-mask-image: linear-gradient(to right, transparent, black 16px, black calc(100% - 16px), transparent); mask-image: linear-gradient(to right, transparent, black 16px, black calc(100% - 16px), transparent); }
+.date-strip { position: absolute; top: calc(var(--nav-height) + env(safe-area-inset-top)); left: 0; right: 0; height: var(--date-strip-height); border-bottom: 1px solid var(--color-border); box-shadow: none; background: var(--color-surface); z-index: 10; transition: height 0.3s, opacity 0.3s, top 0.3s; -webkit-mask-image: linear-gradient(to right, transparent, black 16px, black calc(100% - 16px), transparent); mask-image: linear-gradient(to right, transparent, black 16px, black calc(100% - 16px), transparent); }
 .date-strip.hidden { height: 0; min-height: 0; opacity: 0; pointer-events: none; overflow: hidden; border-bottom: none; }
 .date-strip-inner { display: flex; gap: 2px; padding: 8px 12px; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; height: 100%; align-items: center; touch-action: pan-x; }
 .date-strip-inner::-webkit-scrollbar { display: none; }
