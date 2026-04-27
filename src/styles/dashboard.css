@@ -145,15 +145,16 @@
 /* Card — paper sheet on dark canvas */
 .dash-card {
   position: relative;
-  background: rgba(251, 247, 241, 0.04);
-  border: 1px solid rgba(232, 225, 214, 0.1);
+  background: #FBF7F1;
+  border: 1px solid rgba(232, 225, 214, 0.85);
   border-radius: 4px;
   overflow: visible;
-  transition: border-color 0.2s, background 0.2s, transform 0.25s, box-shadow 0.25s;
+  transition: border-color 0.2s, transform 0.25s, box-shadow 0.25s;
+  box-shadow: rgba(0, 0, 0, 0.32) 0 8px 24px -8px;
 }
 .dash-card:hover {
-  border-color: rgba(232, 225, 214, 0.22);
-  background: rgba(251, 247, 241, 0.06);
+  border-color: rgba(232, 225, 214, 1);
+  box-shadow: rgba(0, 0, 0, 0.4) 0 16px 40px -10px;
 }
 .dash-card-link {
   display: block;
@@ -227,7 +228,7 @@
   font-weight: 600;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: rgba(251, 247, 241, 0.55);
+  color: #6B6157;
   margin-bottom: 16px;
 }
 
@@ -242,7 +243,7 @@
   font-style: italic;
   font-size: 13px;
   font-weight: 360;
-  color: rgba(251, 247, 241, 0.4);
+  color: #9B9087;
 }
 .dash-card-btn {
   display: inline-flex;
