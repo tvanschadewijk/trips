@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { flushSync } from 'react-dom';
 import Image from 'next/image';
 import type { TripData, Day, Transport, Accommodation, Tip, Meal } from '@/lib/types';
@@ -111,6 +111,24 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
   const trip = activeTripIndex !== null ? trips[activeTripIndex]?.trip : null;
   const days = activeTripIndex !== null ? trips[activeTripIndex]?.days || [] : [];
   const totalSlides = 1 + days.length;
+
+  // Compute today's day info (if today is within this trip)
+  const todayInfo = useMemo(() => {
+    if (!trip) return null;
+    const today = new Date();
+    today.setHours(12, 0, 0, 0);
+    const start = new Date(trip.dates.start + 'T12:00:00');
+    const end = new Date(trip.dates.end + 'T12:00:00');
+    if (today < start || today > end) return null;
+    const todayStr = today.toISOString().slice(0, 10);
+    const dayIdx = days.findIndex(d => d.date === todayStr);
+    if (dayIdx < 0) return null;
+    return {
+      dayIdx,
+      dayNumber: days[dayIdx].day_number,
+      dateLabel: today.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }),
+    };
+  }, [trip, days]);
   const isHero = currentSlide === 0;
 
   const startViewTransition = useCallback((update: () => void) => {
@@ -383,29 +401,11 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
       const start = new Date(t.trip.dates.start + 'T12:00:00');
       const end = new Date(t.trip.dates.end + 'T12:00:00');
       if (today >= start && today <= end) {
-        // Find which day matches today
-        const todayStr = today.toISOString().slice(0, 10);
-        const dayIdx = t.days.findIndex(d => d.date === todayStr);
-        const slideIdx = dayIdx >= 0 ? dayIdx + 1 : 1; // +1 because slide 0 is hero
-
-        // Open the matching trip and navigate to the day
+        // Open the trip on the cover (slide 0). The cover renders a
+        // 'Continue to today' CTA so the user gets context first.
         setTransitionTripIndex(i);
         setActiveTripIndex(i);
         setOverviewFaded(true);
-        setCurrentSlide(slideIdx);
-        setTimeout(() => {
-          if (trackRef.current) {
-            trackRef.current.style.transform = `translateX(-${slideIdx * 100}cqi)`;
-          }
-          const strip = dateStripRef.current;
-          const activeBtn = strip?.querySelector('.date-btn.active') as HTMLElement | null;
-          if (strip && activeBtn) {
-            const stripRect = strip.getBoundingClientRect();
-            const btnRect = activeBtn.getBoundingClientRect();
-            const scrollLeft = strip.scrollLeft + (btnRect.left + btnRect.width / 2) - (stripRect.left + stripRect.width / 2);
-            strip.scrollTo({ left: scrollLeft, behavior: 'smooth' });
-          }
-        }, 100);
         break;
       }
     }
@@ -852,6 +852,20 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
                 <div><div className="hero-stat-val">{formatDate(trip.dates.end, { day: 'numeric', month: 'short' })}</div><div className="hero-stat-lbl">end</div></div>
               </div>
             </div>
+            {todayInfo && (
+              <button
+                className="hero-today-cta"
+                onClick={() => goTo(todayInfo.dayIdx + 1)}
+                aria-label={`Continue to today, day ${todayInfo.dayNumber}, ${todayInfo.dateLabel}`}
+              >
+                <span className="hero-today-cta-eyebrow">Today</span>
+                <span className="hero-today-cta-label">
+                  Continue to Day {todayInfo.dayNumber}
+                  <span className="hero-today-cta-date"> · {todayInfo.dateLabel}</span>
+                </span>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+              </button>
+            )}
             {trip.notes?.length ? (
               <div className="hero-notes">
                 <button className="hero-note-btn" onClick={() => {
