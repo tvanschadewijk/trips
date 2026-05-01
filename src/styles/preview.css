@@ -602,6 +602,65 @@
 .trip-app :focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; border-radius: 6px; }
 .trip-app :focus:not(:focus-visible) { outline: none; }
 
+/* ============================================
+   SAVE OFFLINE button (top-right of nav)
+   ============================================ */
+.save-offline-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 40px; height: 40px;
+  border-radius: 999px;
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  flex-shrink: 0;
+  margin-left: 4px;
+  transition: background 0.15s, color 0.15s, transform 0.1s;
+  -webkit-tap-highlight-color: transparent;
+}
+.save-offline-btn:active { transform: scale(0.92); background: var(--color-surface-deep); }
+@media (hover: hover) {
+  .save-offline-btn:hover { background: var(--color-surface-deep); color: var(--color-text-primary); }
+}
+.nav-bar.over-hero .save-offline-btn { color: #FBF7F1; }
+.nav-bar.over-hero .save-offline-btn:active { background: rgba(251,247,241,0.18); }
+@media (hover: hover) {
+  .nav-bar.over-hero .save-offline-btn:hover { background: rgba(251,247,241,0.18); color: #FBF7F1; }
+}
+.save-offline-btn.saved { color: var(--color-accent); }
+.nav-bar.over-hero .save-offline-btn.saved { color: var(--color-accent-light); }
+.save-offline-btn.busy { opacity: 0.85; cursor: wait; }
+.save-offline-spinner {
+  animation: save-offline-spin 0.9s linear infinite;
+  transform-origin: 12px 12px;
+}
+@keyframes save-offline-spin { to { transform: rotate(360deg); } }
+
+.save-offline-toast {
+  position: absolute;
+  top: calc(var(--nav-height) + env(safe-area-inset-top) + 12px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 50;
+  padding: 9px 18px;
+  background: var(--color-night);
+  color: var(--color-surface);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 540;
+  letter-spacing: -0.005em;
+  border-radius: 999px;
+  box-shadow: rgba(26, 20, 16, 0.32) 0 12px 32px -8px;
+  animation: save-offline-toast 2200ms ease both;
+  pointer-events: none;
+  white-space: nowrap;
+}
+@keyframes save-offline-toast {
+  0% { opacity: 0; transform: translate(-50%, -8px); }
+  10%, 80% { opacity: 1; transform: translate(-50%, 0); }
+  100% { opacity: 0; transform: translate(-50%, -4px); }
+}
+
 /* Demo back link */
 .demo-back-link {
   position: fixed;

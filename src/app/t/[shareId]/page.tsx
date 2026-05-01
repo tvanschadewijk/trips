@@ -111,7 +111,8 @@ export default async function TripPage({ params }: Props) {
       <TripPreview
         trips={[result.tripData]}
         autoOpen
-        shareId={result.isOwner ? undefined : shareId}
+        shareId={shareId}
+        canAddToTrips={!result.isOwner}
         tripId={result.isOwner ? result.tripId : undefined}
       />
       {result.isAdmin && (

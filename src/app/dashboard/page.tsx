@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import type { TripData } from '@/lib/types';
+import { useSavedTripIds } from '@/lib/offline';
 import '@/styles/dashboard.css';
 
 interface DashTrip {
@@ -44,6 +45,7 @@ export default function DashboardPage() {
     if (typeof window !== 'undefined') return sessionStorage.getItem('vt-trip');
     return null;
   });
+  const savedOfflineIds = useSavedTripIds();
 
   const loadTrips = useCallback(async () => {
     const supabase = createClient();
@@ -362,6 +364,12 @@ export default function DashboardPage() {
                       <span>{nights} nights</span>
                     </div>
                     <div className="dash-card-footer">
+                      {savedOfflineIds.has(trip.share_id) && (
+                        <span className="dash-card-saved" title="Available offline">
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+                          Offline
+                        </span>
+                      )}
                       {wasUpdated(trip) && <span className="dash-card-updated">Updated {timeAgo(trip.updated_at)}</span>}
                       <button
                         className={`dash-card-btn ${copied === trip.share_id ? 'copied' : ''}`}

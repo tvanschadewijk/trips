@@ -245,6 +245,22 @@
   font-weight: 360;
   color: #9B9087;
 }
+.dash-card-saved {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-right: 8px;
+  padding: 3px 9px;
+  background: rgba(47, 107, 74, 0.10);
+  color: #2F6B4A;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  border-radius: 999px;
+}
+.dash-card-saved svg { opacity: 0.95; }
 .dash-card-btn {
   display: inline-flex;
   align-items: center;

@@ -5,6 +5,7 @@ import { flushSync } from 'react-dom';
 import Image from 'next/image';
 import type { TripData, Day, Transport, Accommodation, Tip, Meal } from '@/lib/types';
 import { ICONS } from './icons';
+import SaveOfflineButton from './SaveOfflineButton';
 import '@/styles/preview.css';
 
 /** Extract 3-letter IATA airport codes from a string like "Amsterdam (AMS) → New York (JFK)" */
@@ -18,6 +19,8 @@ interface TripPreviewProps {
   onDelete?: (index: number) => void;
   autoOpen?: boolean;
   shareId?: string;
+  /** True when the current viewer can save a copy of a shared trip. */
+  canAddToTrips?: boolean;
   tripId?: string;
 }
 
@@ -76,7 +79,7 @@ function SwipeDots({ total, current, onDotClick }: { total: number; current: num
   );
 }
 
-export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, shareId, tripId }: TripPreviewProps) {
+export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, shareId, canAddToTrips, tripId }: TripPreviewProps) {
   const [trips, setTrips] = useState(initialTrips);
   // Sync to new initialTrips when the parent re-renders with fresh data (e.g.
   // after the admin chat panel applies an edit and calls router.refresh()).
@@ -111,6 +114,14 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
   const trip = activeTripIndex !== null ? trips[activeTripIndex]?.trip : null;
   const days = activeTripIndex !== null ? trips[activeTripIndex]?.days || [] : [];
   const totalSlides = 1 + days.length;
+
+  // Prewarm the trip JSON cache the SW maintains. Fire-and-forget; even
+  // if we never click 'Save offline', the next slow/offline visit can
+  // hydrate from cache.
+  useEffect(() => {
+    if (!shareId || typeof window === 'undefined') return;
+    fetch(`/api/trip-data/${shareId}`, { credentials: 'omit', cache: 'no-cache' }).catch(() => {});
+  }, [shareId]);
 
   // Compute today's day info (if today is within this trip)
   const todayInfo = useMemo(() => {
@@ -1233,6 +1244,9 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
                 <div className="text-nav-title">{trip.name} — {trip.subtitle}</div>
               )}
             </div>
+            {shareId && trip && (
+              <SaveOfflineButton shareId={shareId} data={{ trip, days }} />
+            )}
           </div>
 
           {/* Date Strip */}
@@ -1267,7 +1281,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
           <SwipeDots total={totalSlides} current={currentSlide} onDotClick={goTo} />
 
           {/* Floating Add to Trips button */}
-          {shareId && saveStatus !== 'already_owned' && (
+          {shareId && canAddToTrips && saveStatus !== 'already_owned' && (
             <div className="floating-save">
               <button
                 className={`floating-save-btn ${saveStatus === 'saved' || saveStatus === 'already_saved' ? 'saved' : ''}`}
