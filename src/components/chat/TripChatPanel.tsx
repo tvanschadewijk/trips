@@ -14,6 +14,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import type { ToolCallSummary, PriorTurn } from '@/lib/trip-chat/prompt';
+import { useOnlineStatus } from '@/lib/online-status';
 
 export interface ChatMessage {
   id: string;
@@ -32,6 +33,7 @@ interface Props {
 
 export default function TripChatPanel({ tripId, initialMessages }: Props) {
   const router = useRouter();
+  const online = useOnlineStatus();
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
   const [input, setInput] = useState('');
@@ -132,6 +134,10 @@ export default function TripChatPanel({ tripId, initialMessages }: Props) {
       send();
     }
   }
+
+  // The panel posts to /api/trips/[id]/chat; without a network there's
+  // nothing it can do, so hide the entry point entirely when offline.
+  if (!online) return null;
 
   return (
     <>

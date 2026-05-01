@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import type { TripData } from '@/lib/types';
 import { useSavedTripIds } from '@/lib/offline';
+import { useOnlineStatus } from '@/lib/online-status';
 import '@/styles/dashboard.css';
 
 interface DashTrip {
@@ -46,6 +47,8 @@ export default function DashboardPage() {
     return null;
   });
   const savedOfflineIds = useSavedTripIds();
+  const online = useOnlineStatus();
+  const visibleTrips = online ? trips : trips.filter(t => savedOfflineIds.has(t.share_id));
 
   const loadTrips = useCallback(async () => {
     const supabase = createClient();
@@ -173,13 +176,18 @@ export default function DashboardPage() {
                 <div className="dash-settings-menu">
                   <div className="dash-settings-email">{email}</div>
                   <div className="dash-settings-divider" />
-                  {isAdmin && (
+                  {isAdmin && online && (
                     <Link href="/admin" className="dash-settings-item" onClick={() => setSettingsOpen(false)}>
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
                       Analytics
                     </Link>
                   )}
-                  <button className="dash-settings-item" onClick={() => { setSettingsOpen(false); handleSignOut(); }}>
+                  <button
+                    className="dash-settings-item"
+                    onClick={() => { if (!online) return; setSettingsOpen(false); handleSignOut(); }}
+                    disabled={!online}
+                    title={online ? undefined : 'Available when online'}
+                  >
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
                     Sign out
                   </button>
@@ -191,14 +199,29 @@ export default function DashboardPage() {
       </nav>
 
       <main className="dash-main">
+        {!online && (
+          <div className="dash-offline-banner" role="status" aria-live="polite">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><line x1="1" y1="1" x2="23" y2="23"/><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/><path d="M10.71 5.05A16 16 0 0 1 22.58 9"/><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>
+            <span><strong>You&rsquo;re offline.</strong> Showing trips you&rsquo;ve saved.</span>
+          </div>
+        )}
         <div className="dash-header">
           <div>
             <h1 className="dash-title">Trips</h1>
-            <p className="dash-subtitle">{trips.length === 0 ? 'You have no trips planned' : `${trips.length} trip${trips.length !== 1 ? 's' : ''}`}</p>
+            <p className="dash-subtitle">
+              {online
+                ? (trips.length === 0 ? 'You have no trips planned' : `${trips.length} trip${trips.length !== 1 ? 's' : ''}`)
+                : (visibleTrips.length === 0 ? 'No saved trips yet' : `${visibleTrips.length} saved trip${visibleTrips.length !== 1 ? 's' : ''}`)}
+            </p>
           </div>
         </div>
 
-        {trips.length === 0 ? (
+        {visibleTrips.length === 0 && !online ? (
+          <div className="dash-offline-empty">
+            <h3>Nothing saved yet</h3>
+            <p>Open a trip while connected and tap the download icon to keep it on this device.</p>
+          </div>
+        ) : trips.length === 0 ? (
           <div className="dash-onboard">
             <div className="dash-onboard-header">
               <div className="dash-onboard-icon">
@@ -286,7 +309,7 @@ export default function DashboardPage() {
           </div>
         ) : (
           <div className="dash-grid">
-            {trips.map(trip => {
+            {visibleTrips.map(trip => {
               const t = trip.data.trip;
               const startD = new Date(t.dates.start + 'T12:00:00');
               const endD = new Date(t.dates.end + 'T12:00:00');
