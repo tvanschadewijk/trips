@@ -22,3 +22,8 @@ body {
   color: rgba(255, 255, 255, 0.35);
   font-weight: inherit;
 }
+
+@keyframes reconnect-toast {
+  from { opacity: 0; transform: translate(-50%, -8px); }
+  to   { opacity: 1; transform: translate(-50%, 0); }
+}

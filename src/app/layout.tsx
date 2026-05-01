@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import ServiceWorkerRegistrar from '@/components/ServiceWorkerRegistrar';
+import ReconnectToast from '@/components/ReconnectToast';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -59,6 +60,7 @@ export default function RootLayout({
       </head>
       <body style={{ margin: 0, padding: 0, minHeight: '100dvh', background: '#FBF7F1' }}>
         <ServiceWorkerRegistrar />
+        <ReconnectToast />
         {children}
       </body>
     </html>
