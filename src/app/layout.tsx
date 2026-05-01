@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import ServiceWorkerRegistrar from '@/components/ServiceWorkerRegistrar';
 import ReconnectToast from '@/components/ReconnectToast';
+import OfflineDebugOverlay from '@/components/OfflineDebugOverlay';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -61,6 +62,7 @@ export default function RootLayout({
       <body style={{ margin: 0, padding: 0, minHeight: '100dvh', background: '#FBF7F1' }}>
         <ServiceWorkerRegistrar />
         <ReconnectToast />
+        <OfflineDebugOverlay />
         {children}
       </body>
     </html>
