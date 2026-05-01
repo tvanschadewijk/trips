@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useOfflineTrip } from '@/lib/offline';
 import type { TripData } from '@/lib/types';
 
@@ -24,6 +25,9 @@ export default function SaveOfflineButton({ shareId, data }: Props) {
   });
   const [confirmingRemove, setConfirmingRemove] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => { setMounted(true); }, []);
 
   const handleClick = async () => {
     if (state.status === 'saving' || state.status === 'removing') return;
@@ -70,24 +74,25 @@ export default function SaveOfflineButton({ shareId, data }: Props) {
 
       {toast && <div className="save-offline-toast">{toast}</div>}
 
-      {confirmingRemove && (
-        <div className="confirm-overlay">
-          <div className="confirm-backdrop" onClick={() => setConfirmingRemove(false)} />
-          <div className="confirm-dialog">
-            <div className="confirm-title">Remove offline copy?</div>
-            <p className="confirm-message">
+      {confirmingRemove && mounted && createPortal(
+        <div className="save-offline-confirm">
+          <div className="save-offline-confirm-backdrop" onClick={() => setConfirmingRemove(false)} />
+          <div className="save-offline-confirm-dialog" role="dialog" aria-modal="true" aria-label="Remove offline copy?">
+            <div className="save-offline-confirm-title">Remove offline copy?</div>
+            <p className="save-offline-confirm-message">
               You&rsquo;ll need a connection to view this trip again.
             </p>
-            <div className="confirm-actions">
-              <button className="confirm-btn confirm-btn-cancel" onClick={() => setConfirmingRemove(false)}>
+            <div className="save-offline-confirm-actions">
+              <button className="save-offline-confirm-btn cancel" onClick={() => setConfirmingRemove(false)}>
                 Keep saved
               </button>
-              <button className="confirm-btn confirm-btn-delete" onClick={handleRemove}>
+              <button className="save-offline-confirm-btn delete" onClick={handleRemove}>
                 Remove
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );
