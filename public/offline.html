@@ -4,72 +4,292 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Offline — OurTrips</title>
+  <meta name="theme-color" content="#FBF7F1">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Fraunces:ital,opsz,wght@0,9..144,300..600;1,9..144,300..500&display=swap" rel="stylesheet">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --paper: #FBF7F1;
+      --paper-deep: #F4EDE2;
+      --card: #FFFFFF;
+      --ink: #1A1410;
+      --ink-70: #3D352E;
+      --ink-50: #6B6157;
+      --ink-35: #9B9087;
+      --accent: #C14F2A;
+      --accent-deep: #A03E1F;
+      --accent-wash: #F5E4DA;
+      --rule: #E8E1D6;
+    }
     body {
       font-family: 'Inter', system-ui, -apple-system, sans-serif;
-      background: #1A1A1A;
-      color: #fff;
+      font-feature-settings: 'cv11' on, 'ss01' on;
+      background: var(--paper);
+      color: var(--ink);
       min-height: 100dvh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 2rem;
-      text-align: center;
       -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+      padding: env(safe-area-inset-top) 24px calc(env(safe-area-inset-bottom) + 32px);
     }
-    .icon {
-      font-size: 4rem;
-      margin-bottom: 1.5rem;
-      opacity: 0.7;
+    main {
+      max-width: 720px;
+      margin: 0 auto;
+      padding-top: 56px;
+    }
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 24px;
+    }
+    .eyebrow::before {
+      content: '';
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: var(--accent);
     }
     h1 {
-      font-size: 1.5rem;
-      font-weight: 700;
-      margin-bottom: 0.5rem;
+      font-family: 'Fraunces', 'Iowan Old Style', 'Palatino', Georgia, serif;
+      font-optical-sizing: auto;
+      font-variation-settings: 'SOFT' 50;
+      font-size: clamp(36px, 6vw, 52px);
+      font-weight: 380;
+      line-height: 1.04;
+      letter-spacing: -0.018em;
+      color: var(--ink);
+      margin-bottom: 16px;
     }
-    p {
-      color: rgba(255, 255, 255, 0.5);
-      font-size: 0.95rem;
+    h1 em {
+      font-style: italic;
+      color: var(--accent);
+      font-weight: 320;
+    }
+    .lede {
+      font-family: 'Fraunces', 'Iowan Old Style', 'Palatino', Georgia, serif;
+      font-style: italic;
+      font-size: 18px;
+      font-weight: 360;
       line-height: 1.5;
-      max-width: 320px;
+      color: var(--ink-70);
+      max-width: 56ch;
+      margin-bottom: 36px;
     }
-    .tip {
-      margin-top: 2rem;
-      padding: 1rem 1.25rem;
-      background: rgba(255, 255, 255, 0.06);
+    .rule {
+      border: 0;
+      border-top: 1px solid var(--rule);
+      margin: 36px 0 28px;
+    }
+    .saved-heading {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .saved-heading h2 {
+      font-family: 'Fraunces', 'Iowan Old Style', 'Palatino', Georgia, serif;
+      font-optical-sizing: auto;
+      font-size: 24px;
+      font-weight: 420;
+      letter-spacing: -0.012em;
+      color: var(--ink);
+    }
+    .saved-heading .count {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--ink-50);
+    }
+    ul.trips {
+      list-style: none;
+      display: grid;
+      gap: 12px;
+    }
+    a.trip {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 14px 16px;
+      background: var(--card);
+      border: 1px solid var(--rule);
       border-radius: 12px;
-      font-size: 0.85rem;
-      color: rgba(255, 255, 255, 0.4);
-      max-width: 320px;
+      text-decoration: none;
+      color: inherit;
+      transition: border-color 0.15s, transform 0.15s, box-shadow 0.15s;
+      box-shadow: rgba(26, 20, 16, 0.04) 0 1px 0 0;
     }
-    button {
-      margin-top: 1.5rem;
-      padding: 0.75rem 1.5rem;
-      background: rgba(255, 255, 255, 0.1);
-      color: #fff;
-      border: 1px solid rgba(255, 255, 255, 0.15);
-      border-radius: 10px;
-      font-family: inherit;
-      font-size: 0.9rem;
-      font-weight: 500;
+    a.trip:hover {
+      border-color: #D4C8B4;
+      transform: translateY(-1px);
+      box-shadow: rgba(26, 20, 16, 0.04) 0 1px 0 0, rgba(26, 20, 16, 0.10) 0 12px 28px -8px;
+    }
+    a.trip .thumb {
+      flex-shrink: 0;
+      width: 56px;
+      height: 56px;
+      border-radius: 8px;
+      background: var(--paper-deep) center / cover no-repeat;
+    }
+    a.trip .meta { flex: 1; min-width: 0; }
+    a.trip .name {
+      font-family: 'Fraunces', 'Iowan Old Style', 'Palatino', Georgia, serif;
+      font-optical-sizing: auto;
+      font-size: 19px;
+      font-weight: 420;
+      letter-spacing: -0.012em;
+      color: var(--ink);
+      line-height: 1.2;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    a.trip .dates {
+      margin-top: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--ink-50);
+    }
+    a.trip .chev { flex-shrink: 0; color: var(--ink-35); }
+    .empty {
+      padding: 24px;
+      background: var(--paper-deep);
+      border: 1px solid var(--rule);
+      border-radius: 12px;
+      color: var(--ink-50);
+      font-family: 'Fraunces', 'Iowan Old Style', 'Palatino', Georgia, serif;
+      font-style: italic;
+      font-size: 16px;
+      line-height: 1.55;
+    }
+    button.retry {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 28px;
+      padding: 13px 24px;
+      background: transparent;
+      color: var(--ink);
+      border: 1px solid var(--ink);
+      border-radius: 999px;
+      font-family: 'Inter', system-ui, sans-serif;
+      font-size: 14px;
+      font-weight: 580;
       cursor: pointer;
-      transition: background 0.2s;
+      transition: background 0.15s, color 0.15s;
     }
-    button:active { background: rgba(255, 255, 255, 0.15); }
+    button.retry:hover { background: var(--ink); color: var(--paper); }
   </style>
 </head>
 <body>
-  <div class="icon">&#9992;&#65039;</div>
-  <h1>You're offline</h1>
-  <p>Trips you've visited before are saved on your device. Go back to view them.</p>
-  <button onclick="history.back()">Go back</button>
-  <div class="tip">
-    Tip: Open a trip while connected to save it for offline viewing.
-  </div>
+  <main>
+    <div class="eyebrow">OurTrips · Offline</div>
+    <h1>You&rsquo;re offline,<br><em>but the road is still here.</em></h1>
+    <p class="lede">
+      Trips you&rsquo;ve saved are kept on this device — no connection needed. Pick one below
+      to keep travelling.
+    </p>
+
+    <hr class="rule" />
+
+    <div class="saved-heading">
+      <h2>Saved trips</h2>
+      <span class="count" id="count"></span>
+    </div>
+    <div id="list"></div>
+
+    <button type="button" class="retry" onclick="location.reload()">
+      Try again
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M3 12a9 9 0 1 0 9-9"/>
+        <polyline points="3 4 3 12 11 12"/>
+      </svg>
+    </button>
+  </main>
+
+  <script>
+    (function () {
+      var MANIFEST_KEY = 'ourtrips:offline-manifest:v1';
+      var listEl = document.getElementById('list');
+      var countEl = document.getElementById('count');
+
+      function fmtDate(iso) {
+        if (!iso) return '';
+        try {
+          var d = new Date(iso + 'T12:00:00');
+          if (isNaN(d.getTime())) return iso;
+          return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+        } catch (e) { return iso; }
+      }
+
+      function read() {
+        try {
+          var raw = localStorage.getItem(MANIFEST_KEY);
+          if (!raw) return [];
+          var parsed = JSON.parse(raw) || {};
+          return Object.values(parsed).sort(function (a, b) { return (b.savedAt || 0) - (a.savedAt || 0); });
+        } catch (e) { return []; }
+      }
+
+      function escape(s) {
+        if (s == null) return '';
+        return String(s).replace(/[&<>"]/g, function (c) {
+          return c === '&' ? '&amp;' : c === '<' ? '&lt;' : c === '>' ? '&gt;' : '&quot;';
+        });
+      }
+
+      function render() {
+        var trips = read();
+        countEl.textContent = trips.length === 0
+          ? ''
+          : trips.length + ' saved trip' + (trips.length === 1 ? '' : 's');
+
+        if (trips.length === 0) {
+          listEl.innerHTML = '<div class="empty">' +
+            'No trips saved on this device yet. Open a trip while connected and tap the download icon to keep it offline.' +
+            '</div>';
+          return;
+        }
+
+        var ul = document.createElement('ul');
+        ul.className = 'trips';
+        trips.forEach(function (trip) {
+          var li = document.createElement('li');
+          var dateLine = '';
+          if (trip.start && trip.end) dateLine = fmtDate(trip.start) + ' — ' + fmtDate(trip.end);
+          else if (trip.start) dateLine = fmtDate(trip.start);
+
+          var thumbStyle = trip.heroImage ? "background-image:url('" + trip.heroImage.replace(/'/g, "%27") + "')" : '';
+
+          li.innerHTML =
+            '<a class="trip" href="/t/' + encodeURIComponent(trip.shareId) + '">' +
+              '<div class="thumb" style="' + thumbStyle + '"></div>' +
+              '<div class="meta">' +
+                '<div class="name">' + escape(trip.name || 'Untitled trip') + '</div>' +
+                (dateLine ? '<div class="dates">' + escape(dateLine) + '</div>' : '') +
+              '</div>' +
+              '<svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>' +
+            '</a>';
+          ul.appendChild(li);
+        });
+        listEl.innerHTML = '';
+        listEl.appendChild(ul);
+      }
+
+      render();
+      window.addEventListener('online', function () { location.reload(); });
+    })();
+  </script>
 </body>
 </html>

@@ -1,8 +1,9 @@
 // OurTrips — Service Worker
 // Caches trip pages, assets, and images for offline viewing.
-// v2: timeout-race for trip navigation, offline fallback for all navigations.
+// v3: timeout-race for trip navigation, offline fallback for all navigations,
+// editorial offline.html with a dynamic saved-trips list.
 
-const CACHE_VERSION = 'v2';
+const CACHE_VERSION = 'v3';
 const STATIC_CACHE = `ourtrips-static-${CACHE_VERSION}`;
 const TRIP_CACHE = `ourtrips-trips-${CACHE_VERSION}`;
 const TRIP_DATA_CACHE = `ourtrips-trip-data-${CACHE_VERSION}`;
