@@ -55,11 +55,32 @@ export async function PATCH(
   }
 
   const body = await request.json();
-  const existing = trip.data as { trip: Record<string, unknown>; days: Array<Record<string, unknown>> };
+  const existing = trip.data as {
+    trip: Record<string, unknown>;
+    days: Array<Record<string, unknown>>;
+    markdown_source?: string;
+  };
 
   // Deep-merge trip metadata
   if (body.trip) {
     existing.trip = deepMerge(existing.trip, body.trip);
+  }
+
+  // Replace markdown_source if provided. We treat this as a single
+  // mutable field — chat edits or skill re-saves overwrite the prior
+  // version. 256 KB cap matches POST.
+  if (typeof body.markdown_source === 'string') {
+    if (body.markdown_source.length > 262144) {
+      return NextResponse.json(
+        { error: 'markdown_source exceeds 256 KB' },
+        { status: 413 }
+      );
+    }
+    if (body.markdown_source.length === 0) {
+      delete existing.markdown_source;
+    } else {
+      existing.markdown_source = body.markdown_source;
+    }
   }
 
   // Deep-merge days by day_number

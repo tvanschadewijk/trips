@@ -11,10 +11,25 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { trip, days, trip_id } = body;
+    const { trip, days, trip_id, markdown_source } = body;
 
     if (!trip?.name) {
       return NextResponse.json({ error: 'Trip name is required' }, { status: 400 });
+    }
+
+    // Reject oversize markdown bodies (256 KB cap).
+    if (typeof markdown_source === 'string' && markdown_source.length > 262144) {
+      return NextResponse.json(
+        { error: 'markdown_source exceeds 256 KB' },
+        { status: 413 }
+      );
+    }
+
+    // Trip body persisted into trips.data — only include markdown_source when
+    // it's a non-empty string so we don't write a bunch of empty fields.
+    const tripBody: { trip: typeof trip; days: typeof days; markdown_source?: string } = { trip, days };
+    if (typeof markdown_source === 'string' && markdown_source.length > 0) {
+      tripBody.markdown_source = markdown_source;
     }
 
     const supabase = createAdminClient();
@@ -33,7 +48,7 @@ export async function POST(request: NextRequest) {
           .from('trips')
           .update({
             name: trip.name,
-            data: { trip, days },
+            data: tripBody,
             updated_at: new Date().toISOString(),
           })
           .eq('id', existing.id);
@@ -82,7 +97,7 @@ export async function POST(request: NextRequest) {
         .from('trips')
         .update({
           name: trip.name,
-          data: { trip, days },
+          data: tripBody,
           updated_at: new Date().toISOString(),
         })
         .eq('id', existingByName.id);

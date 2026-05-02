@@ -6,6 +6,7 @@ import Image from 'next/image';
 import type { TripData, Day, Transport, Accommodation, Tip, Meal } from '@/lib/types';
 import { ICONS } from './icons';
 import SaveOfflineButton from './SaveOfflineButton';
+import { renderTripMarkdown } from '@/lib/render-trip-markdown';
 import '@/styles/preview.css';
 
 /** Extract 3-letter IATA airport codes from a string like "Amsterdam (AMS) → New York (JFK)" */
@@ -113,6 +114,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
 
   const trip = activeTripIndex !== null ? trips[activeTripIndex]?.trip : null;
   const days = activeTripIndex !== null ? trips[activeTripIndex]?.days || [] : [];
+  const markdownSource = activeTripIndex !== null ? trips[activeTripIndex]?.markdown_source : undefined;
   const totalSlides = 1 + days.length;
 
   // Prewarm the trip JSON cache the SW maintains. Fire-and-forget; even
@@ -901,16 +903,25 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
               const logistics = buildLogisticsHtml();
               const accommodation = buildAccommodationHtml();
               const thingsToDo = buildThingsToDoHtml();
-              const sections = [
+              const sections: { icon: string; label: string; html: string; hasData: boolean }[] = [
                 { icon: 'route', label: 'Logistics', ...logistics },
                 { icon: 'bed', label: 'Accommodation', ...accommodation },
                 { icon: thingsToDo.allDone ? 'check' : 'warning', label: thingsToDo.allDone ? 'Ready to Go' : 'Action Items', ...thingsToDo },
-              ].filter(s => s.hasData);
-              if (!sections.length) return null;
+              ];
+              if (markdownSource) {
+                sections.push({
+                  icon: 'doc',
+                  label: 'Original plan',
+                  html: renderTripMarkdown(markdownSource),
+                  hasData: true,
+                });
+              }
+              const visible = sections.filter(s => s.hasData);
+              if (!visible.length) return null;
               return (
                 <div className="hero-overview-btns">
                   <div className="hero-overview-label">Overview</div>
-                  {sections.map((s, i) => (
+                  {visible.map((s, i) => (
                     <button key={i} className="hero-note-btn" onClick={() => {
                       setDetailContent({ title: s.label, html: s.html });
                       setDetailOpen(true);
@@ -925,10 +936,6 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
               );
             })()}
           </div>
-          <button className="hero-hint" onClick={() => goTo(1)} aria-label="Explore day by day">
-            explore
-            <Icon name="chevron" />
-          </button>
         </div>
       </div>
     );
@@ -1277,8 +1284,17 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
             </div>
           </div>
 
-          {/* Swipe dots */}
-          <SwipeDots total={totalSlides} current={currentSlide} onDotClick={goTo} />
+          {/* Bottom drawer — sticky chrome holding swipe-dots and the
+              Explore CTA on the cover. Content above scrolls behind it. */}
+          <div className={`trip-bottom-drawer ${currentSlide === 0 ? 'on-hero' : ''}`}>
+            <SwipeDots total={totalSlides} current={currentSlide} onDotClick={goTo} />
+            {currentSlide === 0 && totalSlides > 1 && (
+              <button className="hero-hint" onClick={() => goTo(1)} aria-label="Explore day by day">
+                explore
+                <Icon name="chevron" />
+              </button>
+            )}
+          </div>
 
           {/* Floating Add to Trips button */}
           {shareId && canAddToTrips && saveStatus !== 'already_owned' && (

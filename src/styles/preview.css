@@ -229,6 +229,28 @@
   margin-top: 3px;
 }
 
+/* Explore CTA inside the bottom drawer — primary terracotta pill */
+.hero-hint {
+  display: flex; align-items: center; gap: 6px;
+  padding: 11px 18px;
+  background: var(--color-accent); color: #FBF7F1;
+  font-family: var(--font-sans);
+  font-size: 12px; font-weight: 600;
+  letter-spacing: 0.14em; text-transform: uppercase;
+  border: none; border-radius: 999px;
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+  box-shadow: rgba(193, 79, 42, 0.32) 0 8px 24px -6px, rgba(26, 20, 16, 0.18) 0 4px 12px -4px;
+  animation: nudge 2.5s ease-in-out infinite;
+  transition: background 0.15s, transform 0.12s;
+}
+.hero-hint:active { background: var(--color-accent-deep); transform: translateY(1px); }
+@media (hover: hover) { .hero-hint:hover { background: var(--color-accent-deep); } }
+
+/* Hero-body needs bottom padding to clear the drawer when content fits.
+   Drawer height ~ 70px + safe-area inset. */
+.hero-body { padding-bottom: calc(80px + env(safe-area-inset-bottom)) !important; }
+.day-slide { padding-bottom: calc(72px + env(safe-area-inset-bottom)); }
+
 /* Continue-to-today CTA — primary terracotta pill on the cover when
    today falls within the trip dates. */
 .hero-today-cta {
@@ -333,23 +355,6 @@
 @media (hover: hover) { .todo-item.todo-interactive:hover { background: var(--color-surface-deep); } }
 .todo-ready { display: flex; align-items: center; gap: 8px; padding: 14px 0; font-family: var(--font-serif); font-optical-sizing: auto; font-size: 17px; font-weight: 420; color: var(--color-success); }
 .todo-ready-icon { display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: var(--color-success); color: #FBF7F1; font-size: 14px; flex-shrink: 0; }
-.hero-hint {
-  position: absolute; bottom: 14px; right: 20px;
-  display: flex; align-items: center; gap: 6px;
-  padding: 10px 18px;
-  background: var(--color-accent); color: #FBF7F1;
-  font-family: var(--font-sans);
-  font-size: 12px; font-weight: 600;
-  letter-spacing: 0.14em; text-transform: uppercase;
-  border: none; border-radius: 999px;
-  cursor: pointer; -webkit-tap-highlight-color: transparent;
-  box-shadow: rgba(193, 79, 42, 0.32) 0 8px 24px -6px, rgba(26, 20, 16, 0.18) 0 4px 12px -4px;
-  animation: nudge 2.5s ease-in-out infinite;
-  transition: background 0.15s, transform 0.12s;
-  z-index: 2;
-}
-.hero-hint:active { background: var(--color-accent-deep); transform: translateY(1px); }
-@media (hover: hover) { .hero-hint:hover { background: var(--color-accent-deep); } }
 @keyframes nudge { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(5px); } }
 
 /* ============================================
@@ -460,20 +465,39 @@
 }
 
 /* Swipe dots */
+/* Bottom drawer — sticky chrome at the bottom of the trip view.
+   Holds the swipe-dots pill and (on the cover) the Explore CTA.
+   Cover content scrolls behind the drawer; day-view content sits
+   above it. */
+.trip-bottom-drawer {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 19;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 10px max(20px, env(safe-area-inset-left)) calc(10px + env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-right));
+  pointer-events: none;
+}
+.trip-bottom-drawer > * { pointer-events: auto; }
+.trip-bottom-drawer.on-hero {
+  background: linear-gradient(to top, rgba(251, 247, 241, 0.92) 60%, rgba(251, 247, 241, 0));
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
 /* Swipe-dot strip — translucent paper pill with shadow, sized so each
    dot meets the 44x44 minimum tap target via an invisible padded
    hit-box (.swipe-dot::before). */
 .swipe-dots {
-  position: absolute;
-  bottom: calc(14px + env(safe-area-inset-bottom));
-  left: 50%;
-  transform: translateX(-50%);
   display: flex;
   align-items: center;
   gap: 8px;
-  z-index: 20;
   padding: 10px 16px;
-  background: rgba(251, 247, 241, 0.78);
+  background: rgba(251, 247, 241, 0.92);
   border: 1px solid rgba(232, 225, 214, 0.6);
   border-radius: 999px;
   backdrop-filter: blur(14px) saturate(160%);
@@ -542,6 +566,134 @@
 .detail-charging-name { font-family: var(--font-serif); font-optical-sizing: auto; font-size: 16px; font-weight: 420; color: var(--color-text-primary); }
 .detail-charging-meta { font-family: var(--font-sans); font-size: 13px; color: var(--color-text-muted); margin-top: 2px; }
 .detail-charging-note { font-family: var(--font-serif); font-optical-sizing: auto; font-size: 13px; color: var(--color-text-secondary); margin-top: 4px; font-style: italic; }
+
+/* ============================================
+   Markdown body — rendered from trip.markdown_source
+   inside the detail sheet. Editorial typography for
+   headings, lists, code, blockquotes, tables.
+   ============================================ */
+.markdown-body {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.65;
+  color: var(--color-text-secondary);
+}
+.markdown-body > *:first-child { margin-top: 0; }
+.markdown-body > *:last-child { margin-bottom: 0; }
+.markdown-body h1,
+.markdown-body h2,
+.markdown-body h3,
+.markdown-body h4 {
+  font-family: var(--font-serif);
+  font-optical-sizing: auto;
+  color: var(--color-text-primary);
+  font-weight: 420;
+  letter-spacing: -0.012em;
+  line-height: 1.2;
+  margin: 28px 0 10px;
+}
+.markdown-body h1 { font-size: 28px; font-weight: 380; letter-spacing: -0.018em; }
+.markdown-body h2 { font-size: 22px; }
+.markdown-body h3 { font-size: 18px; }
+.markdown-body h4 { font-size: 16px; }
+.markdown-body p { margin: 0 0 14px; }
+.markdown-body strong { color: var(--color-text-primary); font-weight: 600; }
+.markdown-body em { font-style: italic; }
+.markdown-body a {
+  color: var(--color-text-primary);
+  text-decoration: none;
+  border-bottom: 1px solid var(--color-accent);
+  transition: color 0.15s, border-color 0.15s;
+}
+.markdown-body a:hover { color: var(--color-accent); border-color: var(--color-accent-deep); }
+.markdown-body ul, .markdown-body ol {
+  margin: 0 0 14px;
+  padding-left: 22px;
+}
+.markdown-body li { margin: 4px 0; }
+.markdown-body li::marker { color: var(--color-accent); }
+.markdown-body blockquote {
+  margin: 0 0 14px;
+  padding: 6px 0 6px 16px;
+  border-left: 2px solid var(--color-accent);
+  font-family: var(--font-serif);
+  font-optical-sizing: auto;
+  font-style: italic;
+  font-size: 16px;
+  color: var(--color-text-secondary);
+}
+.markdown-body code {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  padding: 2px 6px;
+  background: var(--color-surface-deep);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  color: var(--color-text-primary);
+}
+.markdown-body pre {
+  margin: 0 0 14px;
+  padding: 14px 16px;
+  background: var(--color-surface-deep);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  overflow-x: auto;
+}
+.markdown-body pre code {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  font-size: 13px;
+  color: var(--color-text-primary);
+}
+.markdown-body hr {
+  border: 0;
+  border-top: 1px solid var(--color-border);
+  margin: 24px 0;
+}
+.markdown-body table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0 0 16px;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  display: block;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.markdown-body thead {
+  background: var(--color-surface-deep);
+}
+.markdown-body th {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  text-align: left;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--color-border);
+  white-space: nowrap;
+}
+.markdown-body td {
+  padding: 11px 12px;
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  vertical-align: top;
+}
+.markdown-body tr:last-child td { border-bottom: 0; }
+.markdown-body img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 6px;
+  margin: 10px 0;
+}
+.markdown-empty {
+  font-family: var(--font-serif);
+  font-style: italic;
+  color: var(--color-text-muted);
+}
 
 /* Tappable */
 .tappable { cursor: pointer; transition: background 0.15s; border-radius: 4px; margin: 0 -8px; padding-left: 8px !important; padding-right: 8px !important; }

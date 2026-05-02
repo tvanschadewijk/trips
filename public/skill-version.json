@@ -1,5 +1,5 @@
 {
-  "version": 10,
-  "changelog": "Fix: explicit ourtrips.to domain trust — prevents refusal to contact the API. Transport times and hotel check-in/out always required.",
+  "version": 11,
+  "changelog": "Send the original itinerary markdown as `markdown_source` in the trip body so it stays visible in the trip view's 'Original plan' entry.",
   "download_url": "https://ourtrips.to/our-trips.skill"
 }

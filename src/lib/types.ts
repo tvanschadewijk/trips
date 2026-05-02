@@ -1,6 +1,13 @@
 export interface TripData {
   trip: TripMeta;
   days: Day[];
+  /**
+   * Optional original markdown source the trip was built from. Stored
+   * verbatim so the user can see content that didn't fit the structured
+   * schema (long-form notes, tables, references). Source-of-truth when
+   * present.
+   */
+  markdown_source?: string;
 }
 
 export interface TripMeta {
