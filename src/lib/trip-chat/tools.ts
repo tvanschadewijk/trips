@@ -47,7 +47,7 @@ const UPDATE_TRIP_DESCRIPTION = `Apply an edit to the current trip. The trip_id 
 
 ## Semantics: JSON Merge Patch with array-level replacement
 
-You pass one or both of:
+You pass any combination of:
 
   - \`trip\`: a PARTIAL object that is deep-merged into the existing \`data.trip\`.
     Only the keys you include are updated; everything else is preserved. Use
@@ -59,7 +59,15 @@ You pass one or both of:
     ordered array of every day. If you need to change one day, re-read the
     trip with get_trip first and resend all days with that one modified.
 
-Both fields are optional individually, but you must provide at least one. Do
+  - \`markdown_source\`: REPLACES the stored markdown source verbatim. This is
+    the long-form, free-text version of the trip the user shared (or the
+    skill saved on their behalf). When the trip ALREADY has a
+    markdown_source and you're making any structural edit, you MUST also
+    send an updated markdown_source in the same call so the markdown stays
+    synced with the structured fields. See "Markdown sync" below. Empty
+    string clears the field.
+
+All three are optional individually, but you must provide at least one. Do
 not send an empty object.
 
 ## Invariants the server enforces
@@ -96,19 +104,58 @@ not send an empty object.
   - \`tips\` are voice-y, first-person-adjacent when appropriate. The product
     sounds like a travel writer, not a chatbot.
 
+## Markdown sync (two-way source of truth)
+
+The trip can be edited from two surfaces: this chat (you) and an external
+agent like Claude CoWork (which saves the trip via the OurTrips skill). To
+keep both surfaces in sync the trip body carries an optional
+\`markdown_source\` field — the long-form markdown the user authored or the
+external agent generated.
+
+Rules when editing a trip:
+
+  1. Call get_trip first. The returned JSON includes \`markdown_source\` if
+     present. Read it.
+  2. If \`markdown_source\` is present:
+       - Apply the user's edit to BOTH the structured fields AND the markdown.
+       - Send the updated \`markdown_source\` in the SAME update_trip call as
+         your structural changes. Both must move together.
+       - Preserve the markdown's existing structure, headings, and voice.
+         Update the relevant section, don't rewrite the whole document.
+  3. If \`markdown_source\` is absent: don't fabricate one. Edit only the
+     structured fields. The trip remains structured-only.
+  4. If the user explicitly asks for the source markdown to be deleted, send
+     an empty string for \`markdown_source\` to clear it.
+
+Failing to keep them in sync silently strands the markdown view at a stale
+state — never do that.
+
 ## Output
 
 Returns a brief confirmation of which top-level keys were updated. Does NOT
 return the full updated trip — call get_trip if you need to read the new
 state before continuing.`;
 
-function mergeTrip(existing: TripData, input: { trip?: Partial<TripData['trip']>; days?: TripData['days'] }): TripData {
+function mergeTrip(
+  existing: TripData,
+  input: {
+    trip?: Partial<TripData['trip']>;
+    days?: TripData['days'];
+    markdown_source?: string;
+  }
+): TripData {
   const next: TripData = {
     trip: input.trip
       ? ({ ...existing.trip, ...input.trip } as TripData['trip'])
       : existing.trip,
     days: input.days !== undefined ? input.days : existing.days,
   };
+  // markdown_source: undefined = keep existing, '' = clear, otherwise replace.
+  if (input.markdown_source === undefined) {
+    if (existing.markdown_source) next.markdown_source = existing.markdown_source;
+  } else if (input.markdown_source.length > 0) {
+    next.markdown_source = input.markdown_source;
+  }
   return next;
 }
 
@@ -232,6 +279,7 @@ export function createTripEditorMcpServer(
       const touched = [
         input.trip !== undefined ? 'trip' : null,
         input.days !== undefined ? 'days' : null,
+        input.markdown_source !== undefined ? 'markdown_source' : null,
       ].filter(Boolean);
 
       return {

@@ -94,3 +94,32 @@ test('rejects non-ISO date at trip.dates.start', () => {
   });
   assert.equal(result.success, false);
 });
+
+test('accepts markdown_source alone (clears or rewrites the markdown)', () => {
+  const result = UpdateTripInputSchema.safeParse({
+    markdown_source: '# Scotland\n\nUpdated by chat.',
+  });
+  assert.equal(result.success, true, result.success ? '' : JSON.stringify(result.error.issues));
+});
+
+test('accepts trip + markdown_source together (the two-way sync path)', () => {
+  const result = UpdateTripInputSchema.safeParse({
+    trip: { subtitle: 'New subtitle' },
+    markdown_source: '# Trip\n\nNew subtitle: New subtitle.',
+  });
+  assert.equal(result.success, true, result.success ? '' : JSON.stringify(result.error.issues));
+});
+
+test('accepts an empty markdown_source string (means: clear it)', () => {
+  const result = UpdateTripInputSchema.safeParse({
+    markdown_source: '',
+  });
+  assert.equal(result.success, true);
+});
+
+test('rejects markdown_source over the 256 KB cap', () => {
+  const result = UpdateTripInputSchema.safeParse({
+    markdown_source: 'x'.repeat(262145),
+  });
+  assert.equal(result.success, false);
+});

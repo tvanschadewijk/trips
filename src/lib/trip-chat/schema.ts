@@ -260,14 +260,29 @@ export const TripMetaEditableSchema = z
 export const UpdateTripInputShape = {
   trip: TripMetaEditableSchema.optional(),
   days: z.array(DaySchema).optional(),
+  /**
+   * Optional updated markdown source. Sent verbatim from the agent and
+   * stored verbatim. Empty string clears the field. Cap: 256 KB.
+   */
+  markdown_source: z
+    .string()
+    .max(262144, 'markdown_source exceeds 256 KB')
+    .optional(),
 } as const;
 
 export const UpdateTripInputSchema = z
   .object(UpdateTripInputShape)
   .strict()
-  .refine((obj) => obj.trip !== undefined || obj.days !== undefined, {
-    message: 'At least one of `trip` or `days` must be provided.',
-  });
+  .refine(
+    (obj) =>
+      obj.trip !== undefined ||
+      obj.days !== undefined ||
+      obj.markdown_source !== undefined,
+    {
+      message:
+        'At least one of `trip`, `days`, or `markdown_source` must be provided.',
+    }
+  );
 
 export type UpdateTripInput = z.infer<typeof UpdateTripInputSchema>;
 export type TripMetaEditable = z.infer<typeof TripMetaEditableSchema>;

@@ -70,6 +70,19 @@ This is the SINGLE SOURCE OF TRUTH for what you can send to \`update_trip\`. Fie
 
 ${schemaJson}
 
+## Two-way markdown sync (CRITICAL)
+
+The trip body carries an optional \`markdown_source\` field — the long-form markdown the user originally provided (often via the OurTrips skill in Claude CoWork). The trip view shows this in an "Original plan" entry, and external agents may read or rewrite it.
+
+When you edit a trip:
+
+  - Call \`get_trip\` first. If the returned JSON includes \`markdown_source\`, that trip is being edited from BOTH surfaces. You MUST keep them in lockstep.
+  - In the SAME \`update_trip\` call as any structural change, send the updated \`markdown_source\`. Update only the section the user's request touched; preserve the markdown's existing voice, headings, and structure.
+  - If the trip has no \`markdown_source\`, do not fabricate one. Edit only the structured fields.
+  - If the user asks to delete the markdown, send an empty string.
+
+A structural edit that doesn't update \`markdown_source\` (when one exists) leaves the original-plan view stale and breaks the user's mental model. Treat this as as important as the structural edit itself.
+
 ## Editorial voice
 
 The product is a publication, not a booking system. When writing or rewriting copy:
