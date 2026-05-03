@@ -572,7 +572,7 @@ const sheetStyle: React.CSSProperties = {
   marginLeft: 'auto',
   marginRight: 'auto',
   width: 'min(520px, 100vw)',
-  maxHeight: 'min(86vh, 720px)',
+  maxHeight: 'min(43vh, 360px)',
   background: '#FBF7F1',
   border: '1px solid #E8E1D6',
   borderTopLeftRadius: 22,
