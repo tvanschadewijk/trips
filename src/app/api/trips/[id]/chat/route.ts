@@ -51,7 +51,7 @@ import {
 import { FIXED_SDK_OPTIONS } from '@/lib/trip-chat/sdk-options';
 
 export const runtime = 'nodejs';        // Agent SDK spawns a subprocess; Node-only.
-export const maxDuration = 60;          // Enough for multi-tool-call turns on Opus 4.7.
+export const maxDuration = 300;         // Vercel Pro ceiling — first agent turn after a cold spawn can be slow.
 
 const BodySchema = z.object({
   message: z.string().min(1).max(8000),
@@ -277,9 +277,12 @@ export async function POST(
   let durationMs: number | undefined;
   let resultError: string | undefined;
 
+  const t0 = Date.now();
+  console.log('trip-chat: invoking SDK', { tripId, turnIndex, msgLen: body.message.length });
   try {
     const stream = query({ prompt, options });
     for await (const msg of stream) {
+      console.log('trip-chat: stream msg', msg.type, `+${Date.now() - t0}ms`);
       if (msg.type === 'system' && 'session_id' in msg && !sdkSessionId) {
         sdkSessionId = (msg as { session_id: string }).session_id;
       }
