@@ -9,9 +9,9 @@
  *     for an agent editing user trip data). Also prevents user-level skills
  *     and project-level .claude/settings.json from leaking in.
  *
- *   - tools === ['AskUserQuestion']  —  the only built-in tool exposed.
- *     Forbids Bash/Read/Edit/Write/WebFetch/WebSearch. Trip edits go through
- *     our in-process MCP server, period.
+ *   - tools is exactly ['AskUserQuestion', 'WebSearch']  —  clarifying
+ *     questions and read-only web search. Forbids Bash/Read/Edit/Write/
+ *     WebFetch. Trip mutations go through our in-process MCP server.
  *
  *   - permissionMode === 'dontAsk'  —  no one is home to answer a prompt in
  *     a serverless handler; default-deny is the only safe posture.
@@ -36,11 +36,11 @@ test('FIXED_SDK_OPTIONS.settingSources is an empty array (locks out CLAUDE.md + 
   );
 });
 
-test('FIXED_SDK_OPTIONS.tools only exposes AskUserQuestion (no Bash/Read/Edit/Write/WebFetch)', () => {
+test('FIXED_SDK_OPTIONS.tools is exactly [AskUserQuestion, WebSearch]', () => {
   assert.deepEqual(
-    FIXED_SDK_OPTIONS.tools,
-    ['AskUserQuestion'],
-    'Built-in tools must stay restricted; trip edits go through the MCP server, not built-ins'
+    [...FIXED_SDK_OPTIONS.tools].sort(),
+    ['AskUserQuestion', 'WebSearch'].sort(),
+    'Built-in tools must stay restricted to clarifying questions + read-only web search; mutations go through the MCP server'
   );
 });
 

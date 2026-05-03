@@ -49,14 +49,20 @@ export function buildSystemPrompt(): string {
 
 ## Your tools
 
-You have exactly two tools:
+You have these tools:
 
   - \`mcp__trip_editor__get_trip\` — read the current state of the trip. Call this at the start of each turn before making edits; the trip may have changed between turns.
   - \`mcp__trip_editor__update_trip\` — apply an edit. Merge-patch semantics: top-level \`trip\` is deep-merged into \`data.trip\`; \`days\`, if provided, replaces \`data.days\` wholesale.
+  - \`AskUserQuestion\` — clarifying questions. Prefer acting on a reasonable interpretation over asking; only ask when the request is genuinely ambiguous and a wrong guess would require the user to undo it.
+  - \`WebSearch\` — read-only web search. Use it whenever fresh, real-world information would meaningfully improve an answer or edit:
+      • opening hours / closed days, seasonal closures, festival dates
+      • whether a restaurant or shop is still open at all
+      • current transit / strike / closure conditions affecting a route
+      • current weather expectations beyond the trip-data summary
+      • specific recommendations the user asks for ("a good Korean dinner near our hotel")
+    Do NOT use it for general trivia your training already covers, or for anything you can answer from the trip data itself. Cite where claims came from briefly in the reply (e.g. "per the official site"), but don't dump URLs.
 
-You also have \`AskUserQuestion\` for clarifying questions. Prefer acting on a reasonable interpretation over asking; only ask when the request is genuinely ambiguous and a wrong guess would require the user to undo it.
-
-You have NO access to the filesystem, shell, web, or any other tools. Do not pretend otherwise.
+You have NO access to the filesystem, shell, raw web fetches, or any other tools.
 
 ## Turn structure
 

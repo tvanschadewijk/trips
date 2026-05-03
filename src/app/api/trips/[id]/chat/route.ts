@@ -295,7 +295,7 @@ export async function POST(
     systemPrompt,
     // ---- END LOCKED ----
     mcpServers: { trip_editor: mcpServer },
-    allowedTools: ['AskUserQuestion', ...TRIP_EDITOR_TOOL_NAMES],
+    allowedTools: ['AskUserQuestion', 'WebSearch', ...TRIP_EDITOR_TOOL_NAMES],
     hooks: {
       PreToolUse: [{ hooks: [buildPreToolUseHook(hookCtx)] }],
       Stop: [{ hooks: [buildStopHook()] }],

@@ -8,12 +8,15 @@
  *
  *   - `settingSources: []` — do not auto-load repo CLAUDE.md or ~/.claude
  *     skills/settings into an agent that should only be editing trip JSON.
- *   - `tools: ['AskUserQuestion']` — only built-in tool exposed; everything
- *     else the agent needs comes from the in-process MCP server.
+ *   - `tools: ['AskUserQuestion', 'WebSearch']` — clarifying questions and
+ *     read-only web search. Web search is safe: it cannot mutate anything,
+ *     it lets the agent ground answers in fresh data (opening hours,
+ *     transit changes, festivals) before proposing edits via the MCP
+ *     update_trip tool.
  *   - `permissionMode: 'dontAsk'` — serverless has no human to prompt.
  */
 export const FIXED_SDK_OPTIONS = {
   settingSources: [] as never[],
-  tools: ['AskUserQuestion'],
+  tools: ['AskUserQuestion', 'WebSearch'],
   permissionMode: 'dontAsk' as const,
 } as const;
