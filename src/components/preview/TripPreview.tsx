@@ -22,6 +22,9 @@ interface TripPreviewProps {
   shareId?: string;
   /** True when the current viewer can save a copy of a shared trip. */
   canAddToTrips?: boolean;
+  /** Trip's sharing mode — controls whether the floating CTA reads
+   *  "Add to my trips" (companion) or "Remix this trip" (remix). */
+  shareMode?: 'companion' | 'remix';
   tripId?: string;
 }
 
@@ -80,7 +83,7 @@ function SwipeDots({ total, current, onDotClick }: { total: number; current: num
   );
 }
 
-export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, shareId, canAddToTrips, tripId }: TripPreviewProps) {
+export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, shareId, canAddToTrips, shareMode, tripId }: TripPreviewProps) {
   const [trips, setTrips] = useState(initialTrips);
   // Sync to new initialTrips when the parent re-renders with fresh data (e.g.
   // after the admin chat panel applies an edit and calls router.refresh()).
@@ -1313,6 +1316,11 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
                   </>
                 ) : saveStatus === 'error' ? (
                   'Failed — Try again'
+                ) : shareMode === 'remix' ? (
+                  <>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg>
+                    Remix this trip
+                  </>
                 ) : (
                   <>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>

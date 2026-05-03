@@ -27,8 +27,8 @@ const UPDATE_TRIP_TOOL_NAME = 'mcp__trip_editor__update_trip';
 
 // Top-level keys the agent may address in update_trip input. Mirrors the
 // outer keys of UpdateTripInputSchema. If the schema adds keys (e.g. later
-// exposing `is_public`), this allowlist must move with it.
-const ALLOWED_UPDATE_TRIP_KEYS = new Set(['trip', 'days']);
+// exposing `share_mode`), this allowlist must move with it.
+const ALLOWED_UPDATE_TRIP_KEYS = new Set(['trip', 'days', 'markdown_source']);
 
 export interface HookContext {
   supabase: SupabaseClient;

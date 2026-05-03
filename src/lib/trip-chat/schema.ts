@@ -8,7 +8,7 @@
  *
  * If the schema changes, both the validator and the agent's mental model move
  * together. Immutable fields (`id`, `user_id`, `share_id`, `created_at`,
- * `updated_at`, and the top-level DB columns `trips.name` / `trips.is_public`)
+ * `updated_at`, and the top-level DB columns `trips.name` / `trips.share_mode`)
  * are deliberately absent — the agent cannot address them by name.
  *
  * Kept in sync with `src/lib/types.ts` by convention. Each schema uses
@@ -249,7 +249,7 @@ export const TripMetaEditableSchema = z
  *
  * The tool rejects empty objects and rejects unknown top-level keys. Immutable
  * DB columns (`id`, `user_id`, `share_id`, `created_at`, `updated_at`, and
- * `trips.name` / `trips.is_public`) are not in this schema and physically
+ * `trips.name` / `trips.share_mode`) are not in this schema and physically
  * cannot be addressed.
  *
  * NOTE: The SDK's `tool()` helper accepts a raw Zod shape (not a wrapped

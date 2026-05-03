@@ -4,6 +4,7 @@ import TripChatPanel from '@/components/chat/TripChatPanel';
 import { createClient } from '@/lib/supabase/server';
 import { sampleTrips } from '@/lib/sample-data';
 import { checkIsAdmin, loadChatHistory } from '@/lib/trip-chat/history';
+import { scrubTripData } from '@/lib/scrub-trip';
 import type { TripData } from '@/lib/types';
 
 interface Props {
@@ -18,7 +19,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       .from('trips')
       .select('data')
       .eq('share_id', shareId)
-      .eq('is_public', true)
+      .in('share_mode', ['companion', 'remix'])
       .single();
     const trip = data?.data?.trip as TripData['trip'] | undefined;
     if (trip) {
@@ -43,14 +44,15 @@ async function fetchTripAndViewer(shareId: string): Promise<{
   isOwner: boolean;
   isAdmin: boolean;
   viewerUserId: string | null;
+  shareMode: 'companion' | 'remix';
 } | null> {
   try {
     const supabase = await createClient();
     const { data, error } = await supabase
       .from('trips')
-      .select('id, data, user_id')
+      .select('id, data, user_id, share_mode')
       .eq('share_id', shareId)
-      .eq('is_public', true)
+      .in('share_mode', ['companion', 'remix'])
       .single();
 
     if (error || !data) return null;
@@ -67,12 +69,19 @@ async function fetchTripAndViewer(shareId: string): Promise<{
       }
     } catch { /* not logged in */ }
 
+    const rawTrip = data.data as TripData;
+    const shareMode = (data.share_mode as 'companion' | 'remix') ?? 'companion';
+    // Non-owners on a remix-mode trip get the scrubbed view. Owners
+    // always see their own data raw. Companion-mode behaves as before.
+    const tripData = !isOwner && shareMode === 'remix' ? scrubTripData(rawTrip) : rawTrip;
+
     return {
-      tripData: data.data as TripData,
+      tripData,
       tripId: data.id,
       isOwner,
       isAdmin,
       viewerUserId,
+      shareMode,
     };
   } catch {
     // Supabase not connected yet — fall through to sample data
@@ -113,6 +122,7 @@ export default async function TripPage({ params }: Props) {
         autoOpen
         shareId={shareId}
         canAddToTrips={!result.isOwner}
+        shareMode={result.shareMode}
         tripId={result.isOwner ? result.tripId : undefined}
       />
       {result.isAdmin && (

@@ -55,7 +55,7 @@ test('rejects empty input (must touch something)', () => {
 });
 
 test('rejects unknown top-level keys (belt-and-suspenders vs. DB-column mutation)', () => {
-  const forbidden = ['id', 'user_id', 'share_id', 'created_at', 'updated_at', 'name', 'is_public'];
+  const forbidden = ['id', 'user_id', 'share_id', 'created_at', 'updated_at', 'name', 'share_mode'];
   for (const key of forbidden) {
     const result = UpdateTripInputSchema.safeParse({ [key]: 'nefarious' });
     assert.equal(

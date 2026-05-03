@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
+import { scrubAndAnchorTripData } from '@/lib/scrub-trip';
+import type { TripData } from '@/lib/types';
 
-// POST /api/trips/clone — Clone a public trip to the authenticated user's account
+// POST /api/trips/clone — Remix a shared trip into the authenticated
+// user's account. Always strips PII and re-anchors dates to today,
+// regardless of the source's share_mode. Defense in depth: even a
+// companion-mode share won't leak booking codes through the clone path.
 export async function POST(request: NextRequest) {
-  // Auth via session (browser cookie)
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -20,24 +24,22 @@ export async function POST(request: NextRequest) {
 
   const admin = createAdminClient();
 
-  // Fetch the source trip
   const { data: source, error: fetchErr } = await admin
     .from('trips')
-    .select('id, user_id, name, data')
+    .select('id, user_id, name, data, share_mode')
     .eq('share_id', share_id)
-    .eq('is_public', true)
+    .in('share_mode', ['companion', 'remix'])
     .single();
 
   if (fetchErr || !source) {
     return NextResponse.json({ error: 'Trip not found' }, { status: 404 });
   }
 
-  // Don't clone if user already owns it
   if (source.user_id === user.id) {
     return NextResponse.json({ error: 'You already own this trip', already_owned: true }, { status: 409 });
   }
 
-  // Check if user already cloned this trip (by matching source trip name + data)
+  // Check if user already cloned this trip (by matching source trip name)
   const { data: existing } = await admin
     .from('trips')
     .select('id, share_id')
@@ -53,14 +55,18 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  // Clone the trip
+  // Scrub PII and rebase dates to today before insert.
+  const cloneBody = scrubAndAnchorTripData(source.data as TripData);
+
   const { data: newTrip, error: insertErr } = await admin
     .from('trips')
     .insert({
       user_id: user.id,
       name: source.name,
-      data: source.data,
-      is_public: true,
+      data: cloneBody,
+      // The cloner gets a companion-mode trip by default — they can
+      // re-share for remix later if they want.
+      share_mode: 'companion',
     })
     .select('id, share_id')
     .single();

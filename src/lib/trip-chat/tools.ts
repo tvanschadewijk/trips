@@ -77,7 +77,7 @@ not send an empty object.
   - Dates are ISO 8601 (YYYY-MM-DD). \`data.trip.dates.start\` and \`.end\` must
     frame the date range covered by \`data.days\`.
   - Immutable fields — \`id\`, \`user_id\`, \`share_id\`, \`created_at\`,
-    \`updated_at\`, the DB row's \`name\` and \`is_public\` columns — are not in
+    \`updated_at\`, the DB row's \`name\` and \`share_mode\` columns — are not in
     this schema and cannot be addressed.
   - Unknown top-level keys are rejected.
 

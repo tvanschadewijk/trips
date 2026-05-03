@@ -19,7 +19,7 @@ export default async function Image({ params }: Props) {
       .from('trips')
       .select('data')
       .eq('share_id', shareId)
-      .eq('is_public', true)
+      .in('share_mode', ['companion', 'remix'])
       .single();
     if (!error && data?.data?.trip) {
       return renderTripOgImage(data.data as TripData);

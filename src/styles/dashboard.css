@@ -345,7 +345,7 @@
 }
 .dash-card-menu {
   position: absolute; top: 38px; right: 0; z-index: 10;
-  min-width: 170px;
+  min-width: 260px;
   background: #FFFFFF;
   border: 1px solid #E8E1D6;
   border-radius: 6px; padding: 4px;
@@ -359,10 +359,54 @@
   color: #1A1410; font-family: 'Inter', system-ui, sans-serif;
   font-size: 13px; font-weight: 520; cursor: pointer;
   transition: background 0.15s;
+  text-align: left;
 }
 .dash-card-menu-item:hover { background: #F4EDE2; }
 .dash-card-menu-item-danger { color: #C14F2A; }
 .dash-card-menu-item-danger:hover { background: rgba(193, 79, 42, 0.10); color: #A03E1F; }
+
+.dash-card-menu-section {
+  padding: 10px 12px 4px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #C14F2A;
+}
+.dash-card-menu-divider {
+  height: 1px;
+  background: #E8E1D6;
+  margin: 6px 8px;
+}
+.dash-card-menu-item.is-active { background: #FBF7F1; }
+.dash-card-menu-check {
+  flex-shrink: 0;
+  width: 14px;
+  text-align: center;
+  color: #C14F2A;
+  font-size: 13px;
+  line-height: 1;
+}
+.dash-card-menu-label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.dash-card-menu-label-name {
+  font-weight: 580;
+  color: #1A1410;
+}
+.dash-card-menu-label-hint {
+  font-family: 'Fraunces', 'Iowan Old Style', 'Palatino', 'Georgia', serif;
+  font-style: italic;
+  font-size: 12px;
+  font-weight: 360;
+  color: #6B6157;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 
 /* Delete confirmation */
 .dash-confirm-overlay {

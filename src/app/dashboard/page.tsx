@@ -14,7 +14,7 @@ interface DashTrip {
   name: string;
   share_id: string;
   data: TripData;
-  is_public: boolean;
+  share_mode: 'private' | 'companion' | 'remix';
   created_at: string;
   updated_at: string;
 }
@@ -77,7 +77,7 @@ export default function DashboardPage() {
 
     const { data, error } = await supabase
       .from('trips')
-      .select('id, name, share_id, data, is_public, created_at, updated_at')
+      .select('id, name, share_id, data, share_mode, created_at, updated_at')
       .eq('user_id', user.id)
       .order('updated_at', { ascending: false });
 
@@ -118,6 +118,27 @@ export default function DashboardPage() {
     router.push('/');
   }
 
+  async function handleShareModeChange(tripId: string, next: 'private' | 'companion' | 'remix') {
+    // Optimistic — flip locally so the menu's checkmark updates instantly.
+    const prev = trips.find(t => t.id === tripId)?.share_mode;
+    if (prev === next) return;
+    const updated = trips.map(t => t.id === tripId ? { ...t, share_mode: next } : t);
+    setTrips(updated);
+    sessionStorage.setItem('dash-trips', JSON.stringify(updated));
+
+    const res = await fetch(`/api/trips/${tripId}/share-mode`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ share_mode: next }),
+    });
+    if (!res.ok) {
+      // Revert on failure.
+      const reverted = trips.map(t => t.id === tripId && prev ? { ...t, share_mode: prev } : t);
+      setTrips(reverted);
+      sessionStorage.setItem('dash-trips', JSON.stringify(reverted));
+    }
+  }
+
   async function handleDelete(tripId: string) {
     setDeleting(true);
     const supabase = createClient();
@@ -129,6 +150,18 @@ export default function DashboardPage() {
     }
     setDeleting(false);
     setDeleteConfirm(null);
+  }
+
+  function shareModeLabel(mode: 'private' | 'companion' | 'remix'): string {
+    if (mode === 'private') return 'Private';
+    if (mode === 'remix') return 'Remix link';
+    return 'Companion link';
+  }
+
+  function shareModeHint(mode: 'private' | 'companion' | 'remix'): string {
+    if (mode === 'private') return 'Link is off';
+    if (mode === 'remix') return 'Public, PII removed, others can remix';
+    return 'Anyone with the link sees full bookings';
   }
 
   function formatDate(dateStr: string) {
@@ -373,6 +406,24 @@ export default function DashboardPage() {
                       <>
                         <div className="dash-card-menu-backdrop" onClick={() => setCardMenuOpen(null)} />
                         <div className="dash-card-menu">
+                          <div className="dash-card-menu-section">Sharing</div>
+                          {(['companion', 'remix', 'private'] as const).map(mode => (
+                            <button
+                              key={mode}
+                              className={`dash-card-menu-item ${trip.share_mode === mode ? 'is-active' : ''}`}
+                              onClick={() => { setCardMenuOpen(null); handleShareModeChange(trip.id, mode); }}
+                              title={shareModeHint(mode)}
+                            >
+                              <span className="dash-card-menu-check" aria-hidden="true">
+                                {trip.share_mode === mode ? '✓' : ''}
+                              </span>
+                              <span className="dash-card-menu-label">
+                                <span className="dash-card-menu-label-name">{shareModeLabel(mode)}</span>
+                                <span className="dash-card-menu-label-hint">{shareModeHint(mode)}</span>
+                              </span>
+                            </button>
+                          ))}
+                          <div className="dash-card-menu-divider" />
                           <button className="dash-card-menu-item dash-card-menu-item-danger" onClick={() => { setCardMenuOpen(null); setDeleteConfirm(trip.id); }}>
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                             Delete trip

@@ -186,7 +186,7 @@ export interface TripRecord {
   share_id: string;
   name: string;
   data: TripData;
-  is_public: boolean;
+  share_mode: 'private' | 'companion' | 'remix';
   created_at: string;
   updated_at: string;
 }

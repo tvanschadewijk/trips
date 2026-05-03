@@ -114,14 +114,15 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Create new trip
+    // Create new trip — defaults to companion share mode (link works,
+    // full data). Owner can toggle to remix later for inspiration sharing.
     const { data: newTrip, error } = await supabase
       .from('trips')
       .insert({
         user_id: userId,
         name: trip.name,
-        data: { trip, days },
-        is_public: true,
+        data: tripBody,
+        share_mode: 'companion',
       })
       .select('id, share_id')
       .single();
@@ -152,7 +153,7 @@ export async function GET(request: NextRequest) {
 
   const { data: trips, error } = await supabase
     .from('trips')
-    .select('id, name, share_id, is_public, created_at, updated_at')
+    .select('id, name, share_id, share_mode, created_at, updated_at')
     .eq('user_id', userId)
     .order('updated_at', { ascending: false });
 
@@ -166,7 +167,7 @@ export async function GET(request: NextRequest) {
       name: t.name,
       share_id: t.share_id,
       url: `${request.nextUrl.origin}/t/${t.share_id}`,
-      is_public: t.is_public,
+      share_mode: t.share_mode,
       created_at: t.created_at,
       updated_at: t.updated_at,
     })),
