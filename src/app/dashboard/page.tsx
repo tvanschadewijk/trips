@@ -49,6 +49,33 @@ export default function DashboardPage() {
   const savedOfflineIds = useSavedTripIds();
   const online = useOnlineStatus();
   const visibleTrips = online ? trips : trips.filter(t => savedOfflineIds.has(t.share_id));
+  const tripGroups = (() => {
+    const today = new Date().toISOString().slice(0, 10);
+    const current: DashTrip[] = [];
+    const upcoming: DashTrip[] = [];
+    const past: DashTrip[] = [];
+    for (const trip of visibleTrips) {
+      const start = trip.data?.trip?.dates?.start ?? '';
+      const end = trip.data?.trip?.dates?.end ?? '';
+      if (!start || !end) {
+        upcoming.push(trip);
+        continue;
+      }
+      if (today < start) upcoming.push(trip);
+      else if (today > end) past.push(trip);
+      else current.push(trip);
+    }
+    // current: sort by end ascending (closest finishing first); upcoming asc by start; past desc by end
+    current.sort((a, b) => (a.data?.trip?.dates?.end ?? '').localeCompare(b.data?.trip?.dates?.end ?? ''));
+    upcoming.sort((a, b) => (a.data?.trip?.dates?.start ?? '').localeCompare(b.data?.trip?.dates?.start ?? ''));
+    past.sort((a, b) => (b.data?.trip?.dates?.end ?? '').localeCompare(a.data?.trip?.dates?.end ?? ''));
+    return { current, upcoming, past };
+  })();
+  const tripSections = [
+    { key: 'current', label: 'Travelling now', trips: tripGroups.current },
+    { key: 'upcoming', label: 'Upcoming', trips: tripGroups.upcoming },
+    { key: 'past', label: 'Past', trips: tripGroups.past },
+  ].filter(s => s.trips.length > 0);
 
   const loadTrips = useCallback(async () => {
     const supabase = createClient();
@@ -359,8 +386,11 @@ export default function DashboardPage() {
             </div>
           </div>
         ) : (
-          <div className="dash-grid">
-            {visibleTrips.map(trip => {
+          tripSections.map(section => (
+          <section key={section.key} className={`dash-section dash-section-${section.key}`}>
+            <h2 className="dash-section-title">{section.label}</h2>
+            <div className="dash-grid">
+            {section.trips.map(trip => {
               const t = trip.data.trip;
               const startD = new Date(t.dates.start + 'T12:00:00');
               const endD = new Date(t.dates.end + 'T12:00:00');
@@ -485,7 +515,9 @@ export default function DashboardPage() {
                 </div>
               );
             })}
-          </div>
+            </div>
+          </section>
+          ))
         )}
       </main>
 

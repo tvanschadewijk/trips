@@ -174,6 +174,40 @@
   margin: 8px 0 0;
 }
 
+/* Sections — Travelling now / Upcoming / Past */
+.dash-section {
+  margin-bottom: 36px;
+}
+.dash-section:last-child {
+  margin-bottom: 0;
+}
+.dash-section-title {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #6B6157;
+  margin: 0 0 16px;
+}
+.dash-section-current .dash-section-title {
+  color: #C14F2A;
+}
+.dash-section-current .dash-section-title::before {
+  content: '';
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: #C14F2A;
+  margin-right: 10px;
+  vertical-align: middle;
+  transform: translateY(-1px);
+}
+.dash-section-past .dash-section-title {
+  color: #9B9087;
+}
+
 /* Grid */
 .dash-grid {
   display: grid;
