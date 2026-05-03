@@ -89,7 +89,10 @@ export default function TripChatPanel({ tripId, initialMessages }: Props) {
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        throw new Error(body.error ?? `HTTP ${res.status}`);
+        const headline = body.error ?? `HTTP ${res.status}`;
+        // Surface the server's detail string in-panel so we can debug
+        // without devtools (especially on mobile).
+        throw new Error(body.detail ? `${headline} — ${body.detail}` : headline);
       }
       const json: {
         assistant_message: string;
