@@ -56,6 +56,19 @@ export const maxDuration = 300;         // Vercel Pro ceiling — first agent tu
 const BodySchema = z.object({
   message: z.string().min(1).max(8000),
   session_id: z.string().optional(),    // echoed back from UI; telemetry only
+  // Snapshot of what the user is currently looking at (which day, etc).
+  // Forwarded to the agent as a prefix on the user prompt so it answers
+  // in the right scope without asking.
+  view_context: z
+    .object({
+      slide: z.number().optional(),
+      slideKind: z.string().optional(),
+      day_number: z.number().nullable().optional(),
+      date: z.string().nullable().optional(),
+      title: z.string().nullable().optional(),
+    })
+    .nullable()
+    .optional(),
 });
 
 const CHAT_HISTORY_TURNS_REPLAYED = 12; // last N user+assistant exchanges summarized in prompt
@@ -154,7 +167,23 @@ export async function POST(
   });
 
   // 6. Build the agent inputs.
-  const prompt = buildTurnPrompt(priorTurns.slice(-CHAT_HISTORY_TURNS_REPLAYED), body.message);
+  // Compose the user message with a small "currently viewing" prefix so
+  // the agent knows whether the user is asking about a specific day.
+  const viewContextPrefix = (() => {
+    const ctx = body.view_context;
+    if (!ctx) return '';
+    if (ctx.slideKind === 'day' && ctx.day_number) {
+      const dateStr = ctx.date ? ` (${ctx.date})` : '';
+      const titleStr = ctx.title ? ` — "${ctx.title}"` : '';
+      return `[The user is currently viewing Day ${ctx.day_number}${dateStr}${titleStr}. If their question is ambiguous about which day, default to this one.]\n\n`;
+    }
+    if (ctx.slideKind === 'cover') {
+      return `[The user is currently on the trip cover (overview), not a specific day.]\n\n`;
+    }
+    return '';
+  })();
+  const userMessage = viewContextPrefix + body.message;
+  const prompt = buildTurnPrompt(priorTurns.slice(-CHAT_HISTORY_TURNS_REPLAYED), userMessage);
   const systemPrompt = buildSystemPrompt();
 
   // Track tool activity this turn for the tool_calls_json summary.

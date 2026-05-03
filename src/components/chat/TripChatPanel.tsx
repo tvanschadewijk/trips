@@ -171,11 +171,19 @@ export default function TripChatPanel({ tripId, initialMessages }: Props) {
     setInput('');
     setLoading(true);
 
+    // Snapshot the current view context (which day is open) so the
+    // agent answers in the right scope without re-asking the user.
+    let viewContext: unknown = null;
+    try {
+      const raw = sessionStorage.getItem('trip-chat-context');
+      if (raw) viewContext = JSON.parse(raw);
+    } catch {}
+
     try {
       const res = await fetch(`/api/trips/${tripId}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: trimmed }),
+        body: JSON.stringify({ message: trimmed, view_context: viewContext }),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));

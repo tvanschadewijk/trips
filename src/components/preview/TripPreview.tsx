@@ -128,6 +128,25 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     fetch(`/api/trip-data/${shareId}`, { credentials: 'omit', cache: 'no-cache' }).catch(() => {});
   }, [shareId]);
 
+  // Publish current slide as context for the chat panel. Stored in
+  // sessionStorage so the chat component can pick it up without prop
+  // drilling. Slide 0 = cover; slide N = day N.
+  useEffect(() => {
+    if (typeof window === 'undefined' || !trip) return;
+    const dayIndex = currentSlide - 1; // -1 means cover
+    const day = dayIndex >= 0 ? days[dayIndex] : null;
+    const payload = {
+      slide: currentSlide,
+      slideKind: currentSlide === 0 ? 'cover' : 'day',
+      day_number: day?.day_number ?? null,
+      date: day?.date ?? null,
+      title: day?.title ?? null,
+    };
+    try {
+      sessionStorage.setItem('trip-chat-context', JSON.stringify(payload));
+    } catch {}
+  }, [currentSlide, trip, days]);
+
   // Compute today's day info (if today is within this trip)
   const todayInfo = useMemo(() => {
     if (!trip) return null;
