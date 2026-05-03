@@ -75,19 +75,37 @@ export default function DashboardPage() {
       .single();
     if (profile?.role === 'admin') setIsAdmin(true);
 
-    const { data, error } = await supabase
+    // Try with share_mode (post-migration). If the column doesn't exist
+    // yet, retry without it and default every trip to 'companion' — keeps
+    // the dashboard working when a deploy lands before the migration is
+    // applied.
+    type RawTrip = Omit<DashTrip, 'share_mode'> & { share_mode?: DashTrip['share_mode'] };
+    let rawTrips: RawTrip[] | null = null;
+
+    const withMode = await supabase
       .from('trips')
       .select('id, name, share_id, data, share_mode, created_at, updated_at')
       .eq('user_id', user.id)
       .order('updated_at', { ascending: false });
+    if (withMode.error) {
+      const fallback = await supabase
+        .from('trips')
+        .select('id, name, share_id, data, created_at, updated_at')
+        .eq('user_id', user.id)
+        .order('updated_at', { ascending: false });
+      if (!fallback.error && fallback.data) rawTrips = fallback.data as RawTrip[];
+    } else if (withMode.data) {
+      rawTrips = withMode.data as RawTrip[];
+    }
 
-    if (!error && data) {
-      // Sort by trip start date ascending (soonest first)
-      const sorted = (data as DashTrip[]).sort((a, b) => {
-        const dateA = a.data?.trip?.dates?.start || '';
-        const dateB = b.data?.trip?.dates?.start || '';
-        return dateA.localeCompare(dateB);
-      });
+    if (rawTrips) {
+      const sorted = rawTrips
+        .map(t => ({ ...t, share_mode: t.share_mode ?? 'companion' } as DashTrip))
+        .sort((a, b) => {
+          const dateA = a.data?.trip?.dates?.start || '';
+          const dateB = b.data?.trip?.dates?.start || '';
+          return dateA.localeCompare(dateB);
+        });
       setTrips(sorted);
       sessionStorage.setItem('dash-trips', JSON.stringify(sorted));
     }
