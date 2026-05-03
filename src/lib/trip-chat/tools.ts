@@ -18,6 +18,7 @@ import {
   UpdateTripInputShape,
   UpdateTripInputSchema,
 } from './schema';
+import { createBookingTools, BOOKING_TOOL_NAMES } from './booking-tools';
 
 export interface TripToolContext {
   tripId: string;
@@ -296,7 +297,7 @@ export function createTripEditorMcpServer(
   return createSdkMcpServer({
     name: 'trip_editor',
     version: '0.1.0',
-    tools: [getTrip, updateTrip],
+    tools: [getTrip, updateTrip, ...createBookingTools()],
   });
 }
 
@@ -307,4 +308,5 @@ export function createTripEditorMcpServer(
 export const TRIP_EDITOR_TOOL_NAMES = [
   'mcp__trip_editor__get_trip',
   'mcp__trip_editor__update_trip',
+  ...BOOKING_TOOL_NAMES,
 ] as const;
