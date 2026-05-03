@@ -987,12 +987,18 @@
 /* ============================================
    FLOATING SAVE BUTTON (top, over hero image)
    ============================================ */
+/* ============================================
+   FLOATING SAVE BUTTON — sits above the bottom drawer (dots),
+   centred so it doesn't fight nav controls at the top.
+   ============================================ */
 .floating-save {
   position: absolute;
-  top: calc(var(--nav-height) + env(safe-area-inset-top) + 8px);
-  right: 12px;
-  display: flex; justify-content: flex-end; z-index: 19;
+  left: 0;
+  right: 0;
+  bottom: calc(76px + env(safe-area-inset-bottom));
+  display: flex; justify-content: center; z-index: 19;
   pointer-events: none;
+  padding: 0 20px;
 }
 .floating-save-btn {
   pointer-events: auto;
