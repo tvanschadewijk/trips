@@ -330,33 +330,8 @@ export default function TripChatPanel({ tripId, initialMessages }: Props) {
                 <div style={grabberStyle} />
               </div>
               <header style={headerStyle}>
-                <div>
-                  <div style={{ fontFamily: '"Fraunces", Georgia, serif', fontSize: 19, fontWeight: 460, color: '#1A1410', letterSpacing: '-0.012em' }}>
-                    Ask your travel expert
-                  </div>
-                  <div style={{ fontSize: 11, color: '#6B6157', textTransform: 'uppercase', letterSpacing: '0.18em', marginTop: 4 }}>
-                    Admin only
-                  </div>
-                </div>
-                <div style={{ display: 'flex', gap: 6 }}>
-                  <button
-                    type="button"
-                    onClick={minimize}
-                    style={iconButtonStyle}
-                    aria-label="Minimize chat"
-                    title="Minimize"
-                  >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12" /></svg>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={close}
-                    style={iconButtonStyle}
-                    aria-label="Close chat"
-                    title="Close"
-                  >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M18 6 6 18" /><path d="M6 6l12 12" /></svg>
-                  </button>
+                <div style={{ fontFamily: '"Fraunces", Georgia, serif', fontSize: 17, fontWeight: 460, color: '#1A1410', letterSpacing: '-0.012em' }}>
+                  Ask your travel expert
                 </div>
               </header>
 
@@ -364,7 +339,7 @@ export default function TripChatPanel({ tripId, initialMessages }: Props) {
                 {messages.length === 0 && (
                   <div style={emptyStyle}>
                     <p style={{ margin: 0, color: '#6B6157' }}>
-                      Describe an edit in plain language. &quot;Make day 2 more relaxed&quot;, &quot;swap Friday dinner&quot;, &quot;shorten the summary&quot;.
+                      Ask anything about the trip — &quot;make day 2 more relaxed&quot;, &quot;swap Friday dinner&quot;, &quot;what should I pack?&quot;.
                     </p>
                   </div>
                 )}
@@ -400,22 +375,29 @@ export default function TripChatPanel({ tripId, initialMessages }: Props) {
               </div>
 
               <footer style={footerStyle}>
-                <textarea
-                  ref={inputRef}
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={onKeyDown}
-                  placeholder="Describe an edit…"
-                  rows={2}
-                  style={textareaStyle}
-                  disabled={loading}
-                />
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 }}>
-                  <span style={{ fontSize: 11, color: '#9B9087', textTransform: 'uppercase', letterSpacing: '0.14em' }}>
-                    ⌘↵ to send
-                  </span>
-                  <button type="button" onClick={send} disabled={loading || !input.trim()} style={sendButtonStyle(loading)}>
-                    {loading ? 'Editing…' : 'Send'}
+                <div style={inputWrapStyle}>
+                  <textarea
+                    ref={inputRef}
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={onKeyDown}
+                    placeholder="Describe an edit…"
+                    rows={1}
+                    style={textareaStyle}
+                    disabled={loading}
+                  />
+                  <button
+                    type="button"
+                    onClick={send}
+                    disabled={loading || !input.trim()}
+                    style={sendIconButtonStyle(loading || !input.trim())}
+                    aria-label={loading ? 'Sending' : 'Send'}
+                  >
+                    {loading ? (
+                      <TypingDots />
+                    ) : (
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><line x1="12" y1="19" x2="12" y2="5" /><polyline points="5 12 12 5 19 12" /></svg>
+                    )}
                   </button>
                 </div>
               </footer>
@@ -607,34 +589,20 @@ const grabberStyle: React.CSSProperties = {
 
 const headerStyle: React.CSSProperties = {
   display: 'flex',
-  alignItems: 'flex-start',
-  justifyContent: 'space-between',
-  gap: 12,
-  padding: '12px 20px 14px',
-  borderBottom: '1px solid #E8E1D6',
-  background: '#FBF7F1',
-};
-
-const iconButtonStyle: React.CSSProperties = {
-  display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  width: 32,
-  height: 32,
-  background: 'transparent',
-  border: 'none',
-  color: '#6B6157',
-  cursor: 'pointer',
-  borderRadius: 999,
+  padding: '4px 16px 10px',
+  borderBottom: '1px solid #E8E1D6',
+  background: '#FBF7F1',
 };
 
 const messagesStyle: React.CSSProperties = {
   flex: 1,
   overflowY: 'auto',
-  padding: 20,
+  padding: '14px 16px',
   display: 'flex',
   flexDirection: 'column',
-  gap: 14,
+  gap: 12,
   background: '#FBF7F1',
 };
 
@@ -689,37 +657,51 @@ const errorStyle: React.CSSProperties = {
 };
 
 const footerStyle: React.CSSProperties = {
-  padding: '14px 20px 16px',
+  padding: '10px 12px 12px',
   borderTop: '1px solid #E8E1D6',
   background: '#FBF7F1',
 };
 
-const textareaStyle: React.CSSProperties = {
-  width: '100%',
-  padding: '10px 12px',
-  fontSize: 14,
-  lineHeight: 1.5,
+const inputWrapStyle: React.CSSProperties = {
+  position: 'relative',
+  display: 'flex',
+  alignItems: 'flex-end',
   background: '#FFFFFF',
   border: '1px solid #E8E1D6',
-  borderRadius: 10,
+  borderRadius: 22,
+  padding: '6px 6px 6px 14px',
+  gap: 8,
+};
+
+const textareaStyle: React.CSSProperties = {
+  flex: 1,
+  minHeight: 28,
+  maxHeight: 120,
+  padding: '6px 0',
+  fontSize: 14,
+  lineHeight: 1.45,
+  background: 'transparent',
+  border: 'none',
   outline: 'none',
   resize: 'none',
   fontFamily: 'Inter, system-ui, sans-serif',
   color: '#1A1410',
 };
 
-function sendButtonStyle(loading: boolean): React.CSSProperties {
+function sendIconButtonStyle(disabled: boolean): React.CSSProperties {
   return {
-    padding: '10px 20px',
-    background: loading ? '#6B6157' : '#C14F2A',
-    color: '#FBF7F1',
+    flexShrink: 0,
+    width: 32,
+    height: 32,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    background: disabled ? '#E8E1D6' : '#C14F2A',
+    color: disabled ? '#9B9087' : '#FBF7F1',
     border: 'none',
     borderRadius: 999,
-    fontSize: 13,
-    fontWeight: 580,
-    cursor: loading ? 'wait' : 'pointer',
-    fontFamily: 'Inter, system-ui, sans-serif',
-    opacity: loading ? 0.7 : 1,
+    cursor: disabled ? 'default' : 'pointer',
+    transition: 'background 0.15s, color 0.15s',
   };
 }
 
