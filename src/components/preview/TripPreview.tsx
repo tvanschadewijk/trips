@@ -1309,7 +1309,9 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
           {/* Bottom drawer — sticky chrome holding swipe-dots and the
               Explore CTA on the cover. Content above scrolls behind it. */}
           <div className={`trip-bottom-drawer ${currentSlide === 0 ? 'on-hero' : ''}`}>
-            <SwipeDots total={totalSlides} current={currentSlide} onDotClick={goTo} />
+            {currentSlide !== 0 && (
+              <SwipeDots total={totalSlides} current={currentSlide} onDotClick={goTo} />
+            )}
             {currentSlide === 0 && totalSlides > 1 && (
               <button className="hero-hint" onClick={() => goTo(1)} aria-label="Explore day by day">
                 explore

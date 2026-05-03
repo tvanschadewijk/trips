@@ -253,10 +253,10 @@ export default function TripChatPanel({ tripId, initialMessages }: Props) {
             transition={overlaySpring}
             whileTap={{ scale: 0.96 }}
           >
-            <span style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', letterSpacing: '-0.01em' }}>
-              Ask your travel expert
-            </span>
-            <span style={{ color: '#C14F2A', marginLeft: 8 }}>•</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+            </svg>
+            <span>Ask</span>
           </motion.button>
         )}
       </AnimatePresence>
@@ -489,23 +489,29 @@ function MessageBubble({ m }: { m: ChatMessage }) {
 
 // ---------- styles ----------
 
+// Entry CTA mirrors the trip page's Explore button (.hero-hint) but
+// anchored bottom-left instead of bottom-right. Same height + visual
+// weight, terracotta primary pill, tracked uppercase label.
 const entryPillStyle: React.CSSProperties = {
   position: 'fixed',
-  left: 24,
-  bottom: 24,
-  padding: '12px 18px',
-  background: '#FFFFFF',
-  border: '1px solid #E8E1D6',
+  left: 'max(20px, env(safe-area-inset-left))',
+  bottom: 'calc(10px + env(safe-area-inset-bottom))',
+  padding: '11px 18px',
+  background: '#C14F2A',
+  border: 'none',
   borderRadius: 999,
-  color: '#1A1410',
+  color: '#FBF7F1',
   fontFamily: 'Inter, system-ui, sans-serif',
-  fontSize: 14,
-  fontWeight: 520,
+  fontSize: 12,
+  fontWeight: 600,
+  letterSpacing: '0.14em',
+  textTransform: 'uppercase',
   cursor: 'pointer',
-  boxShadow: 'rgba(26, 20, 16, 0.08) 0 12px 32px -8px',
-  zIndex: 900,
+  boxShadow: 'rgba(193, 79, 42, 0.32) 0 8px 24px -6px, rgba(26, 20, 16, 0.18) 0 4px 12px -4px',
+  zIndex: 19,
   display: 'inline-flex',
   alignItems: 'center',
+  gap: 6,
 };
 
 const minimizedPillStyle: React.CSSProperties = {
