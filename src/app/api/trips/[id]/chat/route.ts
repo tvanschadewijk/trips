@@ -83,6 +83,16 @@ async function isAdmin(userId: string): Promise<boolean> {
   return data?.role === 'admin';
 }
 
+async function isOwner(userId: string, tripId: string): Promise<boolean> {
+  const supabase = createAdminClient();
+  const { data } = await supabase
+    .from('trips')
+    .select('user_id')
+    .eq('id', tripId)
+    .single();
+  return data?.user_id === userId;
+}
+
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -97,7 +107,13 @@ export async function POST(
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
-  if (!(await isAdmin(user.id))) {
+  // Trip owner can edit their own trip via chat. Admins can edit any
+  // trip (for support). Anyone else: forbidden.
+  const [ownerOk, adminOk] = await Promise.all([
+    isOwner(user.id, tripId),
+    isAdmin(user.id),
+  ]);
+  if (!ownerOk && !adminOk) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 

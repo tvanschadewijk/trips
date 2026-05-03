@@ -775,6 +775,30 @@ body.trip-on-cover .trip-ask-entry-label { display: inline; }
   color: var(--color-text-muted);
 }
 
+/* Compact markdown inside chat bubbles — scale down headings, tighten
+   spacing, drop body size to match the bubble's 14px text. */
+.chat-bubble-assistant .markdown-body { font-size: 14px; line-height: 1.55; color: var(--color-text-primary); }
+.chat-bubble-assistant .markdown-body p { margin: 0 0 8px; }
+.chat-bubble-assistant .markdown-body p:last-child { margin-bottom: 0; }
+.chat-bubble-assistant .markdown-body h1,
+.chat-bubble-assistant .markdown-body h2,
+.chat-bubble-assistant .markdown-body h3,
+.chat-bubble-assistant .markdown-body h4 { margin: 12px 0 6px; }
+.chat-bubble-assistant .markdown-body h1 { font-size: 18px; }
+.chat-bubble-assistant .markdown-body h2 { font-size: 16px; }
+.chat-bubble-assistant .markdown-body h3 { font-size: 15px; }
+.chat-bubble-assistant .markdown-body h4 { font-size: 14px; }
+.chat-bubble-assistant .markdown-body ul,
+.chat-bubble-assistant .markdown-body ol { margin: 0 0 8px; padding-left: 20px; }
+.chat-bubble-assistant .markdown-body li { margin: 2px 0; }
+.chat-bubble-assistant .markdown-body code { font-size: 12px; padding: 1px 5px; }
+.chat-bubble-assistant .markdown-body pre { margin: 0 0 8px; padding: 10px 12px; font-size: 12px; }
+.chat-bubble-assistant .markdown-body table { font-size: 13px; margin: 0 0 8px; }
+.chat-bubble-assistant .markdown-body th,
+.chat-bubble-assistant .markdown-body td { padding: 6px 8px; }
+.chat-bubble-assistant .markdown-body hr { margin: 12px 0; }
+.chat-bubble-assistant .markdown-body blockquote { font-size: 13px; padding: 4px 0 4px 12px; }
+
 /* Tappable */
 .tappable { cursor: pointer; transition: background 0.15s; border-radius: 4px; margin: 0 -8px; padding-left: 8px !important; padding-right: 8px !important; }
 .tappable:active { background: var(--color-surface-deep); }

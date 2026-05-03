@@ -19,6 +19,7 @@ import { useRouter } from 'next/navigation';
 import { AnimatePresence, motion, useDragControls } from 'motion/react';
 import type { ToolCallSummary, PriorTurn } from '@/lib/trip-chat/prompt';
 import { useOnlineStatus } from '@/lib/online-status';
+import { renderTripMarkdown } from '@/lib/render-trip-markdown';
 
 export interface ChatMessage {
   id: string;
@@ -441,6 +442,11 @@ function TypingDots() {
 
 function MessageBubble({ m }: { m: ChatMessage }) {
   const isUser = m.role === 'user';
+  // Assistant messages can include markdown (lists, **bold**, links,
+  // headings, tables). Render through the trip-markdown helper so it
+  // gets the same sanitization + editorial typography rules. User
+  // messages stay as plain text — they typed it themselves.
+  const renderedHtml = !isUser && !m.pending ? renderTripMarkdown(m.content) : null;
   return (
     <motion.div
       initial={{ opacity: 0, y: 6 }}
@@ -454,6 +460,7 @@ function MessageBubble({ m }: { m: ChatMessage }) {
       }}
     >
       <div
+        className={!isUser ? 'chat-bubble-assistant' : undefined}
         style={{
           maxWidth: '88%',
           padding: '10px 14px',
@@ -463,12 +470,16 @@ function MessageBubble({ m }: { m: ChatMessage }) {
           border: isUser ? 'none' : '1px solid #E8E1D6',
           fontSize: 14,
           lineHeight: 1.5,
-          whiteSpace: 'pre-wrap',
+          whiteSpace: isUser || m.pending ? 'pre-wrap' : 'normal',
           fontStyle: m.pending ? 'italic' : 'normal',
           opacity: m.pending ? 0.6 : 1,
         }}
       >
-        {m.content}
+        {renderedHtml ? (
+          <div dangerouslySetInnerHTML={{ __html: renderedHtml }} />
+        ) : (
+          m.content
+        )}
       </div>
       {m.tool_calls_json && m.tool_calls_json.length > 0 && (
         <div

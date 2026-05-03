@@ -108,10 +108,12 @@ export default async function TripPage({ params }: Props) {
     return <TripPreview trips={[sample]} autoOpen />;
   }
 
-  // Admin-only chat panel. Load last N messages for initial render so the user
+  // Trip owners (and admins, who can edit any trip for support) get the
+  // chat panel. Load last N messages for initial render so the user
   // sees their prior conversation immediately when they open the panel.
+  const canEditViaChat = (result.isOwner || result.isAdmin) && !!result.viewerUserId;
   let initialChatMessages: Awaited<ReturnType<typeof loadChatHistory>> = [];
-  if (result.isAdmin && result.viewerUserId) {
+  if (canEditViaChat && result.viewerUserId) {
     initialChatMessages = await loadChatHistory(result.tripId, result.viewerUserId);
   }
 
@@ -125,7 +127,7 @@ export default async function TripPage({ params }: Props) {
         shareMode={result.shareMode}
         tripId={result.isOwner ? result.tripId : undefined}
       />
-      {result.isAdmin && (
+      {canEditViaChat && (
         <TripChatPanel tripId={result.tripId} initialMessages={initialChatMessages} />
       )}
     </>
