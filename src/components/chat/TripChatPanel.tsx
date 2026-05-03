@@ -3,16 +3,20 @@
 /**
  * Admin-only chat panel for editing a trip in place.
  *
- * Posts to /api/trips/[id]/chat. On a successful response with tool calls,
- * triggers the parent's `onTripMutated` callback so the trip view re-fetches
- * and reflects the edits. No streaming in v1 — a loading indicator is
- * sufficient.
+ * Three states: closed (entry pill), open (iOS share-sheet style),
+ * minimized (status pill while a turn is in flight). Animations via
+ * motion/react.
+ *
+ * Posts to /api/trips/[id]/chat. On a successful response with tool
+ * calls, triggers a router.refresh() so the trip view picks up the
+ * edits.
  *
  * Styling follows the editorial design system in DESIGN.md: warm paper
  * surfaces, Fraunces serif for display, Inter for UI, terracotta accent.
  */
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { AnimatePresence, motion } from 'motion/react';
 import type { ToolCallSummary, PriorTurn } from '@/lib/trip-chat/prompt';
 import { useOnlineStatus } from '@/lib/online-status';
 
@@ -22,7 +26,6 @@ export interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
   tool_calls_json: ToolCallSummary[] | null;
-  // Transient pending flag for optimistic UI
   pending?: boolean;
 }
 
@@ -31,19 +34,29 @@ interface Props {
   initialMessages: ChatMessage[];
 }
 
+type PanelState = 'closed' | 'open' | 'minimized';
+
+const STATUS_PHASES = [
+  'Reading the trip…',
+  'Thinking it through…',
+  'Drafting an edit…',
+  'Almost there…',
+];
+
 export default function TripChatPanel({ tripId, initialMessages }: Props) {
   const router = useRouter();
   const online = useOnlineStatus();
-  const [open, setOpen] = useState(false);
+  const [state, setState] = useState<PanelState>('closed');
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [statusIdx, setStatusIdx] = useState(0);
+  const [unread, setUnread] = useState(false);
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
 
-  // Auto-scroll scoped to the messages container only — never window.scrollIntoView,
-  // which would shift the whole trip viewer (see MEMORY: feedback_slide_drift).
+  // Auto-scroll within the messages container only.
   useEffect(() => {
     const el = scrollerRef.current;
     if (!el) return;
@@ -51,8 +64,42 @@ export default function TripChatPanel({ tripId, initialMessages }: Props) {
   }, [messages.length, loading]);
 
   useEffect(() => {
-    if (open) inputRef.current?.focus();
-  }, [open]);
+    if (state === 'open') inputRef.current?.focus();
+  }, [state]);
+
+  // Rotate status text while waiting for the agent. Cheap proxy for real
+  // streamed status — shows the user the turn is progressing.
+  useEffect(() => {
+    if (!loading) {
+      setStatusIdx(0);
+      return;
+    }
+    const delays = [4500, 6000, 8000];
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    let cumulative = 0;
+    for (let i = 0; i < STATUS_PHASES.length - 1; i++) {
+      cumulative += delays[i] ?? 8000;
+      timers.push(setTimeout(() => setStatusIdx(i + 1), cumulative));
+    }
+    return () => {
+      timers.forEach(clearTimeout);
+    };
+  }, [loading]);
+
+  // Open the panel — clears unread badge.
+  const openPanel = useCallback(() => {
+    setState('open');
+    setUnread(false);
+  }, []);
+
+  const minimize = useCallback(() => {
+    setState('minimized');
+  }, []);
+
+  const close = useCallback(() => {
+    setState('closed');
+    setUnread(false);
+  }, []);
 
   async function send() {
     const trimmed = input.trim();
@@ -69,15 +116,7 @@ export default function TripChatPanel({ tripId, initialMessages }: Props) {
       content: trimmed,
       tool_calls_json: null,
     };
-    const pendingAssistant: ChatMessage = {
-      id: `optimistic-a-${Date.now()}`,
-      turn_index: nextTurnIndex,
-      role: 'assistant',
-      content: '…',
-      tool_calls_json: null,
-      pending: true,
-    };
-    setMessages((prev) => [...prev, optimisticUser, pendingAssistant]);
+    setMessages((prev) => [...prev, optimisticUser]);
     setInput('');
     setLoading(true);
 
@@ -90,8 +129,6 @@ export default function TripChatPanel({ tripId, initialMessages }: Props) {
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         const headline = body.error ?? `HTTP ${res.status}`;
-        // Surface the server's detail string in-panel so we can debug
-        // without devtools (especially on mobile).
         throw new Error(body.detail ? `${headline} — ${body.detail}` : headline);
       }
       const json: {
@@ -101,31 +138,29 @@ export default function TripChatPanel({ tripId, initialMessages }: Props) {
         turn_index: number;
       } = await res.json();
 
-      setMessages((prev) => {
-        const withoutPending = prev.filter(
-          (m) => !(m.pending && m.turn_index === nextTurnIndex)
-        );
-        return [
-          ...withoutPending,
-          {
-            id: `r-${Date.now()}`,
-            turn_index: json.turn_index,
-            role: 'assistant',
-            content: json.assistant_message,
-            tool_calls_json:
-              json.tool_calls_summary.length > 0 ? json.tool_calls_summary : null,
-          },
-        ];
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `r-${Date.now()}`,
+          turn_index: json.turn_index,
+          role: 'assistant',
+          content: json.assistant_message,
+          tool_calls_json:
+            json.tool_calls_summary.length > 0 ? json.tool_calls_summary : null,
+        },
+      ]);
+
+      // If the user collapsed mid-turn, mark unread.
+      setState((s) => {
+        if (s === 'minimized') setUnread(true);
+        return s;
       });
 
       if (json.tool_calls_summary.length > 0) {
-        // Trigger a server re-render so the trip view picks up the edits.
-        // TripPreview syncs its local trip state from initialTrips via useEffect.
         router.refresh();
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
-      setMessages((prev) => prev.filter((m) => !m.pending));
     } finally {
       setLoading(false);
     }
@@ -138,95 +173,220 @@ export default function TripChatPanel({ tripId, initialMessages }: Props) {
     }
   }
 
-  // The panel posts to /api/trips/[id]/chat; without a network there's
-  // nothing it can do, so hide the entry point entirely when offline.
+  // Hide the entry point entirely when offline — without a network
+  // there's nothing the chat can do.
   if (!online) return null;
 
   return (
     <>
-      {/* Collapsed tab — fixed bottom-right */}
-      {!open && (
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          style={collapsedTabStyle}
-          aria-label="Open editor chat"
-        >
-          <span style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', letterSpacing: '-0.01em' }}>
-            Edit with chat
-          </span>
-          <span style={{ color: '#C14F2A', marginLeft: 8 }}>•</span>
-        </button>
-      )}
+      {/* Closed: entry pill bottom-left */}
+      <AnimatePresence>
+        {state === 'closed' && (
+          <motion.button
+            key="entry"
+            type="button"
+            onClick={openPanel}
+            style={entryPillStyle}
+            aria-label="Open editor chat"
+            initial={{ opacity: 0, y: 12, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 12, scale: 0.95 }}
+            transition={{ type: 'spring', damping: 26, stiffness: 380 }}
+            whileTap={{ scale: 0.96 }}
+          >
+            <span style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', letterSpacing: '-0.01em' }}>
+              Edit with chat
+            </span>
+            <span style={{ color: '#C14F2A', marginLeft: 8 }}>•</span>
+          </motion.button>
+        )}
+      </AnimatePresence>
 
-      {/* Expanded panel */}
-      {open && (
-        <div style={panelStyle} role="dialog" aria-label="Trip editor chat">
-          <header style={headerStyle}>
-            <div style={{ fontFamily: '"Fraunces", Georgia, serif', fontSize: 17, fontWeight: 520, color: '#1A1410' }}>
-              Editor chat
-            </div>
-            <div style={{ fontSize: 11, color: '#6B6157', textTransform: 'uppercase', letterSpacing: '0.14em', marginTop: 2 }}>
-              Admin only
-            </div>
-            <button
-              type="button"
-              onClick={() => setOpen(false)}
-              style={closeButtonStyle}
-              aria-label="Close chat"
-            >
-              ×
-            </button>
-          </header>
-
-          <div ref={scrollerRef} style={messagesStyle}>
-            {messages.length === 0 && (
-              <div style={emptyStyle}>
-                <p style={{ margin: 0, color: '#6B6157' }}>
-                  Describe an edit in plain language. &quot;Make day 2 more relaxed&quot;, &quot;swap Friday dinner&quot;, &quot;shorten the summary&quot;.
-                </p>
-              </div>
+      {/* Minimized: status pill bottom-left */}
+      <AnimatePresence>
+        {state === 'minimized' && (
+          <motion.button
+            key="minimized"
+            type="button"
+            onClick={openPanel}
+            style={minimizedPillStyle}
+            aria-label="Reopen editor chat"
+            initial={{ opacity: 0, y: 12, scale: 0.94 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 12, scale: 0.94 }}
+            transition={{ type: 'spring', damping: 26, stiffness: 380 }}
+            whileTap={{ scale: 0.96 }}
+          >
+            {loading ? (
+              <>
+                <TypingDots />
+                <span style={{ marginLeft: 10, fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic' }}>
+                  {STATUS_PHASES[statusIdx]}
+                </span>
+              </>
+            ) : (
+              <>
+                <span style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic' }}>
+                  Editor chat
+                </span>
+                {unread && <span style={unreadBadgeStyle} aria-label="New message">1</span>}
+              </>
             )}
-            {messages.map((m) => (
-              <MessageBubble key={m.id} m={m} />
-            ))}
-            {error && (
-              <div style={errorStyle} role="alert">
-                {error}
-              </div>
-            )}
-          </div>
+          </motion.button>
+        )}
+      </AnimatePresence>
 
-          <footer style={footerStyle}>
-            <textarea
-              ref={inputRef}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={onKeyDown}
-              placeholder="Describe an edit…"
-              rows={2}
-              style={textareaStyle}
-              disabled={loading}
+      {/* Open: iOS share-sheet style bottom panel */}
+      <AnimatePresence>
+        {state === 'open' && (
+          <>
+            <motion.div
+              key="backdrop"
+              style={backdropStyle}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              onClick={close}
             />
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 }}>
-              <span style={{ fontSize: 11, color: '#9B9087', textTransform: 'uppercase', letterSpacing: '0.14em' }}>
-                ⌘↵ to send
-              </span>
-              <button type="button" onClick={send} disabled={loading || !input.trim()} style={sendButtonStyle(loading)}>
-                {loading ? 'Editing…' : 'Send'}
-              </button>
-            </div>
-          </footer>
-        </div>
-      )}
+            <motion.div
+              key="sheet"
+              role="dialog"
+              aria-label="Trip editor chat"
+              style={sheetStyle}
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', damping: 32, stiffness: 360, mass: 0.9 }}
+            >
+              <div style={grabberStyle} aria-hidden="true" />
+              <header style={headerStyle}>
+                <div>
+                  <div style={{ fontFamily: '"Fraunces", Georgia, serif', fontSize: 19, fontWeight: 460, color: '#1A1410', letterSpacing: '-0.012em' }}>
+                    Editor chat
+                  </div>
+                  <div style={{ fontSize: 11, color: '#6B6157', textTransform: 'uppercase', letterSpacing: '0.18em', marginTop: 4 }}>
+                    Admin only
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <button
+                    type="button"
+                    onClick={minimize}
+                    style={iconButtonStyle}
+                    aria-label="Minimize chat"
+                    title="Minimize"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12" /></svg>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={close}
+                    style={iconButtonStyle}
+                    aria-label="Close chat"
+                    title="Close"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M18 6 6 18" /><path d="M6 6l12 12" /></svg>
+                  </button>
+                </div>
+              </header>
+
+              <div ref={scrollerRef} style={messagesStyle}>
+                {messages.length === 0 && (
+                  <div style={emptyStyle}>
+                    <p style={{ margin: 0, color: '#6B6157' }}>
+                      Describe an edit in plain language. &quot;Make day 2 more relaxed&quot;, &quot;swap Friday dinner&quot;, &quot;shorten the summary&quot;.
+                    </p>
+                  </div>
+                )}
+                {messages.map((m) => (
+                  <MessageBubble key={m.id} m={m} />
+                ))}
+                {loading && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    style={statusRowStyle}
+                  >
+                    <TypingDots />
+                    <AnimatePresence mode="wait">
+                      <motion.span
+                        key={statusIdx}
+                        initial={{ opacity: 0, y: 4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -4 }}
+                        transition={{ duration: 0.25 }}
+                        style={statusTextStyle}
+                      >
+                        {STATUS_PHASES[statusIdx]}
+                      </motion.span>
+                    </AnimatePresence>
+                  </motion.div>
+                )}
+                {error && (
+                  <div style={errorStyle} role="alert">
+                    {error}
+                  </div>
+                )}
+              </div>
+
+              <footer style={footerStyle}>
+                <textarea
+                  ref={inputRef}
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={onKeyDown}
+                  placeholder="Describe an edit…"
+                  rows={2}
+                  style={textareaStyle}
+                  disabled={loading}
+                />
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 }}>
+                  <span style={{ fontSize: 11, color: '#9B9087', textTransform: 'uppercase', letterSpacing: '0.14em' }}>
+                    ⌘↵ to send
+                  </span>
+                  <button type="button" onClick={send} disabled={loading || !input.trim()} style={sendButtonStyle(loading)}>
+                    {loading ? 'Editing…' : 'Send'}
+                  </button>
+                </div>
+              </footer>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </>
+  );
+}
+
+function TypingDots() {
+  return (
+    <span style={typingDotsStyle} aria-hidden="true">
+      <motion.span
+        style={dotStyle}
+        animate={{ y: [0, -4, 0], opacity: [0.5, 1, 0.5] }}
+        transition={{ duration: 1.05, repeat: Infinity, ease: 'easeInOut', delay: 0 }}
+      />
+      <motion.span
+        style={dotStyle}
+        animate={{ y: [0, -4, 0], opacity: [0.5, 1, 0.5] }}
+        transition={{ duration: 1.05, repeat: Infinity, ease: 'easeInOut', delay: 0.16 }}
+      />
+      <motion.span
+        style={dotStyle}
+        animate={{ y: [0, -4, 0], opacity: [0.5, 1, 0.5] }}
+        transition={{ duration: 1.05, repeat: Infinity, ease: 'easeInOut', delay: 0.32 }}
+      />
+    </span>
   );
 }
 
 function MessageBubble({ m }: { m: ChatMessage }) {
   const isUser = m.role === 'user';
   return (
-    <div
+    <motion.div
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.22, ease: [0.32, 0.72, 0, 1] }}
       style={{
         display: 'flex',
         flexDirection: 'column',
@@ -238,7 +398,7 @@ function MessageBubble({ m }: { m: ChatMessage }) {
         style={{
           maxWidth: '88%',
           padding: '10px 14px',
-          borderRadius: 4,
+          borderRadius: 14,
           background: isUser ? '#1A1410' : '#FFFFFF',
           color: isUser ? '#FBF7F1' : '#1A1410',
           border: isUser ? 'none' : '1px solid #E8E1D6',
@@ -264,13 +424,13 @@ function MessageBubble({ m }: { m: ChatMessage }) {
           • Applied {m.tool_calls_json.length} edit{m.tool_calls_json.length === 1 ? '' : 's'}
         </div>
       )}
-    </div>
+    </motion.div>
   );
 }
 
-// ---------- styles (inline — the project already uses inline styling heavily) ----------
+// ---------- styles ----------
 
-const collapsedTabStyle: React.CSSProperties = {
+const entryPillStyle: React.CSSProperties = {
   position: 'fixed',
   left: 24,
   bottom: 24,
@@ -285,47 +445,108 @@ const collapsedTabStyle: React.CSSProperties = {
   cursor: 'pointer',
   boxShadow: 'rgba(26, 20, 16, 0.08) 0 12px 32px -8px',
   zIndex: 900,
+  display: 'inline-flex',
+  alignItems: 'center',
 };
 
-const panelStyle: React.CSSProperties = {
+const minimizedPillStyle: React.CSSProperties = {
   position: 'fixed',
   left: 24,
   bottom: 24,
-  width: 420,
-  maxWidth: 'calc(100vw - 48px)',
-  height: 560,
-  maxHeight: 'calc(100vh - 48px)',
+  padding: '10px 18px',
+  background: '#FFFFFF',
+  border: '1px solid #E8E1D6',
+  borderRadius: 999,
+  color: '#1A1410',
+  fontFamily: 'Inter, system-ui, sans-serif',
+  fontSize: 14,
+  fontWeight: 520,
+  cursor: 'pointer',
+  boxShadow: 'rgba(26, 20, 16, 0.10) 0 12px 32px -8px',
+  zIndex: 900,
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 0,
+};
+
+const unreadBadgeStyle: React.CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  marginLeft: 10,
+  minWidth: 18,
+  height: 18,
+  padding: '0 6px',
+  borderRadius: 999,
+  background: '#C14F2A',
+  color: '#FBF7F1',
+  fontSize: 10,
+  fontWeight: 600,
+  letterSpacing: '0.04em',
+  fontFamily: 'Inter, system-ui, sans-serif',
+};
+
+const backdropStyle: React.CSSProperties = {
+  position: 'fixed',
+  inset: 0,
+  background: 'rgba(26, 20, 16, 0.32)',
+  backdropFilter: 'blur(2px)',
+  WebkitBackdropFilter: 'blur(2px)',
+  zIndex: 899,
+};
+
+const sheetStyle: React.CSSProperties = {
+  position: 'fixed',
+  left: '50%',
+  bottom: 0,
+  transform: 'translateX(-50%)',
+  width: 'min(520px, 100vw)',
+  maxHeight: 'min(86vh, 720px)',
   background: '#FBF7F1',
   border: '1px solid #E8E1D6',
-  borderRadius: 4,
-  boxShadow: 'rgba(26, 20, 16, 0.08) 0 12px 32px -8px',
+  borderTopLeftRadius: 22,
+  borderTopRightRadius: 22,
+  borderBottomLeftRadius: 0,
+  borderBottomRightRadius: 0,
+  boxShadow: 'rgba(26, 20, 16, 0.20) 0 -16px 48px -12px',
   zIndex: 900,
   display: 'flex',
   flexDirection: 'column',
   overflow: 'hidden',
   fontFamily: 'Inter, system-ui, sans-serif',
+  paddingBottom: 'env(safe-area-inset-bottom)',
+};
+
+const grabberStyle: React.CSSProperties = {
+  width: 36,
+  height: 4,
+  borderRadius: 999,
+  background: '#D4C8B4',
+  margin: '8px auto 4px',
+  flexShrink: 0,
 };
 
 const headerStyle: React.CSSProperties = {
-  padding: '16px 20px 14px',
+  display: 'flex',
+  alignItems: 'flex-start',
+  justifyContent: 'space-between',
+  gap: 12,
+  padding: '12px 20px 14px',
   borderBottom: '1px solid #E8E1D6',
-  position: 'relative',
   background: '#FBF7F1',
 };
 
-const closeButtonStyle: React.CSSProperties = {
-  position: 'absolute',
-  top: 10,
-  right: 12,
+const iconButtonStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
   width: 32,
   height: 32,
   background: 'transparent',
   border: 'none',
-  fontSize: 22,
   color: '#6B6157',
   cursor: 'pointer',
-  lineHeight: 1,
-  borderRadius: 4,
+  borderRadius: 999,
 };
 
 const messagesStyle: React.CSSProperties = {
@@ -344,13 +565,48 @@ const emptyStyle: React.CSSProperties = {
   lineHeight: 1.55,
 };
 
+const statusRowStyle: React.CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 10,
+  padding: '8px 14px',
+  background: '#F5E4DA',
+  border: '1px solid rgba(193, 79, 42, 0.22)',
+  borderRadius: 999,
+  alignSelf: 'flex-start',
+};
+
+const statusTextStyle: React.CSSProperties = {
+  fontFamily: '"Fraunces", Georgia, serif',
+  fontStyle: 'italic',
+  fontSize: 14,
+  fontWeight: 380,
+  color: '#A03E1F',
+  letterSpacing: '-0.005em',
+};
+
+const typingDotsStyle: React.CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 5,
+  height: 14,
+};
+
+const dotStyle: React.CSSProperties = {
+  display: 'inline-block',
+  width: 6,
+  height: 6,
+  borderRadius: 999,
+  background: '#C14F2A',
+};
+
 const errorStyle: React.CSSProperties = {
   padding: '10px 12px',
   border: '1px solid #9B4F2E',
   background: '#F5E4DA',
   color: '#9B4F2E',
   fontSize: 13,
-  borderRadius: 4,
+  borderRadius: 6,
 };
 
 const footerStyle: React.CSSProperties = {
@@ -366,7 +622,7 @@ const textareaStyle: React.CSSProperties = {
   lineHeight: 1.5,
   background: '#FFFFFF',
   border: '1px solid #E8E1D6',
-  borderRadius: 6,
+  borderRadius: 10,
   outline: 'none',
   resize: 'none',
   fontFamily: 'Inter, system-ui, sans-serif',
@@ -388,5 +644,4 @@ function sendButtonStyle(loading: boolean): React.CSSProperties {
   };
 }
 
-// Re-exported for convenience so page.tsx can type its server-fetched history.
 export type { PriorTurn };
