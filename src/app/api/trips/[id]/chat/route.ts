@@ -28,6 +28,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import type { Options } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod';
+import { createRequire } from 'module';
+import path from 'path';
 
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -192,6 +194,29 @@ export async function POST(
     CLAUDE_CONFIG_DIR: process.env.CLAUDE_CONFIG_DIR ?? '/tmp/.claude',
   };
 
+  // 9b. Resolve the platform-native CLI binary explicitly. The SDK
+  //     normally locates this on its own, but Next's bundling on Vercel
+  //     can hide the optional platform package from its resolver — even
+  //     when the file is on disk. Setting pathToClaudeCodeExecutable
+  //     bypasses the SDK's lookup. Best-effort: fall back to undefined
+  //     so the SDK can still try its default search if the require fails.
+  let pathToClaudeCodeExecutable: string | undefined;
+  try {
+    const req = createRequire(import.meta.url);
+    const platformPkg =
+      process.platform === 'darwin'
+        ? process.arch === 'arm64'
+          ? '@anthropic-ai/claude-agent-sdk-darwin-arm64'
+          : '@anthropic-ai/claude-agent-sdk-darwin-x64'
+        : process.arch === 'arm64'
+          ? '@anthropic-ai/claude-agent-sdk-linux-arm64'
+          : '@anthropic-ai/claude-agent-sdk-linux-x64';
+    const pkgJson = req.resolve(`${platformPkg}/package.json`);
+    pathToClaudeCodeExecutable = path.join(path.dirname(pkgJson), 'claude');
+  } catch (resolveErr) {
+    console.warn('trip-chat: could not resolve native CLI binary path', resolveErr);
+  }
+
   // 10. Invoke the SDK.
   const options: Options = {
     // ---- LOCKED: do not remove or reorder. See FIXED_SDK_OPTIONS comment. ----
@@ -210,6 +235,7 @@ export async function POST(
     env,
     persistSession: false,              // fresh session per request — no local JSONL needed
     includePartialMessages: false,
+    ...(pathToClaudeCodeExecutable ? { pathToClaudeCodeExecutable } : {}),
   };
 
   let assistantText = '';

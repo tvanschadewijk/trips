@@ -19,6 +19,14 @@ const nextConfig: NextConfig = {
     '@anthropic-ai/claude-agent-sdk-linux-x64',
     '@anthropic-ai/claude-agent-sdk-linux-arm64',
   ],
+  // Force-include the platform binary in the trace output for the chat
+  // route so Vercel actually ships the file. Trace-by-import alone misses
+  // optional native deps that aren't statically imported.
+  outputFileTracingIncludes: {
+    '/api/trips/[id]/chat': [
+      './node_modules/@anthropic-ai/claude-agent-sdk-linux-x64/**',
+    ],
+  },
 };
 
 export default nextConfig;
