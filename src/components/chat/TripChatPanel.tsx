@@ -16,7 +16,7 @@
  */
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { AnimatePresence, motion } from 'motion/react';
+import { AnimatePresence, motion, useDragControls } from 'motion/react';
 import type { ToolCallSummary, PriorTurn } from '@/lib/trip-chat/prompt';
 import { useOnlineStatus } from '@/lib/online-status';
 
@@ -43,6 +43,17 @@ const STATUS_PHASES = [
   'Almost there…',
 ];
 
+// iOS 26-style spring — slight overshoot, lively. Borrowed from the
+// preppy AssistantOverlay; gives the sheet/pill transitions the right feel.
+const overlaySpring = {
+  type: 'spring' as const,
+  damping: 22,
+  stiffness: 380,
+  mass: 0.7,
+};
+
+const KEYBOARD_INSET_THRESHOLD = 100;
+
 export default function TripChatPanel({ tripId, initialMessages }: Props) {
   const router = useRouter();
   const online = useOnlineStatus();
@@ -53,8 +64,11 @@ export default function TripChatPanel({ tripId, initialMessages }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [statusIdx, setStatusIdx] = useState(0);
   const [unread, setUnread] = useState(false);
+  const [keyboardInset, setKeyboardInset] = useState(0);
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
+  const sheetRef = useRef<HTMLDivElement | null>(null);
+  const dragControls = useDragControls();
 
   // Auto-scroll within the messages container only.
   useEffect(() => {
@@ -65,6 +79,43 @@ export default function TripChatPanel({ tripId, initialMessages }: Props) {
 
   useEffect(() => {
     if (state === 'open') inputRef.current?.focus();
+  }, [state]);
+
+  // Track the iOS keyboard via visualViewport. When the textarea is
+  // focused and the keyboard is up, we lift the sheet by that inset so
+  // the input stays above it. Borrowed from preppy/AssistantOverlay.
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.visualViewport) return;
+    const vv = window.visualViewport;
+    let raf: number | null = null;
+    const update = () => {
+      raf = null;
+      const obscured = Math.max(
+        0,
+        Math.round(window.innerHeight - (vv.height + Math.max(0, vv.offsetTop))),
+      );
+      const focusedInsideSheet =
+        !!sheetRef.current &&
+        document.activeElement instanceof HTMLElement &&
+        sheetRef.current.contains(document.activeElement);
+      const next = focusedInsideSheet && obscured > KEYBOARD_INSET_THRESHOLD ? obscured : 0;
+      setKeyboardInset((prev) => (prev === next ? prev : next));
+    };
+    const schedule = () => {
+      if (raf === null) raf = window.requestAnimationFrame(update);
+    };
+    update();
+    vv.addEventListener('resize', schedule);
+    vv.addEventListener('scroll', schedule);
+    window.addEventListener('focusin', schedule);
+    window.addEventListener('focusout', schedule);
+    return () => {
+      vv.removeEventListener('resize', schedule);
+      vv.removeEventListener('scroll', schedule);
+      window.removeEventListener('focusin', schedule);
+      window.removeEventListener('focusout', schedule);
+      if (raf !== null) window.cancelAnimationFrame(raf);
+    };
   }, [state]);
 
   // Rotate status text while waiting for the agent. Cheap proxy for real
@@ -191,7 +242,7 @@ export default function TripChatPanel({ tripId, initialMessages }: Props) {
             initial={{ opacity: 0, y: 12, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 12, scale: 0.95 }}
-            transition={{ type: 'spring', damping: 26, stiffness: 380 }}
+            transition={overlaySpring}
             whileTap={{ scale: 0.96 }}
           >
             <span style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', letterSpacing: '-0.01em' }}>
@@ -214,7 +265,7 @@ export default function TripChatPanel({ tripId, initialMessages }: Props) {
             initial={{ opacity: 0, y: 12, scale: 0.94 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 12, scale: 0.94 }}
-            transition={{ type: 'spring', damping: 26, stiffness: 380 }}
+            transition={overlaySpring}
             whileTap={{ scale: 0.96 }}
           >
             {loading ? (
@@ -251,15 +302,33 @@ export default function TripChatPanel({ tripId, initialMessages }: Props) {
             />
             <motion.div
               key="sheet"
+              ref={sheetRef}
               role="dialog"
               aria-label="Trip editor chat"
-              style={sheetStyle}
+              style={{ ...sheetStyle, bottom: keyboardInset }}
               initial={{ y: '100%' }}
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
-              transition={{ type: 'spring', damping: 32, stiffness: 360, mass: 0.9 }}
+              transition={overlaySpring}
+              drag="y"
+              dragControls={dragControls}
+              dragListener={false}
+              dragConstraints={{ top: 0, bottom: 0 }}
+              dragElastic={{ top: 0, bottom: 0.4 }}
+              onDragEnd={(_, info) => {
+                // Dismiss when the user flicks down or drags more than ~120px.
+                if (info.offset.y > 120 || info.velocity.y > 600) {
+                  minimize();
+                }
+              }}
             >
-              <div style={grabberStyle} aria-hidden="true" />
+              <div
+                style={grabberHitStyle}
+                onPointerDown={(e) => dragControls.start(e)}
+                aria-hidden="true"
+              >
+                <div style={grabberStyle} />
+              </div>
               <header style={headerStyle}>
                 <div>
                   <div style={{ fontFamily: '"Fraunces", Georgia, serif', fontSize: 19, fontWeight: 460, color: '#1A1410', letterSpacing: '-0.012em' }}>
@@ -497,9 +566,11 @@ const backdropStyle: React.CSSProperties = {
 
 const sheetStyle: React.CSSProperties = {
   position: 'fixed',
-  left: '50%',
+  left: 0,
+  right: 0,
   bottom: 0,
-  transform: 'translateX(-50%)',
+  marginLeft: 'auto',
+  marginRight: 'auto',
   width: 'min(520px, 100vw)',
   maxHeight: 'min(86vh, 720px)',
   background: '#FBF7F1',
@@ -517,13 +588,21 @@ const sheetStyle: React.CSSProperties = {
   paddingBottom: 'env(safe-area-inset-bottom)',
 };
 
+const grabberHitStyle: React.CSSProperties = {
+  width: '100%',
+  padding: '6px 0 4px',
+  display: 'flex',
+  justifyContent: 'center',
+  cursor: 'grab',
+  touchAction: 'none',
+  flexShrink: 0,
+};
+
 const grabberStyle: React.CSSProperties = {
   width: 36,
   height: 4,
   borderRadius: 999,
   background: '#D4C8B4',
-  margin: '8px auto 4px',
-  flexShrink: 0,
 };
 
 const headerStyle: React.CSSProperties = {
