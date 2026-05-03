@@ -201,6 +201,7 @@ export async function POST(
   //     bypasses the SDK's lookup. Best-effort: fall back to undefined
   //     so the SDK can still try its default search if the require fails.
   let pathToClaudeCodeExecutable: string | undefined;
+  let resolveDiagnostic = '';
   try {
     const req = createRequire(import.meta.url);
     const platformPkg =
@@ -213,9 +214,32 @@ export async function POST(
           : '@anthropic-ai/claude-agent-sdk-linux-x64';
     const pkgJson = req.resolve(`${platformPkg}/package.json`);
     pathToClaudeCodeExecutable = path.join(path.dirname(pkgJson), 'claude');
+    resolveDiagnostic = `resolved via require: ${pathToClaudeCodeExecutable}`;
   } catch (resolveErr) {
-    console.warn('trip-chat: could not resolve native CLI binary path', resolveErr);
+    resolveDiagnostic = `require.resolve failed: ${resolveErr instanceof Error ? resolveErr.message : String(resolveErr)}`;
+    // Fallback: try a few known on-disk locations on Vercel. The
+    // function CWD on Vercel is /var/task; in dev it's the repo root.
+    const candidates = [
+      path.join(process.cwd(), 'node_modules/@anthropic-ai/claude-agent-sdk-linux-x64/claude'),
+      '/var/task/node_modules/@anthropic-ai/claude-agent-sdk-linux-x64/claude',
+    ];
+    const fs = await import('fs');
+    for (const c of candidates) {
+      try {
+        if (fs.existsSync(c)) {
+          pathToClaudeCodeExecutable = c;
+          resolveDiagnostic += ` | fallback hit: ${c}`;
+          break;
+        }
+      } catch {
+        // ignore
+      }
+    }
+    if (!pathToClaudeCodeExecutable) {
+      resolveDiagnostic += ` | tried: ${candidates.join(', ')} (none existed)`;
+    }
   }
+  console.log('trip-chat: binary resolution —', resolveDiagnostic);
 
   // 10. Invoke the SDK.
   const options: Options = {
@@ -296,7 +320,7 @@ export async function POST(
     const detail = err instanceof Error ? err.message : String(err);
     console.error('trip-chat: agent error', detail);
     return NextResponse.json(
-      { error: 'Agent failed', detail },
+      { error: 'Agent failed', detail: `${detail} | binary: ${resolveDiagnostic}` },
       { status: 500 }
     );
   }
