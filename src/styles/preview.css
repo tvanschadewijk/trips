@@ -250,11 +250,13 @@
   margin-top: 3px;
 }
 
-/* Ask-your-travel-expert entry pill. Two layouts:
-   - Default (day slides): icon-only round button so it doesn't crowd
-     the centered swipe-dot strip.
-   - On the cover (body.trip-on-cover): full pill mirroring the
-     Explore CTA's height/weight on the opposite side. */
+/* Ask-your-travel-expert entry pill. Secondary style next to Explore:
+   white sheet, hair-thin warm border, ink content + terracotta icon
+   accent. Two layouts keyed off body.trip-on-cover:
+   - Day slides: compact 36x36 icon-only round button so the swipe dots
+     keep the centre.
+   - Cover: full pill matching Explore's exact box (11px 18px padding,
+     same line-height) on the opposite side. */
 .trip-ask-entry {
   position: fixed;
   left: max(20px, env(safe-area-inset-left));
@@ -262,27 +264,29 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
+  width: 36px;
+  height: 36px;
   padding: 0;
-  background: var(--color-accent);
-  color: #FBF7F1;
-  border: none;
+  background: var(--color-card);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border);
   border-radius: 999px;
   cursor: pointer;
-  box-shadow: rgba(193, 79, 42, 0.32) 0 8px 24px -6px, rgba(26, 20, 16, 0.18) 0 4px 12px -4px;
+  box-shadow: rgba(26, 20, 16, 0.06) 0 6px 16px -4px, rgba(26, 20, 16, 0.04) 0 1px 0 0;
   z-index: 30;
-  transition: width 0.18s ease, padding 0.18s ease, background 0.15s ease;
+  transition: width 0.18s ease, padding 0.18s ease, background 0.15s ease, border-color 0.15s ease;
   -webkit-tap-highlight-color: transparent;
+  line-height: 1;
 }
-.trip-ask-entry:active { background: var(--color-accent-deep); }
+.trip-ask-entry:active { background: var(--color-surface-deep); }
 @media (hover: hover) {
-  .trip-ask-entry:hover { background: var(--color-accent-deep); }
+  .trip-ask-entry:hover { background: var(--color-surface-deep); border-color: var(--color-border-strong); }
 }
 .trip-ask-entry-icon {
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   flex-shrink: 0;
+  color: var(--color-accent);
 }
 .trip-ask-entry-label {
   display: none;
@@ -292,9 +296,11 @@
   letter-spacing: 0.14em;
   text-transform: uppercase;
   margin-left: 6px;
+  color: var(--color-text-primary);
 }
 body.trip-on-cover .trip-ask-entry {
   width: auto;
+  height: auto;
   padding: 11px 18px;
 }
 body.trip-on-cover .trip-ask-entry-icon {
