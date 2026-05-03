@@ -196,13 +196,29 @@
 .dash-section-current .dash-section-title::before {
   content: '';
   display: inline-block;
-  width: 7px;
-  height: 7px;
+  width: 8px;
+  height: 8px;
   border-radius: 999px;
   background: #C14F2A;
   margin-right: 10px;
   vertical-align: middle;
   transform: translateY(-1px);
+  box-shadow: 0 0 0 0 rgba(193, 79, 42, 0.55);
+  animation: dash-current-pulse 1.8s ease-out infinite;
+}
+@keyframes dash-current-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(193, 79, 42, 0.55);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(193, 79, 42, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(193, 79, 42, 0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dash-section-current .dash-section-title::before { animation: none; }
 }
 .dash-section-past .dash-section-title {
   color: #9B9087;
