@@ -250,6 +250,59 @@
   margin-top: 3px;
 }
 
+/* Ask-your-travel-expert entry pill. Two layouts:
+   - Default (day slides): icon-only round button so it doesn't crowd
+     the centered swipe-dot strip.
+   - On the cover (body.trip-on-cover): full pill mirroring the
+     Explore CTA's height/weight on the opposite side. */
+.trip-ask-entry {
+  position: fixed;
+  left: max(20px, env(safe-area-inset-left));
+  bottom: calc(10px + env(safe-area-inset-bottom));
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  background: var(--color-accent);
+  color: #FBF7F1;
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  box-shadow: rgba(193, 79, 42, 0.32) 0 8px 24px -6px, rgba(26, 20, 16, 0.18) 0 4px 12px -4px;
+  z-index: 30;
+  transition: width 0.18s ease, padding 0.18s ease, background 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.trip-ask-entry:active { background: var(--color-accent-deep); }
+@media (hover: hover) {
+  .trip-ask-entry:hover { background: var(--color-accent-deep); }
+}
+.trip-ask-entry-icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+.trip-ask-entry-label {
+  display: none;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  margin-left: 6px;
+}
+body.trip-on-cover .trip-ask-entry {
+  width: auto;
+  padding: 11px 18px;
+}
+body.trip-on-cover .trip-ask-entry-icon {
+  width: 14px;
+  height: 14px;
+}
+body.trip-on-cover .trip-ask-entry-label { display: inline; }
+
 /* Explore CTA inside the bottom drawer — primary terracotta pill */
 .hero-hint {
   display: flex; align-items: center; gap: 6px;

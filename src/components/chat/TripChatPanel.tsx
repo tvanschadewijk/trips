@@ -245,7 +245,7 @@ export default function TripChatPanel({ tripId, initialMessages }: Props) {
             key="entry"
             type="button"
             onClick={openPanel}
-            style={entryPillStyle}
+            className="trip-ask-entry"
             aria-label="Ask your travel expert"
             initial={{ opacity: 0, y: 12, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -253,10 +253,10 @@ export default function TripChatPanel({ tripId, initialMessages }: Props) {
             transition={overlaySpring}
             whileTap={{ scale: 0.96 }}
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <svg className="trip-ask-entry-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
             </svg>
-            <span>Ask</span>
+            <span className="trip-ask-entry-label">Ask</span>
           </motion.button>
         )}
       </AnimatePresence>
@@ -489,30 +489,9 @@ function MessageBubble({ m }: { m: ChatMessage }) {
 
 // ---------- styles ----------
 
-// Entry CTA mirrors the trip page's Explore button (.hero-hint) but
-// anchored bottom-left instead of bottom-right. Same height + visual
-// weight, terracotta primary pill, tracked uppercase label.
-const entryPillStyle: React.CSSProperties = {
-  position: 'fixed',
-  left: 'max(20px, env(safe-area-inset-left))',
-  bottom: 'calc(10px + env(safe-area-inset-bottom))',
-  padding: '11px 18px',
-  background: '#C14F2A',
-  border: 'none',
-  borderRadius: 999,
-  color: '#FBF7F1',
-  fontFamily: 'Inter, system-ui, sans-serif',
-  fontSize: 12,
-  fontWeight: 600,
-  letterSpacing: '0.14em',
-  textTransform: 'uppercase',
-  cursor: 'pointer',
-  boxShadow: 'rgba(193, 79, 42, 0.32) 0 8px 24px -6px, rgba(26, 20, 16, 0.18) 0 4px 12px -4px',
-  zIndex: 19,
-  display: 'inline-flex',
-  alignItems: 'center',
-  gap: 6,
-};
+// Entry CTA styling lives in a real stylesheet now (preview.css)
+// because it switches between two layouts (icon-only on day slides,
+// full pill on the cover) keyed off body.trip-on-cover.
 
 const minimizedPillStyle: React.CSSProperties = {
   position: 'fixed',

@@ -145,6 +145,12 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     try {
       sessionStorage.setItem('trip-chat-context', JSON.stringify(payload));
     } catch {}
+    // Toggle a body class so global components (chat entry pill) can
+    // restyle without prop drilling.
+    document.body.classList.toggle('trip-on-cover', currentSlide === 0);
+    return () => {
+      document.body.classList.remove('trip-on-cover');
+    };
   }, [currentSlide, trip, days]);
 
   // Compute today's day info (if today is within this trip)
