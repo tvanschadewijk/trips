@@ -238,7 +238,7 @@ export default function TripChatPanel({ tripId, initialMessages }: Props) {
             type="button"
             onClick={openPanel}
             style={entryPillStyle}
-            aria-label="Open editor chat"
+            aria-label="Ask your travel expert"
             initial={{ opacity: 0, y: 12, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 12, scale: 0.95 }}
@@ -246,7 +246,7 @@ export default function TripChatPanel({ tripId, initialMessages }: Props) {
             whileTap={{ scale: 0.96 }}
           >
             <span style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', letterSpacing: '-0.01em' }}>
-              Edit with chat
+              Ask your travel expert
             </span>
             <span style={{ color: '#C14F2A', marginLeft: 8 }}>•</span>
           </motion.button>
@@ -261,7 +261,7 @@ export default function TripChatPanel({ tripId, initialMessages }: Props) {
             type="button"
             onClick={openPanel}
             style={minimizedPillStyle}
-            aria-label="Reopen editor chat"
+            aria-label="Reopen travel expert chat"
             initial={{ opacity: 0, y: 12, scale: 0.94 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 12, scale: 0.94 }}
@@ -278,7 +278,7 @@ export default function TripChatPanel({ tripId, initialMessages }: Props) {
             ) : (
               <>
                 <span style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic' }}>
-                  Editor chat
+                  Ask your travel expert
                 </span>
                 {unread && <span style={unreadBadgeStyle} aria-label="New message">1</span>}
               </>
@@ -304,7 +304,7 @@ export default function TripChatPanel({ tripId, initialMessages }: Props) {
               key="sheet"
               ref={sheetRef}
               role="dialog"
-              aria-label="Trip editor chat"
+              aria-label="Ask your travel expert"
               style={{ ...sheetStyle, bottom: keyboardInset }}
               initial={{ y: '100%' }}
               animate={{ y: 0 }}
@@ -332,7 +332,7 @@ export default function TripChatPanel({ tripId, initialMessages }: Props) {
               <header style={headerStyle}>
                 <div>
                   <div style={{ fontFamily: '"Fraunces", Georgia, serif', fontSize: 19, fontWeight: 460, color: '#1A1410', letterSpacing: '-0.012em' }}>
-                    Editor chat
+                    Ask your travel expert
                   </div>
                   <div style={{ fontSize: 11, color: '#6B6157', textTransform: 'uppercase', letterSpacing: '0.18em', marginTop: 4 }}>
                     Admin only
