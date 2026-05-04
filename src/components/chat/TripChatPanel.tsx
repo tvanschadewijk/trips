@@ -709,5 +709,3 @@ function sendIconButtonStyle(disabled: boolean): React.CSSProperties {
     transition: 'background 0.15s, color 0.15s',
   };
 }
-
-export type { PriorTurn };
