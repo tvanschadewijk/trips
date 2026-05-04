@@ -172,6 +172,9 @@ export interface AccommodationDetail extends RichDetail {
   cancellation_deadline?: string;
   wifi?: string;
   parking?: string;
+  policy_source_url?: string;
+  policy_source_label?: string;
+  policy_confidence?: 'high' | 'medium' | 'low';
   note?: string;
 }
 

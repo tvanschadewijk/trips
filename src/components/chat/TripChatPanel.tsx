@@ -17,7 +17,11 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { AnimatePresence, motion, useDragControls } from 'motion/react';
-import type { ToolCallSummary, PriorTurn } from '@/lib/trip-chat/prompt';
+import type { ToolCallSummary } from '@/lib/trip-chat/prompt';
+import {
+  DEFAULT_CHAT_STATUS_PHASES,
+  getChatStatusPhases,
+} from '@/lib/trip-chat/progress';
 import { useOnlineStatus } from '@/lib/online-status';
 import { renderTripMarkdown } from '@/lib/render-trip-markdown';
 
@@ -36,13 +40,6 @@ interface Props {
 }
 
 type PanelState = 'closed' | 'open' | 'minimized';
-
-const STATUS_PHASES = [
-  'Reading the trip…',
-  'Thinking it through…',
-  'Drafting an edit…',
-  'Almost there…',
-];
 
 // iOS 26-style spring — slight overshoot, lively. Borrowed from the
 // preppy AssistantOverlay; gives the sheet/pill transitions the right feel.
@@ -64,6 +61,9 @@ export default function TripChatPanel({ tripId, initialMessages }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [statusIdx, setStatusIdx] = useState(0);
+  const [statusPhases, setStatusPhases] = useState<readonly string[]>(
+    DEFAULT_CHAT_STATUS_PHASES
+  );
   const [unread, setUnread] = useState(false);
   const [keyboardInset, setKeyboardInset] = useState(0);
   const scrollerRef = useRef<HTMLDivElement | null>(null);
@@ -129,14 +129,14 @@ export default function TripChatPanel({ tripId, initialMessages }: Props) {
     const delays = [4500, 6000, 8000];
     const timers: ReturnType<typeof setTimeout>[] = [];
     let cumulative = 0;
-    for (let i = 0; i < STATUS_PHASES.length - 1; i++) {
+    for (let i = 0; i < statusPhases.length - 1; i++) {
       cumulative += delays[i] ?? 8000;
       timers.push(setTimeout(() => setStatusIdx(i + 1), cumulative));
     }
     return () => {
       timers.forEach(clearTimeout);
     };
-  }, [loading]);
+  }, [loading, statusPhases]);
 
   // Open the panel — clears unread badge.
   const openPanel = useCallback(() => {
@@ -157,6 +157,7 @@ export default function TripChatPanel({ tripId, initialMessages }: Props) {
     const trimmed = input.trim();
     if (!trimmed || loading) return;
     setError(null);
+    setStatusPhases(getChatStatusPhases(trimmed));
 
     const nextTurnIndex =
       messages.length === 0 ? 0 : Math.max(...messages.map((m) => m.turn_index)) + 1;
@@ -281,7 +282,7 @@ export default function TripChatPanel({ tripId, initialMessages }: Props) {
               <>
                 <TypingDots />
                 <span style={{ marginLeft: 10, fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic' }}>
-                  {STATUS_PHASES[statusIdx]}
+                  {statusPhases[statusIdx] ?? statusPhases[statusPhases.length - 1]}
                 </span>
               </>
             ) : (
@@ -371,7 +372,7 @@ export default function TripChatPanel({ tripId, initialMessages }: Props) {
                         transition={{ duration: 0.25 }}
                         style={statusTextStyle}
                       >
-                        {STATUS_PHASES[statusIdx]}
+                        {statusPhases[statusIdx] ?? statusPhases[statusPhases.length - 1]}
                       </motion.span>
                     </AnimatePresence>
                   </motion.div>

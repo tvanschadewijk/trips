@@ -13,9 +13,10 @@
  *     the chat agent must not inherit them. Locked to empty array and
  *     asserted in a unit test.
  *
- *   - Built-in tools restricted to `AskUserQuestion` only. No Bash, Read,
- *     Edit, Write, WebFetch, WebSearch — the agent edits trips via the
- *     in-process MCP server, nothing else.
+ *   - Built-in tools restricted to `AskUserQuestion` + `WebSearch`. No Bash,
+ *     Read, Edit, Write, or WebFetch — the agent edits trips and performs
+ *     structured trip-specific reads/research via the in-process MCP server,
+ *     nothing else.
  *
  *   - `permissionMode: 'dontAsk'` — deny anything not on the allowlist
  *     without a prompt (there's no human available to respond to a prompt
@@ -211,9 +212,9 @@ export async function POST(
   const mcpServer = createTripEditorMcpServer({
     tripId,
     supabase: admin,
-    onUpdateApplied: ({ input }) => {
+    onUpdateApplied: ({ tool, input }) => {
       toolCallsSummary.push({
-        tool: 'update_trip',
+        tool: tool ?? 'update_trip',
         ok: true,
         input_keys: Object.keys(input as Record<string, unknown>),
       });

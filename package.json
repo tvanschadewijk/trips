@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "tsx --test src/**/*.test.ts",
+    "test": "tsx --test \"src/**/*.test.ts\"",
     "generate:brand-video": "node scripts/generate-our-trips-brand-video.mjs",
     "compose:brand-video": "swift scripts/compose-our-trips-brand-video.swift"
   },

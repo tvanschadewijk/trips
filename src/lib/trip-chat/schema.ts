@@ -164,6 +164,9 @@ const AccommodationDetailSchema = z
     cancellation_deadline: z.string().optional(),
     wifi: z.string().optional(),
     parking: z.string().optional(),
+    policy_source_url: z.string().optional(),
+    policy_source_label: z.string().optional(),
+    policy_confidence: z.enum(['high', 'medium', 'low']).optional(),
     note: z.string().optional(),
   })
   .passthrough();
