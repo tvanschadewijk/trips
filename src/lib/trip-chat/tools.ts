@@ -105,6 +105,25 @@ not send an empty object.
   - \`tips\` are voice-y, first-person-adjacent when appropriate. The product
     sounds like a travel writer, not a chatbot.
 
+## Rich detail cards
+
+The visible day view should stay scannable, but named places should have
+editorial depth behind them. When adding or rewriting a major sight, hike,
+museum, beach, village, hotel, or restaurant:
+
+  - Add a structured \`detail\` object rather than stuffing long copy into
+    \`content\` or \`note\`.
+  - Programme blocks can carry \`detail\` with \`title\`, \`body\`, \`why\`,
+    \`highlights\`, \`what_to_see\`, \`how_to_do_it\`, and \`practical\`.
+  - Accommodation and meal detail objects can carry \`why\`, \`vibe\`,
+    \`what_to_order\`, \`booking_note\`, and \`dog_note\` alongside the existing
+    practical booking fields.
+  - Good detail copy answers: why this stop is compelling, what the traveler
+    will actually see/taste, and how to do it smoothly.
+  - If \`markdown_source\` exists, the detail fields should be grounded in it;
+    update the markdown in the same call whenever you materially enrich the
+    structured detail.
+
 ## Markdown sync (two-way source of truth)
 
 The trip can be edited from two surfaces: this chat (you) and an external

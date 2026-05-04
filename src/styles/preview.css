@@ -474,6 +474,24 @@ body.trip-on-cover .trip-ask-entry-label { display: inline; }
 .time-block { border-left: 1px solid var(--color-border-strong); padding: 2px 0 2px 14px; }
 .time-block.is-transport { border-left-color: var(--color-accent); }
 .time-block.is-options { border-left-color: var(--color-accent); }
+.time-block.has-detail { border-left-color: var(--color-accent); }
+.time-block-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0 0 2px; }
+.time-block-detail-btn {
+  width: 26px;
+  height: 26px;
+  border: 1px solid rgba(193, 79, 42, 0.22);
+  border-radius: 999px;
+  background: var(--color-accent-light);
+  color: var(--color-accent);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+}
+.time-block-detail-btn svg { width: 14px; height: 14px; }
+.time-block-detail-btn:active { transform: scale(0.94); background: rgba(193, 79, 42, 0.16); }
 .options-list { display: grid; gap: 8px; margin-top: 8px; }
 .option-card { background: var(--color-accent-light); border: 1px solid rgba(193, 79, 42, 0.18); border-radius: 4px; padding: 12px 14px; }
 .option-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
@@ -544,6 +562,17 @@ body.trip-on-cover .trip-ask-entry-label { display: inline; }
   font-family: var(--font-sans); font-size: 15px; font-weight: 420;
   line-height: 1.65; color: var(--color-text-secondary);
 }
+.detail-list {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 8px;
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--color-text-secondary);
+}
+.detail-list li::marker { color: var(--color-accent); }
 
 /* Swipe dots */
 /* Bottom drawer — sticky chrome at the bottom of the trip view.
@@ -1175,6 +1204,7 @@ body.trip-on-cover .trip-ask-entry-label { display: inline; }
   .text-card-title { font-size: 26px; }
   .text-card-title-light { font-size: 26px; }
   .time-block { padding: 4px 0 4px 14px; }
+  .time-block-detail-btn:hover { background: rgba(193, 79, 42, 0.16); }
   /* Clickable items get pointer cursor on desktop */
   .transport-row { cursor: pointer; border-radius: 4px; padding: 10px; margin: -10px 0; transition: background 0.15s; }
   .transport-row:hover { background: var(--color-surface-deep); }

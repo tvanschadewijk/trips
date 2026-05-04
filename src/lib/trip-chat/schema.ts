@@ -68,11 +68,28 @@ const OptionSchema = z
   })
   .passthrough();
 
+const RichDetailShape = {
+  title: z.string().optional(),
+  body: z.string().optional(),
+  why: z.string().optional(),
+  vibe: z.string().optional(),
+  highlights: z.array(z.string()).optional(),
+  what_to_see: z.array(z.string()).optional(),
+  how_to_do_it: z.string().optional(),
+  practical: z.string().optional(),
+  booking_note: z.string().optional(),
+  what_to_order: z.string().optional(),
+  dog_note: z.string().optional(),
+};
+
+const RichDetailSchema = z.object(RichDetailShape).passthrough();
+
 const BlockSchema = z
   .object({
     time_label: z.string(),
     content: NonEmptyString,
     type: NonEmptyString,
+    detail: RichDetailSchema.optional(),
     options: z.array(OptionSchema).optional(),
   })
   .passthrough();
@@ -136,6 +153,7 @@ const TransportSchema = z
 
 const AccommodationDetailSchema = z
   .object({
+    ...RichDetailShape,
     check_in: z.string().optional(),
     check_out: z.string().optional(),
     room_type: z.string().optional(),
@@ -164,6 +182,7 @@ const AccommodationSchema = z
 
 const MealDetailSchema = z
   .object({
+    ...RichDetailShape,
     address: z.string().optional(),
     phone: z.string().optional(),
     cuisine: z.string().optional(),

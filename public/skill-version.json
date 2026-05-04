@@ -1,5 +1,5 @@
 {
-  "version": 11,
-  "changelog": "Send the original itinerary markdown as `markdown_source` in the trip body so it stays visible in the trip view's 'Original plan' entry.",
+  "version": 12,
+  "changelog": "Generate rich tappable detail cards for major sights, activities, hotels, and restaurants while keeping the visible day cards concise.",
   "download_url": "https://ourtrips.to/our-trips.skill"
 }

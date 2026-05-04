@@ -77,7 +77,22 @@ export interface Block {
   time_label: string;
   content: string;
   type: string;
+  detail?: RichDetail;
   options?: Option[];
+}
+
+export interface RichDetail {
+  title?: string;
+  body?: string;
+  why?: string;
+  vibe?: string;
+  highlights?: string[];
+  what_to_see?: string[];
+  how_to_do_it?: string;
+  practical?: string;
+  booking_note?: string;
+  what_to_order?: string;
+  dog_note?: string;
 }
 
 export interface Option {
@@ -146,7 +161,7 @@ export interface Accommodation {
   detail?: AccommodationDetail;
 }
 
-export interface AccommodationDetail {
+export interface AccommodationDetail extends RichDetail {
   check_in?: string;
   check_out?: string;
   room_type?: string;
@@ -168,7 +183,7 @@ export interface Meal {
   detail?: MealDetail;
 }
 
-export interface MealDetail {
+export interface MealDetail extends RichDetail {
   address?: string;
   phone?: string;
   cuisine?: string;

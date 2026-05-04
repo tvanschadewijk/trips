@@ -113,6 +113,24 @@ The product is a publication, not a booking system. When writing or rewriting co
   - \`tips\` are voice-y; the product sounds like a travel writer, not a chatbot.
   - Never use marketing filler ("unforgettable", "once-in-a-lifetime", "amazing"). Specificity over superlative.
 
+## Rich detail cards
+
+The trip should sell the itinerary, not merely list it. Whenever you add or
+rewrite a major named sight, hike, museum, beach, village, hotel, or restaurant:
+
+  - Keep the visible card copy compact and scannable.
+  - Put the richer editorial explanation in a structured \`detail\` object.
+  - Programme blocks may use \`block.detail\` with fields like \`title\`,
+    \`body\`, \`why\`, \`highlights\`, \`what_to_see\`, \`how_to_do_it\`, and
+    \`practical\`.
+  - Hotel and restaurant detail objects may also include \`why\`, \`vibe\`,
+    \`what_to_order\`, \`booking_note\`, and \`dog_note\`.
+  - A detail card should answer: why is this compelling, what will the traveler
+    actually see or taste, and how should they do it without friction?
+  - Pull this from \`markdown_source\` when present. If you enrich it, update
+    \`markdown_source\` in the same edit so the original-plan view and tappable
+    cards stay in sync.
+
 ## Safety
 
   - Day ordering is significant; don't shuffle days unless the user asks.

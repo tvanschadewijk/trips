@@ -3,7 +3,7 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { flushSync } from 'react-dom';
 import Image from 'next/image';
-import type { TripData, Day, Transport, Accommodation, Tip, Meal } from '@/lib/types';
+import type { TripData, Day, Transport, Accommodation, Tip, Meal, Block, RichDetail } from '@/lib/types';
 import { ICONS } from './icons';
 import SaveOfflineButton from './SaveOfflineButton';
 import { renderTripMarkdown } from '@/lib/render-trip-markdown';
@@ -34,6 +34,42 @@ function Icon({ name }: { name: string }) {
 
 function formatDate(dateStr: string, opts: Intl.DateTimeFormatOptions) {
   return new Date(dateStr + 'T12:00:00').toLocaleDateString('en-GB', opts);
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function renderMarkdownSection(title: string, content?: string): string {
+  if (!content) return '';
+  return `<div class="detail-info-section"><div class="detail-info-section-title"><span class="text-section-title">${escapeHtml(title)}</span></div>${renderTripMarkdown(content)}</div>`;
+}
+
+function renderListSection(title: string, items?: string[]): string {
+  if (!items?.length) return '';
+  const list = items.map(item => `<li>${escapeHtml(item)}</li>`).join('');
+  return `<div class="detail-info-section"><div class="detail-info-section-title"><span class="text-section-title">${escapeHtml(title)}</span></div><ul class="detail-list">${list}</ul></div>`;
+}
+
+function renderRichDetail(detail?: RichDetail): string {
+  if (!detail) return '';
+  return [
+    renderMarkdownSection('Overview', detail.body),
+    renderMarkdownSection('Why go', detail.why),
+    renderMarkdownSection('Vibe', detail.vibe),
+    renderListSection('Highlights', detail.highlights),
+    renderListSection('What to see', detail.what_to_see),
+    renderMarkdownSection('How to do it', detail.how_to_do_it),
+    renderMarkdownSection('Practical notes', detail.practical),
+    renderMarkdownSection('What to order', detail.what_to_order),
+    renderMarkdownSection('Booking note', detail.booking_note),
+    renderMarkdownSection('Dog note', detail.dog_note),
+  ].join('');
 }
 
 const MAX_VISIBLE_DOTS = 7;
@@ -453,12 +489,25 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Detail sheet
-  function openDetail(type: 'transport' | 'accommodation' | 'tip' | 'meal', item: Transport | Accommodation | Tip | Meal) {
+  function openDetail(type: 'transport' | 'accommodation' | 'tip' | 'meal' | 'block', item: Transport | Accommodation | Tip | Meal | Block) {
+    if (type === 'block') {
+      const block = item as Block;
+      if (!block.detail) return;
+      const title = block.detail.title || block.content;
+      const html = renderRichDetail(block.detail);
+      setDetailContent({
+        title,
+        html: html || `<div class="detail-tip-body"><p class="detail-tip-text">${escapeHtml(block.content)}</p></div>`,
+      });
+      setDetailOpen(true);
+      window.history.pushState({ detail: true }, '');
+      return;
+    }
     if (type === 'tip') {
       const tip = item as Tip;
       setDetailContent({
         title: tip.title,
-        html: `<div class="detail-tip-body"><p class="detail-tip-text">${tip.content}</p></div>`
+        html: `<div class="detail-tip-body"><p class="detail-tip-text">${escapeHtml(tip.content)}</p></div>`
       });
       setDetailOpen(true);
       window.history.pushState({ detail: true }, '');
@@ -468,17 +517,18 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
       const m = item as Meal;
       if (!m.detail) return;
       const d = m.detail;
+      const richHtml = renderRichDetail(d);
       const fields: [string, string | undefined][] = [
         ['Cuisine', d.cuisine], ['Price range', d.price_range], ['Address', d.address],
         ['Phone', d.phone], ['Hours', d.hours],
         ['Reservation', d.reservation], ['Booked via', d.booking_platform], ['Note', d.note],
       ];
       const rows = fields.filter(([, v]) => v).map(([l, v]) =>
-        `<div class="detail-row"><span class="detail-row-label">${l}</span><span class="detail-row-value${l === 'Phone' ? ' mono' : ''}">${l === 'Phone' ? `<a href="tel:${v}">${v}</a>` : v}</span></div>`
+        `<div class="detail-row"><span class="detail-row-label">${l}</span><span class="detail-row-value${l === 'Phone' ? ' mono' : ''}">${l === 'Phone' ? `<a href="tel:${escapeHtml(v!)}">${escapeHtml(v!)}</a>` : escapeHtml(v!)}</span></div>`
       ).join('');
       setDetailContent({
         title: m.name,
-        html: `<div class="detail-info-section"><div class="detail-info-section-title"><span class="text-section-title">Restaurant Details</span></div>${rows}</div>`
+        html: `${richHtml}<div class="detail-info-section"><div class="detail-info-section-title"><span class="text-section-title">Restaurant Details</span></div>${rows}</div>`
       });
       setDetailOpen(true);
       window.history.pushState({ detail: true }, '');
@@ -526,6 +576,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     } else {
       const a = item as Accommodation;
       const d = a.detail!;
+      const richHtml = renderRichDetail(d);
       const fields: [string, string | undefined][] = [
         ['Room type', d.room_type], ['Check-in', d.check_in], ['Check-out', d.check_out],
         ['Nights', a.nights ? a.nights + (a.nights > 1 ? ' nights' : ' night') : undefined],
@@ -534,11 +585,11 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
         ['Cancel by', d.cancellation_deadline], ['WiFi', d.wifi], ['Parking', d.parking], ['Note', d.note],
       ];
       const rows = fields.filter(([, v]) => v).map(([l, v]) =>
-        `<div class="detail-row"><span class="detail-row-label">${l}</span><span class="detail-row-value${l === 'Phone' ? ' mono' : ''}">${l === 'Phone' ? `<a href="tel:${v}">${v}</a>` : v}</span></div>`
+        `<div class="detail-row"><span class="detail-row-label">${l}</span><span class="detail-row-value${l === 'Phone' ? ' mono' : ''}">${l === 'Phone' ? `<a href="tel:${escapeHtml(v!)}">${escapeHtml(v!)}</a>` : escapeHtml(v!)}</span></div>`
       ).join('');
       setDetailContent({
         title: a.name || 'Accommodation',
-        html: `<div class="detail-info-section"><div class="detail-info-section-title"><span class="text-section-title">Booking Details</span></div>${rows}</div>`
+        html: `${richHtml}<div class="detail-info-section"><div class="detail-info-section-title"><span class="text-section-title">Booking Details</span></div>${rows}</div>`
       });
     }
     setDetailOpen(true);
@@ -1015,8 +1066,20 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
         </div>
         <div className="time-blocks">
           {day.blocks.map((b, i) => (
-            <div key={i} className={`time-block ${b.type === 'transport' ? 'is-transport' : ''} ${b.type === 'options' ? 'is-options' : ''}`}>
-              <p className="text-label-dark" style={{ margin: '0 0 2px' }}>{b.time_label}</p>
+            <div key={i} className={`time-block ${b.type === 'transport' ? 'is-transport' : ''} ${b.type === 'options' ? 'is-options' : ''} ${b.detail ? 'has-detail' : ''}`}>
+              <div className="time-block-heading">
+                <p className="text-label-dark" style={{ margin: 0 }}>{b.time_label}</p>
+                {b.detail && (
+                  <button
+                    type="button"
+                    className="time-block-detail-btn"
+                    aria-label={`More about ${b.detail.title || b.content}`}
+                    onClick={() => openDetail('block', b)}
+                  >
+                    <Icon name="info" />
+                  </button>
+                )}
+              </div>
               <p className="text-body" style={{ margin: 0 }}>{b.content}</p>
               {b.type === 'options' && b.options?.length ? (
                 <div className="options-list">
