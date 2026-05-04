@@ -79,6 +79,7 @@
   flex-direction: column;
   overflow: hidden;
   position: relative;
+  isolation: isolate;
   touch-action: pan-y;
   -webkit-user-select: none;
   user-select: none;
@@ -1181,6 +1182,22 @@ body.trip-on-cover .trip-ask-entry-label { display: inline; }
   .accom-card:hover { background: var(--color-surface-deep); }
   .meal-has-detail { cursor: pointer; border-radius: 4px; transition: background 0.15s; }
   .meal-has-detail:hover { background: var(--color-surface-deep); }
+  .trip-ask-entry {
+    left: calc(50% - (var(--app-max-width) / 2) + 20px);
+    bottom: calc(30px + env(safe-area-inset-bottom));
+  }
+  .floating-save {
+    left: auto;
+    right: 20px;
+    bottom: calc(86px + env(safe-area-inset-bottom));
+    justify-content: flex-end;
+    z-index: 25;
+    padding: 0;
+  }
+  .floating-save-btn {
+    max-width: calc(var(--app-max-width) - 40px);
+    min-height: 44px;
+  }
 }
 @media (min-width: 1200px) {
   :root {
@@ -1202,6 +1219,9 @@ body.trip-on-cover .trip-ask-entry-label { display: inline; }
   .detail-header { padding: 20px 24px 14px; }
   .detail-body { padding: 28px 24px calc(40px + env(safe-area-inset-bottom)); }
   .detail-sheet { border-radius: 14px 14px 0 0; }
+  .trip-ask-entry {
+    bottom: calc(40px + env(safe-area-inset-bottom));
+  }
 }
 @media (min-width: 1600px) {
   :root {
@@ -1215,4 +1235,7 @@ body.trip-on-cover .trip-ask-entry-label { display: inline; }
   .text-hero-title { font-size: 56px; }
   .day-hero { height: 300px; }
   .day-section { padding: 24px; }
+  .trip-ask-entry {
+    bottom: calc(50px + env(safe-area-inset-bottom));
+  }
 }

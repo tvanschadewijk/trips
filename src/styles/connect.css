@@ -1,67 +1,82 @@
 .connect {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  color: #FFFFFF;
+  color: #1A1410;
   -webkit-font-smoothing: antialiased;
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
   align-items: center;
+  background: #FBF7F1;
+  padding: 0 24px 48px;
 }
 
 .connect-nav {
   width: 100%;
-  padding: 16px 24px;
+  max-width: 1040px;
+  padding: 18px 0;
 }
 .connect-logo {
+  font-family: 'Fraunces', 'Iowan Old Style', Palatino, Georgia, serif;
   font-size: 20px;
-  font-weight: 800;
-  letter-spacing: -0.03em;
-  color: #FFFFFF;
+  font-weight: 420;
+  font-variation-settings: 'SOFT' 40;
+  font-optical-sizing: auto;
+  letter-spacing: -0.01em;
+  color: #1A1410;
   text-decoration: none;
 }
+.connect-logo .logo-suffix { color: #9B9087; }
 
 .connect-card {
-  margin-top: 60px;
+  margin-top: clamp(48px, 12vh, 96px);
   width: 100%;
-  max-width: 400px;
-  padding: 36px 28px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 20px;
+  max-width: 440px;
+  padding: 40px 32px;
+  background: #FFFFFF;
+  border: 1px solid #E8E1D6;
+  border-radius: 4px;
+  box-shadow: rgba(26, 20, 16, 0.04) 0 1px 0 0,
+    rgba(26, 20, 16, 0.06) 0 4px 16px -4px;
 }
 
 .connect-center { text-align: center; }
 
 .connect-icon {
-  width: 52px;
-  height: 52px;
-  margin: 0 auto 20px;
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 24px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(43, 124, 233, 0.15);
-  border-radius: 16px;
-  color: #6AABF7;
+  background: #F5E4DA;
+  border-radius: 4px;
+  color: #C14F2A;
 }
 .connect-icon svg { width: 26px; height: 26px; }
-.connect-icon-success { background: rgba(45, 138, 86, 0.15); color: #4ADE80; }
-.connect-icon-error { background: rgba(229, 83, 75, 0.15); color: #F87171; }
+.connect-icon-success { background: rgba(47, 107, 74, 0.12); color: #2F6B4A; }
+.connect-icon-error { background: #F5E4DA; color: #9B4F2E; }
 
 .connect-title {
-  font-size: 22px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  margin: 0 0 8px;
+  font-family: 'Fraunces', 'Iowan Old Style', Palatino, Georgia, serif;
+  font-size: clamp(28px, 8vw, 36px);
+  font-weight: 420;
+  font-variation-settings: 'SOFT' 35;
+  font-optical-sizing: auto;
+  letter-spacing: -0.012em;
+  line-height: 1.08;
+  margin: 0 0 12px;
 }
 .connect-desc {
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.5);
-  margin: 0 0 24px;
-  line-height: 1.55;
+  max-width: 34ch;
+  margin: 0 auto 28px;
+  color: #3D352E;
+  font-size: 16px;
+  font-weight: 420;
+  line-height: 1.6;
 }
 .connect-desc strong {
-  color: rgba(255, 255, 255, 0.8);
-  font-weight: 600;
+  color: #1A1410;
+  font-weight: 580;
 }
 
 .connect-form {
@@ -72,29 +87,48 @@
 .connect-input {
   width: 100%;
   padding: 12px 14px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 10px;
-  color: #FFFFFF;
+  background: #FFFFFF;
+  border: 1px solid #E8E1D6;
+  border-radius: 6px;
+  color: #1A1410;
   font-family: 'Inter', system-ui, sans-serif;
   font-size: 15px;
   outline: none;
-  transition: border-color 0.2s;
+  transition: border-color 0.2s, box-shadow 0.2s;
 }
-.connect-input::placeholder { color: rgba(255, 255, 255, 0.3); }
-.connect-input:focus { border-color: #2B7CE9; }
+.connect-input::placeholder { color: #9B9087; }
+.connect-input:focus {
+  border-color: #1A1410;
+  box-shadow: 0 0 0 3px rgba(26, 20, 16, 0.06);
+}
 
 .connect-btn {
-  padding: 12px;
-  background: #2B7CE9;
-  color: #FFFFFF;
+  padding: 14px 24px;
+  background: #C14F2A;
+  color: #FBF7F1;
   font-family: 'Inter', system-ui, sans-serif;
-  font-size: 15px;
-  font-weight: 600;
+  font-size: 14px;
+  font-weight: 580;
   border: none;
-  border-radius: 10px;
+  border-radius: 999px;
   cursor: pointer;
-  transition: background 0.2s;
+  transition: background 0.18s ease, transform 0.12s ease;
   width: 100%;
 }
-.connect-btn:hover { background: #2468C8; }
+.connect-btn:hover { background: #A03E1F; }
+.connect-btn:active { transform: translateY(1px); }
+.connect-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(193, 79, 42, 0.24);
+}
+
+@media (max-width: 480px) {
+  .connect {
+    padding-inline: 20px;
+  }
+
+  .connect-card {
+    margin-top: 40px;
+    padding: 32px 24px;
+  }
+}
