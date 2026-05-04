@@ -14,7 +14,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { createSdkMcpServer, tool } from '@anthropic-ai/claude-agent-sdk';
 import type { McpSdkServerConfigWithInstance } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod';
-import type { AccommodationDetail, TripData } from '@/lib/types';
+import type { Accommodation, AccommodationDetail, TripData } from '@/lib/types';
 import {
   GetTripInputShape,
   UpdateTripInputShape,
@@ -40,6 +40,8 @@ const POLICY_TEXT_LIMIT = 200_000;
 const POLICY_CANDIDATE_LIMIT = 5;
 
 const ACCOMMODATION_PATH_RE = /^days\[(\d+)\]\.accommodation$/;
+const AGENT_NOTES_START = '<!-- OURTRIPS_AGENT_NOTES_START -->';
+const AGENT_NOTES_END = '<!-- OURTRIPS_AGENT_NOTES_END -->';
 
 const LIST_ACCOMMODATIONS_DESCRIPTION = `List every accommodation on the current trip without loading the full itinerary.
 
@@ -61,10 +63,27 @@ Use this for precise hotel updates such as dog_note, parking, phone, check-in,
 wifi, or policy-source notes. Prefer this over update_trip when only one hotel
 detail field changes because update_trip has to replace the full days array.
 
-If the trip has markdown_source and the user's request explicitly requires the
-source markdown to be changed too, use update_trip instead so the markdown can
-move in the same write. For factual enrichment of structured hotel detail
-cards, this narrow tool is preferred.`;
+If the trip has markdown_source, this tool also maintains a small deterministic
+"OurTrips agent notes" section in that markdown so external agents like Claude
+Co-work can continue from the same hotel-policy context. It preserves the
+original markdown and only adds/replaces the matching hotel note.`;
+
+const UPDATE_ACCOMMODATION_DESCRIPTION = `Patch top-level fields for one accommodation without loading or replacing the full trip.
+
+Use the path returned by list_accommodations, for example
+"days[3].accommodation". This updates small visible stay-card fields such as
+name, price, rating, status, nights, and note while preserving the detail
+object and every other trip field.
+
+Use this when the user asks to rename a hotel/stay or fix visible
+accommodation card text on a long trip. For repeated nights of the same stay,
+set match to "same_current_name" so the same patch applies to every day whose
+current accommodation name matches the path's accommodation name. This avoids
+the large update_trip days-array replacement that can exceed context limits.
+
+If the trip has markdown_source, this tool also maintains the deterministic
+"OurTrips agent notes" section in that markdown so external agents can see
+hotel/stay-card changes without forcing a full itinerary rewrite.`;
 
 const RESEARCH_PLACE_POLICY_DESCRIPTION = `Research a single policy for a named place and return structured evidence.
 
@@ -117,6 +136,35 @@ const UpdateAccommodationDetailInputShape = {
   detail_patch: DetailPatchSchema,
 } as const;
 
+const AccommodationPatchSchema = z
+  .object({
+    name: z.string().min(1).optional(),
+    price: z.string().optional(),
+    rating: z.string().optional(),
+    status: z.string().optional(),
+    nights: z.number().optional(),
+    note: z.string().optional(),
+  })
+  .strict()
+  .refine((value) => Object.keys(value).length > 0, {
+    message: 'Provide at least one accommodation field to patch.',
+  });
+
+const UpdateAccommodationInputShape = {
+  path: z
+    .string()
+    .regex(ACCOMMODATION_PATH_RE, 'Use a path returned by list_accommodations, e.g. days[3].accommodation'),
+  accommodation_patch: AccommodationPatchSchema,
+  match: z
+    .enum(['path_only', 'same_current_name'])
+    .default('path_only')
+    .describe('Use same_current_name to apply a rename/fix to repeated nights of the same current stay.'),
+} as const;
+
+type AccommodationPatch = Partial<
+  Pick<Accommodation, 'name' | 'price' | 'rating' | 'status' | 'nights' | 'note'>
+>;
+
 const ResearchPlacePolicyInputShape = {
   place_name: z.string().min(1),
   city: z.string().optional(),
@@ -132,13 +180,13 @@ const ResearchPlacePolicyInputShape = {
     .describe('Optional known official page to check before searching.'),
 } as const;
 
-const GET_TRIP_DESCRIPTION = `Read the current state of the trip the user is editing.
+const GET_TRIP_DESCRIPTION = `Read the full current state of the trip the user is editing.
 
-Call this at the START of each turn. The trip can change between turns (another
-edit may have landed) and — more importantly — after you call update_trip,
-because your last view of it is stale. Your conversation history from prior
-turns is replayed, so you have a record of past edits, but re-read if you're
-about to touch fields you haven't verified this turn.
+Use this when the edit needs fields outside the narrow list tools, or when you
+must update markdown_source alongside structural changes. Avoid it for
+accommodation-only questions or edits on long trips; list_accommodations plus
+update_accommodation/update_accommodation_detail can handle those without
+loading the full itinerary.
 
 Returns the full TripData JSON: { trip: {...meta...}, days: [...day objects...] }.
 
@@ -313,6 +361,149 @@ function inferLocationFromDayTitle(title: string): string | undefined {
   return parts.at(-1) || title.trim() || undefined;
 }
 
+function oneLineMarkdown(value: unknown): string {
+  if (value === undefined || value === null) return '';
+  return String(value)
+    .replace(/\s+/g, ' ')
+    .replace(/<!--/g, '<!-- ')
+    .replace(/-->/g, '-- >')
+    .trim();
+}
+
+function markdownLink(label: string, url: string): string {
+  const cleanLabel = oneLineMarkdown(label).replace(/\]/g, '\\]');
+  return `[${cleanLabel}](${url})`;
+}
+
+function summarizeAccommodationDetailPatch(
+  detailPatch: Partial<AccommodationDetail>
+): string[] {
+  const parts: string[] = [];
+  const add = (label: string, value: unknown) => {
+    const clean = oneLineMarkdown(value);
+    if (clean) parts.push(`${label}: ${clean}`);
+  };
+
+  add('Dog policy', detailPatch.dog_note);
+  add('Parking', detailPatch.parking);
+  add('Wi-Fi', detailPatch.wifi);
+  add('Check-in', detailPatch.check_in);
+  add('Check-out', detailPatch.check_out);
+  add('Room', detailPatch.room_type);
+  add('Phone', detailPatch.phone);
+  add('Booking note', detailPatch.booking_note);
+  add('Note', detailPatch.note);
+
+  const sourceUrl = oneLineMarkdown(detailPatch.policy_source_url);
+  const sourceLabel = oneLineMarkdown(detailPatch.policy_source_label);
+  const confidence = oneLineMarkdown(detailPatch.policy_confidence);
+  if (sourceUrl) {
+    const source = sourceLabel ? markdownLink(sourceLabel, sourceUrl) : sourceUrl;
+    parts.push(`Source: ${source}${confidence ? ` (${confidence} confidence)` : ''}`);
+  } else if (sourceLabel) {
+    parts.push(`Source: ${sourceLabel}${confidence ? ` (${confidence} confidence)` : ''}`);
+  } else if (confidence) {
+    parts.push(`Confidence: ${confidence}`);
+  }
+
+  return parts;
+}
+
+function summarizeAccommodationPatch(
+  accommodationPatch: AccommodationPatch,
+  previousName?: string
+): string[] {
+  const parts: string[] = [];
+  const add = (label: string, value: unknown) => {
+    const clean = oneLineMarkdown(value);
+    if (clean) parts.push(`${label}: ${clean}`);
+  };
+
+  if (accommodationPatch.name) {
+    const nextName = oneLineMarkdown(accommodationPatch.name);
+    const cleanPrevious = oneLineMarkdown(previousName);
+    parts.push(
+      cleanPrevious && cleanPrevious !== nextName
+        ? `Hotel/stay: ${cleanPrevious} -> ${nextName}`
+        : `Hotel/stay: ${nextName}`
+    );
+  }
+  add('Price', accommodationPatch.price);
+  add('Rating', accommodationPatch.rating);
+  add('Status', accommodationPatch.status);
+  add('Nights', accommodationPatch.nights);
+  add('Stay note', accommodationPatch.note);
+
+  return parts;
+}
+
+function buildAccommodationAgentNote(args: {
+  dayNumber: number;
+  date: string;
+  name: string;
+  path: string;
+  detailPatch?: Partial<AccommodationDetail>;
+  accommodationPatch?: AccommodationPatch;
+  previousName?: string;
+}): string | null {
+  const parts = [
+    ...summarizeAccommodationPatch(args.accommodationPatch ?? {}, args.previousName),
+    ...summarizeAccommodationDetailPatch(args.detailPatch ?? {}),
+  ];
+  if (parts.length === 0) return null;
+  const heading = `Day ${args.dayNumber}${args.date ? ` (${args.date})` : ''} — ${oneLineMarkdown(args.name)}`;
+  return `- ${heading}: ${parts.join('; ')}. <!-- path: ${args.path} -->`;
+}
+
+function upsertAgentNoteLine(sectionBody: string, path: string, noteLine: string): string {
+  const lines = sectionBody
+    .split('\n')
+    .map((line) => line.trimEnd())
+    .filter((line) => {
+      const trimmed = line.trim();
+      return trimmed.length > 0 && trimmed !== '## OurTrips agent notes';
+    });
+  const pathMarker = `<!-- path: ${path} -->`;
+  const existingIndex = lines.findIndex((line) => line.includes(pathMarker));
+  if (existingIndex >= 0) {
+    lines[existingIndex] = noteLine;
+  } else {
+    lines.push(noteLine);
+  }
+  return lines.join('\n');
+}
+
+export function upsertAccommodationAgentNote(
+  markdownSource: string,
+  args: {
+    dayNumber: number;
+    date: string;
+    name: string;
+    path: string;
+    detailPatch?: Partial<AccommodationDetail>;
+    accommodationPatch?: AccommodationPatch;
+    previousName?: string;
+  }
+): string {
+  const noteLine = buildAccommodationAgentNote(args);
+  if (!noteLine) return markdownSource;
+
+  const startIndex = markdownSource.indexOf(AGENT_NOTES_START);
+  const endIndex = markdownSource.indexOf(AGENT_NOTES_END);
+  if (startIndex >= 0 && endIndex > startIndex) {
+    const before = markdownSource.slice(0, startIndex).trimEnd();
+    const existingBodyStart = startIndex + AGENT_NOTES_START.length;
+    const existingBody = markdownSource.slice(existingBodyStart, endIndex).trim();
+    const after = markdownSource.slice(endIndex + AGENT_NOTES_END.length).trimStart();
+    const nextBody = upsertAgentNoteLine(existingBody, args.path, noteLine);
+    const section = `${AGENT_NOTES_START}\n## OurTrips agent notes\n\n${nextBody}\n${AGENT_NOTES_END}`;
+    return [before, section, after].filter(Boolean).join('\n\n');
+  }
+
+  const section = `${AGENT_NOTES_START}\n## OurTrips agent notes\n\n${noteLine}\n${AGENT_NOTES_END}`;
+  return `${markdownSource.trimEnd()}\n\n${section}`;
+}
+
 export function collectAccommodations(trip: TripData) {
   return trip.days.flatMap((day, dayIndex) => {
     if (!day.accommodation) return [];
@@ -345,7 +536,15 @@ export function applyAccommodationDetailPatch(
   existing: TripData,
   path: string,
   detailPatch: Partial<AccommodationDetail>
-): { ok: true; next: TripData; dayNumber: number; name: string } | { ok: false; error: string } {
+):
+  | {
+      ok: true;
+      next: TripData;
+      dayNumber: number;
+      name: string;
+      markdownSourceUpdated: boolean;
+    }
+  | { ok: false; error: string } {
   const dayIndex = parseAccommodationPath(path);
   if (dayIndex === null) {
     return { ok: false, error: 'Invalid accommodation path. Use a path returned by list_accommodations.' };
@@ -372,11 +571,116 @@ export function applyAccommodationDetailPatch(
     };
   });
 
+  const next: TripData = { ...existing, days: nextDays };
+  if (typeof existing.markdown_source === 'string' && existing.markdown_source.length > 0) {
+    next.markdown_source = upsertAccommodationAgentNote(existing.markdown_source, {
+      dayNumber: day.day_number,
+      date: day.date,
+      name: day.accommodation.name,
+      path,
+      detailPatch,
+    });
+  }
+
   return {
     ok: true,
-    next: { ...existing, days: nextDays },
+    next,
     dayNumber: day.day_number,
     name: day.accommodation.name,
+    markdownSourceUpdated: next.markdown_source !== existing.markdown_source,
+  };
+}
+
+export function applyAccommodationPatch(
+  existing: TripData,
+  path: string,
+  accommodationPatch: Partial<Pick<Accommodation, 'name' | 'price' | 'rating' | 'status' | 'nights' | 'note'>>,
+  match: 'path_only' | 'same_current_name' = 'path_only'
+):
+  | {
+      ok: true;
+      next: TripData;
+      dayNumbers: number[];
+      previousName: string;
+      name: string;
+      updatedCount: number;
+      markdownSourceUpdated: boolean;
+    }
+  | { ok: false; error: string } {
+  const dayIndex = parseAccommodationPath(path);
+  if (dayIndex === null) {
+    return { ok: false, error: 'Invalid accommodation path. Use a path returned by list_accommodations.' };
+  }
+  const day = existing.days[dayIndex];
+  if (!day) {
+    return { ok: false, error: `No day exists at ${path}. Re-run list_accommodations and use a current path.` };
+  }
+  if (!day.accommodation) {
+    return { ok: false, error: `Day ${day.day_number} has no accommodation to update.` };
+  }
+  if (Object.keys(accommodationPatch).length === 0) {
+    return { ok: false, error: 'Provide at least one accommodation field to patch.' };
+  }
+
+  const previousName = day.accommodation.name;
+  const updatedDayNumbers: number[] = [];
+  const updatedNotes: Array<{
+    index: number;
+    dayNumber: number;
+    date: string;
+    previousName: string;
+    name: string;
+  }> = [];
+  const nextDays = existing.days.map((candidate, index) => {
+    if (!candidate.accommodation) return candidate;
+    const shouldPatch =
+      match === 'same_current_name'
+        ? candidate.accommodation.name === previousName
+        : index === dayIndex;
+    if (!shouldPatch) return candidate;
+
+    const nextAccommodation = {
+      ...candidate.accommodation,
+      ...accommodationPatch,
+    };
+    updatedDayNumbers.push(candidate.day_number);
+    updatedNotes.push({
+      index,
+      dayNumber: candidate.day_number,
+      date: candidate.date,
+      previousName: candidate.accommodation.name,
+      name: nextAccommodation.name,
+    });
+    return {
+      ...candidate,
+      accommodation: nextAccommodation,
+    };
+  });
+
+  const next: TripData = { ...existing, days: nextDays };
+  if (typeof existing.markdown_source === 'string' && existing.markdown_source.length > 0) {
+    next.markdown_source = updatedNotes.reduce(
+      (markdownSource, note) =>
+        upsertAccommodationAgentNote(markdownSource, {
+          dayNumber: note.dayNumber,
+          date: note.date,
+          name: note.name,
+          path: `days[${note.index}].accommodation`,
+          accommodationPatch,
+          previousName: note.previousName,
+        }),
+      existing.markdown_source
+    );
+  }
+
+  return {
+    ok: true,
+    next,
+    dayNumbers: updatedDayNumbers,
+    previousName,
+    name: accommodationPatch.name ?? previousName,
+    updatedCount: updatedDayNumbers.length,
+    markdownSourceUpdated: next.markdown_source !== existing.markdown_source,
   };
 }
 
@@ -799,6 +1103,77 @@ export function createTripEditorMcpServer(
     }
   );
 
+  const updateAccommodation = tool(
+    'update_accommodation',
+    UPDATE_ACCOMMODATION_DESCRIPTION,
+    UpdateAccommodationInputShape,
+    async (rawArgs) => {
+      const parsed = z.object(UpdateAccommodationInputShape).safeParse(rawArgs);
+      if (!parsed.success) {
+        return textToolError(
+          `Invalid input: ${parsed.error.issues
+            .map((i) => `${i.path.join('.')}: ${i.message}`)
+            .join('; ')}`
+        );
+      }
+
+      const read = await ctx.supabase
+        .from('trips')
+        .select('data')
+        .eq('id', ctx.tripId)
+        .single();
+
+      if (read.error || !read.data) {
+        return textToolError(`Error reading trip for update: ${read.error?.message ?? 'not found'}`);
+      }
+
+      const before = read.data.data as TripData;
+      const result = applyAccommodationPatch(
+        before,
+        parsed.data.path,
+        parsed.data.accommodation_patch,
+        parsed.data.match
+      );
+      if (!result.ok) {
+        return textToolError(result.error);
+      }
+
+      const write = await ctx.supabase
+        .from('trips')
+        .update({ data: result.next, updated_at: new Date().toISOString() })
+        .eq('id', ctx.tripId);
+
+      if (write.error) {
+        return textToolError(`Error writing trip: ${write.error.message}`);
+      }
+
+      if (ctx.onUpdateApplied) {
+        try {
+          await ctx.onUpdateApplied({
+            tool: 'update_accommodation',
+            before,
+            after: result.next,
+            input: parsed.data,
+          });
+        } catch {
+          // Telemetry errors must not fail the tool call.
+        }
+      }
+
+      return jsonToolResponse({
+        ok: true,
+        updated: parsed.data.path,
+        match: parsed.data.match,
+        previous_name: result.previousName,
+        accommodation: result.name,
+        day_numbers: result.dayNumbers,
+        updated_count: result.updatedCount,
+        accommodation_keys: Object.keys(parsed.data.accommodation_patch),
+        markdown_source_updated: result.markdownSourceUpdated,
+      });
+    }
+  );
+
   const updateAccommodationDetail = tool(
     'update_accommodation_detail',
     UPDATE_ACCOMMODATION_DETAIL_DESCRIPTION,
@@ -861,6 +1236,7 @@ export function createTripEditorMcpServer(
         day_number: result.dayNumber,
         accommodation: result.name,
         detail_keys: Object.keys(parsed.data.detail_patch),
+        markdown_source_updated: result.markdownSourceUpdated,
       });
     }
   );
@@ -879,6 +1255,7 @@ export function createTripEditorMcpServer(
       getTrip,
       listAccommodations,
       updateTrip,
+      updateAccommodation,
       updateAccommodationDetail,
       researchPolicy,
       ...createBookingTools(),
@@ -894,15 +1271,18 @@ export const TRIP_EDITOR_TOOL_NAMES = [
   'mcp__trip_editor__get_trip',
   'mcp__trip_editor__list_accommodations',
   'mcp__trip_editor__update_trip',
+  'mcp__trip_editor__update_accommodation',
   'mcp__trip_editor__update_accommodation_detail',
   'mcp__trip_editor__research_place_policy',
   ...BOOKING_TOOL_NAMES,
 ] as const;
 
 export const _internal = {
+  applyAccommodationPatch,
   applyAccommodationDetailPatch,
   buildPolicySearchQuery,
   collectAccommodations,
   extractPolicySnippets,
   inferPolicyFromText,
+  upsertAccommodationAgentNote,
 };
