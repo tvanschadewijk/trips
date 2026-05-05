@@ -1,0 +1,65 @@
+name: conventional-commits
+
+on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - edited
+      - ready_for_review
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Check PR title and commits
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          node <<'NODE'
+          const { execFileSync } = require('node:child_process');
+
+          const conventional = /^(build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test)(\([a-z0-9._-]+\))?!?: .+$/;
+          const invalid = [];
+          const title = process.env.PR_TITLE || '';
+
+          if (!conventional.test(title)) {
+            invalid.push(`PR title: ${title}`);
+          }
+
+          const log = execFileSync('git', [
+            'log',
+            '--format=%s',
+            `${process.env.BASE_SHA}..HEAD`,
+          ], { encoding: 'utf8' }).trim();
+
+          const commits = log ? log.split('\n') : [];
+          for (const subject of commits) {
+            if (!conventional.test(subject)) {
+              invalid.push(`commit: ${subject}`);
+            }
+          }
+
+          if (invalid.length > 0) {
+            console.error('Expected Conventional Commit format, for example:');
+            console.error('  feat: add shared trip previews');
+            console.error('  fix: keep itinerary cards within the viewport');
+            console.error('');
+            console.error('Invalid entries:');
+            for (const entry of invalid) {
+              console.error(`- ${entry}`);
+            }
+            process.exit(1);
+          }
+          NODE
