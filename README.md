@@ -1,36 +1,38 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Our Trips
 
 ## Getting Started
 
-First, run the development server:
+Run the development server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Versioning
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Versions are managed by release-please from Conventional Commit messages on `main`. The canonical app version lives in `package.json`.
 
-## Learn More
+Use these commit prefixes:
 
-To learn more about Next.js, take a look at the following resources:
+- `fix:` for patch releases, such as `0.1.0` to `0.1.1`
+- `feat:` for minor releases, such as `0.1.0` to `0.2.0`
+- `feat!:` or `BREAKING CHANGE:` for major releases, such as `1.0.0` to `2.0.0`
+- `chore:`, `docs:`, `style:`, `refactor:`, `test:`, and `ci:` for changes that usually do not create a release
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Pull requests check the PR title and commit messages for this format. When qualifying commits land on `main`, GitHub Actions opens a release PR that updates `package.json`, `package-lock.json`, `CHANGELOG.md`, and the release manifest. Merging that release PR creates the GitHub Release and tag automatically.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Example commits:
 
-## Deploy on Vercel
+```bash
+git commit -m "feat: add shared trip previews"
+git commit -m "fix: keep itinerary cards within the viewport"
+git commit -m "chore: update dependencies"
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Build
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+npm run build
+```
