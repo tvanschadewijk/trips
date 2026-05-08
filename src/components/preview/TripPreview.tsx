@@ -2,7 +2,6 @@
 
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { flushSync } from 'react-dom';
-import Image from 'next/image';
 import type { TripData, Day, Transport, Accommodation, Tip, Meal, Block, RichDetail } from '@/lib/types';
 import { ICONS } from './icons';
 import SaveOfflineButton from './SaveOfflineButton';
@@ -517,7 +516,11 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
       const m = item as Meal;
       if (!m.detail) return;
       const d = m.detail;
-      const richHtml = renderRichDetail(d);
+      const detailForRender = {
+        ...d,
+        body: d.body || m.note,
+      };
+      const richHtml = renderRichDetail(detailForRender);
       const fields: [string, string | undefined][] = [
         ['Cuisine', d.cuisine], ['Price range', d.price_range], ['Address', d.address],
         ['Phone', d.phone], ['Hours', d.hours],
@@ -743,7 +746,8 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
           className="trip-card-media"
           style={activeTripIndex === null && transitionTripIndex === origIdx ? { viewTransitionName: TRIP_HERO_TRANSITION_NAME } as React.CSSProperties : undefined}
         >
-          <Image className="trip-card-img" src={img} alt={t.name} fill sizes="430px" style={{ objectFit: 'cover', opacity: brokenImages.has(img) ? 0 : 1 }} onError={() => onImgError(img)} />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img className="trip-card-img" src={img} alt={t.name} style={{ opacity: brokenImages.has(img) ? 0 : 1 }} onError={() => onImgError(img)} loading="lazy" />
           <div className="trip-card-gradient" />
         </div>
         <div className="trip-card-badge">{statusLabel}</div>
@@ -831,6 +835,65 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
       </div>`;
     }).join('');
     return { html: `<div class="detail-info-section"><div class="detail-info-section-title"><span class="text-section-title">Where You're Staying</span></div>${rows}</div>`, hasData: true };
+  }
+
+  function buildActivitiesHtml(): { html: string; hasData: boolean } {
+    const entries: { day: number; date: string; block: Block }[] = [];
+    for (const d of days) {
+      for (const block of d.blocks || []) {
+        if (block.type === 'note') continue;
+        entries.push({ day: d.day_number, date: d.date, block });
+      }
+    }
+    if (!entries.length) return { html: '', hasData: false };
+
+    const rows = entries.map(({ day, date, block }) => {
+      const dateLabel = formatDate(date, { weekday: 'short', day: 'numeric', month: 'short' });
+      const title = block.detail?.title || block.content;
+      const body = block.detail?.body || block.detail?.why || block.content;
+      const highlights = block.detail?.highlights?.length
+        ? `<span class="detail-row-value" style="text-align:left;font-size:13px;color:var(--color-text-muted)">${block.detail.highlights.slice(0, 3).map(escapeHtml).join(' · ')}</span>`
+        : '';
+
+      return `<div class="detail-row" style="flex-direction:column;align-items:flex-start;gap:3px">
+        <span class="detail-row-label" style="width:auto">Day ${day} · ${dateLabel}</span>
+        <span class="detail-row-value" style="text-align:left;font-size:15px;font-weight:600">${escapeHtml(title)}</span>
+        ${body && body !== title ? `<span class="detail-row-value" style="text-align:left;font-size:13px;color:var(--color-text-secondary)">${escapeHtml(body)}</span>` : ''}
+        ${highlights}
+      </div>`;
+    }).join('');
+
+    return { html: `<div class="detail-info-section"><div class="detail-info-section-title"><span class="text-section-title">Activity Highlights</span></div>${rows}</div>`, hasData: true };
+  }
+
+  function buildDiningHtml(): { html: string; hasData: boolean } {
+    const entries: { day: number; date: string; meal: Meal }[] = [];
+    for (const d of days) {
+      for (const meal of d.meals || []) entries.push({ day: d.day_number, date: d.date, meal });
+    }
+    if (!entries.length) return { html: '', hasData: false };
+
+    const rows = entries.map(({ day, date, meal }) => {
+      const dateLabel = formatDate(date, { weekday: 'short', day: 'numeric', month: 'short' });
+      const detail = meal.detail;
+      const meta = [
+        meal.type,
+        detail?.cuisine,
+        detail?.price_range,
+        detail?.reservation,
+      ].filter(Boolean).join(' · ');
+      const note = detail?.body || meal.note || detail?.why;
+      const practical = detail?.practical || detail?.booking_note;
+
+      return `<div class="detail-row" style="flex-direction:column;align-items:flex-start;gap:3px">
+        <span class="detail-row-label" style="width:auto">Day ${day} · ${dateLabel}${meta ? ` · ${escapeHtml(meta)}` : ''}</span>
+        <span class="detail-row-value" style="text-align:left;font-size:15px;font-weight:600">${escapeHtml(meal.name)}</span>
+        ${note ? `<span class="detail-row-value" style="text-align:left;font-size:13px;color:var(--color-text-secondary)">${escapeHtml(note)}</span>` : ''}
+        ${practical ? `<span class="detail-row-value" style="text-align:left;font-size:13px;color:var(--color-text-muted)">${escapeHtml(practical)}</span>` : ''}
+      </div>`;
+    }).join('');
+
+    return { html: `<div class="detail-info-section"><div class="detail-info-section-title"><span class="text-section-title">Restaurant Shortlist</span></div>${rows}</div>`, hasData: true };
   }
 
   function buildBudgetHtml(): { html: string; hasData: boolean } {
@@ -981,10 +1044,14 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
             {(() => {
               const logistics = buildLogisticsHtml();
               const accommodation = buildAccommodationHtml();
+              const activities = buildActivitiesHtml();
+              const dining = buildDiningHtml();
               const thingsToDo = buildThingsToDoHtml();
               const sections: { icon: string; label: string; html: string; hasData: boolean }[] = [
                 { icon: 'route', label: 'Logistics', ...logistics },
                 { icon: 'bed', label: 'Accommodation', ...accommodation },
+                { icon: 'mountain', label: 'Activities', ...activities },
+                { icon: 'fork', label: 'Restaurants', ...dining },
                 { icon: thingsToDo.allDone ? 'check' : 'warning', label: thingsToDo.allDone ? 'Ready to Go' : 'Action Items', ...thingsToDo },
               ];
               if (markdownSource) {
@@ -1037,7 +1104,8 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
 
     const heroSection = day.hero_image ? (
       <div className="day-hero">
-        <Image src={day.hero_image} alt={day.title} fill sizes="430px" style={{ objectFit: 'cover', opacity: brokenImages.has(day.hero_image) ? 0 : 1 }} onError={() => onImgError(day.hero_image!)} />
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={day.hero_image} alt={day.title} style={{ opacity: brokenImages.has(day.hero_image) ? 0 : 1 }} onError={() => onImgError(day.hero_image!)} loading="lazy" />
         <div className="day-hero-gradient" />
         <div className="day-hero-text">
           <p className="text-label" style={{ margin: '0 0 4px' }}>Day {day.day_number} &middot; {dateStr}</p>
