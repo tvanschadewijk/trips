@@ -25,7 +25,7 @@ export const publicItineraries: PublicItinerary[] = [
     summary:
       "A compact Caribbean sample trip built around Bonaire's shore diving, Klein Bonaire, Lac Bay wind, salt-pan landscapes, and waterfront restaurants.",
     url: 'https://ourtrips.to/t/NyLNFNHxC9',
-    image: 'https://images.unsplash.com/photo-1633418542768-cf6f74c20a9f?w=1200&h=1600&fit=crop&q=80',
+    image: 'https://images.unsplash.com/photo-1677938103364-969b0aba46a8?w=1200&h=1600&fit=crop&q=80',
     days: 7,
     destinations: 1,
     activity: 2,
