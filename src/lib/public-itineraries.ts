@@ -61,8 +61,7 @@ export const publicItineraries: PublicItinerary[] = [
     summary:
       "A food-forward Japan route: Tokyo dining, Kanazawa craft, Kyoto atmosphere, Naoshima art, and an Osaka street-food finale.",
     url: 'https://ourtrips.to/t/uzZVTrCqCo',
-    image:
-      'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8d/Cherry_Trees_of_Daigo-Ji_Temple_-_panoramio.jpg/1920px-Cherry_Trees_of_Daigo-Ji_Temple_-_panoramio.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail',
+    image: 'https://images.unsplash.com/photo-1649957866905-bef01af303da?w=1200&h=1600&fit=crop&q=80',
     days: 11,
     destinations: 5,
     activity: 3,
@@ -80,8 +79,7 @@ export const publicItineraries: PublicItinerary[] = [
     summary:
       'A nature circuit with volcano views, hot springs, hanging bridges, cloud forest, zip-lining, sloths, monkeys, and a beach finish.',
     url: 'https://ourtrips.to/t/Rc6qQyHuuv',
-    image:
-      'https://upload.wikimedia.org/wikipedia/commons/6/65/Zip-line_over_rainforest_treetops_15_March_2002%2C_Costa_Rica.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled',
+    image: 'https://images.unsplash.com/photo-1657036599578-1075326920a0?w=1200&h=1600&fit=crop&q=80',
     days: 9,
     destinations: 3,
     activity: 3,
@@ -99,8 +97,7 @@ export const publicItineraries: PublicItinerary[] = [
     summary:
       'A big-scenery Argentina sample with Buenos Aires food, Perito Moreno Glacier, Fitz Roy hiking, and Mendoza wine country.',
     url: 'https://ourtrips.to/t/V944tR7WNC',
-    image:
-      'https://upload.wikimedia.org/wikipedia/commons/thumb/7/7a/Fitz_Roy_2.jpg/1920px-Fitz_Roy_2.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail',
+    image: 'https://images.unsplash.com/photo-1705506804933-d2f88b48d1e3?w=1200&h=1600&fit=crop&q=80',
     days: 13,
     destinations: 4,
     activity: 4,
@@ -118,8 +115,7 @@ export const publicItineraries: PublicItinerary[] = [
     summary:
       "A romantic southern Italy sample with Naples food, Amalfi Coast glamour, Capri by boat, Matera's cave-city drama, and slower Puglia.",
     url: 'https://ourtrips.to/t/WoBpyRzBZa',
-    image:
-      'https://upload.wikimedia.org/wikipedia/commons/thumb/9/99/Amalfi_Coast_town_of_Ravello_IMG_9818.JPG/1920px-Amalfi_Coast_town_of_Ravello_IMG_9818.JPG?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail',
+    image: 'https://images.unsplash.com/photo-1680212558862-137ca19670e0?w=1200&h=1600&fit=crop&q=80',
     days: 10,
     destinations: 5,
     activity: 2,
@@ -137,8 +133,7 @@ export const publicItineraries: PublicItinerary[] = [
     summary:
       'A family-friendly Morocco loop with color, food, mountain air, kasbah landscapes, a desert night, and a Fes craft finale.',
     url: 'https://ourtrips.to/t/dvp5hVXhii',
-    image:
-      'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5f/MEDINA_MARRAKECH_MOROCCO_APRIL_2013_%288734544387%29.jpg/1920px-MEDINA_MARRAKECH_MOROCCO_APRIL_2013_%288734544387%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail',
+    image: 'https://images.unsplash.com/photo-1596750320291-a082a23dcc19?w=1200&h=1600&fit=crop&q=80',
     days: 10,
     destinations: 5,
     activity: 3,
@@ -156,8 +151,7 @@ export const publicItineraries: PublicItinerary[] = [
     summary:
       'A compact high-adventure Iceland sample with city dining, waterfalls, glacier hiking, ice caves, and Silfra snorkeling.',
     url: 'https://ourtrips.to/t/HFpU63bT9h',
-    image:
-      'https://upload.wikimedia.org/wikipedia/commons/thumb/6/63/021_Wild_smiling_harbor_seal_at_J%C3%B6kuls%C3%A1rl%C3%B3n_%28Iceland%29_Photo_by_Giles_Laurent.jpg/1920px-021_Wild_smiling_harbor_seal_at_J%C3%B6kuls%C3%A1rl%C3%B3n_%28Iceland%29_Photo_by_Giles_Laurent.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail',
+    image: 'https://images.unsplash.com/photo-1502893323067-a83091e37337?w=1200&h=1600&fit=crop&q=80',
     days: 7,
     destinations: 4,
     activity: 4,
@@ -175,8 +169,7 @@ export const publicItineraries: PublicItinerary[] = [
     summary:
       'A refined Peru sample with Lima gastronomy, Arequipa, Colca, luxury rail, Sacred Valley, Machu Picchu, Cusco, and Amazon.',
     url: 'https://ourtrips.to/t/aB4sMMJkqL',
-    image:
-      'https://upload.wikimedia.org/wikipedia/commons/thumb/d/da/Peru_Machu_Picchu_Sunrise_2.jpg/1920px-Peru_Machu_Picchu_Sunrise_2.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail',
+    image: 'https://images.unsplash.com/photo-1752067954948-fad43a7457de?w=1200&h=1600&fit=crop&q=80',
     days: 15,
     destinations: 7,
     activity: 4,
@@ -194,8 +187,7 @@ export const publicItineraries: PublicItinerary[] = [
     summary:
       'A cinematic Namibia sample with desert dunes, Atlantic coast, ancient rock art, Etosha waterholes, and a conservation-focused finish.',
     url: 'https://ourtrips.to/t/RcyLhvWCut',
-    image:
-      'https://upload.wikimedia.org/wikipedia/commons/thumb/4/45/Sossusvlei_Dune_Namib_Desert_Namibia_Luca_Galuzzi_2004.JPG/1920px-Sossusvlei_Dune_Namib_Desert_Namibia_Luca_Galuzzi_2004.JPG?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail',
+    image: 'https://images.unsplash.com/photo-1613155358575-e2c48c2a2404?w=1200&h=1600&fit=crop&q=80',
     days: 12,
     destinations: 6,
     activity: 3,
@@ -216,4 +208,3 @@ export const itineraryCategories: Array<{ id: PublicItineraryCategory; label: st
   { id: 'adventure', label: 'Adventure' },
   { id: 'romantic', label: 'Romantic' },
 ];
-
