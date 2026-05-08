@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { scrubAndAnchorTripData } from '@/lib/scrub-trip';
+import { isPublicItineraryShareId } from '@/lib/public-itineraries';
 import type { TripData } from '@/lib/types';
 
 // POST /api/trips/clone — Remix a shared trip into the authenticated
@@ -35,18 +36,20 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Trip not found' }, { status: 404 });
   }
 
-  if (source.user_id === user.id) {
+  const isPublicSample = isPublicItineraryShareId(share_id);
+
+  if (source.user_id === user.id && !isPublicSample) {
     return NextResponse.json({ error: 'You already own this trip', already_owned: true }, { status: 409 });
   }
 
   // Check if user already cloned this trip (by matching source trip name)
-  const { data: existing } = await admin
+  const { data: existingRows } = await admin
     .from('trips')
     .select('id, share_id')
     .eq('user_id', user.id)
-    .eq('name', source.name)
-    .single();
+    .eq('name', source.name);
 
+  const existing = existingRows?.find(row => !isPublicItineraryShareId(row.share_id));
   if (existing) {
     return NextResponse.json({
       trip_id: existing.id,

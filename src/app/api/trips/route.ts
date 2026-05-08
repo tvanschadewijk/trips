@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { validateApiKey } from '@/lib/auth';
+import { isPublicItineraryShareId } from '@/lib/public-itineraries';
 
 // POST /api/trips — Create or update a trip
 export async function POST(request: NextRequest) {
@@ -162,7 +163,9 @@ export async function GET(request: NextRequest) {
   }
 
   return NextResponse.json({
-    trips: (trips || []).map(t => ({
+    trips: (trips || [])
+      .filter(t => !isPublicItineraryShareId(t.share_id))
+      .map(t => ({
       trip_id: t.id,
       name: t.name,
       share_id: t.share_id,

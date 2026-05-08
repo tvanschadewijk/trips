@@ -208,3 +208,22 @@ export const itineraryCategories: Array<{ id: PublicItineraryCategory; label: st
   { id: 'adventure', label: 'Adventure' },
   { id: 'romantic', label: 'Romantic' },
 ];
+
+function shareIdFromUrl(url: string): string | null {
+  try {
+    const parsed = new URL(url);
+    const parts = parsed.pathname.split('/').filter(Boolean);
+    const tripIndex = parts.indexOf('t');
+    return tripIndex >= 0 ? parts[tripIndex + 1] ?? null : null;
+  } catch {
+    return null;
+  }
+}
+
+export const publicItineraryShareIds = publicItineraries
+  .map(itinerary => shareIdFromUrl(itinerary.url))
+  .filter((shareId): shareId is string => Boolean(shareId));
+
+export function isPublicItineraryShareId(shareId: string | null | undefined): boolean {
+  return Boolean(shareId && publicItineraryShareIds.includes(shareId));
+}

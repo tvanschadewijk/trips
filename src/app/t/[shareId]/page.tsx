@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { sampleTrips } from '@/lib/sample-data';
 import { checkIsAdmin, loadChatHistory } from '@/lib/trip-chat/history';
 import { scrubTripData } from '@/lib/scrub-trip';
+import { isPublicItineraryShareId } from '@/lib/public-itineraries';
 import type { TripData } from '@/lib/types';
 
 interface Props {
@@ -93,6 +94,7 @@ export default async function TripPage({ params }: Props) {
   const { shareId } = await params;
 
   const result = await fetchTripAndViewer(shareId);
+  const isPublicSample = isPublicItineraryShareId(shareId);
 
   if (!result) {
     // Fallback: show first sample trip with days
@@ -111,7 +113,7 @@ export default async function TripPage({ params }: Props) {
   // Trip owners (and admins, who can edit any trip for support) get the
   // chat panel. Load last N messages for initial render so the user
   // sees their prior conversation immediately when they open the panel.
-  const canEditViaChat = (result.isOwner || result.isAdmin) && !!result.viewerUserId;
+  const canEditViaChat = !isPublicSample && (result.isOwner || result.isAdmin) && !!result.viewerUserId;
   let initialChatMessages: Awaited<ReturnType<typeof loadChatHistory>> = [];
   if (canEditViaChat && result.viewerUserId) {
     initialChatMessages = await loadChatHistory(result.tripId, result.viewerUserId);
@@ -123,9 +125,9 @@ export default async function TripPage({ params }: Props) {
         trips={[result.tripData]}
         autoOpen
         shareId={shareId}
-        canAddToTrips={!result.isOwner}
+        canAddToTrips={isPublicSample || !result.isOwner}
         shareMode={result.shareMode}
-        tripId={result.isOwner ? result.tripId : undefined}
+        tripId={!isPublicSample && result.isOwner ? result.tripId : undefined}
       />
       {canEditViaChat && (
         <TripChatPanel tripId={result.tripId} initialMessages={initialChatMessages} />

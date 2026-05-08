@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client';
 import type { TripData } from '@/lib/types';
 import { useSavedTripIds } from '@/lib/offline';
 import { useOnlineStatus } from '@/lib/online-status';
+import { isPublicItineraryShareId } from '@/lib/public-itineraries';
 import '@/styles/dashboard.css';
 
 interface DashTrip {
@@ -24,7 +25,10 @@ export default function DashboardPage() {
   const appVersion = process.env.NEXT_PUBLIC_APP_VERSION;
   const [trips, setTrips] = useState<DashTrip[]>(() => {
     if (typeof window !== 'undefined') {
-      try { const c = sessionStorage.getItem('dash-trips'); if (c) return JSON.parse(c); } catch {}
+      try {
+        const c = sessionStorage.getItem('dash-trips');
+        if (c) return (JSON.parse(c) as DashTrip[]).filter(t => !isPublicItineraryShareId(t.share_id));
+      } catch {}
     }
     return [];
   });
@@ -49,7 +53,8 @@ export default function DashboardPage() {
   });
   const savedOfflineIds = useSavedTripIds();
   const online = useOnlineStatus();
-  const visibleTrips = online ? trips : trips.filter(t => savedOfflineIds.has(t.share_id));
+  const personalTrips = trips.filter(t => !isPublicItineraryShareId(t.share_id));
+  const visibleTrips = online ? personalTrips : personalTrips.filter(t => savedOfflineIds.has(t.share_id));
   const tripGroups = (() => {
     const today = new Date().toISOString().slice(0, 10);
     const current: DashTrip[] = [];
@@ -128,6 +133,7 @@ export default function DashboardPage() {
 
     if (rawTrips) {
       const sorted = rawTrips
+        .filter(t => !isPublicItineraryShareId(t.share_id))
         .map(t => ({ ...t, share_mode: t.share_mode ?? 'companion' } as DashTrip))
         .sort((a, b) => {
           const dateA = a.data?.trip?.dates?.start || '';
@@ -244,7 +250,7 @@ export default function DashboardPage() {
     <div className="dash">
       <nav className="dash-nav">
         <div className="dash-nav-inner">
-          <Link href="/" className="dash-logo">OurTrips<span className="logo-to">.To</span> <span className="logo-suffix">{trips.length > 0 ? `${trips[0].name}${trips.length > 1 ? ` and ${trips.length - 1} more` : ''}` : '?'}</span></Link>
+          <Link href="/" className="dash-logo">OurTrips<span className="logo-to">.To</span> <span className="logo-suffix">{personalTrips.length > 0 ? `${personalTrips[0].name}${personalTrips.length > 1 ? ` and ${personalTrips.length - 1} more` : ''}` : '?'}</span></Link>
           <div className="dash-nav-right">
             <button className="dash-settings-btn" onClick={() => setSettingsOpen(!settingsOpen)} aria-label="Settings">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
