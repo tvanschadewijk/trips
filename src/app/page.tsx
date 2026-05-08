@@ -1,8 +1,11 @@
+/* eslint-disable @next/next/no-img-element */
+
 import { redirect } from 'next/navigation';
 import { headers } from 'next/headers';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import LogoSuffix from '@/components/ui/LogoSuffix';
+import { publicItineraries } from '@/lib/public-itineraries';
 import '@/styles/landing.css';
 
 export default async function Home() {
@@ -47,6 +50,7 @@ export default async function Home() {
         <div className="landing-nav-inner">
           <Link href="/" className="landing-logo">OurTrips<LogoSuffix /></Link>
           <div className="landing-nav-links">
+            <Link href="/itineraries" className="landing-nav-link">Itineraries</Link>
             <Link href="/demo" className="landing-nav-link">Demo</Link>
             <Link href="/blog" className="landing-nav-link">Journal</Link>
             <Link href="/login" className="landing-btn-outline">Log in</Link>
@@ -91,6 +95,49 @@ export default async function Home() {
       </section>
 
       <div className="landing-rule"><hr /></div>
+
+      <section className="landing-itineraries">
+        <div className="landing-itineraries-header">
+          <div>
+            <div className="landing-itineraries-eyebrow">Inspiration library</div>
+            <h2 className="landing-itineraries-heading">
+              Start from a trip that already has a point of view.
+            </h2>
+          </div>
+          <div className="landing-itineraries-copy">
+            <p>
+              Public sample itineraries across reefs, food cities, family nature loops,
+              romantic coastlines, safaris, and expedition travel.
+            </p>
+            <Link href="/itineraries" className="landing-tell-more">
+              Browse all itineraries
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+            </Link>
+          </div>
+        </div>
+
+        <div className="landing-itinerary-grid">
+          {publicItineraries.slice(0, 3).map((itinerary) => (
+            <article className="landing-itinerary-card" key={itinerary.name}>
+              <a href={itinerary.url} className="landing-itinerary-image-link" aria-label={itinerary.name}>
+                <img src={itinerary.image} alt="" className="landing-itinerary-image" loading="lazy" />
+              </a>
+              <div className="landing-itinerary-body">
+                <div className="landing-itinerary-meta">
+                  <span>{itinerary.days} days</span>
+                  <span>{itinerary.destinations} destinations</span>
+                </div>
+                <h3>{itinerary.name}</h3>
+                <p>{itinerary.subtitle}</p>
+                <a href={itinerary.url} className="landing-itinerary-link">
+                  Open itinerary
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                </a>
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
 
       <section className="landing-steps">
         <div className="landing-steps-header">
