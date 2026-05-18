@@ -40,6 +40,19 @@ test('trip image helpers prefer generated assets by context', () => {
     mobile: 'https://example.com/portrait.png',
     desktop: 'https://example.com/landscape.png',
   });
-  assert.equal(getTripOverviewImageUrl(trip), 'https://example.com/portrait.png');
+  assert.equal(getTripOverviewImageUrl(trip), 'https://example.com/overview.jpg');
   assert.equal(getTripOgImageUrl(trip), 'https://example.com/og.png');
+});
+
+test('trip overview keeps the inspiring photo separate from generated detail covers', () => {
+  const trip: TripMeta = {
+    ...baseTrip,
+    overview_image: undefined,
+    image_assets: {
+      cover_portrait: { url: 'https://example.com/map-cover.png' },
+    },
+  };
+
+  assert.equal(getTripOverviewImageUrl(trip), 'https://example.com/default.jpg');
+  assert.equal(getTripMobileCoverImageUrl(trip), 'https://example.com/map-cover.png');
 });

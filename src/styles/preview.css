@@ -145,6 +145,26 @@
 .hero-bg { position: absolute; inset: 0; background: linear-gradient(135deg, #2A1F18 0%, #1A1410 60%, #0F0B08 100%); }
 .hero-bg picture { display: block; width: 100%; height: 100%; }
 .hero-bg img { width: 100%; height: 100%; object-fit: cover; }
+.hero-bg-artwork { background: #1A1410; }
+.hero-bg-artwork::before {
+  content: "";
+  position: absolute;
+  inset: -28px;
+  background-image: var(--hero-artwork-bg);
+  background-size: cover;
+  background-position: center;
+  filter: blur(22px) saturate(0.92);
+  opacity: 0.72;
+  transform: scale(1.04);
+}
+.hero-bg-artwork picture {
+  position: relative;
+  z-index: 1;
+}
+.hero-bg-artwork img {
+  background: rgba(26, 20, 16, 0.18);
+  filter: drop-shadow(0 24px 48px rgba(26, 20, 16, 0.28));
+}
 .hero-overlay { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(to top, rgba(26,20,16,0.62) 0%, rgba(26,20,16,0.32) 35%, rgba(26,20,16,0.10) 65%, transparent 100%); }
 .hero-body {
   position: relative;
@@ -1842,6 +1862,12 @@ body.trip-on-cover .trip-ask-entry-label { display: inline; }
 
   .detail-overlay.open .detail-sheet {
     transform: translateX(0);
+  }
+
+  .detail-overlay.open.closing .detail-sheet {
+    transform: translateX(100%);
+    transition-duration: 360ms;
+    transition-timing-function: var(--ease-exit);
   }
 
   .detail-header {

@@ -23,11 +23,7 @@ export function getTripDesktopCoverImageUrl(trip: TripMeta): string {
 }
 
 export function getTripOverviewImageUrl(trip: TripMeta): string {
-  return (
-    assetUrl(trip, 'cover_portrait') ??
-    trip.overview_image ??
-    trip.hero_image
-  );
+  return trip.overview_image ?? trip.hero_image;
 }
 
 export function getTripOgImageUrl(trip: TripMeta): string {

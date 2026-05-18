@@ -1028,6 +1028,9 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
   function renderHeroSlide() {
     if (!trip) return null;
     const heroSources = getTripHeroImageSources(trip);
+    const heroUsesGeneratedArtwork = Boolean(
+      trip.image_assets?.cover_portrait?.url || trip.image_assets?.cover_landscape?.url
+    );
     const heroImageIsBroken =
       brokenImages.has(heroSources.mobile) &&
       (heroSources.desktop === heroSources.mobile || brokenImages.has(heroSources.desktop));
@@ -1038,7 +1041,10 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
             className="hero-frame"
             style={activeTripIndex !== null && transitionTripIndex === activeTripIndex ? { viewTransitionName: TRIP_HERO_TRANSITION_NAME } as React.CSSProperties : undefined}
           >
-            <div className="hero-bg">
+            <div
+              className={`hero-bg ${heroUsesGeneratedArtwork ? 'hero-bg-artwork' : ''}`}
+              style={heroUsesGeneratedArtwork ? { '--hero-artwork-bg': `url(${heroSources.desktop})` } as React.CSSProperties : undefined}
+            >
               <picture>
                 {heroSources.desktop !== heroSources.mobile && (
                   <source media="(min-width: 900px)" srcSet={heroSources.desktop} />
@@ -1047,7 +1053,13 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
                 <img
                   src={heroSources.mobile}
                   alt={trip.name}
-                  style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: heroImageIsBroken ? 0 : 1 }}
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: heroUsesGeneratedArtwork ? 'contain' : 'cover',
+                    objectPosition: heroUsesGeneratedArtwork ? 'center top' : 'center',
+                    opacity: heroImageIsBroken ? 0 : 1,
+                  }}
                   onError={(event) => {
                     const failedUrl = event.currentTarget.currentSrc || event.currentTarget.src || heroSources.mobile;
                     onImgError(failedUrl);

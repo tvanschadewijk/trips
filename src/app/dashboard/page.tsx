@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import type { TripData } from '@/lib/types';
-import { getTripMobileCoverImageUrl } from '@/lib/trip-images';
+import { getTripOverviewImageUrl } from '@/lib/trip-images';
 import { useSavedTripIds } from '@/lib/offline';
 import { useOnlineStatus } from '@/lib/online-status';
 import { isPublicItineraryShareId } from '@/lib/public-itineraries';
@@ -406,7 +406,7 @@ export default function DashboardPage() {
             <div className="dash-grid">
             {section.trips.map(trip => {
               const t = trip.data.trip;
-              const coverImage = getTripMobileCoverImageUrl(t);
+              const overviewImage = getTripOverviewImageUrl(t);
               const startD = new Date(t.dates.start + 'T12:00:00');
               const endD = new Date(t.dates.end + 'T12:00:00');
               const nights = Math.round((endD.getTime() - startD.getTime()) / 86400000);
@@ -416,14 +416,14 @@ export default function DashboardPage() {
                   <Link
                     href={`/t/${trip.share_id}`}
                     className="dash-card-link"
-                    onMouseEnter={() => { const img = new window.Image(); img.src = coverImage; }}
-                    onTouchStart={() => { const img = new window.Image(); img.src = coverImage; }}
+                    onMouseEnter={() => { const img = new window.Image(); img.src = overviewImage; }}
+                    onTouchStart={() => { const img = new window.Image(); img.src = overviewImage; }}
                     onClick={(e) => {
-                      // Stash a snapshot of the trip cover so loading.tsx can
+                      // Stash a snapshot of the overview photo so loading.tsx can
                       // paint the same photo + title under the morphing hero.
                       try {
                         sessionStorage.setItem(`vt-trip-${trip.share_id}`, JSON.stringify({
-                          heroImage: coverImage,
+                          heroImage: overviewImage,
                           name: t.name,
                           subtitle: t.subtitle,
                           start: t.dates.start,
@@ -448,7 +448,7 @@ export default function DashboardPage() {
                     <div className="dash-card-hero">
                       <div className="dash-card-hero-frame" style={vtTrip === trip.share_id ? { viewTransitionName: 'trip-hero' } as React.CSSProperties : undefined}>
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={coverImage} alt={t.name} />
+                        <img src={overviewImage} alt={t.name} />
                         <div className="dash-card-hero-gradient" />
                       </div>
                       <div className="dash-card-hero-text">
