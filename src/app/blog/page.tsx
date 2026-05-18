@@ -31,6 +31,7 @@ export default function BlogIndex() {
         <div className="blog-nav-inner">
           <Link href="/" className="blog-logo">OurTrips<LogoSuffix /></Link>
           <div className="blog-nav-links">
+            <Link href="/changelog" className="blog-nav-link">Changelog</Link>
             <Link href="/itineraries" className="blog-nav-link">Itineraries</Link>
             <Link href="/travel-skills" className="blog-nav-link">Travel Skills</Link>
             <Link href="/login" className="blog-btn-outline">Log in</Link>

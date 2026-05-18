@@ -660,6 +660,23 @@
   font-size: 12px;
 }
 
+.blog-changelog-body h2 {
+  margin-top: 48px;
+}
+
+.blog-changelog-body h2:first-child {
+  margin-top: 0;
+}
+
+.blog-changelog-body h3 {
+  margin-top: 24px;
+  color: var(--ink);
+}
+
+.blog-changelog-body ul {
+  margin: 14px 0 0;
+}
+
 @media (max-width: 760px) {
   .blog-nav-inner {
     height: 60px;

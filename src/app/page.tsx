@@ -51,6 +51,7 @@ export default async function Home() {
           <Link href="/" className="landing-logo">OurTrips<LogoSuffix /></Link>
           <div className="landing-nav-links">
             <Link href="/itineraries" className="landing-nav-link">Itineraries</Link>
+            <Link href="/changelog" className="landing-nav-link">Changelog</Link>
             <Link href="/travel-skills" className="landing-nav-link">Travel Skills</Link>
             <Link href="/blog" className="landing-nav-link">Journal</Link>
             <Link href="/login" className="landing-btn-outline">Log in</Link>
@@ -202,7 +203,9 @@ export default async function Home() {
       <footer className="landing-footer">
         <div className="landing-footer-inner">
           <span className="landing-footer-logo">OurTrips</span>
-          <span className="landing-footer-copy">Built by Thijs van Schadewijk · 2026</span>
+          <span className="landing-footer-copy">
+            Built by Thijs van Schadewijk · 2026 · <Link href="/changelog">Changelog</Link>
+          </span>
         </div>
       </footer>
     </div>
