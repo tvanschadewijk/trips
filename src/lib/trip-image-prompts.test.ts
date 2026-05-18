@@ -42,9 +42,20 @@ test('buildTripImagePromptSet creates grounded prompts for all image slots', () 
   assert.match(prompts.cover_portrait.prompt, /Scotland/);
   assert.match(prompts.cover_portrait.prompt, /Amsterdam/);
   assert.match(prompts.cover_portrait.prompt, /Glasgow/);
+  assert.match(prompts.cover_portrait.prompt, /Destination labels to render on the map/);
+  assert.match(prompts.cover_portrait.prompt, /legible destination labels/);
   assert.match(prompts.cover_portrait.prompt, /lower 35%/);
   assert.match(prompts.cover_landscape.prompt, /desktop hero/);
   assert.match(prompts.social_og.prompt, /small preview sizes/);
+});
+
+test('buildTripImagePromptSet asks for itinerary stop labels, not arbitrary map text', () => {
+  const prompt = buildTripImagePromptSet(fixture).cover_portrait.prompt;
+
+  assert.match(prompt, /exact stop names from the itinerary/);
+  assert.match(prompt, /no extra fictional place names/i);
+  assert.doesNotMatch(prompt, /No readable text/);
+  assert.doesNotMatch(prompt, /no map labels/);
 });
 
 test('buildTripImagePromptSet avoids traveler names and private booking details', () => {

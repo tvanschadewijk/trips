@@ -144,6 +144,9 @@ function buildItineraryBrief(data: TripData): string {
     'Route and main stops:',
     lineList(stops, 'Use the itinerary route as the main visual structure.'),
     '',
+    'Destination labels to render on the map:',
+    lineList(stops, 'Add short, readable labels only for the true itinerary stops.'),
+    '',
     'Daily story cues:',
     lineList(dailyCues, 'Show a coherent route-first journey with distinct landscapes.'),
     '',
@@ -159,7 +162,7 @@ The image should feel like a tactile luxury travel magazine cover: carved terrai
 
 Focus on the actual itinerary route, not the entire country. Show the trip path as a tasteful terracotta route line winding through the landscape, with small visual cues for the main overnight stops, scenic drives, memorable landmarks, food moments, and nature highlights. Each stop should feel distinct through landscape and architecture, but avoid fictional landmarks.
 
-No readable text, no map labels, no logos, no watermark. Do not include UI, app screens, typography, or floating callout labels.
+Add small, legible destination labels beside every major itinerary stop from the "Destination labels to render on the map" list. Treat them like elegant printed cartography: tiny cream paper flags or engraved map labels, connected subtly to the route dots, using only the exact stop names from the itinerary. Keep labels concise and readable, with no extra fictional place names. No logos, no watermark, no app UI, and no unrelated typography.
 
 Style: warm paper tones, natural color, cinematic but restrained, editorial travel poster, realistic miniature craftsmanship, shallow atmospheric depth, high detail, premium, elegant, not fantasy, not sci-fi, no neon glow.
 
