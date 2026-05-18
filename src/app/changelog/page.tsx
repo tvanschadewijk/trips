@@ -48,7 +48,7 @@ export default function ChangelogPage() {
           </div>
 
           <div className="blog-article-meta">
-            <span className="blog-article-date">Latest release: {changelog.latestVersion}</span>
+            <span className="blog-article-date">Latest update: {changelog.latestLabel}</span>
             <span className="blog-article-updated">
               Updated {new Date(changelog.lastUpdated).toLocaleDateString('en-US', {
                 month: 'long',
