@@ -313,6 +313,8 @@ Adapt the visual structure to the actual trip type. A roadtrip should read as a 
 
 Focus on the actual itinerary geography, not the entire country. Show the trip path, stay base, or excursion structure as appropriate, with small visual cues for the main overnight stops, scenic transfers, walking stages, memorable landmarks, beach or nature moments, food moments, and cultural highlights. Each real destination or stay base should feel distinct through landscape and architecture, but avoid fictional landmarks.
 
+OurTrips Experience crop safety: compose the complete miniature map as an inner poster inside the image, not edge-to-edge. The full floating island, route, stay base, trail, or beach composition must sit comfortably within the central safe area with generous soft-cloud / warm-paper bleed around it. Keep all destination labels, route dots, vehicles, landmarks, and key storytelling details away from the outer edge so nothing important is lost when the app displays the image with responsive cover cropping.
+
 Add small, legible labels beside every major itinerary place from the "Primary destination, stay, or excursion labels to render on the map" list. Treat them like elegant printed cartography: tiny cream paper flags or engraved map labels, connected subtly to route dots, stay bases, beaches, trailheads, or excursion points, using only the exact names from the itinerary. The home/departure context label is optional and must be smaller, quieter, and visually secondary if shown at all; it should not compete with the actual trip stops. Keep labels concise and readable, with no extra fictional place names. No logos, no watermark, no app UI, and no unrelated typography.
 
 Respect the transport cues exactly. Do not show airplanes on train legs. Do not replace a train, ferry, road transfer, or walking stage with an airplane. Only show an airplane when the itinerary explicitly contains a flight leg; if flight appears only as a return leg, keep the airplane small and peripheral near the return edge of the map. Train legs should look like rail journeys, and walking or hiking days should appear as footpaths or dotted trail stages with visible stage markers.
@@ -334,7 +336,7 @@ function promptFor(data: TripData, key: TripImagePromptKey): TripImagePromptSpec
       recommendedSize: '1080x1920',
       prompt: `${shared}
 
-Composition: 9:16 vertical mobile app hero. Use a strong central journey composition: route silhouette, stay-base cluster, island chain, trail spine, or beach-and-excursion layout depending on the itinerary. Keep most miniature detail in the top and middle. Keep the lower 35% calmer, atmospheric, and less contrasty so the app title, subtitle, and warm paper summary card remain readable over the image. Avoid important landmarks at the extreme edges because the image may be cropped slightly on phones.`,
+Composition: 9:16 vertical mobile app hero. Use a strong central journey composition: route silhouette, stay-base cluster, island chain, trail spine, or beach-and-excursion layout depending on the itinerary. The complete illustrated map should fit inside the central 72% width and upper-to-middle 62% of the frame, with the outer margins acting as atmospheric bleed only. Keep most miniature detail in the top and middle, but leave clear breathing room above the highest landmark and beside the widest labels. Keep the lower 35% calmer, atmospheric, and less contrasty so the app title, subtitle, and warm paper summary card remain readable over the image. Avoid important landmarks at the extreme edges because the image may be cropped slightly on phones.`,
     };
   }
 
@@ -346,7 +348,7 @@ Composition: 9:16 vertical mobile app hero. Use a strong central journey composi
       recommendedSize: '1536x1024',
       prompt: `${shared}
 
-Composition: 3:2 horizontal desktop hero image. This will sit as a large photographic stage beside editorial text, so make the trip structure readable across the full frame with generous breathing room at the edges. Keep the center and right-center visually rich, with softer cloud and paper texture toward the far left so responsive cropping still feels intentional.`,
+Composition: 3:2 horizontal desktop hero image. This will sit as a large photographic stage beside editorial text, so make the trip structure readable across the full frame with generous breathing room at the edges. Keep the complete miniature map inside a centered safe area with extra cloud / paper bleed on every side, especially left and right, so desktop cover cropping never cuts off labels or the island silhouette. Keep the center and right-center visually rich, with softer cloud and paper texture toward the far left so responsive cropping still feels intentional.`,
     };
   }
 
@@ -357,7 +359,7 @@ Composition: 3:2 horizontal desktop hero image. This will sit as a large photogr
     recommendedSize: '1200x630',
     prompt: `${shared}
 
-Composition: 1.91:1 horizontal social-share image. Make it instantly legible at small preview sizes: one clear floating-island silhouette, one simple route line, trail path, ferry chain, stay-base cluster, or beach setting depending on the itinerary, and a few larger recognizable trip cues instead of many tiny equal-weight details. Leave enough calm negative space that OurTrips can place editorial title text next to or over the image in an Open Graph layout.`,
+Composition: 1.91:1 horizontal social-share image. Make it instantly legible at small preview sizes: one clear floating-island silhouette, one simple route line, trail path, ferry chain, stay-base cluster, or beach setting depending on the itinerary, and a few larger recognizable trip cues instead of many tiny equal-weight details. Keep the island and labels safely inside the center with generous bleed around the edges. Leave enough calm negative space that OurTrips can place editorial title text next to or over the image in an Open Graph layout.`,
   };
 }
 

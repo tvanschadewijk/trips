@@ -132,8 +132,11 @@ test('buildTripImagePromptSet creates grounded prompts for all image slots', () 
   assert.match(prompts.cover_portrait.prompt, /Primary destination, stay, or excursion labels to render on the map/);
   assert.match(prompts.cover_portrait.prompt, /small, legible labels/);
   assert.match(prompts.cover_portrait.prompt, /Journey type and visual emphasis/);
+  assert.match(prompts.cover_portrait.prompt, /OurTrips Experience crop safety/);
+  assert.match(prompts.cover_portrait.prompt, /central 72% width and upper-to-middle 62%/);
   assert.match(prompts.cover_portrait.prompt, /lower 35%/);
   assert.match(prompts.cover_landscape.prompt, /desktop hero/);
+  assert.match(prompts.cover_landscape.prompt, /desktop cover cropping never cuts off labels/);
   assert.match(prompts.social_og.prompt, /small preview sizes/);
 });
 
@@ -148,6 +151,7 @@ test('buildTripImagePromptSet adapts to beach holidays without forcing roadtrip 
   assert.match(prompt, /beach holiday as a calm stay base with nearby beaches or excursions/);
   assert.match(prompt, /stay-base cluster, island chain, trail spine, or beach-and-excursion layout/);
   assert.match(prompt, /Do not force mountains, roads, trains, planes, or dense route lines/);
+  assert.match(prompt, /complete miniature map as an inner poster/);
   assert.match(prompt, /Home\/departure context label, if useful:\n- Amsterdam/);
   assert.match(primarySection, /Naxos/);
   assert.match(primarySection, /Naxos Old Town/);
