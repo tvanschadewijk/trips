@@ -51,6 +51,54 @@ function includesAny(value: string, needles: string[]): boolean {
   return needles.some((needle) => normalized.includes(needle));
 }
 
+function placeKey(value: string): string {
+  return cleanText(value)
+    .toLocaleLowerCase()
+    .replace(/\([^)]*\)/g, ' ')
+    .replace(/\b(centraal|central|station|st\.?|saint|pancras|euston|queen\s+st|international|airport|ams|gla)\b/g, ' ')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+function placeRoot(value: string): string {
+  return placeKey(value).split(/\s+/)[0] ?? '';
+}
+
+function isHomeLikeStop(stop: string, homes: string[]): boolean {
+  const stopKey = placeKey(stop);
+  if (!stopKey) return false;
+  return homes.some((home) => {
+    const homeKey = placeKey(home);
+    const homeRoot = placeRoot(home);
+    return (
+      !!homeKey &&
+      (stopKey === homeKey ||
+        stopKey.startsWith(`${homeKey} `) ||
+        homeKey.startsWith(`${stopKey} `) ||
+        (!!homeRoot && stopKey === homeRoot))
+    );
+  });
+}
+
+function looksLikeNonDestination(value: string): boolean {
+  return includesAny(value, [
+    'sleeper',
+    'arrival',
+    'departure',
+    'travel day',
+    'free day',
+    'beach day',
+    'walking day',
+    'hiking day',
+  ]);
+}
+
+function addPrimaryStop(values: string[], next: string | undefined | null, limit = MAX_STOPS): void {
+  const cleaned = cleanText(next);
+  if (!cleaned || looksLikeNonDestination(cleaned)) return;
+  addUnique(values, cleaned, limit);
+}
+
 function looksLikeStandalonePlaceLabel(value: string): boolean {
   const cleaned = cleanText(value);
   if (!cleaned) return false;
@@ -93,14 +141,19 @@ function normalizeTransportMode(modeOrLabel: string): string {
 }
 
 function isWalkingDay(day: Day): boolean {
-  const haystack = [
-    day.title,
-    day.subtitle,
-    day.description,
-    ...(day.blocks ?? []).flatMap((block) => [block.type, block.content, block.detail?.title]),
-    ...(day.stats ?? []).flatMap((stat) => [stat.label, stat.value]),
-  ].map(cleanText).join(' ');
-  return includesAny(haystack, ['walk', 'walking', 'hike', 'hiking', 'trek', 'trail', 'west highland way']);
+  const titleText = [day.title, day.subtitle, day.description].map(cleanText).join(' ');
+  const blockText = (day.blocks ?? []).flatMap((block) => [block.type, block.content, block.detail?.title]).map(cleanText).join(' ');
+  const statsText = (day.stats ?? []).flatMap((stat) => [stat.label, stat.value]).map(cleanText).join(' ');
+  const haystack = [titleText, blockText, statsText].join(' ');
+  let score = 0;
+
+  if (includesAny(titleText, ['west highland way', 'whw', 'hike', 'hiking', 'trail stage', 'coastal loop'])) score += 2;
+  if (includesAny(blockText, ['west highland way', 'whw', 'hike', 'hiking', 'trek', 'trail stage', 'circular loop'])) score += 2;
+  if ((day.blocks ?? []).some((block) => includesAny(cleanText(block.type), ['walk', 'hike', 'trail']))) score += 2;
+  if (includesAny(statsText, ['distance', 'terrain', 'summit']) && /\b\d+(?:\.\d+)?\s?km\b/i.test(statsText)) score += 1;
+  if (includesAny(haystack, ['walk the', 'walk around', 'walk across', 'set off on'])) score += 1;
+
+  return score >= 2;
 }
 
 function routeLabel(parts: string[]): string {
@@ -147,23 +200,23 @@ function collectJourneyThemes(data: TripData, transportModes: string[]): string[
 }
 
 function collectJourneyMap(data: TripData): JourneyMap {
-  const routeStops: string[] = [];
+  const primaryStops: string[] = [];
   const transportCues: string[] = [];
   const transportModes: string[] = [];
   const walkingStages: string[] = [];
   const firstRouteParts = splitRouteLikeText(data.days[0]?.title ?? '');
   const firstTransport = data.days[0]?.transport?.find((transport) => transport.from && transport.to);
-  const inferredHome = cleanText(firstTransport?.from) || firstRouteParts[0] || '';
+  const inferredHome = firstRouteParts[0] || cleanText(firstTransport?.from) || '';
+  const homeStops: string[] = [];
+  if (inferredHome) addUnique(homeStops, inferredHome, 1);
 
   for (const day of data.days) {
     const titleParts = splitRouteLikeText(day.title);
     for (const part of titleParts) {
-      addUnique(routeStops, part, MAX_STOPS);
+      if (!isHomeLikeStop(part, homeStops)) addPrimaryStop(primaryStops, part, MAX_STOPS);
     }
 
     for (const transport of day.transport ?? []) {
-      addUnique(routeStops, transport.from, MAX_STOPS);
-      addUnique(routeStops, transport.to, MAX_STOPS);
       const mode = normalizeTransportMode(`${transport.mode} ${transport.label}`);
       addUnique(transportModes, mode);
       const fromTo = [transport.from, transport.to].map(cleanText).filter(Boolean);
@@ -174,24 +227,20 @@ function collectJourneyMap(data: TripData): JourneyMap {
 
     if (isWalkingDay(day)) {
       const stageParts = titleParts.length >= 2 ? titleParts : [];
+      const placeWithContext = [day.title, day.subtitle || day.description].map(cleanText).filter(Boolean).join(' - ');
       const stage = stageParts.length >= 2
         ? `Day ${day.day_number}: ${routeLabel(stageParts)}`
-        : `Day ${day.day_number}: ${cleanText(day.title) || 'walking stage'}`;
+        : `Day ${day.day_number}: ${placeWithContext || 'walking stage'}`;
       addUnique(walkingStages, stage, MAX_DAILY_CUES);
       addUnique(transportModes, 'walking');
     }
   }
 
   const journeyThemes = collectJourneyThemes(data, transportModes);
-  const homeStops: string[] = [];
-  if (inferredHome) addUnique(homeStops, inferredHome, 1);
-  const primaryStops = routeStops.filter(
-    (stop) => !homeStops.some((home) => home.toLocaleLowerCase() === stop.toLocaleLowerCase())
-  );
 
   return {
     homeStops,
-    primaryStops: primaryStops.length ? primaryStops : routeStops,
+    primaryStops,
     transportCues,
     transportModes,
     walkingStages,
@@ -316,6 +365,8 @@ Focus on the actual itinerary geography, not the entire country. Show the trip p
 OurTrips Experience crop safety: compose the complete miniature map as an inner poster inside the image, not edge-to-edge. The full floating island, route, stay base, trail, or beach composition must sit comfortably within the central safe area with generous soft-cloud / warm-paper bleed around it. Keep all destination labels, route dots, vehicles, landmarks, and key storytelling details away from the outer edge so nothing important is lost when the app displays the image with responsive cover cropping.
 
 Add small, legible labels beside every major itinerary place from the "Primary destination, stay, or excursion labels to render on the map" list. Treat them like elegant printed cartography: tiny cream paper flags or engraved map labels, connected subtly to route dots, stay bases, beaches, trailheads, or excursion points, using only the exact names from the itinerary. The home/departure context label is optional and must be smaller, quieter, and visually secondary if shown at all; it should not compete with the actual trip stops. Keep labels concise and readable, with no extra fictional place names. No logos, no watermark, no app UI, and no unrelated typography.
+
+Transport cues may contain station names, airport codes, or terminals for route accuracy; use those only to understand movement, not as visible destination labels, unless the same place is also listed in the primary destination labels.
 
 Respect the transport cues exactly. Do not show airplanes on train legs. Do not replace a train, ferry, road transfer, or walking stage with an airplane. Only show an airplane when the itinerary explicitly contains a flight leg; if flight appears only as a return leg, keep the airplane small and peripheral near the return edge of the map. Train legs should look like rail journeys, and walking or hiking days should appear as footpaths or dotted trail stages with visible stage markers.
 

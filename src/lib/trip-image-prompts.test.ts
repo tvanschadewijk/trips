@@ -119,6 +119,86 @@ const beachFixture: TripData = {
   ],
 };
 
+const stationFixture: TripData = {
+  trip: {
+    name: 'Scotland',
+    subtitle: 'West Highland Way & Oban Coast',
+    dates: { start: '2026-04-24', end: '2026-05-03' },
+    travelers: [],
+    summary: 'Eurostar to London, Caledonian Sleeper to Glasgow, then hiking the West Highland Way highlights before Oban.',
+    hero_image: 'https://example.com/scotland.jpg',
+  },
+  days: [
+    {
+      day_number: 1,
+      date: '2026-04-24',
+      title: 'Amsterdam -> London',
+      subtitle: 'Eurostar to Hackney',
+      transport: [{ mode: 'train', label: 'Eurostar', from: 'Amsterdam Centraal', to: 'London St Pancras' }],
+      blocks: [{ time_label: 'Evening', content: 'Walk-in dinner near the hotel.', type: 'activity' }],
+    },
+    {
+      day_number: 2,
+      date: '2026-04-25',
+      title: 'London -> Sleeper',
+      subtitle: 'Caledonian Sleeper to Glasgow',
+      transport: [{ mode: 'train', label: 'Caledonian Sleeper', from: 'London Euston', to: 'Glasgow Central' }],
+      blocks: [{ time_label: 'Morning', content: 'Check out and head to Euston.', type: 'activity' }],
+    },
+    {
+      day_number: 3,
+      date: '2026-04-26',
+      title: 'Glasgow -> Bridge of Orchy',
+      subtitle: 'West Highland Line to the start',
+      transport: [{ mode: 'train', label: 'ScotRail', from: 'Glasgow Queen St', to: 'Bridge of Orchy' }],
+      blocks: [{ time_label: 'Morning', content: 'Walk to Queen Street station, then take the train north.', type: 'transport' }],
+    },
+    {
+      day_number: 4,
+      date: '2026-04-27',
+      title: 'Bridge of Orchy -> Glencoe',
+      subtitle: 'WHW: Inveroran to Kingshouse',
+      blocks: [{ time_label: 'All day', content: 'Set off on the West Highland Way across Rannoch Moor.', type: 'activity' }],
+      stats: [{ icon: 'footprints', label: 'Distance', value: '~19 km' }],
+    },
+    {
+      day_number: 5,
+      date: '2026-04-28',
+      title: 'Glencoe',
+      subtitle: "Devil's Staircase day hike",
+      blocks: [{ time_label: 'All day', content: "Hike the Devil's Staircase.", type: 'activity' }],
+      stats: [{ icon: 'footprints', label: 'Distance', value: '~13 km' }],
+    },
+    {
+      day_number: 6,
+      date: '2026-04-29',
+      title: 'Fort William -> Oban',
+      subtitle: 'Train to the coast',
+      transport: [{ mode: 'train', label: 'ScotRail', from: 'Fort William', to: 'Oban' }],
+      blocks: [{ time_label: 'Morning', content: 'Check out and walk to the station.', type: 'activity' }],
+    },
+    {
+      day_number: 7,
+      date: '2026-04-30',
+      title: 'Oban',
+      subtitle: 'Kerrera Island loop',
+      blocks: [{ time_label: 'All day', content: 'Walk the 10km circular loop around Kerrera Island.', type: 'activity' }],
+      stats: [{ icon: 'footprints', label: 'Distance', value: '10 km' }],
+    },
+    {
+      day_number: 8,
+      date: '2026-05-01',
+      title: 'Oban -> Amsterdam',
+      subtitle: 'Train to Glasgow, fly home',
+      transport: [
+        { mode: 'train', label: 'ScotRail', from: 'Oban', to: 'Glasgow Queen St' },
+        { mode: 'plane', label: 'EasyJet', from: 'Glasgow (GLA)', to: 'Amsterdam (AMS)' },
+      ],
+      blocks: [{ time_label: 'Morning', content: 'Walk to the station.', type: 'activity' }],
+    },
+  ],
+};
+
 test('buildTripImagePromptSet creates grounded prompts for all image slots', () => {
   const prompts = buildTripImagePromptSet(fixture);
 
@@ -167,6 +247,8 @@ test('buildTripImagePromptSet asks for itinerary stop labels, not arbitrary map 
   assert.match(prompt, /stay bases, beaches, trailheads, or excursion points/);
   assert.match(prompt, /Home\/departure context label/);
   assert.match(prompt, /home\/departure context label is optional and must be smaller/i);
+  assert.match(prompt, /station names, airport codes, or terminals/);
+  assert.match(prompt, /not as visible destination labels/);
   assert.doesNotMatch(prompt, /No readable text/);
   assert.doesNotMatch(prompt, /no map labels/);
 });
@@ -204,6 +286,44 @@ test('buildTripImagePromptSet preserves transport modes and walking stages', () 
   assert.match(prompt, /Kinlochleven -> Fort William/);
   assert.match(prompt, /Do not show airplanes on train legs/);
   assert.match(prompt, /Only show an airplane when the itinerary explicitly contains a flight leg/);
+});
+
+test('buildTripImagePromptSet keeps station names out of primary destination labels', () => {
+  const prompt = buildTripImagePromptSet(stationFixture).cover_portrait.prompt;
+  const primarySection = prompt.slice(
+    prompt.indexOf('Primary destination, stay, or excursion labels to render on the map:'),
+    prompt.indexOf('Journey type and visual emphasis:')
+  );
+
+  assert.match(prompt, /Home\/departure context label, if useful:\n- Amsterdam/);
+  assert.match(primarySection, /London/);
+  assert.match(primarySection, /Glasgow/);
+  assert.match(primarySection, /Bridge of Orchy/);
+  assert.match(primarySection, /Glencoe/);
+  assert.match(primarySection, /Fort William/);
+  assert.match(primarySection, /Oban/);
+  assert.doesNotMatch(primarySection, /Amsterdam/);
+  assert.doesNotMatch(primarySection, /Centraal/);
+  assert.doesNotMatch(primarySection, /St Pancras/);
+  assert.doesNotMatch(primarySection, /Euston/);
+  assert.doesNotMatch(primarySection, /Queen St/);
+  assert.doesNotMatch(primarySection, /Sleeper/);
+});
+
+test('buildTripImagePromptSet ignores incidental walking while preserving real hikes', () => {
+  const prompt = buildTripImagePromptSet(stationFixture).cover_portrait.prompt;
+  const walkingSection = prompt.slice(
+    prompt.indexOf('Walking or hiking stages to visualize:'),
+    prompt.indexOf('Daily story cues:')
+  );
+
+  assert.match(walkingSection, /Bridge of Orchy -> Glencoe/);
+  assert.match(walkingSection, /Glencoe/);
+  assert.match(walkingSection, /Oban/);
+  assert.doesNotMatch(walkingSection, /Amsterdam -> London/);
+  assert.doesNotMatch(walkingSection, /Glasgow -> Bridge of Orchy/);
+  assert.doesNotMatch(walkingSection, /Fort William -> Oban/);
+  assert.doesNotMatch(walkingSection, /Oban -> Amsterdam/);
 });
 
 test('buildTripImagePromptSet avoids traveler names and private booking details', () => {
