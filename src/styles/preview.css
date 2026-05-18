@@ -165,6 +165,33 @@
   background: rgba(26, 20, 16, 0.18);
   filter: drop-shadow(0 24px 48px rgba(26, 20, 16, 0.28));
 }
+.hero-frame-zoomable {
+  --hero-zoom-x: 50%;
+  --hero-zoom-y: 38%;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: pan-y;
+}
+.hero-frame-zoomable .hero-bg-artwork img {
+  transform-origin: var(--hero-zoom-x) var(--hero-zoom-y);
+  transition: transform 180ms cubic-bezier(0.22, 0.72, 0, 1), filter 180ms ease;
+  will-change: transform;
+}
+.hero-frame-zooming {
+  touch-action: none;
+}
+.hero-frame-zooming .hero-bg-artwork::before {
+  opacity: 0.9;
+  transform: scale(1.08);
+}
+.hero-frame-zooming .hero-bg-artwork img {
+  transform: scale(2.25);
+  filter: drop-shadow(0 28px 56px rgba(26, 20, 16, 0.34));
+}
+@media (hover: hover) and (pointer: fine) {
+  .hero-frame-zoomable { cursor: zoom-in; }
+  .hero-frame-zoomable.hero-frame-zooming { cursor: zoom-out; }
+}
 .hero-overlay { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(to top, rgba(26,20,16,0.62) 0%, rgba(26,20,16,0.32) 35%, rgba(26,20,16,0.10) 65%, transparent 100%); }
 .hero-body {
   position: relative;

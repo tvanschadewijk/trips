@@ -75,6 +75,7 @@ function renderRichDetail(detail?: RichDetail): string {
 const MAX_VISIBLE_DOTS = 7;
 const TRIP_HERO_TRANSITION_NAME = 'trip-hero';
 const DETAIL_CLOSE_MS = 420;
+const HERO_ZOOM_HOLD_MS = 320;
 type SlideMotionMode = 'programmatic' | 'swipe' | 'settled';
 type SlideDirection = 'forward' | 'backward' | 'none';
 
@@ -154,6 +155,10 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
   const detailBodyRef = useRef<HTMLDivElement>(null);
   const detailCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const detailClosingRef = useRef(false);
+  const heroZoomHoldTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const heroZoomActiveRef = useRef(false);
+  const heroZoomPendingPointerRef = useRef<{ id: number; x: number; y: number } | null>(null);
+  const [heroZoomActive, setHeroZoomActiveState] = useState(false);
 
   // Touch state
   const touchState = useRef({ startX: 0, startY: 0, startTime: 0, dx: 0, isDragging: false, isScrolling: null as boolean | null });
@@ -163,6 +168,94 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
   const days = activeTripIndex !== null ? trips[activeTripIndex]?.days || [] : [];
   const markdownSource = activeTripIndex !== null ? trips[activeTripIndex]?.markdown_source : undefined;
   const totalSlides = 1 + days.length;
+
+  const clearHeroZoomHoldTimer = useCallback(() => {
+    if (heroZoomHoldTimerRef.current) {
+      clearTimeout(heroZoomHoldTimerRef.current);
+      heroZoomHoldTimerRef.current = null;
+    }
+  }, []);
+
+  const setHeroZoomActive = useCallback((active: boolean) => {
+    heroZoomActiveRef.current = active;
+    setHeroZoomActiveState(active);
+  }, []);
+
+  const updateHeroZoomPoint = useCallback((target: HTMLElement, clientX: number, clientY: number) => {
+    const rect = target.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    const x = Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
+    const y = Math.max(0, Math.min(100, ((clientY - rect.top) / rect.height) * 100));
+    target.style.setProperty('--hero-zoom-x', `${x.toFixed(2)}%`);
+    target.style.setProperty('--hero-zoom-y', `${y.toFixed(2)}%`);
+  }, []);
+
+  const startHeroZoom = useCallback((target: HTMLElement, pointerId: number, clientX: number, clientY: number) => {
+    updateHeroZoomPoint(target, clientX, clientY);
+    try {
+      target.setPointerCapture(pointerId);
+    } catch {}
+    setHeroZoomActive(true);
+  }, [setHeroZoomActive, updateHeroZoomPoint]);
+
+  const handleHeroZoomPointerEnter = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    if (event.pointerType !== 'mouse') return;
+    updateHeroZoomPoint(event.currentTarget, event.clientX, event.clientY);
+    setHeroZoomActive(true);
+  }, [setHeroZoomActive, updateHeroZoomPoint]);
+
+  const handleHeroZoomPointerMove = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    const pending = heroZoomPendingPointerRef.current;
+    if (pending && pending.id === event.pointerId && !heroZoomActiveRef.current) {
+      const dx = event.clientX - pending.x;
+      const dy = event.clientY - pending.y;
+      if (Math.sqrt(dx * dx + dy * dy) > 12) {
+        clearHeroZoomHoldTimer();
+        heroZoomPendingPointerRef.current = null;
+      }
+    }
+    if (event.pointerType === 'mouse' || heroZoomActiveRef.current) {
+      updateHeroZoomPoint(event.currentTarget, event.clientX, event.clientY);
+    }
+  }, [clearHeroZoomHoldTimer, updateHeroZoomPoint]);
+
+  const handleHeroZoomPointerLeave = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    clearHeroZoomHoldTimer();
+    heroZoomPendingPointerRef.current = null;
+    if (event.pointerType === 'mouse') setHeroZoomActive(false);
+  }, [clearHeroZoomHoldTimer, setHeroZoomActive]);
+
+  const handleHeroZoomPointerDown = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    if (event.pointerType === 'mouse') {
+      updateHeroZoomPoint(event.currentTarget, event.clientX, event.clientY);
+      return;
+    }
+    clearHeroZoomHoldTimer();
+    const target = event.currentTarget;
+    const pointerId = event.pointerId;
+    const clientX = event.clientX;
+    const clientY = event.clientY;
+    heroZoomPendingPointerRef.current = { id: pointerId, x: clientX, y: clientY };
+    heroZoomHoldTimerRef.current = setTimeout(() => {
+      if (heroZoomPendingPointerRef.current?.id !== pointerId) return;
+      startHeroZoom(target, pointerId, clientX, clientY);
+    }, HERO_ZOOM_HOLD_MS);
+  }, [clearHeroZoomHoldTimer, startHeroZoom, updateHeroZoomPoint]);
+
+  const handleHeroZoomPointerEnd = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    clearHeroZoomHoldTimer();
+    heroZoomPendingPointerRef.current = null;
+    if (event.pointerType !== 'mouse') {
+      setHeroZoomActive(false);
+      try {
+        event.currentTarget.releasePointerCapture(event.pointerId);
+      } catch {}
+    }
+  }, [clearHeroZoomHoldTimer, setHeroZoomActive]);
+
+  const handleHeroZoomContextMenu = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
+    event.preventDefault();
+  }, []);
 
   // Prewarm the trip JSON cache the SW maintains. Fire-and-forget; even
   // if we never click 'Save offline', the next slow/offline visit can
@@ -404,6 +497,10 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
       touchState.current = { startX: e.touches[0].clientX, startY: e.touches[0].clientY, startTime: Date.now(), dx: 0, isDragging: true, isScrolling: null };
     };
     const onMove = (e: TouchEvent) => {
+      if (heroZoomActiveRef.current) {
+        e.preventDefault();
+        return;
+      }
       const ts = touchState.current;
       if (!ts.isDragging) return;
       const moveX = e.touches[0].clientX - ts.startX;
@@ -512,8 +609,15 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
   useEffect(() => {
     return () => {
       if (detailCloseTimerRef.current) clearTimeout(detailCloseTimerRef.current);
+      if (heroZoomHoldTimerRef.current) clearTimeout(heroZoomHoldTimerRef.current);
     };
   }, []);
+
+  useEffect(() => {
+    clearHeroZoomHoldTimer();
+    heroZoomPendingPointerRef.current = null;
+    setHeroZoomActive(false);
+  }, [activeTripIndex, currentSlide, clearHeroZoomHoldTimer, setHeroZoomActive]);
 
   const showDetail = useCallback((content: { title: string; html: string }) => {
     if (detailCloseTimerRef.current) {
@@ -1038,8 +1142,21 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
       <div className={`slide ${currentSlide === 0 ? 'active' : ''}`}>
         <div className="hero-slide">
           <div
-            className="hero-frame"
+            className={[
+              'hero-frame',
+              heroUsesGeneratedArtwork ? 'hero-frame-zoomable' : null,
+              heroZoomActive && heroUsesGeneratedArtwork ? 'hero-frame-zooming' : null,
+            ].filter(Boolean).join(' ')}
             style={activeTripIndex !== null && transitionTripIndex === activeTripIndex ? { viewTransitionName: TRIP_HERO_TRANSITION_NAME } as React.CSSProperties : undefined}
+            {...(heroUsesGeneratedArtwork ? {
+              onPointerEnter: handleHeroZoomPointerEnter,
+              onPointerMove: handleHeroZoomPointerMove,
+              onPointerLeave: handleHeroZoomPointerLeave,
+              onPointerDown: handleHeroZoomPointerDown,
+              onPointerUp: handleHeroZoomPointerEnd,
+              onPointerCancel: handleHeroZoomPointerEnd,
+              onContextMenu: handleHeroZoomContextMenu,
+            } : {})}
           >
             <div
               className={`hero-bg ${heroUsesGeneratedArtwork ? 'hero-bg-artwork' : ''}`}
@@ -1053,6 +1170,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
                 <img
                   src={heroSources.mobile}
                   alt={trip.name}
+                  draggable={false}
                   style={{
                     width: '100%',
                     height: '100%',
