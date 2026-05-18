@@ -145,7 +145,7 @@ function buildItineraryBrief(data: TripData): string {
     lineList(stops, 'Use the itinerary route as the main visual structure.'),
     '',
     'Daily story cues:',
-    lineList(dailyCues, 'Show a coherent road-trip journey with distinct landscapes.'),
+    lineList(dailyCues, 'Show a coherent route-first journey with distinct landscapes.'),
     '',
     'Food and stay cues:',
     lineList([...foodCues, ...stayCues], 'Keep food and stay details subtle and atmospheric.'),
