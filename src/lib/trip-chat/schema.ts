@@ -51,6 +51,28 @@ const TripNoteSchema = z
   })
   .passthrough();
 
+const TripImageAssetSchema = z
+  .object({
+    url: z.string().optional(),
+    prompt: z.string().optional(),
+    aspect_ratio: z.string().optional(),
+    width: z.number().int().positive().optional(),
+    height: z.number().int().positive().optional(),
+    provider: z.string().optional(),
+    model: z.string().optional(),
+    source: z.enum(['imagegen', 'manual', 'search']).optional(),
+    generated_at: z.string().optional(),
+  })
+  .passthrough();
+
+const TripImageAssetsSchema = z
+  .object({
+    cover_portrait: TripImageAssetSchema.optional(),
+    cover_landscape: TripImageAssetSchema.optional(),
+    social_og: TripImageAssetSchema.optional(),
+  })
+  .passthrough();
+
 const StatSchema = z
   .object({
     icon: NonEmptyString,
@@ -253,6 +275,7 @@ export const TripMetaEditableSchema = z
     summary: z.string().optional(),
     hero_image: z.string().optional(),
     overview_image: z.string().optional(),
+    image_assets: TripImageAssetsSchema.optional(),
     accent_color: z.string().optional(),
     services: z.array(ServiceSchema).optional(),
     notes: z.array(TripNoteSchema).optional(),

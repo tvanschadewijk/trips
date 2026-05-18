@@ -116,7 +116,7 @@ export default function GuidePage() {
           </section>
 
           <div className="guide-cta">
-            <Link href="/demo" className="guide-cta-link">
+            <Link href="/itineraries" className="guide-cta-link">
               See what a finished trip looks like
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
             </Link>

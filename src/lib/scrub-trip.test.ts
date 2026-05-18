@@ -151,6 +151,25 @@ test('drops service ref and status, keeps the rest', () => {
   assert.equal(s.price, '€180');
 });
 
+test('keeps generated image URLs but drops stored image prompts', () => {
+  const data = fixture();
+  data.trip.image_assets = {
+    cover_portrait: {
+      url: 'https://example.com/generated-cover.png',
+      prompt: 'Include booking ref EUR-XYZ-123 and traveler Thijs.',
+      aspect_ratio: '9:16',
+      width: 1080,
+      height: 1920,
+      source: 'imagegen',
+    },
+  };
+
+  const out = scrubTripData(data);
+  assert.equal(out.trip.image_assets?.cover_portrait?.url, 'https://example.com/generated-cover.png');
+  assert.equal(out.trip.image_assets?.cover_portrait?.prompt, undefined);
+  assert.equal(out.trip.image_assets?.cover_portrait?.aspect_ratio, '9:16');
+});
+
 test('preserves day-level structure (number, date, title, blocks, tips)', () => {
   const out = scrubTripData(fixture());
   assert.equal(out.days.length, 1);

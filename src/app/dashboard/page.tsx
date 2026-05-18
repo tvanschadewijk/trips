@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import type { TripData } from '@/lib/types';
+import { getTripMobileCoverImageUrl } from '@/lib/trip-images';
 import { useSavedTripIds } from '@/lib/offline';
 import { useOnlineStatus } from '@/lib/online-status';
 import { isPublicItineraryShareId } from '@/lib/public-itineraries';
@@ -392,7 +393,7 @@ export default function DashboardPage() {
             </div>
 
             <div className="dash-onboard-footer">
-              <Link href="/demo" className="dash-onboard-demo-link">
+              <Link href="/itineraries" className="dash-onboard-demo-link">
                 See what a finished trip looks like
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
               </Link>
@@ -405,6 +406,7 @@ export default function DashboardPage() {
             <div className="dash-grid">
             {section.trips.map(trip => {
               const t = trip.data.trip;
+              const coverImage = getTripMobileCoverImageUrl(t);
               const startD = new Date(t.dates.start + 'T12:00:00');
               const endD = new Date(t.dates.end + 'T12:00:00');
               const nights = Math.round((endD.getTime() - startD.getTime()) / 86400000);
@@ -414,14 +416,14 @@ export default function DashboardPage() {
                   <Link
                     href={`/t/${trip.share_id}`}
                     className="dash-card-link"
-                    onMouseEnter={() => { const img = new window.Image(); img.src = t.hero_image; }}
-                    onTouchStart={() => { const img = new window.Image(); img.src = t.hero_image; }}
+                    onMouseEnter={() => { const img = new window.Image(); img.src = coverImage; }}
+                    onTouchStart={() => { const img = new window.Image(); img.src = coverImage; }}
                     onClick={(e) => {
                       // Stash a snapshot of the trip cover so loading.tsx can
                       // paint the same photo + title under the morphing hero.
                       try {
                         sessionStorage.setItem(`vt-trip-${trip.share_id}`, JSON.stringify({
-                          heroImage: t.hero_image,
+                          heroImage: coverImage,
                           name: t.name,
                           subtitle: t.subtitle,
                           start: t.dates.start,
@@ -446,7 +448,7 @@ export default function DashboardPage() {
                     <div className="dash-card-hero">
                       <div className="dash-card-hero-frame" style={vtTrip === trip.share_id ? { viewTransitionName: 'trip-hero' } as React.CSSProperties : undefined}>
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={t.hero_image} alt={t.name} />
+                        <img src={coverImage} alt={t.name} />
                         <div className="dash-card-hero-gradient" />
                       </div>
                       <div className="dash-card-hero-text">

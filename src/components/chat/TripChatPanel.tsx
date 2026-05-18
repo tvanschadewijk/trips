@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * Admin-only chat panel for editing a trip in place.
+ * Owner/admin chat panel for editing a trip in place.
  *
  * Three states: closed (entry pill), open (iOS share-sheet style),
  * minimized (status pill while a turn is in flight). Animations via
@@ -51,6 +51,84 @@ const overlaySpring = {
 };
 
 const KEYBOARD_INSET_THRESHOLD = 100;
+const CHAT_POLL_INTERVAL_MS = 2400;
+const CHAT_POLL_TIMEOUT_MS = 305_000;
+const CHAT_HISTORY_LIMIT = 50;
+
+type ChatTurnResponse = {
+  status?: 'queued';
+  assistant_message: string | null;
+  session_id: string | null;
+  tool_calls_summary: ToolCallSummary[];
+  turn_index: number;
+};
+
+type ChatHistoryResponse = {
+  messages: ChatMessage[];
+};
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isLikelyDroppedFetch(err: unknown): boolean {
+  if (!(err instanceof Error)) return false;
+  return /load failed|failed to fetch|networkerror|cancelled|canceled|aborted/i.test(err.message);
+}
+
+function userFacingChatError(err: unknown): string {
+  if (isLikelyDroppedFetch(err)) {
+    return 'The connection dropped while the travel expert was working. Reopen this trip in a moment; if the answer finished, it will appear here.';
+  }
+  return err instanceof Error ? err.message : String(err);
+}
+
+async function fetchChatHistory(tripId: string): Promise<ChatMessage[]> {
+  const res = await fetch(`/api/trips/${tripId}/chat?limit=${CHAT_HISTORY_LIMIT}`, {
+    cache: 'no-store',
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    const headline = body.error ?? `HTTP ${res.status}`;
+    throw new Error(body.detail ? `${headline} — ${body.detail}` : headline);
+  }
+  const json = (await res.json()) as ChatHistoryResponse;
+  return json.messages;
+}
+
+async function pollForAssistant(
+  tripId: string,
+  turnIndex: number
+): Promise<{ messages: ChatMessage[]; assistant: ChatMessage }> {
+  const started = Date.now();
+  let lastMessages: ChatMessage[] | null = null;
+
+  while (Date.now() - started < CHAT_POLL_TIMEOUT_MS) {
+    try {
+      const messages = await fetchChatHistory(tripId);
+      lastMessages = messages;
+      const assistant = messages.find(
+        (m) => m.role === 'assistant' && m.turn_index === turnIndex
+      );
+      if (assistant) return { messages, assistant };
+    } catch {
+      // The original failure mode is a transient dropped request. Keep polling
+      // within the server-side maxDuration window before surfacing an error.
+    }
+    await sleep(CHAT_POLL_INTERVAL_MS);
+  }
+
+  if (lastMessages) {
+    const assistant = lastMessages.find(
+      (m) => m.role === 'assistant' && m.turn_index === turnIndex
+    );
+    if (assistant) return { messages: lastMessages, assistant };
+  }
+
+  throw new Error(
+    'The travel expert is taking longer than expected. Reopen this trip in a moment; if it finishes, the answer will appear here.'
+  );
+}
 
 export default function TripChatPanel({ tripId, initialMessages }: Props) {
   const router = useRouter();
@@ -153,6 +231,20 @@ export default function TripChatPanel({ tripId, initialMessages }: Props) {
     setUnread(false);
   }, []);
 
+  const finishTurn = useCallback((serverMessages: ChatMessage[], assistant: ChatMessage) => {
+    setMessages(serverMessages);
+
+    // If the user collapsed mid-turn, mark unread.
+    setState((s) => {
+      if (s === 'minimized') setUnread(true);
+      return s;
+    });
+
+    if ((assistant.tool_calls_json?.length ?? 0) > 0) {
+      router.refresh();
+    }
+  }, [router]);
+
   async function send() {
     const trimmed = input.trim();
     if (!trimmed || loading) return;
@@ -192,36 +284,42 @@ export default function TripChatPanel({ tripId, initialMessages }: Props) {
         const headline = body.error ?? `HTTP ${res.status}`;
         throw new Error(body.detail ? `${headline} — ${body.detail}` : headline);
       }
-      const json: {
-        assistant_message: string;
-        session_id: string | null;
-        tool_calls_summary: ToolCallSummary[];
-        turn_index: number;
-      } = await res.json();
+      const json = (await res.json()) as ChatTurnResponse;
 
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `r-${Date.now()}`,
-          turn_index: json.turn_index,
-          role: 'assistant',
-          content: json.assistant_message,
-          tool_calls_json:
-            json.tool_calls_summary.length > 0 ? json.tool_calls_summary : null,
-        },
-      ]);
+      if (json.status === 'queued') {
+        const completed = await pollForAssistant(tripId, json.turn_index);
+        finishTurn(completed.messages, completed.assistant);
+        return;
+      }
 
-      // If the user collapsed mid-turn, mark unread.
+      const assistant: ChatMessage = {
+        id: `r-${Date.now()}`,
+        turn_index: json.turn_index,
+        role: 'assistant',
+        content: json.assistant_message ?? 'Done.',
+        tool_calls_json:
+          json.tool_calls_summary.length > 0 ? json.tool_calls_summary : null,
+      };
+      setMessages((prev) => [...prev, assistant]);
       setState((s) => {
         if (s === 'minimized') setUnread(true);
         return s;
       });
-
-      if (json.tool_calls_summary.length > 0) {
+      if ((assistant.tool_calls_json?.length ?? 0) > 0) {
         router.refresh();
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      if (isLikelyDroppedFetch(err)) {
+        try {
+          const completed = await pollForAssistant(tripId, nextTurnIndex);
+          finishTurn(completed.messages, completed.assistant);
+          return;
+        } catch (pollErr) {
+          setError(userFacingChatError(pollErr));
+          return;
+        }
+      }
+      setError(userFacingChatError(err));
     } finally {
       setLoading(false);
     }

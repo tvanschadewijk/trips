@@ -4,8 +4,8 @@
   "description": "Your trips, beautifully presented — works offline",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#1A1A1A",
-  "theme_color": "#1A1A1A",
+  "background_color": "#FBF7F1",
+  "theme_color": "#FBF7F1",
   "orientation": "portrait",
   "icons": [
     {

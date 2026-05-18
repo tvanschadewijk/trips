@@ -18,10 +18,27 @@ export interface TripMeta {
   summary: string;
   hero_image: string;
   overview_image?: string;
+  image_assets?: TripImageAssets;
   accent_color?: string;
   services?: Service[];
   notes?: TripNote[];
 }
+
+export type TripImageAssetSlot = 'cover_portrait' | 'cover_landscape' | 'social_og';
+
+export interface TripImageAsset {
+  url?: string;
+  prompt?: string;
+  aspect_ratio?: string;
+  width?: number;
+  height?: number;
+  provider?: string;
+  model?: string;
+  source?: 'imagegen' | 'manual' | 'search';
+  generated_at?: string;
+}
+
+export type TripImageAssets = Partial<Record<TripImageAssetSlot, TripImageAsset>>;
 
 export interface TripNote {
   title: string;

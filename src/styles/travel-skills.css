@@ -1,0 +1,477 @@
+.travel-skills-page {
+  --paper: #FBF7F1;
+  --paper-deep: #F4EDE2;
+  --card: #FFFFFF;
+  --night: #1A1410;
+  --ink: #1A1410;
+  --ink-70: #3D352E;
+  --ink-50: #6B6157;
+  --accent: #C14F2A;
+  --accent-deep: #A03E1F;
+  --accent-wash: #F5E4DA;
+  --rule: #E8E1D6;
+  --rule-deep: #D4C8B4;
+  --sans: 'Inter', 'SF Pro Text', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  --serif: 'Fraunces', 'Iowan Old Style', 'Palatino', 'Georgia', serif;
+
+  min-height: 100dvh;
+  color: var(--ink-70);
+  background: var(--paper);
+  font-family: var(--sans);
+  font-feature-settings: 'cv11' on, 'ss01' on;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+.travel-skills-page *,
+.travel-skills-page *::before,
+.travel-skills-page *::after {
+  box-sizing: border-box;
+}
+
+.travel-skills-nav {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: rgba(251, 247, 241, 0.86);
+  border-bottom: 1px solid var(--rule);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+}
+
+.travel-skills-nav-inner {
+  max-width: 1280px;
+  height: 68px;
+  margin: 0 auto;
+  padding: 0 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.travel-skills-logo {
+  color: var(--ink);
+  font-family: var(--serif);
+  font-optical-sizing: auto;
+  font-size: 21px;
+  font-weight: 420;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.travel-skills-logo .logo-to {
+  color: var(--accent);
+  font-style: italic;
+  font-weight: 380;
+}
+
+.travel-skills-logo .logo-suffix {
+  color: var(--ink-50);
+  font-size: 17px;
+  font-style: italic;
+  font-weight: 380;
+}
+
+.travel-skills-nav-links {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  flex-shrink: 0;
+}
+
+.travel-skills-nav-link {
+  color: var(--ink-70);
+  font-size: 14px;
+  font-weight: 520;
+  text-decoration: none;
+}
+
+.travel-skills-nav-link:hover {
+  color: var(--ink);
+}
+
+.travel-skills-btn-outline {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 16px;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 560;
+  border: 1px solid var(--rule-deep);
+  border-radius: 999px;
+  text-decoration: none;
+}
+
+.travel-skills-btn-outline:hover {
+  color: var(--paper);
+  background: var(--ink);
+  border-color: var(--ink);
+}
+
+.travel-skills-hero {
+  padding: 112px 48px 88px;
+  border-bottom: 1px solid var(--rule);
+}
+
+.travel-skills-hero-inner {
+  max-width: 1280px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 460px);
+  gap: 72px;
+  align-items: end;
+}
+
+.travel-skills-kicker {
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 620;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.travel-skills-hero h1,
+.travel-skills-list-header h2,
+.travel-skills-install h2 {
+  margin: 22px 0 0;
+  color: var(--ink);
+  font-family: var(--serif);
+  font-optical-sizing: auto;
+  font-variation-settings: 'SOFT' 50, 'opsz' 144;
+  font-weight: 360;
+}
+
+.travel-skills-hero h1 {
+  max-width: 760px;
+  font-size: 72px;
+  line-height: 1;
+}
+
+.travel-skills-hero p {
+  max-width: 720px;
+  margin: 24px 0 0;
+  color: var(--ink-70);
+  font-family: var(--serif);
+  font-optical-sizing: auto;
+  font-size: 22px;
+  font-style: italic;
+  font-weight: 340;
+  line-height: 1.5;
+}
+
+.travel-skills-hero-figure {
+  margin: 0;
+  min-width: 0;
+}
+
+.travel-skills-hero-figure img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  object-fit: cover;
+  border-radius: 4px;
+  background: var(--paper-deep);
+  box-shadow: rgba(26, 20, 16, 0.08) 0 12px 32px -8px;
+}
+
+.travel-skills-hero-figure figcaption {
+  margin-top: 14px;
+  color: var(--ink-50);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.travel-skills-list {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 96px 48px;
+}
+
+.travel-skills-list-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 420px;
+  gap: 56px;
+  align-items: end;
+  margin-bottom: 48px;
+}
+
+.travel-skills-list-header h2,
+.travel-skills-install h2 {
+  font-size: 52px;
+  line-height: 1.04;
+}
+
+.travel-skills-list-header p,
+.travel-skills-install p {
+  margin: 0;
+  color: var(--ink-70);
+  font-family: var(--serif);
+  font-optical-sizing: auto;
+  font-size: 20px;
+  font-style: italic;
+  font-weight: 360;
+  line-height: 1.5;
+}
+
+.travel-skills-install p code {
+  color: var(--ink);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 0.86em;
+  font-style: normal;
+}
+
+.travel-skill-card {
+  display: grid;
+  grid-template-columns: minmax(0, 0.88fr) minmax(0, 1.12fr);
+  min-width: 0;
+  background: var(--card);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  box-shadow: rgba(26, 20, 16, 0.04) 0 1px 0 0, rgba(26, 20, 16, 0.06) 0 4px 16px -4px;
+}
+
+.travel-skill-card-main {
+  padding: 40px;
+  border-right: 1px solid var(--rule);
+}
+
+.travel-skill-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 620;
+  text-transform: uppercase;
+}
+
+.travel-skill-card h3 {
+  margin: 22px 0 18px;
+  color: var(--ink);
+  font-family: var(--serif);
+  font-optical-sizing: auto;
+  font-size: 44px;
+  font-weight: 370;
+  line-height: 1.05;
+}
+
+.travel-skill-lede {
+  margin: 0;
+  color: var(--ink-70);
+  font-family: var(--serif);
+  font-optical-sizing: auto;
+  font-size: 21px;
+  font-style: italic;
+  font-weight: 360;
+  line-height: 1.5;
+}
+
+.travel-skill-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+  margin-top: 32px;
+}
+
+.travel-skills-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px 24px;
+  color: var(--paper);
+  background: var(--accent);
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 580;
+  text-decoration: none;
+}
+
+.travel-skills-btn-primary:hover {
+  background: var(--accent-deep);
+}
+
+.travel-skills-text-link {
+  display: inline-flex;
+  align-items: center;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 560;
+  text-decoration: none;
+  border-bottom: 1px solid var(--accent);
+  padding-bottom: 3px;
+}
+
+.travel-skills-text-link:hover {
+  color: var(--accent-deep);
+  border-color: var(--accent-deep);
+}
+
+.travel-skill-card-aside {
+  display: grid;
+  grid-template-columns: 1fr;
+}
+
+.travel-skill-card-aside section {
+  padding: 30px 36px;
+  border-bottom: 1px solid var(--rule);
+}
+
+.travel-skill-card-aside section:last-child {
+  border-bottom: 0;
+}
+
+.travel-skill-card-aside h4 {
+  margin: 0 0 10px;
+  color: var(--ink);
+  font-size: 17px;
+  font-weight: 620;
+}
+
+.travel-skill-card-aside p {
+  margin: 0;
+  color: var(--ink-70);
+  font-size: 15px;
+  font-weight: 420;
+  line-height: 1.62;
+}
+
+.travel-skills-install {
+  padding: 96px 48px 112px;
+  background: var(--paper-deep);
+  border-top: 1px solid var(--rule);
+}
+
+.travel-skills-install-inner {
+  max-width: 920px;
+  margin: 0 auto;
+  display: grid;
+  gap: 28px;
+}
+
+.travel-skills-code {
+  padding: 18px 20px;
+  background: var(--card);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  overflow-x: auto;
+}
+
+.travel-skills-code code {
+  color: var(--ink);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 14px;
+  line-height: 1.6;
+  white-space: nowrap;
+}
+
+.travel-skills-footer {
+  padding: 40px 48px;
+  background: var(--paper);
+  border-top: 1px solid var(--rule);
+}
+
+.travel-skills-footer-inner {
+  max-width: 1280px;
+  margin: 0 auto;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.travel-skills-footer-logo {
+  color: var(--ink);
+  font-family: var(--serif);
+  font-optical-sizing: auto;
+  font-size: 18px;
+  font-weight: 420;
+}
+
+.travel-skills-footer-copy {
+  color: var(--ink-50);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+@media (max-width: 980px) {
+  .travel-skills-hero {
+    padding: 96px 24px 64px;
+  }
+
+  .travel-skills-hero-inner,
+  .travel-skills-list-header,
+  .travel-skill-card {
+    grid-template-columns: 1fr;
+    gap: 32px;
+  }
+
+  .travel-skills-hero-figure {
+    max-width: 560px;
+  }
+
+  .travel-skills-hero-figure img {
+    aspect-ratio: 3 / 2;
+  }
+
+  .travel-skills-hero h1 {
+    font-size: 48px;
+  }
+
+  .travel-skills-list {
+    padding: 64px 24px;
+  }
+
+  .travel-skill-card-main {
+    border-right: 0;
+    border-bottom: 1px solid var(--rule);
+    padding: 32px 28px;
+  }
+
+  .travel-skills-list-header h2,
+  .travel-skills-install h2 {
+    font-size: 40px;
+  }
+
+  .travel-skills-install {
+    padding: 64px 24px 80px;
+  }
+}
+
+@media (max-width: 640px) {
+  .travel-skills-nav-inner {
+    height: 60px;
+    padding: 0 20px;
+  }
+
+  .travel-skills-logo {
+    font-size: 18px;
+  }
+
+  .travel-skills-logo .logo-suffix,
+  .travel-skills-nav-link:nth-child(2),
+  .travel-skills-nav-link:nth-child(4),
+  .travel-skills-btn-outline {
+    display: none;
+  }
+
+  .travel-skills-nav-links {
+    gap: 18px;
+  }
+
+  .travel-skill-card h3 {
+    font-size: 34px;
+  }
+
+  .travel-skill-card-aside section {
+    padding: 26px 24px;
+  }
+
+  .travel-skills-footer {
+    padding: 32px 24px;
+  }
+}

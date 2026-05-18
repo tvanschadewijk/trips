@@ -6,6 +6,7 @@ import type { TripData, Day, Transport, Accommodation, Tip, Meal, Block, RichDet
 import { ICONS } from './icons';
 import SaveOfflineButton from './SaveOfflineButton';
 import { renderTripMarkdown } from '@/lib/render-trip-markdown';
+import { getTripHeroImageSources, getTripOverviewImageUrl } from '@/lib/trip-images';
 import '@/styles/preview.css';
 
 /** Extract 3-letter IATA airport codes from a string like "Amsterdam (AMS) → New York (JFK)" */
@@ -73,6 +74,9 @@ function renderRichDetail(detail?: RichDetail): string {
 
 const MAX_VISIBLE_DOTS = 7;
 const TRIP_HERO_TRANSITION_NAME = 'trip-hero';
+const DETAIL_CLOSE_MS = 420;
+type SlideMotionMode = 'programmatic' | 'swipe' | 'settled';
+type SlideDirection = 'forward' | 'backward' | 'none';
 
 function SwipeDots({ total, current, onDotClick }: { total: number; current: number; onDotClick: (i: number) => void }) {
   if (total <= MAX_VISIBLE_DOTS) {
@@ -128,7 +132,10 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
   const [activeTripIndex, setActiveTripIndex] = useState<number | null>(autoOpen ? 0 : null);
   const [currentSlide, setCurrentSlide] = useState(0);
   const [detailOpen, setDetailOpen] = useState(false);
+  const [detailClosing, setDetailClosing] = useState(false);
   const [detailContent, setDetailContent] = useState<{ title: string; html: string }>({ title: '', html: '' });
+  const [slideMotionMode, setSlideMotionMode] = useState<SlideMotionMode>('settled');
+  const [slideDirection, setSlideDirection] = useState<SlideDirection>('none');
   const [overviewFaded, setOverviewFaded] = useState(autoOpen ? true : false);
   const [transitionTripIndex, setTransitionTripIndex] = useState<number | null>(autoOpen ? 0 : null);
   const [showArchive, setShowArchive] = useState(false);
@@ -145,6 +152,8 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
   const dateStripRef = useRef<HTMLDivElement>(null);
   const dateStripDragged = useRef(false);
   const detailBodyRef = useRef<HTMLDivElement>(null);
+  const detailCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const detailClosingRef = useRef(false);
 
   // Touch state
   const touchState = useRef({ startX: 0, startY: 0, startTime: 0, dx: 0, isDragging: false, isScrolling: null as boolean | null });
@@ -220,8 +229,12 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     return vt.call(document, update);
   }, []);
 
-  const goTo = useCallback((idx: number) => {
+  const goTo = useCallback((idx: number, options?: { source?: SlideMotionMode }) => {
     const clamped = Math.max(0, Math.min(idx, totalSlides - 1));
+    const direction: SlideDirection = clamped > currentSlide ? 'forward' : clamped < currentSlide ? 'backward' : 'none';
+    const source = options?.source ?? 'programmatic';
+    setSlideDirection(direction);
+    setSlideMotionMode(source);
     setCurrentSlide(clamped);
     if (trackRef.current) {
       trackRef.current.style.transform = `translateX(-${clamped * 100}cqi)`;
@@ -239,11 +252,19 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
         strip.scrollTo({ left: scrollLeft, behavior: 'smooth' });
       }
     }, 50);
-    // Reset scroll position of ALL slides (so previous day isn't scrolled down
-    // when the user swipes back to it)
-    const slides = trackRef.current?.querySelectorAll('.slide');
-    slides?.forEach((s) => { (s as HTMLElement).scrollTop = 0; });
-  }, [totalSlides]);
+    // Reset only the target slide, and defer it slightly so the content does
+    // not jump while the horizontal page motion is still visible.
+    if (direction !== 'none') {
+      window.setTimeout(() => {
+        const targetSlide = trackRef.current?.querySelectorAll('.slide')[clamped] as HTMLElement | undefined;
+        if (targetSlide) targetSlide.scrollTop = 0;
+      }, source === 'swipe' ? 120 : 240);
+    }
+    window.setTimeout(() => {
+      setSlideMotionMode('settled');
+      setSlideDirection('none');
+    }, 520);
+  }, [currentSlide, totalSlides]);
 
   // Open trip with grow animation
   const openTrip = useCallback((idx: number, cardEl: HTMLElement) => {
@@ -296,7 +317,8 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     const w = window as unknown as Record<string, unknown>;
     if (typeof w.__tripTransitionResolve !== 'function') return;
 
-    const url = trips[0]?.trip.hero_image;
+    const firstTrip = trips[0]?.trip;
+    const url = firstTrip ? getTripHeroImageSources(firstTrip).mobile : undefined;
     if (!url) { (w.__tripTransitionResolve as () => void)(); w.__tripTransitionResolve = null; return; }
 
     const img = new window.Image();
@@ -419,9 +441,9 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
       const velocity = Math.abs(ts.dx) / elapsed;
       const distThreshold = vp.offsetWidth * 0.2;
       const isSwipe = Math.abs(ts.dx) > distThreshold || (velocity > 0.3 && Math.abs(ts.dx) > 30);
-      if (isSwipe && ts.dx < 0 && currentSlide < totalSlides - 1) goTo(currentSlide + 1);
-      else if (isSwipe && ts.dx > 0 && currentSlide > 0) goTo(currentSlide - 1);
-      else goTo(currentSlide);
+      if (isSwipe && ts.dx < 0 && currentSlide < totalSlides - 1) goTo(currentSlide + 1, { source: 'swipe' });
+      else if (isSwipe && ts.dx > 0 && currentSlide > 0) goTo(currentSlide - 1, { source: 'swipe' });
+      else goTo(currentSlide, { source: 'swipe' });
     };
 
     vp.addEventListener('touchstart', onStart, { passive: true });
@@ -487,6 +509,37 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  useEffect(() => {
+    return () => {
+      if (detailCloseTimerRef.current) clearTimeout(detailCloseTimerRef.current);
+    };
+  }, []);
+
+  const showDetail = useCallback((content: { title: string; html: string }) => {
+    if (detailCloseTimerRef.current) {
+      clearTimeout(detailCloseTimerRef.current);
+      detailCloseTimerRef.current = null;
+    }
+    setDetailContent(content);
+    detailClosingRef.current = false;
+    setDetailClosing(false);
+    setDetailOpen(true);
+    window.history.pushState({ detail: true }, '');
+  }, []);
+
+  const startCloseDetail = useCallback(() => {
+    if (!detailOpen || detailClosingRef.current) return;
+    detailClosingRef.current = true;
+    setDetailClosing(true);
+    detailCloseTimerRef.current = setTimeout(() => {
+      setDetailOpen(false);
+      detailClosingRef.current = false;
+      setDetailClosing(false);
+      setDetailContent({ title: '', html: '' });
+      detailCloseTimerRef.current = null;
+    }, DETAIL_CLOSE_MS);
+  }, [detailOpen]);
+
   // Detail sheet
   function openDetail(type: 'transport' | 'accommodation' | 'tip' | 'meal' | 'block', item: Transport | Accommodation | Tip | Meal | Block) {
     if (type === 'block') {
@@ -494,22 +547,18 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
       if (!block.detail) return;
       const title = block.detail.title || block.content;
       const html = renderRichDetail(block.detail);
-      setDetailContent({
+      showDetail({
         title,
         html: html || `<div class="detail-tip-body"><p class="detail-tip-text">${escapeHtml(block.content)}</p></div>`,
       });
-      setDetailOpen(true);
-      window.history.pushState({ detail: true }, '');
       return;
     }
     if (type === 'tip') {
       const tip = item as Tip;
-      setDetailContent({
+      showDetail({
         title: tip.title,
         html: `<div class="detail-tip-body"><p class="detail-tip-text">${escapeHtml(tip.content)}</p></div>`
       });
-      setDetailOpen(true);
-      window.history.pushState({ detail: true }, '');
       return;
     }
     if (type === 'meal') {
@@ -529,12 +578,10 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
       const rows = fields.filter(([, v]) => v).map(([l, v]) =>
         `<div class="detail-row"><span class="detail-row-label">${l}</span><span class="detail-row-value${l === 'Phone' ? ' mono' : ''}">${l === 'Phone' ? `<a href="tel:${escapeHtml(v!)}">${escapeHtml(v!)}</a>` : escapeHtml(v!)}</span></div>`
       ).join('');
-      setDetailContent({
+      showDetail({
         title: m.name,
         html: `${richHtml}<div class="detail-info-section"><div class="detail-info-section-title"><span class="text-section-title">Restaurant Details</span></div>${rows}</div>`
       });
-      setDetailOpen(true);
-      window.history.pushState({ detail: true }, '');
       return;
     }
     if (!item || !(item as Transport).detail && !(item as Accommodation).detail) return;
@@ -572,7 +619,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
         borderHtml = `<div class="detail-info-section"><div class="detail-info-section-title"><span class="text-section-title">Border Crossing</span></div><div class="detail-row"><span class="detail-row-label">Crossing</span><span class="detail-row-value">${b.name}</span></div>${b.documents ? `<div class="detail-row"><span class="detail-row-label">Documents</span><span class="detail-row-value">${b.documents}</span></div>` : ''}${b.note ? `<div class="detail-row"><span class="detail-row-label">Note</span><span class="detail-row-value">${b.note}</span></div>` : ''}</div>`;
       }
 
-      setDetailContent({
+      showDetail({
         title,
         html: `<div class="detail-info-section"><div class="detail-info-section-title"><span class="text-section-title">${t.mode === 'plane' ? 'Flight' : t.mode === 'car' ? 'Driving' : 'Journey'} Details</span></div>${rows}</div>${chargingHtml}${borderHtml}`
       });
@@ -590,18 +637,16 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
       const rows = fields.filter(([, v]) => v).map(([l, v]) =>
         `<div class="detail-row"><span class="detail-row-label">${l}</span><span class="detail-row-value${l === 'Phone' ? ' mono' : ''}">${l === 'Phone' ? `<a href="tel:${escapeHtml(v!)}">${escapeHtml(v!)}</a>` : escapeHtml(v!)}</span></div>`
       ).join('');
-      setDetailContent({
+      showDetail({
         title: a.name || 'Accommodation',
         html: `${richHtml}<div class="detail-info-section"><div class="detail-info-section-title"><span class="text-section-title">Booking Details</span></div>${rows}</div>`
       });
     }
-    setDetailOpen(true);
-    window.history.pushState({ detail: true }, '');
   }
 
   function closeDetail() {
-    if (detailOpen) {
-      setDetailOpen(false);
+    if (detailOpen && !detailClosing) {
+      startCloseDetail();
       window.history.back();
     }
   }
@@ -611,12 +656,12 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     const onPopState = (e: PopStateEvent) => {
       if (detailOpen) {
         e.preventDefault();
-        setDetailOpen(false);
+        startCloseDetail();
       }
     };
     window.addEventListener('popstate', onPopState);
     return () => window.removeEventListener('popstate', onPopState);
-  }, [detailOpen]);
+  }, [detailOpen, startCloseDetail]);
 
   // Toggle action item status (owner only)
   function handleToggleStatus(dayNumber: number, itemType: string, itemIndex: number, newStatus: 'booked' | 'pending') {
@@ -727,7 +772,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
   // Render overview cards
   function renderTripCard(td: TripData, origIdx: number) {
     const t = td.trip;
-    const img = t.overview_image || t.hero_image;
+    const img = getTripOverviewImageUrl(t);
     const startD = new Date(t.dates.start + 'T12:00:00');
     const endD = new Date(t.dates.end + 'T12:00:00');
     const startStr = startD.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -982,16 +1027,36 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
   // Render hero slide
   function renderHeroSlide() {
     if (!trip) return null;
+    const heroSources = getTripHeroImageSources(trip);
+    const heroImageIsBroken =
+      brokenImages.has(heroSources.mobile) &&
+      (heroSources.desktop === heroSources.mobile || brokenImages.has(heroSources.desktop));
     return (
-      <div className="slide">
+      <div className={`slide ${currentSlide === 0 ? 'active' : ''}`}>
         <div className="hero-slide">
           <div
             className="hero-frame"
             style={activeTripIndex !== null && transitionTripIndex === activeTripIndex ? { viewTransitionName: TRIP_HERO_TRANSITION_NAME } as React.CSSProperties : undefined}
           >
             <div className="hero-bg">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={trip.hero_image} alt={trip.name} style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: brokenImages.has(trip.hero_image) ? 0 : 1 }} onError={() => onImgError(trip.hero_image)} />
+              <picture>
+                {heroSources.desktop !== heroSources.mobile && (
+                  <source media="(min-width: 900px)" srcSet={heroSources.desktop} />
+                )}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={heroSources.mobile}
+                  alt={trip.name}
+                  style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: heroImageIsBroken ? 0 : 1 }}
+                  onError={(event) => {
+                    const failedUrl = event.currentTarget.currentSrc || event.currentTarget.src || heroSources.mobile;
+                    onImgError(failedUrl);
+                    if (failedUrl !== heroSources.mobile && !brokenImages.has(heroSources.mobile)) {
+                      event.currentTarget.src = heroSources.mobile;
+                    }
+                  }}
+                />
+              </picture>
             </div>
             <div className="hero-overlay" />
           </div>
@@ -1030,9 +1095,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
                       <div class="detail-tip-body"><p class="detail-tip-text">${note.content}</p></div>
                     </div>`
                   ).join('');
-                  setDetailContent({ title: 'Trip Notes', html: notesHtml });
-                  setDetailOpen(true);
-                  window.history.pushState({ detail: true }, '');
+                  showDetail({ title: 'Trip Notes', html: notesHtml });
                 }}>
                   <span className="hero-note-icon"><Icon name="info" /></span>
                   <span className="hero-note-label">Trip Notes</span>
@@ -1069,9 +1132,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
                   <div className="hero-overview-label">Overview</div>
                   {visible.map((s, i) => (
                     <button key={i} className="hero-note-btn" onClick={() => {
-                      setDetailContent({ title: s.label, html: s.html });
-                      setDetailOpen(true);
-                      window.history.pushState({ detail: true }, '');
+                      showDetail({ title: s.label, html: s.html });
                     }}>
                       <span className="hero-note-icon"><Icon name={s.icon} /></span>
                       <span className="hero-note-label">{s.label}</span>
@@ -1309,7 +1370,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     ) : null;
 
     return (
-      <div key={day.day_number} className="slide">
+      <div key={day.day_number} className={`slide ${currentSlide === day.day_number ? 'active' : ''}`}>
         <div className="day-slide">
           {heroSection}
           {descSection}
@@ -1437,7 +1498,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
 
           {/* Swipe viewport */}
           <div className="swipe-viewport" ref={viewportRef}>
-            <div className="swipe-track" ref={trackRef}>
+            <div className={`swipe-track motion-${slideMotionMode} direction-${slideDirection}`} ref={trackRef}>
               {renderHeroSlide()}
               {days.map(day => renderDaySlide(day))}
             </div>
@@ -1492,7 +1553,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
       )}
 
       {/* Detail sheet */}
-      <div className={`detail-overlay ${detailOpen ? 'open' : ''}`} role="dialog" aria-modal="true" aria-label={detailContent.title}>
+      <div className={`detail-overlay ${detailOpen ? 'open' : ''} ${detailClosing ? 'closing' : ''}`} role="dialog" aria-modal="true" aria-label={detailContent.title}>
         <div className="detail-backdrop" onClick={closeDetail} />
         <div className="detail-sheet">
           <div className="detail-header">

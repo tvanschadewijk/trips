@@ -51,7 +51,7 @@ export default async function Home() {
           <Link href="/" className="landing-logo">OurTrips<LogoSuffix /></Link>
           <div className="landing-nav-links">
             <Link href="/itineraries" className="landing-nav-link">Itineraries</Link>
-            <Link href="/demo" className="landing-nav-link">Demo</Link>
+            <Link href="/travel-skills" className="landing-nav-link">Travel Skills</Link>
             <Link href="/blog" className="landing-nav-link">Journal</Link>
             <Link href="/login" className="landing-btn-outline">Log in</Link>
           </div>
@@ -73,7 +73,7 @@ export default async function Home() {
             </p>
             <div className="landing-hero-actions">
               <Link href="/login" className="landing-btn-primary">Start a trip</Link>
-              <Link href="/demo" className="landing-btn-secondary">See an itinerary</Link>
+              <Link href="/itineraries" className="landing-btn-secondary">See an itinerary</Link>
             </div>
           </div>
 

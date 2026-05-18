@@ -125,6 +125,7 @@ export default async function BlogPostPage({ params }: Props) {
           <Link href="/" className="blog-logo">OurTrips<LogoSuffix /></Link>
           <div className="blog-nav-links">
             <Link href="/blog" className="blog-nav-link">Blog</Link>
+            <Link href="/travel-skills" className="blog-nav-link">Travel Skills</Link>
             <Link href="/login" className="blog-btn-outline">Log in</Link>
           </div>
         </div>

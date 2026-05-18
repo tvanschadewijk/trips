@@ -1,5 +1,6 @@
 import { ImageResponse } from 'next/og';
 import { OG_SIZE, loadGoogleFont } from './og-image';
+import { getTripOgImageUrl } from './trip-images';
 import type { TripData } from './types';
 
 async function fetchPhotoAsDataUrl(url: string): Promise<string | null> {
@@ -36,7 +37,7 @@ function calcNights(start: string, end: string): number {
 }
 
 export async function renderTripOgImage(trip: TripData): Promise<ImageResponse> {
-  const heroUrl = trip.trip.hero_image;
+  const heroUrl = getTripOgImageUrl(trip.trip);
 
   const [fraunces, frauncesItalic, inter, photoDataUrl] = await Promise.all([
     loadGoogleFont('Fraunces', 400),

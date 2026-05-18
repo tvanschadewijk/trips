@@ -156,6 +156,9 @@ export function collectTripAssetUrls(shareId: string, data: TripData): string[] 
 
   addImage(data.trip.hero_image);
   addImage(data.trip.overview_image);
+  for (const asset of Object.values(data.trip.image_assets ?? {})) {
+    addImage(asset?.url);
+  }
 
   for (const day of data.days) {
     addImage(day.hero_image);

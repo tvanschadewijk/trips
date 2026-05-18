@@ -27,6 +27,8 @@
 import type {
   TripData,
   TripMeta,
+  TripImageAsset,
+  TripImageAssets,
   Day,
   Transport,
   Accommodation,
@@ -96,6 +98,30 @@ function scrubMeal(m: Meal): Meal {
   };
 }
 
+function scrubImageAsset(asset: TripImageAsset): TripImageAsset {
+  return {
+    url: asset.url,
+    aspect_ratio: asset.aspect_ratio,
+    width: asset.width,
+    height: asset.height,
+    provider: asset.provider,
+    model: asset.model,
+    source: asset.source,
+    generated_at: asset.generated_at,
+    // prompt intentionally dropped: it can contain richer source-trip detail
+    // than remix viewers should receive.
+  };
+}
+
+function scrubImageAssets(assets?: TripImageAssets): TripImageAssets | undefined {
+  if (!assets) return undefined;
+  return Object.fromEntries(
+    Object.entries(assets)
+      .filter(([, asset]) => !!asset?.url)
+      .map(([key, asset]) => [key, scrubImageAsset(asset!)])
+  ) as TripImageAssets;
+}
+
 function scrubTripMeta(meta: TripMeta): TripMeta {
   return {
     name: meta.name,
@@ -105,6 +131,7 @@ function scrubTripMeta(meta: TripMeta): TripMeta {
     summary: meta.summary,
     hero_image: meta.hero_image,
     overview_image: meta.overview_image,
+    image_assets: scrubImageAssets(meta.image_assets),
     accent_color: meta.accent_color,
     services: meta.services?.map(scrubService),
     notes: meta.notes?.map(scrubNote),

@@ -102,7 +102,8 @@
 }
 
 @media (max-width: 460px) {
-  .landing-nav-link:nth-child(3),
+  .landing-nav-link:nth-child(2),
+  .landing-nav-link:nth-child(4),
   .landing-btn-outline {
     display: none;
   }

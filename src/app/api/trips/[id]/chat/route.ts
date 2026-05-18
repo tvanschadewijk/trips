@@ -1,9 +1,15 @@
 /**
- * POST /api/trips/[id]/chat — admin-only chat turn for a specific trip.
+ * POST /api/trips/[id]/chat — authenticated chat turn for a specific trip.
  *
- * Each request is one turn of the Agent SDK. The SDK session is FRESH every
- * time (Vercel ephemeral FS means session resume isn't reliable); prior
- * context is summarized into the prompt string. See src/lib/trip-chat/prompt.ts.
+ * Each request is one fresh Agent SDK session. Prior context is summarized into
+ * the prompt string instead of resuming SDK-local session state, because
+ * serverless filesystems are ephemeral. See src/lib/trip-chat/prompt.ts.
+ *
+ * The HTTP request is intentionally short-lived: it persists the user's turn,
+ * reserves a monotonic turn_index, schedules the agent work with `after()`, and
+ * returns 202. The client polls GET /chat for the assistant row. This avoids
+ * mobile browsers/proxies dropping a minutes-long fetch as "Load failed" while
+ * the Agent SDK is still working.
  *
  * Design invariants — do not quietly drop:
  *
@@ -25,7 +31,7 @@
  *   - `CLAUDE_CONFIG_DIR` pointed at /tmp on Vercel so the SDK's local-disk
  *     writes land on a writable tmpfs within the invocation lifetime.
  */
-import { NextRequest, NextResponse } from 'next/server';
+import { after, NextRequest, NextResponse } from 'next/server';
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import type { Options } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod';
@@ -72,7 +78,28 @@ const BodySchema = z.object({
     .optional(),
 });
 
+type ChatRequestBody = z.infer<typeof BodySchema>;
+
+interface RunAgentTurnArgs {
+  tripId: string;
+  userId: string;
+  sessionRowId: string;
+  turnIndex: number;
+  message: string;
+  viewContext: ChatRequestBody['view_context'];
+  priorTurns: PriorTurn[];
+}
+
+interface UiChatMessage {
+  id: string;
+  turn_index: number;
+  role: 'user' | 'assistant';
+  content: string;
+  tool_calls_json: ToolCallSummary[] | null;
+}
+
 const CHAT_HISTORY_TURNS_REPLAYED = 12; // last N user+assistant exchanges summarized in prompt
+const DEFAULT_CHAT_HISTORY_LIMIT = 50;
 
 async function isAdmin(userId: string): Promise<boolean> {
   const supabase = createAdminClient();
@@ -94,20 +121,17 @@ async function isOwner(userId: string, tripId: string): Promise<boolean> {
   return data?.user_id === userId;
 }
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const { id: tripId } = await params;
-
-  // 1. Auth.
+async function requireTripChatAccess(
+  tripId: string
+): Promise<{ userId: string } | { response: NextResponse }> {
   const serverClient = await createClient();
   const {
     data: { user },
   } = await serverClient.auth.getUser();
   if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return { response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) };
   }
+
   // Trip owner can edit their own trip via chat. Admins can edit any
   // trip (for support). Anyone else: forbidden.
   const [ownerOk, adminOk] = await Promise.all([
@@ -115,11 +139,42 @@ export async function POST(
     isAdmin(user.id),
   ]);
   if (!ownerOk && !adminOk) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    return { response: NextResponse.json({ error: 'Forbidden' }, { status: 403 }) };
   }
 
+  return { userId: user.id };
+}
+
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id: tripId } = await params;
+  const access = await requireTripChatAccess(tripId);
+  if ('response' in access) return access.response;
+
+  const limitParam = Number(request.nextUrl.searchParams.get('limit'));
+  const limit = Number.isFinite(limitParam)
+    ? Math.min(100, Math.max(1, Math.floor(limitParam)))
+    : DEFAULT_CHAT_HISTORY_LIMIT;
+  const admin = createAdminClient();
+  const messages = await loadChatMessages(admin, tripId, access.userId, limit);
+
+  return NextResponse.json({ messages });
+}
+
+export async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id: tripId } = await params;
+
+  // 1. Auth.
+  const access = await requireTripChatAccess(tripId);
+  if ('response' in access) return access.response;
+
   // 2. Validate body.
-  let body: z.infer<typeof BodySchema>;
+  let body: ChatRequestBody;
   try {
     body = BodySchema.parse(await request.json());
   } catch (err) {
@@ -145,7 +200,7 @@ export async function POST(
     .from('trip_chat_sessions')
     .select('id, turn_count')
     .eq('trip_id', tripId)
-    .eq('user_id', user.id)
+    .eq('user_id', access.userId)
     .maybeSingle();
 
   let sessionRowId: string;
@@ -153,11 +208,11 @@ export async function POST(
 
   if (existingSession) {
     sessionRowId = existingSession.id;
-    turnIndex = existingSession.turn_count;
+    turnIndex = await nextTurnIndex(admin, sessionRowId, existingSession.turn_count);
   } else {
     const ins = await admin
       .from('trip_chat_sessions')
-      .insert({ trip_id: tripId, user_id: user.id })
+      .insert({ trip_id: tripId, user_id: access.userId })
       .select('id')
       .single();
     if (ins.error || !ins.data) {
@@ -174,43 +229,91 @@ export async function POST(
 
   // 5. Persist the user's message row immediately so UI refresh mid-turn
   //    shows it even if the agent times out.
-  await admin.from('trip_chat_messages').insert({
+  const insertUser = await admin.from('trip_chat_messages').insert({
     session_id: sessionRowId,
     trip_id: tripId,
-    user_id: user.id,
+    user_id: access.userId,
     turn_index: turnIndex,
     role: 'user',
     content: body.message,
   });
+  if (insertUser.error) {
+    return NextResponse.json(
+      { error: 'Failed to save chat message', detail: insertUser.error.message },
+      { status: 500 }
+    );
+  }
 
-  // 6. Build the agent inputs.
+  // Reserve the turn number before the agent finishes. The old synchronous
+  // path only bumped this after success, so a dropped request could reuse the
+  // same turn_index and corrupt later history reconstruction.
+  const reserveTurn = await admin
+    .from('trip_chat_sessions')
+    .update({
+      turn_count: turnIndex + 1,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', sessionRowId);
+  if (reserveTurn.error) {
+    return NextResponse.json(
+      { error: 'Failed to reserve chat turn', detail: reserveTurn.error.message },
+      { status: 500 }
+    );
+  }
+
+  const runArgs: RunAgentTurnArgs = {
+    tripId,
+    userId: access.userId,
+    sessionRowId,
+    turnIndex,
+    message: body.message,
+    viewContext: body.view_context,
+    priorTurns,
+  };
+
+  after(async () => {
+    try {
+      await runAgentTurn(runArgs);
+    } catch (err) {
+      console.error('trip-chat: unhandled background turn error', err);
+      await persistAssistantFallback(runArgs);
+    }
+  });
+
+  return NextResponse.json(
+    {
+      status: 'queued',
+      assistant_message: null,
+      session_id: null,
+      tool_calls_summary: [],
+      turn_index: turnIndex,
+    },
+    { status: 202 }
+  );
+}
+
+// ---------------------------------------------------------------------------
+
+async function runAgentTurn(args: RunAgentTurnArgs): Promise<void> {
+  const admin = createAdminClient();
+
   // Compose the user message with a small "currently viewing" prefix so
   // the agent knows whether the user is asking about a specific day.
-  const viewContextPrefix = (() => {
-    const ctx = body.view_context;
-    if (!ctx) return '';
-    if (ctx.slideKind === 'day' && ctx.day_number) {
-      const dateStr = ctx.date ? ` (${ctx.date})` : '';
-      const titleStr = ctx.title ? ` — "${ctx.title}"` : '';
-      return `[The user is currently viewing Day ${ctx.day_number}${dateStr}${titleStr}. If their question is ambiguous about which day, default to this one.]\n\n`;
-    }
-    if (ctx.slideKind === 'cover') {
-      return `[The user is currently on the trip cover (overview), not a specific day.]\n\n`;
-    }
-    return '';
-  })();
-  const userMessage = viewContextPrefix + body.message;
-  const prompt = buildTurnPrompt(priorTurns.slice(-CHAT_HISTORY_TURNS_REPLAYED), userMessage);
+  const userMessage = formatViewContextPrefix(args.viewContext) + args.message;
+  const prompt = buildTurnPrompt(
+    args.priorTurns.slice(-CHAT_HISTORY_TURNS_REPLAYED),
+    userMessage
+  );
   const systemPrompt = buildSystemPrompt();
 
   // Track tool activity this turn for the tool_calls_json summary.
   const toolCallsSummary: ToolCallSummary[] = [];
   const toolCallCounter = { count: 0 };
 
-  // 7. Build the in-process MCP server. Closed over tripId + admin client —
-  //    the agent physically cannot address a different trip.
+  // Build the in-process MCP server. Closed over tripId + admin client —
+  // the agent physically cannot address a different trip.
   const mcpServer = createTripEditorMcpServer({
-    tripId,
+    tripId: args.tripId,
     supabase: admin,
     onUpdateApplied: ({ tool, input }) => {
       toolCallsSummary.push({
@@ -222,72 +325,28 @@ export async function POST(
     },
   });
 
-  // 8. Hook set. PreToolUse double-checks writes against the allowlist; Stop
-  //    is a seam for future work; usage recording happens off the result
-  //    message below.
+  // Hook set. PreToolUse double-checks writes against the allowlist; Stop
+  // is a seam for future work; usage recording happens off the result
+  // message below.
   const hookCtx = {
     supabase: admin,
-    sessionRowId,
-    tripId,
-    userId: user.id,
-    turnIndex,
+    sessionRowId: args.sessionRowId,
+    tripId: args.tripId,
+    userId: args.userId,
+    turnIndex: args.turnIndex,
     toolCallCounter,
   };
 
-  // 9. Ensure CLAUDE_CONFIG_DIR lands on a writable path on serverless.
+  // Ensure CLAUDE_CONFIG_DIR lands on a writable path on serverless.
   const env = {
     ...process.env,
     CLAUDE_CONFIG_DIR: process.env.CLAUDE_CONFIG_DIR ?? '/tmp/.claude',
   };
 
-  // 9b. Resolve the platform-native CLI binary explicitly. The SDK
-  //     normally locates this on its own, but Next's bundling on Vercel
-  //     can hide the optional platform package from its resolver — even
-  //     when the file is on disk. Setting pathToClaudeCodeExecutable
-  //     bypasses the SDK's lookup. Best-effort: fall back to undefined
-  //     so the SDK can still try its default search if the require fails.
-  let pathToClaudeCodeExecutable: string | undefined;
-  let resolveDiagnostic = '';
-  try {
-    const req = createRequire(import.meta.url);
-    const platformPkg =
-      process.platform === 'darwin'
-        ? process.arch === 'arm64'
-          ? '@anthropic-ai/claude-agent-sdk-darwin-arm64'
-          : '@anthropic-ai/claude-agent-sdk-darwin-x64'
-        : process.arch === 'arm64'
-          ? '@anthropic-ai/claude-agent-sdk-linux-arm64'
-          : '@anthropic-ai/claude-agent-sdk-linux-x64';
-    const pkgJson = req.resolve(`${platformPkg}/package.json`);
-    pathToClaudeCodeExecutable = path.join(path.dirname(pkgJson), 'claude');
-    resolveDiagnostic = `resolved via require: ${pathToClaudeCodeExecutable}`;
-  } catch (resolveErr) {
-    resolveDiagnostic = `require.resolve failed: ${resolveErr instanceof Error ? resolveErr.message : String(resolveErr)}`;
-    // Fallback: try a few known on-disk locations on Vercel. The
-    // function CWD on Vercel is /var/task; in dev it's the repo root.
-    const candidates = [
-      path.join(process.cwd(), 'node_modules/@anthropic-ai/claude-agent-sdk-linux-x64/claude'),
-      '/var/task/node_modules/@anthropic-ai/claude-agent-sdk-linux-x64/claude',
-    ];
-    const fs = await import('fs');
-    for (const c of candidates) {
-      try {
-        if (fs.existsSync(c)) {
-          pathToClaudeCodeExecutable = c;
-          resolveDiagnostic += ` | fallback hit: ${c}`;
-          break;
-        }
-      } catch {
-        // ignore
-      }
-    }
-    if (!pathToClaudeCodeExecutable) {
-      resolveDiagnostic += ` | tried: ${candidates.join(', ')} (none existed)`;
-    }
-  }
+  const { pathToClaudeCodeExecutable, resolveDiagnostic } =
+    await resolveClaudeExecutable();
   console.log('trip-chat: binary resolution —', resolveDiagnostic);
 
-  // 10. Invoke the SDK.
   const options: Options = {
     // ---- LOCKED: do not remove or reorder. See FIXED_SDK_OPTIONS comment. ----
     settingSources: [...FIXED_SDK_OPTIONS.settingSources],
@@ -324,7 +383,11 @@ export async function POST(
   let resultError: string | undefined;
 
   const t0 = Date.now();
-  console.log('trip-chat: invoking SDK', { tripId, turnIndex, msgLen: body.message.length });
+  console.log('trip-chat: invoking SDK', {
+    tripId: args.tripId,
+    turnIndex: args.turnIndex,
+    msgLen: args.message.length,
+  });
   try {
     const stream = query({ prompt, options });
     for await (const msg of stream) {
@@ -366,40 +429,44 @@ export async function POST(
       }
     }
   } catch (err) {
+    durationMs = Date.now() - t0;
     const detail = err instanceof Error ? err.message : String(err);
-    console.error('trip-chat: agent error', detail);
-    return NextResponse.json(
-      { error: 'Agent failed', detail: `${detail} | binary: ${resolveDiagnostic}` },
-      { status: 500 }
-    );
+    console.error('trip-chat: agent error', {
+      detail,
+      binary: resolveDiagnostic,
+      tripId: args.tripId,
+      turnIndex: args.turnIndex,
+    });
+    assistantText =
+      'I hit a connection problem while working on that. Please try again in a moment.';
   }
 
   if (resultError && !assistantText) {
     assistantText = `(${resultError})`;
   }
+  if (!assistantText) {
+    assistantText = 'Done.';
+  }
 
-  // 11. Persist assistant message row.
   await admin.from('trip_chat_messages').insert({
-    session_id: sessionRowId,
-    trip_id: tripId,
-    user_id: user.id,
-    turn_index: turnIndex,
+    session_id: args.sessionRowId,
+    trip_id: args.tripId,
+    user_id: args.userId,
+    turn_index: args.turnIndex,
     role: 'assistant',
     content: assistantText,
     tool_calls_json: toolCallsSummary.length ? toolCallsSummary : null,
   });
 
-  // 12. Bump session counters.
   await admin
     .from('trip_chat_sessions')
     .update({
-      turn_count: turnIndex + 1,
       last_sdk_session_id: sdkSessionId ?? null,
       updated_at: new Date().toISOString(),
     })
-    .eq('id', sessionRowId);
+    .eq('id', args.sessionRowId);
 
-  // 13. Record usage (best-effort; never fails the route).
+  // Best-effort; never fails the background turn.
   await recordTurnUsage({
     ...hookCtx,
     model,
@@ -407,16 +474,151 @@ export async function POST(
     total_cost_usd: totalCostUsd,
     duration_ms: durationMs,
   });
-
-  return NextResponse.json({
-    assistant_message: assistantText,
-    session_id: sdkSessionId ?? null,
-    tool_calls_summary: toolCallsSummary,
-    turn_index: turnIndex,
-  });
 }
 
-// ---------------------------------------------------------------------------
+async function persistAssistantFallback(args: RunAgentTurnArgs): Promise<void> {
+  const admin = createAdminClient();
+  const { data: existingAssistant } = await admin
+    .from('trip_chat_messages')
+    .select('id')
+    .eq('session_id', args.sessionRowId)
+    .eq('turn_index', args.turnIndex)
+    .eq('role', 'assistant')
+    .maybeSingle();
+  if (existingAssistant) return;
+
+  await admin.from('trip_chat_messages').insert({
+    session_id: args.sessionRowId,
+    trip_id: args.tripId,
+    user_id: args.userId,
+    turn_index: args.turnIndex,
+    role: 'assistant',
+    content:
+      'I hit a connection problem while working on that. Please try again in a moment.',
+    tool_calls_json: null,
+  });
+  await admin
+    .from('trip_chat_sessions')
+    .update({ updated_at: new Date().toISOString() })
+    .eq('id', args.sessionRowId);
+}
+
+function formatViewContextPrefix(ctx: ChatRequestBody['view_context']): string {
+  if (!ctx) return '';
+  if (ctx.slideKind === 'day' && ctx.day_number) {
+    const dateStr = ctx.date ? ` (${ctx.date})` : '';
+    const titleStr = ctx.title ? ` — "${ctx.title}"` : '';
+    return `[The user is currently viewing Day ${ctx.day_number}${dateStr}${titleStr}. If their question is ambiguous about which day, default to this one.]\n\n`;
+  }
+  if (ctx.slideKind === 'cover') {
+    return `[The user is currently on the trip cover (overview), not a specific day.]\n\n`;
+  }
+  return '';
+}
+
+async function resolveClaudeExecutable(): Promise<{
+  pathToClaudeCodeExecutable: string | undefined;
+  resolveDiagnostic: string;
+}> {
+  // The SDK normally locates this on its own, but Next's bundling on Vercel
+  // can hide the optional platform package from its resolver — even when the
+  // file is on disk. Setting pathToClaudeCodeExecutable bypasses the lookup.
+  let pathToClaudeCodeExecutable: string | undefined;
+  let resolveDiagnostic = '';
+  try {
+    const req = createRequire(import.meta.url);
+    const platformPkg =
+      process.platform === 'darwin'
+        ? process.arch === 'arm64'
+          ? '@anthropic-ai/claude-agent-sdk-darwin-arm64'
+          : '@anthropic-ai/claude-agent-sdk-darwin-x64'
+        : process.arch === 'arm64'
+          ? '@anthropic-ai/claude-agent-sdk-linux-arm64'
+          : '@anthropic-ai/claude-agent-sdk-linux-x64';
+    const pkgJson = req.resolve(`${platformPkg}/package.json`);
+    pathToClaudeCodeExecutable = path.join(path.dirname(pkgJson), 'claude');
+    resolveDiagnostic = `resolved via require: ${pathToClaudeCodeExecutable}`;
+  } catch (resolveErr) {
+    resolveDiagnostic = `require.resolve failed: ${resolveErr instanceof Error ? resolveErr.message : String(resolveErr)}`;
+    const candidates = [
+      path.join(process.cwd(), 'node_modules/@anthropic-ai/claude-agent-sdk-linux-x64/claude'),
+      '/var/task/node_modules/@anthropic-ai/claude-agent-sdk-linux-x64/claude',
+    ];
+    const fs = await import('fs');
+    for (const c of candidates) {
+      try {
+        if (fs.existsSync(c)) {
+          pathToClaudeCodeExecutable = c;
+          resolveDiagnostic += ` | fallback hit: ${c}`;
+          break;
+        }
+      } catch {
+        // ignore
+      }
+    }
+    if (!pathToClaudeCodeExecutable) {
+      resolveDiagnostic += ` | tried: ${candidates.join(', ')} (none existed)`;
+    }
+  }
+
+  return { pathToClaudeCodeExecutable, resolveDiagnostic };
+}
+
+async function nextTurnIndex(
+  admin: ReturnType<typeof createAdminClient>,
+  sessionRowId: string,
+  turnCount: number | null
+): Promise<number> {
+  const { data: latestMessage } = await admin
+    .from('trip_chat_messages')
+    .select('turn_index')
+    .eq('session_id', sessionRowId)
+    .order('turn_index', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const afterLatestMessage =
+    typeof latestMessage?.turn_index === 'number' ? latestMessage.turn_index + 1 : 0;
+  return Math.max(turnCount ?? 0, afterLatestMessage);
+}
+
+async function loadChatMessages(
+  admin: ReturnType<typeof createAdminClient>,
+  tripId: string,
+  userId: string,
+  limit: number
+): Promise<UiChatMessage[]> {
+  const { data: session } = await admin
+    .from('trip_chat_sessions')
+    .select('id')
+    .eq('trip_id', tripId)
+    .eq('user_id', userId)
+    .maybeSingle();
+  if (!session) return [];
+
+  const { data: rows } = await admin
+    .from('trip_chat_messages')
+    .select('id, turn_index, role, content, tool_calls_json, created_at')
+    .eq('session_id', session.id)
+    .order('turn_index', { ascending: false })
+    .limit(limit * 2);
+
+  if (!rows) return [];
+
+  const roleOrder: Record<string, number> = { user: 0, assistant: 1 };
+  return rows
+    .sort((a, b) =>
+      a.turn_index === b.turn_index
+        ? roleOrder[a.role] - roleOrder[b.role]
+        : a.turn_index - b.turn_index
+    )
+    .map((r) => ({
+      id: r.id,
+      turn_index: r.turn_index,
+      role: r.role as 'user' | 'assistant',
+      content: r.content,
+      tool_calls_json: (r.tool_calls_json ?? null) as ToolCallSummary[] | null,
+    }));
+}
 
 async function loadPriorTurns(
   admin: ReturnType<typeof createAdminClient>,
@@ -424,10 +626,10 @@ async function loadPriorTurns(
 ): Promise<PriorTurn[]> {
   const { data } = await admin
     .from('trip_chat_messages')
-    .select('turn_index, role, content, tool_calls_json')
+    .select('turn_index, role, content, tool_calls_json, created_at')
     .eq('session_id', sessionRowId)
     .order('turn_index', { ascending: true })
-    .order('role', { ascending: true });    // 'assistant' < 'user' alphabetically — but that's fine, we group by turn_index
+    .order('created_at', { ascending: true });
 
   if (!data || data.length === 0) return [];
 
@@ -448,5 +650,3 @@ async function loadPriorTurns(
     // drop incomplete turns (e.g. user wrote but agent didn't finish) from the history summary
     .filter((t) => t.user && t.assistant);
 }
-
-// Export for GET too? v1 uses page-load SSR for initial history. Not needed.

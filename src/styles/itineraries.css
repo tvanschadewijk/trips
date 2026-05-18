@@ -580,7 +580,7 @@
 }
 
 @media (max-width: 460px) {
-  .itineraries-nav-link:nth-child(2) {
+  .itineraries-nav-link:nth-child(1) {
     display: none;
   }
 

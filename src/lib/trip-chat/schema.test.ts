@@ -86,6 +86,25 @@ test('accepts passthrough on inner fields (trip.* schemas are permissive)', () =
   assert.equal(result.success, true);
 });
 
+test('accepts structured trip image assets', () => {
+  const result = UpdateTripInputSchema.safeParse({
+    trip: {
+      image_assets: {
+        cover_portrait: {
+          url: 'https://example.com/cover.png',
+          prompt: 'Create a route-first editorial map.',
+          aspect_ratio: '9:16',
+          width: 1080,
+          height: 1920,
+          provider: 'openai',
+          source: 'imagegen',
+        },
+      },
+    },
+  });
+  assert.equal(result.success, true, result.success ? '' : JSON.stringify(result.error.issues));
+});
+
 test('rejects non-ISO date at trip.dates.start', () => {
   const result = UpdateTripInputSchema.safeParse({
     trip: {

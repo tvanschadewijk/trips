@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useOfflineTrip } from '@/lib/offline';
+import { getTripOverviewImageUrl } from '@/lib/trip-images';
 import type { TripData } from '@/lib/types';
 
 interface Props {
@@ -19,7 +20,7 @@ export default function SaveOfflineButton({ shareId, data }: Props) {
   const { state, isSaved, save, remove } = useOfflineTrip(shareId, {
     name: data.trip.name,
     subtitle: data.trip.subtitle,
-    heroImage: data.trip.hero_image,
+    heroImage: getTripOverviewImageUrl(data.trip),
     start: data.trip.dates?.start,
     end: data.trip.dates?.end,
   });
