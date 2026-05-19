@@ -170,6 +170,17 @@ test('keeps generated image URLs but drops stored image prompts', () => {
   assert.equal(out.trip.image_assets?.cover_portrait?.aspect_ratio, '9:16');
 });
 
+test('keeps public route points for editorial atlas rendering', () => {
+  const data = fixture();
+  data.trip.route_points = [
+    { label: 'Amsterdam', lat: 52.3676, lng: 4.9041, role: 'home' },
+    { label: 'London', lat: 51.5072, lng: -0.1276, mode: 'train' },
+  ];
+
+  const out = scrubTripData(data);
+  assert.deepEqual(out.trip.route_points, data.trip.route_points);
+});
+
 test('preserves day-level structure (number, date, title, blocks, tips)', () => {
   const out = scrubTripData(fixture());
   assert.equal(out.days.length, 1);

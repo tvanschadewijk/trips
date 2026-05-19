@@ -105,6 +105,18 @@ test('accepts structured trip image assets', () => {
   assert.equal(result.success, true, result.success ? '' : JSON.stringify(result.error.issues));
 });
 
+test('accepts structured route points for the editorial atlas', () => {
+  const result = UpdateTripInputSchema.safeParse({
+    trip: {
+      route_points: [
+        { label: 'Amsterdam', lat: 52.3676, lng: 4.9041, role: 'home' },
+        { label: 'London', lat: 51.5072, lng: -0.1276, mode: 'train' },
+      ],
+    },
+  });
+  assert.equal(result.success, true, result.success ? '' : JSON.stringify(result.error.issues));
+});
+
 test('rejects non-ISO date at trip.dates.start', () => {
   const result = UpdateTripInputSchema.safeParse({
     trip: {

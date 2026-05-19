@@ -19,6 +19,7 @@ export interface TripMeta {
   hero_image: string;
   overview_image?: string;
   image_assets?: TripImageAssets;
+  route_points?: TripRoutePoint[];
   accent_color?: string;
   services?: Service[];
   notes?: TripNote[];
@@ -39,6 +40,23 @@ export interface TripImageAsset {
 }
 
 export type TripImageAssets = Partial<Record<TripImageAssetSlot, TripImageAsset>>;
+
+export type TripRoutePointRole =
+  | 'home'
+  | 'stop'
+  | 'stay'
+  | 'excursion'
+  | 'trail'
+  | 'return';
+
+export interface TripRoutePoint {
+  label: string;
+  lat: number;
+  lng: number;
+  day?: number;
+  mode?: string;
+  role?: TripRoutePointRole;
+}
 
 export interface TripNote {
   title: string;

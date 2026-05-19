@@ -73,6 +73,17 @@ const TripImageAssetsSchema = z
   })
   .passthrough();
 
+const TripRoutePointSchema = z
+  .object({
+    label: NonEmptyString,
+    lat: z.number().min(-90).max(90),
+    lng: z.number().min(-180).max(180),
+    day: z.number().int().positive().optional(),
+    mode: z.string().optional(),
+    role: z.enum(['home', 'stop', 'stay', 'excursion', 'trail', 'return']).optional(),
+  })
+  .passthrough();
+
 const StatSchema = z
   .object({
     icon: NonEmptyString,
@@ -276,6 +287,7 @@ export const TripMetaEditableSchema = z
     hero_image: z.string().optional(),
     overview_image: z.string().optional(),
     image_assets: TripImageAssetsSchema.optional(),
+    route_points: z.array(TripRoutePointSchema).optional(),
     accent_color: z.string().optional(),
     services: z.array(ServiceSchema).optional(),
     notes: z.array(TripNoteSchema).optional(),

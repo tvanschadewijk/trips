@@ -132,6 +132,7 @@ function scrubTripMeta(meta: TripMeta): TripMeta {
     hero_image: meta.hero_image,
     overview_image: meta.overview_image,
     image_assets: scrubImageAssets(meta.image_assets),
+    route_points: meta.route_points,
     accent_color: meta.accent_color,
     services: meta.services?.map(scrubService),
     notes: meta.notes?.map(scrubNote),

@@ -5,7 +5,9 @@ import { flushSync } from 'react-dom';
 import type { TripData, Day, Transport, Accommodation, Tip, Meal, Block, RichDetail } from '@/lib/types';
 import { ICONS } from './icons';
 import SaveOfflineButton from './SaveOfflineButton';
+import TripRouteAtlas from './TripRouteAtlas';
 import { renderTripMarkdown } from '@/lib/render-trip-markdown';
+import { buildTripRouteAtlas } from '@/lib/trip-route';
 import { getTripHeroImageSources, getTripOverviewImageUrl } from '@/lib/trip-images';
 import '@/styles/preview.css';
 
@@ -164,10 +166,15 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
   const touchState = useRef({ startX: 0, startY: 0, startTime: 0, dx: 0, isDragging: false, isScrolling: null as boolean | null });
   const didAutoNav = useRef(false);
 
-  const trip = activeTripIndex !== null ? trips[activeTripIndex]?.trip : null;
-  const days = activeTripIndex !== null ? trips[activeTripIndex]?.days || [] : [];
-  const markdownSource = activeTripIndex !== null ? trips[activeTripIndex]?.markdown_source : undefined;
+  const activeTripData = activeTripIndex !== null ? trips[activeTripIndex] : undefined;
+  const trip = activeTripData?.trip ?? null;
+  const days = activeTripData?.days || [];
+  const markdownSource = activeTripData?.markdown_source;
   const totalSlides = 1 + days.length;
+  const routeAtlas = useMemo(
+    () => (activeTripData ? buildTripRouteAtlas(activeTripData) : undefined),
+    [activeTripData]
+  );
 
   const clearHeroZoomHoldTimer = useCallback(() => {
     if (heroZoomHoldTimerRef.current) {
@@ -1132,9 +1139,11 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
   function renderHeroSlide() {
     if (!trip) return null;
     const heroSources = getTripHeroImageSources(trip);
-    const heroUsesGeneratedArtwork = Boolean(
+    const heroUsesRouteAtlas = Boolean(routeAtlas);
+    const heroUsesGeneratedArtwork = !heroUsesRouteAtlas && Boolean(
       trip.image_assets?.cover_portrait?.url || trip.image_assets?.cover_landscape?.url
     );
+    const heroCanZoom = heroUsesRouteAtlas || heroUsesGeneratedArtwork;
     const heroImageIsBroken =
       brokenImages.has(heroSources.mobile) &&
       (heroSources.desktop === heroSources.mobile || brokenImages.has(heroSources.desktop));
@@ -1144,11 +1153,12 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
           <div
             className={[
               'hero-frame',
-              heroUsesGeneratedArtwork ? 'hero-frame-zoomable' : null,
-              heroZoomActive && heroUsesGeneratedArtwork ? 'hero-frame-zooming' : null,
+              heroUsesRouteAtlas ? 'hero-frame-atlas' : null,
+              heroCanZoom ? 'hero-frame-zoomable' : null,
+              heroZoomActive && heroCanZoom ? 'hero-frame-zooming' : null,
             ].filter(Boolean).join(' ')}
             style={activeTripIndex !== null && transitionTripIndex === activeTripIndex ? { viewTransitionName: TRIP_HERO_TRANSITION_NAME } as React.CSSProperties : undefined}
-            {...(heroUsesGeneratedArtwork ? {
+            {...(heroCanZoom ? {
               onPointerEnter: handleHeroZoomPointerEnter,
               onPointerMove: handleHeroZoomPointerMove,
               onPointerLeave: handleHeroZoomPointerLeave,
@@ -1159,34 +1169,38 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
             } : {})}
           >
             <div
-              className={`hero-bg ${heroUsesGeneratedArtwork ? 'hero-bg-artwork' : ''}`}
+              className={`hero-bg ${heroUsesRouteAtlas ? 'hero-bg-atlas' : heroUsesGeneratedArtwork ? 'hero-bg-artwork' : ''}`}
               style={heroUsesGeneratedArtwork ? { '--hero-artwork-bg': `url(${heroSources.desktop})` } as React.CSSProperties : undefined}
             >
-              <picture>
-                {heroSources.desktop !== heroSources.mobile && (
-                  <source media="(min-width: 900px)" srcSet={heroSources.desktop} />
-                )}
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={heroSources.mobile}
-                  alt={trip.name}
-                  draggable={false}
-                  style={{
-                    width: '100%',
-                    height: '100%',
-                    objectFit: heroUsesGeneratedArtwork ? 'contain' : 'cover',
-                    objectPosition: heroUsesGeneratedArtwork ? 'center top' : 'center',
-                    opacity: heroImageIsBroken ? 0 : 1,
-                  }}
-                  onError={(event) => {
-                    const failedUrl = event.currentTarget.currentSrc || event.currentTarget.src || heroSources.mobile;
-                    onImgError(failedUrl);
-                    if (failedUrl !== heroSources.mobile && !brokenImages.has(heroSources.mobile)) {
-                      event.currentTarget.src = heroSources.mobile;
-                    }
-                  }}
-                />
-              </picture>
+              {routeAtlas ? (
+                <TripRouteAtlas atlas={routeAtlas} />
+              ) : (
+                <picture>
+                  {heroSources.desktop !== heroSources.mobile && (
+                    <source media="(min-width: 900px)" srcSet={heroSources.desktop} />
+                  )}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={heroSources.mobile}
+                    alt={trip.name}
+                    draggable={false}
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      objectFit: heroUsesGeneratedArtwork ? 'contain' : 'cover',
+                      objectPosition: heroUsesGeneratedArtwork ? 'center top' : 'center',
+                      opacity: heroImageIsBroken ? 0 : 1,
+                    }}
+                    onError={(event) => {
+                      const failedUrl = event.currentTarget.currentSrc || event.currentTarget.src || heroSources.mobile;
+                      onImgError(failedUrl);
+                      if (failedUrl !== heroSources.mobile && !brokenImages.has(heroSources.mobile)) {
+                        event.currentTarget.src = heroSources.mobile;
+                      }
+                    }}
+                  />
+                </picture>
+              )}
             </div>
             <div className="hero-overlay" />
           </div>
