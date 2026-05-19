@@ -9,6 +9,14 @@ Selected product updates for OurTrips.
 - Tightened the public itineraries experience with better imagery, layout polish, and cover framing updates.
 - Improved the public journal’s readability with contrast fixes.
 
+## [0.2.0](https://github.com/tvanschadewijk/trips/compare/our-trips-v0.1.0...our-trips-v0.2.0) (2026-05-19)
+
+
+### Features
+
+* automate app versioning ([eb548dc](https://github.com/tvanschadewijk/trips/commit/eb548dc26ba8b0733ae065127aff07460dc4ca99))
+* publish site changelog ([a05e288](https://github.com/tvanschadewijk/trips/commit/a05e2883e6435e093acf054760c2376799098856))
+
 ## 2026-05-18 — Desktop previews and trip media refresh
 
 ### Improved
