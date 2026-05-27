@@ -124,7 +124,7 @@ export async function PATCH(
     return NextResponse.json({ error: updateError.message }, { status: 500 });
   }
 
-  await trySyncAccommodationReviewForTrip(supabase, id, existing as TripData);
+  await trySyncAccommodationReviewForTrip(supabase, id, existing as unknown as TripData);
 
   return NextResponse.json(updated);
 }
