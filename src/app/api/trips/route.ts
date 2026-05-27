@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { validateApiKey } from '@/lib/auth';
 import { isPublicItineraryShareId } from '@/lib/public-itineraries';
+import { trySyncAccommodationReviewForTrip } from '@/lib/accommodation-review-store';
+import type { TripData } from '@/lib/types';
 
 // POST /api/trips — Create or update a trip
 export async function POST(request: NextRequest) {
@@ -58,11 +60,18 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ error: error.message }, { status: 500 });
         }
 
+        const accommodationReview = await trySyncAccommodationReviewForTrip(
+          supabase,
+          existing.id,
+          tripBody as TripData
+        );
+
         return NextResponse.json({
           trip_id: existing.id,
           share_id: existing.share_id,
           url: `${request.nextUrl.origin}/t/${existing.share_id}`,
           status: 'updated',
+          accommodation_review: accommodationReview,
         });
       }
       // trip_id not found for this user — fall through to upsert by name
@@ -107,11 +116,18 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: updateErr.message }, { status: 500 });
       }
 
+      const accommodationReview = await trySyncAccommodationReviewForTrip(
+        supabase,
+        existingByName.id,
+        tripBody as TripData
+      );
+
       return NextResponse.json({
         trip_id: existingByName.id,
         share_id: existingByName.share_id,
         url: `${request.nextUrl.origin}/t/${existingByName.share_id}`,
         status: 'updated',
+        accommodation_review: accommodationReview,
       });
     }
 
@@ -132,14 +148,28 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: error?.message || 'Failed to create trip' }, { status: 500 });
     }
 
+    const accommodationReview = await trySyncAccommodationReviewForTrip(
+      supabase,
+      newTrip.id,
+      tripBody as TripData
+    );
+
     return NextResponse.json({
       trip_id: newTrip.id,
       share_id: newTrip.share_id,
       url: `${request.nextUrl.origin}/t/${newTrip.share_id}`,
       status: 'created',
+      accommodation_review: accommodationReview,
     }, { status: 201 });
-  } catch {
-    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
+  } catch (err) {
+    if (err instanceof SyntaxError) {
+      return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
+    }
+
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : 'Failed to save trip' },
+      { status: 500 }
+    );
   }
 }
 

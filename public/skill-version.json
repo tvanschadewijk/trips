@@ -1,5 +1,5 @@
 {
-  "version": 12,
-  "changelog": "Generate rich tappable detail cards for major sights, activities, hotels, and restaurants while keeping the visible day cards concise.",
+  "version": 14,
+  "changelog": "Accommodation options now sync into the in-trip Accommodation Kanban board when a trip is saved, and the skill tells users to continue review from the trip overview.",
   "download_url": "https://ourtrips.to/our-trips.skill"
 }

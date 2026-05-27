@@ -37,12 +37,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.8,
     },
     {
-      url: 'https://ourtrips.to/travel-skills',
-      lastModified: new Date(),
-      changeFrequency: 'monthly',
-      priority: 0.8,
-    },
-    {
       url: 'https://ourtrips.to/itineraries',
       lastModified: new Date(),
       changeFrequency: 'weekly',

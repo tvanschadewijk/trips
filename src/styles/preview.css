@@ -917,6 +917,553 @@ body.trip-on-cover .trip-ask-entry-label { display: inline; }
 .detail-charging-meta { font-family: var(--font-sans); font-size: 13px; color: var(--color-text-muted); margin-top: 2px; }
 .detail-charging-note { font-family: var(--font-serif); font-optical-sizing: auto; font-size: 13px; color: var(--color-text-secondary); margin-top: 4px; font-style: italic; }
 
+/* Accommodation review Kanban */
+.detail-sheet-review {
+  max-height: calc(100% - 18px);
+}
+.detail-body-react {
+  padding: 0;
+  overflow: hidden;
+}
+.accommodation-review-board {
+  --accommodation-review-header-height: 72px;
+  position: relative;
+  min-height: min(640px, calc(100dvh - 130px));
+  display: grid;
+  grid-template-columns: 144px minmax(0, 1fr);
+  background: var(--color-card);
+}
+.accommodation-review-nav {
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--color-border);
+  background: var(--color-surface);
+  overflow: hidden;
+}
+.accommodation-review-nav-header {
+  flex: none;
+  min-height: var(--accommodation-review-header-height);
+  padding: 16px 10px 12px 14px;
+  border-bottom: 1px solid var(--color-border);
+  box-sizing: border-box;
+}
+.accommodation-review-nav-heading {
+  font-family: var(--font-serif);
+  font-optical-sizing: auto;
+  font-size: 23px;
+  line-height: 1.05;
+  font-weight: 390;
+  letter-spacing: 0;
+  color: var(--color-text-primary);
+}
+.accommodation-review-nav-trip-title {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  max-height: 23px;
+  margin-bottom: 4px;
+  overflow: hidden;
+  font-family: var(--font-sans);
+  font-size: 9px;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: 0;
+  text-transform: uppercase;
+  color: var(--color-accent);
+}
+.accommodation-review-nav-list {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 10px 18px 14px;
+  overflow-y: auto;
+}
+.accommodation-review-nav-item {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  min-height: 58px;
+  padding: 10px 10px 10px 24px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background-color: transparent;
+  background-image: repeating-linear-gradient(
+    to bottom,
+    rgba(118, 94, 74, 0.3) 0 2px,
+    transparent 2px 5px
+  );
+  background-repeat: no-repeat;
+  background-position: 13px 0;
+  background-size: 1px 22px;
+  color: var(--color-text-primary);
+  text-align: left;
+  cursor: pointer;
+}
+.accommodation-review-nav-item::before {
+  content: "";
+  position: absolute;
+  left: 9px;
+  top: 18px;
+  width: 8px;
+  height: 8px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  background: var(--color-surface);
+  box-shadow: 0 0 0 3px var(--color-surface);
+  z-index: 2;
+}
+.accommodation-review-nav-item::after {
+  content: "";
+  position: absolute;
+  left: 13px;
+  top: 22px;
+  bottom: -29px;
+  border-left: 1px dotted rgba(118, 94, 74, 0.3);
+  z-index: 1;
+  pointer-events: none;
+}
+.accommodation-review-nav-item:last-child::after {
+  display: none;
+}
+.accommodation-review-nav-item > span {
+  position: relative;
+  z-index: 3;
+}
+.accommodation-review-nav-item.active {
+  background-color: var(--color-card);
+  border-color: var(--color-border-strong);
+  box-shadow: var(--shadow-card);
+}
+.accommodation-review-nav-item.status-booked {
+  opacity: 0.72;
+  color: var(--color-success);
+  background-image: repeating-linear-gradient(
+    to bottom,
+    rgba(68, 119, 88, 0.5) 0 2px,
+    transparent 2px 5px
+  );
+}
+.accommodation-review-nav-item.status-booked::before {
+  background: var(--color-success);
+}
+.accommodation-review-nav-item.status-booked::after {
+  border-left-color: rgba(68, 119, 88, 0.48);
+}
+.accommodation-review-nav-item.status-needs-work {
+  color: var(--color-accent-deep);
+}
+.accommodation-review-nav-item.status-needs-work::before {
+  background: var(--color-card);
+}
+.accommodation-review-nav-item.status-dismissed {
+  color: var(--color-text-muted);
+  background-image: repeating-linear-gradient(
+    to bottom,
+    rgba(118, 94, 74, 0.22) 0 2px,
+    transparent 2px 5px
+  );
+}
+.accommodation-review-nav-item.status-dismissed::before {
+  background: rgba(118, 94, 74, 0.18);
+}
+.accommodation-review-nav-item.status-booked.active,
+.accommodation-review-nav-item.status-needs-work.active {
+  opacity: 1;
+}
+.accommodation-review-nav-item.status-needs-work:not(.active) {
+  background-color: rgba(174, 87, 62, 0.04);
+}
+.accommodation-review-nav-item:first-child {
+  background-image: none;
+}
+.accommodation-review-nav-title {
+  font-family: var(--font-serif);
+  font-optical-sizing: auto;
+  font-size: 15px;
+  line-height: 1.12;
+  font-weight: 420;
+  color: var(--color-text-primary);
+}
+.accommodation-review-nav-meta {
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+.accommodation-review-nav-status {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  align-self: flex-start;
+  max-width: 100%;
+  height: 20px;
+  margin-top: 6px;
+  padding: 0 8px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  font-family: var(--font-sans) !important;
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  line-height: 1 !important;
+  letter-spacing: 0;
+  white-space: nowrap;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+.accommodation-review-nav-status > span:first-child {
+  flex: none;
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: currentColor;
+}
+.accommodation-review-nav-status > span:last-child {
+  min-width: 0;
+}
+.accommodation-review-nav-status.needs-work {
+  border-color: rgba(174, 87, 62, 0.32);
+  background: rgba(174, 87, 62, 0.08);
+  color: var(--color-accent-deep);
+}
+.accommodation-review-nav-status.booked {
+  border-color: rgba(68, 119, 88, 0.28);
+  background: rgba(68, 119, 88, 0.09);
+  color: var(--color-success);
+}
+.accommodation-review-nav-status.dismissed {
+  border-color: rgba(118, 94, 74, 0.22);
+  background: rgba(118, 94, 74, 0.08);
+  color: var(--color-text-muted);
+}
+.accommodation-review-main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.accommodation-review-destination {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: var(--accommodation-review-header-height);
+  padding: 16px 16px 12px;
+  border-bottom: 1px solid var(--color-border);
+  box-sizing: border-box;
+}
+.accommodation-review-kicker {
+  margin-bottom: 4px;
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: uppercase;
+  color: var(--color-accent);
+}
+.accommodation-review-destination h3 {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-optical-sizing: auto;
+  font-size: 23px;
+  line-height: 1.05;
+  font-weight: 390;
+  letter-spacing: 0;
+  color: var(--color-text-primary);
+}
+.accommodation-review-error {
+  max-width: 210px;
+  padding: 7px 9px;
+  border-radius: 6px;
+  background: rgba(155, 79, 46, 0.08);
+  color: var(--color-warning);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 1.35;
+}
+.accommodation-review-kanban {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(178px, 1fr));
+  gap: 10px;
+  padding: 12px 14px 18px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  background: var(--color-surface);
+  -webkit-overflow-scrolling: touch;
+}
+.accommodation-review-lane {
+  min-width: 178px;
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: rgba(255,255,255,0.72);
+}
+.accommodation-review-lane.drag-active {
+  border-color: var(--color-border-strong);
+}
+.accommodation-review-lane-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 11px;
+  border-bottom: 1px solid var(--color-border);
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+.lane-booked .accommodation-review-lane-header {
+  color: var(--color-success);
+}
+.lane-dismissed .accommodation-review-lane-header {
+  color: var(--color-warning);
+}
+.accommodation-review-card-stack {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  min-height: 180px;
+  padding: 9px;
+}
+.accommodation-review-card {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-card);
+  box-shadow: var(--shadow-card);
+  cursor: grab;
+}
+.accommodation-review-card:active {
+  cursor: grabbing;
+}
+.accommodation-review-card:focus-visible {
+  outline: 2px solid rgba(193,79,42,0.28);
+  outline-offset: 2px;
+}
+.accommodation-review-card.saving {
+  opacity: 0.56;
+  cursor: wait;
+}
+.accommodation-review-card-topline {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+.accommodation-review-card h4 {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-optical-sizing: auto;
+  font-size: 17px;
+  line-height: 1.13;
+  font-weight: 420;
+  letter-spacing: 0;
+  color: var(--color-text-primary);
+}
+.accommodation-review-card-topline span {
+  flex: none;
+  max-width: 72px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-accent-deep);
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+.accommodation-review-card-copy {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--color-text-secondary);
+}
+.accommodation-review-card-facts,
+.accommodation-review-card-notes {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.accommodation-review-card-facts span,
+.accommodation-review-card-notes span {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--color-text-muted);
+}
+.accommodation-review-card-rating {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 8px;
+  border: 1px solid rgba(174, 87, 62, 0.22);
+  border-radius: 6px;
+  background: rgba(174, 87, 62, 0.07);
+}
+.accommodation-review-card-rating-label {
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: 650;
+  line-height: 1;
+  text-transform: uppercase;
+  letter-spacing: 0;
+  color: var(--color-accent);
+}
+.accommodation-review-card-rating span:last-child {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--color-text-primary);
+}
+.accommodation-review-card-notes {
+  padding-top: 8px;
+  border-top: 1px solid var(--color-border);
+}
+.accommodation-review-links {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.accommodation-review-links a {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  color: var(--color-text-primary);
+  text-decoration: none;
+  background: var(--color-surface);
+}
+.accommodation-review-links a::after {
+  content: ">";
+  flex: none;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--color-accent);
+}
+.accommodation-review-links span {
+  min-width: 0;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 580;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.accommodation-review-booking-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 12;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(56, 42, 31, 0.28);
+  backdrop-filter: blur(5px);
+}
+.accommodation-review-booking-dialog {
+  width: min(420px, 100%);
+  padding: 22px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 6px;
+  background: var(--color-card);
+  box-shadow: 0 18px 44px rgba(56, 42, 31, 0.22);
+}
+.accommodation-review-booking-kicker {
+  margin-bottom: 8px;
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 0;
+  line-height: 1;
+  text-transform: uppercase;
+  color: var(--color-accent);
+}
+.accommodation-review-booking-dialog h3 {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-optical-sizing: auto;
+  font-size: 25px;
+  line-height: 1.08;
+  font-weight: 420;
+  color: var(--color-text-primary);
+}
+.accommodation-review-booking-dialog p {
+  margin: 12px 0 0;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--color-text-secondary);
+}
+.accommodation-review-booking-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 22px;
+}
+.accommodation-review-booking-actions button {
+  min-height: 38px;
+  padding: 0 14px;
+  border-radius: 6px;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+}
+.accommodation-review-booking-secondary {
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+}
+.accommodation-review-booking-primary {
+  border: 1px solid var(--color-accent-deep);
+  background: var(--color-accent);
+  color: #fffaf4;
+}
+.accommodation-review-lane-empty {
+  flex: 1;
+  min-height: 92px;
+  border: 1px dashed var(--color-border);
+  border-radius: 6px;
+  background: rgba(255,255,255,0.35);
+}
+.accommodation-review-empty {
+  padding: 24px 22px calc(34px + env(safe-area-inset-bottom));
+  color: var(--color-text-secondary);
+}
+.accommodation-review-empty-title {
+  margin-bottom: 8px;
+  font-family: var(--font-serif);
+  font-optical-sizing: auto;
+  font-size: 22px;
+  font-weight: 400;
+  color: var(--color-text-primary);
+}
+.accommodation-review-empty p {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
 /* ============================================
    Markdown body — rendered from trip.markdown_source
    inside the detail sheet. Editorial typography for

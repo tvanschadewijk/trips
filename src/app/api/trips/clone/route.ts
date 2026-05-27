@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { scrubAndAnchorTripData } from '@/lib/scrub-trip';
 import { isPublicItineraryShareId } from '@/lib/public-itineraries';
+import { trySyncAccommodationReviewForTrip } from '@/lib/accommodation-review-store';
 import type { TripData } from '@/lib/types';
 
 // POST /api/trips/clone — Remix a shared trip into the authenticated
@@ -78,9 +79,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: insertErr?.message || 'Failed to save trip' }, { status: 500 });
   }
 
+  const accommodationReview = await trySyncAccommodationReviewForTrip(
+    admin,
+    newTrip.id,
+    cloneBody
+  );
+
   return NextResponse.json({
     trip_id: newTrip.id,
     share_id: newTrip.share_id,
+    accommodation_review: accommodationReview,
     status: 'saved',
   }, { status: 201 });
 }

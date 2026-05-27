@@ -1,11 +1,13 @@
 'use client';
 
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
+import type { ReactNode } from 'react';
 import { flushSync } from 'react-dom';
 import type { TripData, Day, Transport, Accommodation, Tip, Meal, Block, RichDetail } from '@/lib/types';
 import { ICONS } from './icons';
 import SaveOfflineButton from './SaveOfflineButton';
 import TripRouteAtlas from './TripRouteAtlas';
+import AccommodationReviewBoard from './AccommodationReviewBoard';
 import { renderTripMarkdown } from '@/lib/render-trip-markdown';
 import { buildTripRouteAtlas } from '@/lib/trip-route';
 import { getTripHeroImageSources, getTripOverviewImageUrl } from '@/lib/trip-images';
@@ -78,6 +80,13 @@ const MAX_VISIBLE_DOTS = 7;
 const TRIP_HERO_TRANSITION_NAME = 'trip-hero';
 const DETAIL_CLOSE_MS = 420;
 const HERO_ZOOM_HOLD_MS = 320;
+
+type DetailContent = {
+  title: string;
+  html: string;
+  node?: ReactNode;
+  sheetClassName?: string;
+};
 type SlideMotionMode = 'programmatic' | 'swipe' | 'settled';
 type SlideDirection = 'forward' | 'backward' | 'none';
 
@@ -136,7 +145,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
   const [currentSlide, setCurrentSlide] = useState(0);
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailClosing, setDetailClosing] = useState(false);
-  const [detailContent, setDetailContent] = useState<{ title: string; html: string }>({ title: '', html: '' });
+  const [detailContent, setDetailContent] = useState<DetailContent>({ title: '', html: '' });
   const [slideMotionMode, setSlideMotionMode] = useState<SlideMotionMode>('settled');
   const [slideDirection, setSlideDirection] = useState<SlideDirection>('none');
   const [overviewFaded, setOverviewFaded] = useState(autoOpen ? true : false);
@@ -626,7 +635,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     setHeroZoomActive(false);
   }, [activeTripIndex, currentSlide, clearHeroZoomHoldTimer, setHeroZoomActive]);
 
-  const showDetail = useCallback((content: { title: string; html: string }) => {
+  const showDetail = useCallback((content: DetailContent) => {
     if (detailCloseTimerRef.current) {
       clearTimeout(detailCloseTimerRef.current);
       detailCloseTimerRef.current = null;
@@ -761,6 +770,15 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
       window.history.back();
     }
   }
+
+  const handleTripDataUpdated = useCallback((nextTripData: TripData) => {
+    setTrips((prev) => {
+      if (activeTripIndex === null) return prev;
+      const updated = [...prev];
+      updated[activeTripIndex] = nextTripData;
+      return updated;
+    });
+  }, [activeTripIndex]);
 
   // Handle browser back to close detail sheet
   useEffect(() => {
@@ -1254,9 +1272,32 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
               const activities = buildActivitiesHtml();
               const dining = buildDiningHtml();
               const thingsToDo = buildThingsToDoHtml();
-              const sections: { icon: string; label: string; html: string; hasData: boolean }[] = [
+              const accommodationSection = tripId && activeTripData
+                ? {
+                    icon: 'hotel',
+                    label: 'Accommodation',
+                    html: '',
+                    hasData: true,
+                    node: (
+                      <AccommodationReviewBoard
+                        tripId={tripId}
+                        tripData={activeTripData}
+                        onTripDataUpdated={handleTripDataUpdated}
+                      />
+                    ),
+                    sheetClassName: 'detail-sheet-review',
+                  }
+                : { icon: 'bed', label: 'Accommodation', ...accommodation };
+              const sections: {
+                icon: string;
+                label: string;
+                html: string;
+                hasData: boolean;
+                node?: ReactNode;
+                sheetClassName?: string;
+              }[] = [
                 { icon: 'route', label: 'Logistics', ...logistics },
-                { icon: 'bed', label: 'Accommodation', ...accommodation },
+                accommodationSection,
                 { icon: 'mountain', label: 'Activities', ...activities },
                 { icon: 'fork', label: 'Restaurants', ...dining },
                 { icon: thingsToDo.allDone ? 'check' : 'warning', label: thingsToDo.allDone ? 'Ready to Go' : 'Action Items', ...thingsToDo },
@@ -1276,7 +1317,12 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
                   <div className="hero-overview-label">Overview</div>
                   {visible.map((s, i) => (
                     <button key={i} className="hero-note-btn" onClick={() => {
-                      showDetail({ title: s.label, html: s.html });
+                      showDetail({
+                        title: s.label,
+                        html: s.html,
+                        node: s.node,
+                        sheetClassName: s.sheetClassName,
+                      });
                     }}>
                       <span className="hero-note-icon"><Icon name={s.icon} /></span>
                       <span className="hero-note-label">{s.label}</span>
@@ -1699,7 +1745,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
       {/* Detail sheet */}
       <div className={`detail-overlay ${detailOpen ? 'open' : ''} ${detailClosing ? 'closing' : ''}`} role="dialog" aria-modal="true" aria-label={detailContent.title}>
         <div className="detail-backdrop" onClick={closeDetail} />
-        <div className="detail-sheet">
+        <div className={`detail-sheet ${detailContent.sheetClassName ?? ''}`}>
           <div className="detail-header">
             <div className="text-nav-title" style={{ flex: 1, minWidth: 0, color: 'var(--color-text-primary)' }}>
               {detailContent.title}
@@ -1708,7 +1754,11 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>
             </button>
           </div>
-          <div ref={detailBodyRef} className="detail-body" dangerouslySetInnerHTML={{ __html: detailContent.html }} />
+          <div ref={detailBodyRef} className={`detail-body ${detailContent.node ? 'detail-body-react' : ''}`}>
+            {detailContent.node ?? (
+              <div dangerouslySetInnerHTML={{ __html: detailContent.html }} />
+            )}
+          </div>
         </div>
       </div>
     </div>

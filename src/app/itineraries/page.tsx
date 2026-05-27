@@ -32,7 +32,6 @@ export default function ItinerariesPage() {
             OurTrips<LogoSuffix />
           </Link>
           <div className="itineraries-nav-links">
-            <Link href="/travel-skills" className="itineraries-nav-link">Travel Skills</Link>
             <Link href="/blog" className="itineraries-nav-link">Journal</Link>
             <Link href="/login" className="itineraries-btn-outline">Log in</Link>
           </div>

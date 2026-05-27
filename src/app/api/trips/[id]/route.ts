@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { validateApiKey } from '@/lib/auth';
+import { trySyncAccommodationReviewForTrip } from '@/lib/accommodation-review-store';
+import type { TripData } from '@/lib/types';
 
 // GET /api/trips/[id] — Get a single trip's full JSON
 export async function GET(
@@ -121,6 +123,8 @@ export async function PATCH(
   if (updateError) {
     return NextResponse.json({ error: updateError.message }, { status: 500 });
   }
+
+  await trySyncAccommodationReviewForTrip(supabase, id, existing as TripData);
 
   return NextResponse.json(updated);
 }

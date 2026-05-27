@@ -14,7 +14,23 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { createSdkMcpServer, tool } from '@anthropic-ai/claude-agent-sdk';
 import type { McpSdkServerConfigWithInstance } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod';
-import type { Accommodation, AccommodationDetail, TripData } from '@/lib/types';
+import {
+  addAccommodationCandidate,
+  buildInitialAccommodationReview,
+  mergeAccommodationReviewWithTripData,
+  moveAccommodationCandidate,
+  promoteCandidateToTrip,
+  updateAccommodationCandidate,
+} from '@/lib/accommodation-review';
+import type {
+  Accommodation,
+  AccommodationCandidate,
+  AccommodationCandidateBooking,
+  AccommodationDetail,
+  AccommodationReview,
+  AccommodationReviewLane,
+  TripData,
+} from '@/lib/types';
 import {
   GetTripInputShape,
   UpdateTripInputShape,
@@ -28,8 +44,8 @@ export interface TripToolContext {
   /** Called with the computed patch after a successful update, for diff logging. */
   onUpdateApplied?: (applied: {
     tool?: string;
-    before: TripData;
-    after: TripData;
+    before?: TripData;
+    after?: TripData;
     input: unknown;
   }) => void | Promise<void>;
 }
@@ -98,6 +114,50 @@ status, policy, summary, confidence, source_url, source_label, snippets, and
 checked_urls. Prefer official hotel pages when the returned source supports it.
 If confidence is low, write that uncertainty into the note instead of
 overstating the finding.`;
+
+const LIST_ACCOMMODATION_REVIEW_DESCRIPTION = `List the private accommodation-review Kanban board for this trip.
+
+Use this for hotel-search workflow questions such as "what are we considering
+in Istanbul", "why did we reject that hotel", "what has been booked", or when
+the user is looking at the Accommodation Review surface. It returns the
+destination list, candidates grouped by Kanban lane, and recent reviewer events.
+
+No arguments. If the board does not exist yet, it is initialized from the
+current itinerary stays. The trip_id is pinned by the server.`;
+
+const UPDATE_ACCOMMODATION_CANDIDATE_DESCRIPTION = `Patch one private accommodation-review candidate.
+
+Use this for changing candidate facts in the Kanban board: price, direct link,
+ratings, dog/parking/terms notes, blockers, action, feedbackLoop, or lane. This
+does not edit the public itinerary unless the candidate is moved to booked with
+move_accommodation_candidate or promote_accommodation_candidate.`;
+
+const CREATE_ACCOMMODATION_CANDIDATE_DESCRIPTION = `Create one private accommodation-review proposal card.
+
+Use this after researching or choosing a hotel/stay candidate that should enter
+the Kanban board. New candidates should usually start in proposed unless the
+user explicitly says they are already considering or booked. Include direct
+site links, platform prices, ratings, terms, dog/parking notes, and blockers
+when known.`;
+
+const MOVE_ACCOMMODATION_CANDIDATE_DESCRIPTION = `Move one accommodation-review candidate between Kanban lanes.
+
+Lanes are:
+- proposed: what the agent proposes
+- considering: under consideration
+- dismissed: rejected but retained for memory
+- booked: committed stay
+
+When a candidate is moved to booked, this tool also promotes the clean stay
+into the trip's day accommodation cards and records a reviewer event, so future
+agent turns know the hotel has been booked.`;
+
+const PROMOTE_ACCOMMODATION_CANDIDATE_DESCRIPTION = `Mark an accommodation-review candidate as booked and promote it into the itinerary.
+
+Use when the user says a hotel is booked, confirms a booking, or asks you to
+make a selected candidate the stay for that destination. This updates both the
+private Kanban board and the public trip accommodation cards for the matching
+destination days.`;
 
 const DetailPatchSchema = z
   .object({
@@ -178,6 +238,121 @@ const ResearchPlacePolicyInputShape = {
     .url()
     .optional()
     .describe('Optional known official page to check before searching.'),
+} as const;
+
+const AccommodationReviewLaneSchema = z.enum([
+  'proposed',
+  'considering',
+  'dismissed',
+  'booked',
+]);
+
+const AccommodationCandidateBookingSchema = z
+  .object({
+    bookedAt: z.string().optional(),
+    source: z.string().optional(),
+    confirmation: z.string().optional(),
+    price: z.string().optional(),
+    note: z.string().optional(),
+  })
+  .strict();
+
+const AccommodationCandidatePatchSchema = z
+  .object({
+    destinationId: z.string().optional(),
+    stop: z.string().optional(),
+    dates: z.string().optional(),
+    nights: z.number().optional(),
+    lane: AccommodationReviewLaneSchema.optional(),
+    status: z.string().optional(),
+    candidate: z.string().optional(),
+    price: z.string().optional(),
+    dog: z.string().optional(),
+    parking: z.string().optional(),
+    terms: z.string().optional(),
+    why: z.string().optional(),
+    blockers: z.string().optional(),
+    action: z.string().optional(),
+    alternatives: z.string().optional(),
+    links: z.array(z.object({ label: z.string(), url: z.string() })).optional(),
+    ratings: z.array(z.record(z.string(), z.string().optional())).optional(),
+    rateCheck: z.record(z.string(), z.unknown()).optional(),
+    feedbackLoop: z.record(z.string(), z.unknown()).optional(),
+    dayNumbers: z.array(z.number()).optional(),
+    checkInDate: z.string().optional(),
+    checkOutDate: z.string().optional(),
+    address: z.string().optional(),
+    booking: AccommodationCandidateBookingSchema.optional(),
+    createdBy: z.enum(['agent', 'user', 'import', 'system']).optional(),
+  })
+  .strict()
+  .refine((value) => Object.keys(value).length > 0, {
+    message: 'Provide at least one candidate field to patch.',
+  });
+
+const AccommodationReviewDestinationSchema = z
+  .object({
+    id: z.string().min(1),
+    title: z.string().min(1),
+    dates: z.string().optional(),
+    nights: z.number().optional(),
+    dayNumbers: z.array(z.number()).optional(),
+    startDate: z.string().optional(),
+    endDate: z.string().optional(),
+  })
+  .strict();
+
+const CreateAccommodationCandidateInputShape = {
+  candidate: z
+    .object({
+      destinationId: z.string().optional(),
+      stop: z.string().optional(),
+      dates: z.string().optional(),
+      nights: z.number().optional(),
+      lane: AccommodationReviewLaneSchema.default('proposed'),
+      status: z.string().optional(),
+      candidate: z.string().min(1),
+      price: z.string().optional(),
+      dog: z.string().optional(),
+      parking: z.string().optional(),
+      terms: z.string().optional(),
+      why: z.string().optional(),
+      blockers: z.string().optional(),
+      action: z.string().optional(),
+      alternatives: z.string().optional(),
+      links: z.array(z.object({ label: z.string(), url: z.string() })).optional(),
+      ratings: z.array(z.record(z.string(), z.string().optional())).optional(),
+      rateCheck: z.record(z.string(), z.unknown()).optional(),
+      feedbackLoop: z.record(z.string(), z.unknown()).optional(),
+      dayNumbers: z.array(z.number()).optional(),
+      checkInDate: z.string().optional(),
+      checkOutDate: z.string().optional(),
+      address: z.string().optional(),
+      booking: AccommodationCandidateBookingSchema.optional(),
+      createdBy: z.enum(['agent', 'user', 'import', 'system']).optional(),
+    })
+    .strict(),
+  destination: AccommodationReviewDestinationSchema.optional(),
+  message: z.string().optional(),
+} as const;
+
+const UpdateAccommodationCandidateInputShape = {
+  candidate_id: z.string().min(1),
+  candidate_patch: AccommodationCandidatePatchSchema,
+  message: z.string().optional(),
+} as const;
+
+const MoveAccommodationCandidateInputShape = {
+  candidate_id: z.string().min(1),
+  lane: AccommodationReviewLaneSchema,
+  booking: AccommodationCandidateBookingSchema.optional(),
+  message: z.string().optional(),
+} as const;
+
+const PromoteAccommodationCandidateInputShape = {
+  candidate_id: z.string().min(1),
+  booking: AccommodationCandidateBookingSchema.optional(),
+  message: z.string().optional(),
 } as const;
 
 const GET_TRIP_DESCRIPTION = `Read the full current state of the trip the user is editing.
@@ -344,6 +519,86 @@ function textToolError(text: string) {
   return {
     content: [{ type: 'text' as const, text }],
     isError: true,
+  };
+}
+
+async function readTripData(ctx: TripToolContext): Promise<TripData> {
+  const { data, error } = await ctx.supabase
+    .from('trips')
+    .select('data')
+    .eq('id', ctx.tripId)
+    .single();
+
+  if (error || !data) {
+    throw new Error(`Error reading trip: ${error?.message ?? 'not found'}`);
+  }
+
+  return data.data as TripData;
+}
+
+async function loadOrCreateAccommodationReview(
+  ctx: TripToolContext,
+  tripData: TripData
+): Promise<AccommodationReview> {
+  const { data: row, error } = await ctx.supabase
+    .from('trip_accommodation_reviews')
+    .select('data')
+    .eq('trip_id', ctx.tripId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  if (row?.data) {
+    return mergeAccommodationReviewWithTripData(row.data, tripData);
+  }
+
+  const review = buildInitialAccommodationReview(tripData);
+  const { error: insertError } = await ctx.supabase
+    .from('trip_accommodation_reviews')
+    .upsert({
+      trip_id: ctx.tripId,
+      data: review,
+      updated_at: new Date().toISOString(),
+    });
+
+  if (insertError) {
+    throw new Error(insertError.message);
+  }
+
+  return review;
+}
+
+async function saveAccommodationReview(
+  ctx: TripToolContext,
+  review: AccommodationReview
+) {
+  const { error } = await ctx.supabase
+    .from('trip_accommodation_reviews')
+    .upsert({
+      trip_id: ctx.tripId,
+      data: review,
+      updated_at: new Date().toISOString(),
+    });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+}
+
+function summarizeAccommodationReview(review: AccommodationReview) {
+  return {
+    tripTitle: review.tripTitle,
+    updatedAt: review.updatedAt,
+    destinations: review.destinations,
+    lanes: {
+      proposed: review.accommodations.filter((item) => item.lane === 'proposed'),
+      considering: review.accommodations.filter((item) => item.lane === 'considering'),
+      dismissed: review.accommodations.filter((item) => item.lane === 'dismissed'),
+      booked: review.accommodations.filter((item) => item.lane === 'booked'),
+    },
+    recent_events: (review.events ?? []).slice(-12),
   };
 }
 
@@ -1011,6 +1266,21 @@ export function createTripEditorMcpServer(
     }
   );
 
+  const listAccommodationReview = tool(
+    'list_accommodation_review',
+    LIST_ACCOMMODATION_REVIEW_DESCRIPTION,
+    {},
+    async () => {
+      try {
+        const trip = await readTripData(ctx);
+        const review = await loadOrCreateAccommodationReview(ctx, trip);
+        return jsonToolResponse(summarizeAccommodationReview(review));
+      } catch (err) {
+        return textToolError(err instanceof Error ? err.message : String(err));
+      }
+    }
+  );
+
   const updateTrip = tool(
     'update_trip',
     UPDATE_TRIP_DESCRIPTION,
@@ -1248,16 +1518,244 @@ export function createTripEditorMcpServer(
     async (rawArgs) => jsonToolResponse(await researchPlacePolicy(rawArgs))
   );
 
+  const updateAccommodationReviewCandidate = tool(
+    'update_accommodation_candidate',
+    UPDATE_ACCOMMODATION_CANDIDATE_DESCRIPTION,
+    UpdateAccommodationCandidateInputShape,
+    async (rawArgs) => {
+      const parsed = z.object(UpdateAccommodationCandidateInputShape).safeParse(rawArgs);
+      if (!parsed.success) {
+        return textToolError(
+          `Invalid input: ${parsed.error.issues
+            .map((i) => `${i.path.join('.')}: ${i.message}`)
+            .join('; ')}`
+        );
+      }
+
+      try {
+        const trip = await readTripData(ctx);
+        const before = await loadOrCreateAccommodationReview(ctx, trip);
+        const next = updateAccommodationCandidate(
+          before,
+          parsed.data.candidate_id,
+          parsed.data.candidate_patch as Partial<AccommodationCandidate>,
+          'agent',
+          parsed.data.message
+        );
+        await saveAccommodationReview(ctx, next);
+        if (ctx.onUpdateApplied) {
+          try {
+            await ctx.onUpdateApplied({
+              tool: 'update_accommodation_candidate',
+              input: parsed.data,
+            });
+          } catch {
+            // Telemetry errors must not fail the tool call.
+          }
+        }
+        return jsonToolResponse({
+          ok: true,
+          candidate_id: parsed.data.candidate_id,
+          updated_keys: Object.keys(parsed.data.candidate_patch),
+          review: summarizeAccommodationReview(next),
+        });
+      } catch (err) {
+        return textToolError(err instanceof Error ? err.message : String(err));
+      }
+    }
+  );
+
+  const createAccommodationReviewCandidate = tool(
+    'create_accommodation_candidate',
+    CREATE_ACCOMMODATION_CANDIDATE_DESCRIPTION,
+    CreateAccommodationCandidateInputShape,
+    async (rawArgs) => {
+      const parsed = z.object(CreateAccommodationCandidateInputShape).safeParse(rawArgs);
+      if (!parsed.success) {
+        return textToolError(
+          `Invalid input: ${parsed.error.issues
+            .map((i) => `${i.path.join('.')}: ${i.message}`)
+            .join('; ')}`
+        );
+      }
+
+      try {
+        const trip = await readTripData(ctx);
+        const before = await loadOrCreateAccommodationReview(ctx, trip);
+        const next = addAccommodationCandidate(
+          before,
+          parsed.data.candidate as Omit<AccommodationCandidate, 'id'>,
+          'agent',
+          parsed.data.message,
+          parsed.data.destination
+        );
+        await saveAccommodationReview(ctx, next);
+        if (ctx.onUpdateApplied) {
+          try {
+            await ctx.onUpdateApplied({
+              tool: 'create_accommodation_candidate',
+              input: parsed.data,
+            });
+          } catch {
+            // Telemetry errors must not fail the tool call.
+          }
+        }
+        return jsonToolResponse({
+          ok: true,
+          candidate: next.accommodations.at(-1),
+          review: summarizeAccommodationReview(next),
+        });
+      } catch (err) {
+        return textToolError(err instanceof Error ? err.message : String(err));
+      }
+    }
+  );
+
+  const moveAccommodationReviewCandidate = tool(
+    'move_accommodation_candidate',
+    MOVE_ACCOMMODATION_CANDIDATE_DESCRIPTION,
+    MoveAccommodationCandidateInputShape,
+    async (rawArgs) => {
+      const parsed = z.object(MoveAccommodationCandidateInputShape).safeParse(rawArgs);
+      if (!parsed.success) {
+        return textToolError(
+          `Invalid input: ${parsed.error.issues
+            .map((i) => `${i.path.join('.')}: ${i.message}`)
+            .join('; ')}`
+        );
+      }
+
+      try {
+        const beforeTrip = await readTripData(ctx);
+        const beforeReview = await loadOrCreateAccommodationReview(ctx, beforeTrip);
+        const nextReview = moveAccommodationCandidate(
+          beforeReview,
+          parsed.data.candidate_id,
+          parsed.data.lane as AccommodationReviewLane,
+          'agent',
+          parsed.data.booking as AccommodationCandidateBooking | undefined,
+          parsed.data.message
+        );
+        let afterTrip: TripData | undefined;
+        if (parsed.data.lane === 'booked') {
+          afterTrip = promoteCandidateToTrip(
+            beforeTrip,
+            nextReview,
+            parsed.data.candidate_id,
+            parsed.data.booking as AccommodationCandidateBooking | undefined
+          );
+          const writeTrip = await ctx.supabase
+            .from('trips')
+            .update({ data: afterTrip, updated_at: new Date().toISOString() })
+            .eq('id', ctx.tripId);
+          if (writeTrip.error) {
+            return textToolError(`Error writing trip: ${writeTrip.error.message}`);
+          }
+        }
+        await saveAccommodationReview(ctx, nextReview);
+        if (ctx.onUpdateApplied) {
+          try {
+            await ctx.onUpdateApplied({
+              tool: 'move_accommodation_candidate',
+              before: beforeTrip,
+              after: afterTrip,
+              input: parsed.data,
+            });
+          } catch {
+            // Telemetry errors must not fail the tool call.
+          }
+        }
+        return jsonToolResponse({
+          ok: true,
+          candidate_id: parsed.data.candidate_id,
+          lane: parsed.data.lane,
+          promoted_to_trip: parsed.data.lane === 'booked',
+          review: summarizeAccommodationReview(nextReview),
+        });
+      } catch (err) {
+        return textToolError(err instanceof Error ? err.message : String(err));
+      }
+    }
+  );
+
+  const promoteAccommodationReviewCandidate = tool(
+    'promote_accommodation_candidate',
+    PROMOTE_ACCOMMODATION_CANDIDATE_DESCRIPTION,
+    PromoteAccommodationCandidateInputShape,
+    async (rawArgs) => {
+      const parsed = z.object(PromoteAccommodationCandidateInputShape).safeParse(rawArgs);
+      if (!parsed.success) {
+        return textToolError(
+          `Invalid input: ${parsed.error.issues
+            .map((i) => `${i.path.join('.')}: ${i.message}`)
+            .join('; ')}`
+        );
+      }
+
+      try {
+        const beforeTrip = await readTripData(ctx);
+        const beforeReview = await loadOrCreateAccommodationReview(ctx, beforeTrip);
+        const nextReview = moveAccommodationCandidate(
+          beforeReview,
+          parsed.data.candidate_id,
+          'booked',
+          'agent',
+          parsed.data.booking as AccommodationCandidateBooking | undefined,
+          parsed.data.message ?? 'Promoted into the itinerary by the trip agent.'
+        );
+        const afterTrip = promoteCandidateToTrip(
+          beforeTrip,
+          nextReview,
+          parsed.data.candidate_id,
+          parsed.data.booking as AccommodationCandidateBooking | undefined
+        );
+        const writeTrip = await ctx.supabase
+          .from('trips')
+          .update({ data: afterTrip, updated_at: new Date().toISOString() })
+          .eq('id', ctx.tripId);
+        if (writeTrip.error) {
+          return textToolError(`Error writing trip: ${writeTrip.error.message}`);
+        }
+        await saveAccommodationReview(ctx, nextReview);
+        if (ctx.onUpdateApplied) {
+          try {
+            await ctx.onUpdateApplied({
+              tool: 'promote_accommodation_candidate',
+              before: beforeTrip,
+              after: afterTrip,
+              input: parsed.data,
+            });
+          } catch {
+            // Telemetry errors must not fail the tool call.
+          }
+        }
+        return jsonToolResponse({
+          ok: true,
+          candidate_id: parsed.data.candidate_id,
+          promoted_to_trip: true,
+          review: summarizeAccommodationReview(nextReview),
+        });
+      } catch (err) {
+        return textToolError(err instanceof Error ? err.message : String(err));
+      }
+    }
+  );
+
   return createSdkMcpServer({
     name: 'trip_editor',
     version: '0.1.0',
     tools: [
       getTrip,
       listAccommodations,
+      listAccommodationReview,
       updateTrip,
       updateAccommodation,
       updateAccommodationDetail,
       researchPolicy,
+      createAccommodationReviewCandidate,
+      updateAccommodationReviewCandidate,
+      moveAccommodationReviewCandidate,
+      promoteAccommodationReviewCandidate,
       ...createBookingTools(),
     ],
   });
@@ -1270,10 +1768,15 @@ export function createTripEditorMcpServer(
 export const TRIP_EDITOR_TOOL_NAMES = [
   'mcp__trip_editor__get_trip',
   'mcp__trip_editor__list_accommodations',
+  'mcp__trip_editor__list_accommodation_review',
   'mcp__trip_editor__update_trip',
   'mcp__trip_editor__update_accommodation',
   'mcp__trip_editor__update_accommodation_detail',
   'mcp__trip_editor__research_place_policy',
+  'mcp__trip_editor__create_accommodation_candidate',
+  'mcp__trip_editor__update_accommodation_candidate',
+  'mcp__trip_editor__move_accommodation_candidate',
+  'mcp__trip_editor__promote_accommodation_candidate',
   ...BOOKING_TOOL_NAMES,
 ] as const;
 

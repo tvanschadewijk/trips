@@ -73,6 +73,10 @@ const BodySchema = z.object({
       day_number: z.number().nullable().optional(),
       date: z.string().nullable().optional(),
       title: z.string().nullable().optional(),
+      destination_id: z.string().nullable().optional(),
+      destination_title: z.string().nullable().optional(),
+      candidate_id: z.string().nullable().optional(),
+      candidate_name: z.string().nullable().optional(),
     })
     .nullable()
     .optional(),
@@ -512,6 +516,15 @@ function formatViewContextPrefix(ctx: ChatRequestBody['view_context']): string {
   }
   if (ctx.slideKind === 'cover') {
     return `[The user is currently on the trip cover (overview), not a specific day.]\n\n`;
+  }
+  if (ctx.slideKind === 'accommodation_review') {
+    const destination = ctx.destination_title
+      ? ` destination "${ctx.destination_title}"`
+      : ' accommodation-review destination';
+    const candidate = ctx.candidate_name
+      ? ` Candidate in focus: "${ctx.candidate_name}".`
+      : '';
+    return `[The user is currently viewing the private Accommodation Review Kanban for${destination}.${candidate} Use accommodation-review tools before answering hotel-candidate workflow questions.]\n\n`;
   }
   return '';
 }

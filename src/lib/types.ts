@@ -243,3 +243,120 @@ export interface TripRecord {
   created_at: string;
   updated_at: string;
 }
+
+export type AccommodationReviewLane =
+  | 'proposed'
+  | 'considering'
+  | 'dismissed'
+  | 'booked';
+
+export interface AccommodationReview {
+  tripTitle: string;
+  tripSlug: string;
+  generatedAt: string;
+  updatedAt?: string;
+  storageKey: string;
+  summary?: string;
+  destinations: AccommodationReviewDestination[];
+  accommodations: AccommodationCandidate[];
+  events?: AccommodationReviewEvent[];
+  reviewerVersion?: number;
+  layoutVersion?: 'kanban-v1';
+}
+
+export interface AccommodationReviewDestination {
+  id: string;
+  title: string;
+  dates?: string;
+  nights?: number;
+  dayNumbers?: number[];
+  startDate?: string;
+  endDate?: string;
+}
+
+export interface AccommodationCandidate {
+  id: string;
+  destinationId: string;
+  stop: string;
+  dates?: string;
+  nights?: number;
+  lane: AccommodationReviewLane;
+  status?: string;
+  candidate: string;
+  price?: string;
+  dog?: string;
+  parking?: string;
+  terms?: string;
+  why?: string;
+  blockers?: string;
+  action?: string;
+  alternatives?: string;
+  links?: AccommodationCandidateLink[];
+  ratings?: AccommodationCandidateRating[];
+  rateCheck?: AccommodationCandidateRateCheck;
+  feedbackLoop?: AccommodationCandidateFeedbackLoop;
+  dayNumbers?: number[];
+  checkInDate?: string;
+  checkOutDate?: string;
+  address?: string;
+  booking?: AccommodationCandidateBooking;
+  createdBy?: 'agent' | 'user' | 'import' | 'system';
+  updatedAt?: string;
+}
+
+export interface AccommodationCandidateLink {
+  label: string;
+  url: string;
+}
+
+export interface AccommodationCandidateRating {
+  name?: string;
+  checkedAt?: string;
+  hotelsCom?: string;
+  tripadvisor?: string;
+  bookingCom?: string;
+  google?: string;
+  note?: string;
+}
+
+export interface AccommodationCandidateRateCheck {
+  status?: string;
+  checkedAt?: string;
+  direct?: string;
+  ota?: string;
+  best?: string;
+  note?: string;
+  sources?: AccommodationCandidateLink[];
+}
+
+export interface AccommodationCandidateFeedbackLoop {
+  userFeedback?: string;
+  codexResponse?: string;
+  nextStep?: string;
+  updatedAt?: string;
+}
+
+export interface AccommodationCandidateBooking {
+  bookedAt?: string;
+  source?: string;
+  confirmation?: string;
+  price?: string;
+  note?: string;
+}
+
+export interface AccommodationReviewEvent {
+  id: string;
+  type:
+    | 'candidate_created'
+    | 'candidate_moved'
+    | 'candidate_updated'
+    | 'candidate_booked'
+    | 'candidate_promoted';
+  candidateId?: string;
+  destinationId?: string;
+  actor: 'agent' | 'user' | 'system';
+  fromLane?: AccommodationReviewLane;
+  toLane?: AccommodationReviewLane;
+  message?: string;
+  createdAt: string;
+}

@@ -52,7 +52,6 @@ export default async function Home() {
           <div className="landing-nav-links">
             <Link href="/itineraries" className="landing-nav-link">Itineraries</Link>
             <Link href="/changelog" className="landing-nav-link">Changelog</Link>
-            <Link href="/travel-skills" className="landing-nav-link">Travel Skills</Link>
             <Link href="/blog" className="landing-nav-link">Journal</Link>
             <Link href="/login" className="landing-btn-outline">Log in</Link>
           </div>
