@@ -50,15 +50,25 @@ function laneActionLabel(lane: AccommodationReviewLane): string {
   }
 }
 
+function candidateLane(candidate: AccommodationCandidate): AccommodationReviewLane {
+  const status = candidate.status?.toLowerCase();
+  if (status === 'booked' || status === 'confirmed' || candidate.booking) return 'booked';
+  return candidate.lane;
+}
+
 function destinationStatus(candidates: AccommodationCandidate[]): {
   label: string;
   tone: 'booked' | 'needs-work' | 'dismissed';
 } {
-  const bookedCount = candidates.filter((candidate) => candidate.lane === 'booked').length;
+  const bookedCount = candidates.filter(
+    (candidate) => candidateLane(candidate) === 'booked'
+  ).length;
   if (bookedCount) return { label: 'Booked', tone: 'booked' };
 
   const activeCount = candidates.filter(
-    (candidate) => candidate.lane === 'proposed' || candidate.lane === 'considering'
+    (candidate) =>
+      candidateLane(candidate) === 'proposed' ||
+      candidateLane(candidate) === 'considering'
   ).length;
   if (activeCount) return { label: 'Review', tone: 'needs-work' };
 
@@ -334,7 +344,7 @@ export default function AccommodationReviewBoard({
         <div className="accommodation-review-kanban">
           {ACCOMMODATION_REVIEW_LANES.map((lane) => {
             const laneCandidates = candidatesForDestination.filter(
-              (candidate) => candidate.lane === lane.id
+              (candidate) => candidateLane(candidate) === lane.id
             );
             return (
               <section
@@ -429,7 +439,7 @@ export default function AccommodationReviewBoard({
                         aria-label={`Move ${candidate.candidate}`}
                       >
                         {ACCOMMODATION_REVIEW_LANES.filter(
-                          (targetLane) => targetLane.id !== candidate.lane
+                          (targetLane) => targetLane.id !== candidateLane(candidate)
                         ).map((targetLane) => (
                           <button
                             key={`${candidate.id}-${targetLane.id}`}

@@ -100,8 +100,19 @@ function laneFromAccommodation(accommodation: Accommodation): AccommodationRevie
   return 'considering';
 }
 
-function normalizeLane(value: unknown): AccommodationReviewLane {
-  if (typeof value !== 'string') return 'proposed';
+function laneFromStatus(value: unknown): AccommodationReviewLane | null {
+  if (typeof value !== 'string') return null;
+  const status = value.toLowerCase();
+  if (status === 'booked' || status === 'confirmed') return 'booked';
+  if (status === 'rejected' || status === 'dismissed') return 'dismissed';
+  if (status === 'pending' || status === 'reserved') return 'considering';
+  return OLD_LANE_MAP[status] ?? null;
+}
+
+function normalizeLane(value: unknown, status?: unknown, hasBooking?: boolean): AccommodationReviewLane {
+  const statusLane = laneFromStatus(status);
+  if (statusLane === 'booked' || hasBooking) return 'booked';
+  if (typeof value !== 'string') return statusLane ?? 'proposed';
   return OLD_LANE_MAP[value] ?? 'proposed';
 }
 
@@ -311,7 +322,7 @@ export function normalizeAccommodationReview(
         fallback.destinations[0]?.id ||
         'stay',
       stop: candidate.stop || destinations[0]?.title || 'Stay',
-      lane: normalizeLane(candidate.lane),
+      lane: normalizeLane(candidate.lane, candidate.status, Boolean(candidate.booking)),
       candidate: candidate.candidate || `Stay option ${index + 1}`,
     })),
     events: Array.isArray(input.events) ? input.events : [],
@@ -330,11 +341,36 @@ function candidateMatchesImportedStay(
   imported: AccommodationCandidate
 ): boolean {
   if (candidate.id === imported.id) return true;
+  if (
+    candidate.candidate === imported.candidate &&
+    Boolean(candidate.dayNumbers?.length) &&
+    Boolean(imported.dayNumbers?.length) &&
+    sameDayNumbers(candidate.dayNumbers, imported.dayNumbers)
+  ) {
+    return true;
+  }
   return (
     candidate.destinationId === imported.destinationId &&
     candidate.candidate === imported.candidate &&
     sameDayNumbers(candidate.dayNumbers, imported.dayNumbers)
   );
+}
+
+function matchingDestination(
+  destinations: AccommodationReviewDestination[],
+  imported: AccommodationReviewDestination
+): AccommodationReviewDestination | undefined {
+  return destinations.find((destination) => {
+    if (destination.id === imported.id) return true;
+    if (
+      destination.dayNumbers?.length &&
+      imported.dayNumbers?.length &&
+      sameDayNumbers(destination.dayNumbers, imported.dayNumbers)
+    ) {
+      return true;
+    }
+    return destination.title === imported.title && destination.dates === imported.dates;
+  });
 }
 
 function demoteOtherBookedCandidates(
@@ -346,7 +382,7 @@ function demoteOtherBookedCandidates(
     if (
       candidate.id !== bookedCandidate.id &&
       candidate.destinationId === bookedCandidate.destinationId &&
-      normalizeLane(candidate.lane) === 'booked'
+      normalizeLane(candidate.lane, candidate.status, Boolean(candidate.booking)) === 'booked'
     ) {
       candidate.lane = 'considering';
       if (
@@ -367,10 +403,12 @@ function syncBookedCandidateFromTrip(
   imported: AccommodationCandidate,
   allCandidates: AccommodationCandidate[]
 ): boolean {
-  if (normalizeLane(imported.lane) !== 'booked') return false;
+  if (normalizeLane(imported.lane, imported.status, Boolean(imported.booking)) !== 'booked') {
+    return false;
+  }
 
   let changed = demoteOtherBookedCandidates(allCandidates, candidate);
-  if (normalizeLane(candidate.lane) !== 'booked') {
+  if (normalizeLane(candidate.lane, candidate.status, Boolean(candidate.booking)) !== 'booked') {
     candidate.lane = 'booked';
     changed = true;
   }
@@ -427,24 +465,42 @@ export function mergeAccommodationReviewWithTripData(
   const current = normalizeAccommodationReview(raw, tripData);
   const imported = buildInitialAccommodationReview(tripData);
   const next = cloneReview(current);
+  const destinationIdMap = new Map<string, string>();
   let changed = false;
 
   for (const destination of imported.destinations) {
-    if (!next.destinations.some((item) => item.id === destination.id)) {
+    const existingDestination = matchingDestination(next.destinations, destination);
+    if (existingDestination) {
+      destinationIdMap.set(destination.id, existingDestination.id);
+    } else {
       next.destinations.push(destination);
+      destinationIdMap.set(destination.id, destination.id);
       changed = true;
     }
   }
 
-  for (const candidate of imported.accommodations) {
+  for (const importedCandidate of imported.accommodations) {
+    const mappedDestinationId =
+      destinationIdMap.get(importedCandidate.destinationId) ?? importedCandidate.destinationId;
+    const candidate = {
+      ...importedCandidate,
+      destinationId: mappedDestinationId,
+      stop:
+        next.destinations.find((destination) => destination.id === mappedDestinationId)?.title ??
+        importedCandidate.stop,
+    };
     const existing = next.accommodations.find((item) =>
       candidateMatchesImportedStay(item, candidate)
     );
     if (existing) {
+      if (existing.destinationId !== mappedDestinationId) {
+        existing.destinationId = mappedDestinationId;
+        changed = true;
+      }
       changed = syncBookedCandidateFromTrip(existing, candidate, next.accommodations) || changed;
     } else {
       next.accommodations.push(candidate);
-      if (normalizeLane(candidate.lane) === 'booked') {
+      if (normalizeLane(candidate.lane, candidate.status, Boolean(candidate.booking)) === 'booked') {
         changed = demoteOtherBookedCandidates(next.accommodations, candidate) || changed;
       }
       changed = true;

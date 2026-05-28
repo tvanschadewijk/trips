@@ -6,6 +6,7 @@ import {
   buildInitialAccommodationReview,
   mergeAccommodationReviewWithTripData,
   moveAccommodationCandidate,
+  normalizeAccommodationReview,
   promoteCandidateToTrip,
 } from './accommodation-review';
 import type { TripData } from './types';
@@ -179,6 +180,88 @@ test('mergeAccommodationReviewWithTripData promotes itinerary-booked stays on ex
   assert.equal(syncedCandidate?.status, 'booked');
   assert.equal(syncedCandidate?.booking?.confirmation, 'DIRECT-42');
   assert.equal(syncedCandidate?.booking?.source, 'Direct');
+});
+
+test('normalizeAccommodationReview treats booked status as the booked lane', () => {
+  const review = normalizeAccommodationReview(
+    {
+      tripTitle: 'Turkey',
+      tripSlug: 'turkey',
+      generatedAt: '2026-01-01T00:00:00.000Z',
+      storageKey: 'legacy',
+      destinations: [
+        {
+          id: 'legacy-tekirdag',
+          title: 'Tekirdag',
+          dayNumbers: [1, 2],
+        },
+      ],
+      accommodations: [
+        {
+          id: 'legacy-tekirdag-hotel',
+          destinationId: 'legacy-tekirdag',
+          stop: 'Tekirdag',
+          lane: 'considering',
+          status: 'booked',
+          candidate: 'Tekirdag Vineyard Hotel',
+          dayNumbers: [1, 2],
+        },
+      ],
+    },
+    sampleTrip
+  );
+
+  assert.equal(review.accommodations[0].lane, 'booked');
+});
+
+test('mergeAccommodationReviewWithTripData keeps booked imports on matching legacy destinations', () => {
+  const legacyReview = {
+    tripTitle: 'Turkey',
+    tripSlug: 'turkey',
+    generatedAt: '2026-01-01T00:00:00.000Z',
+    storageKey: 'legacy',
+    destinations: [
+      {
+        id: 'legacy-tekirdag',
+        title: 'Tekirdag',
+        dates: '12 Jul-14 Jul',
+        nights: 2,
+        dayNumbers: [1, 2],
+      },
+    ],
+    accommodations: [
+      {
+        id: 'legacy-tekirdag-hotel',
+        destinationId: 'legacy-tekirdag',
+        stop: 'Tekirdag',
+        lane: 'considering' as const,
+        status: 'pending',
+        candidate: 'Tekirdag Vineyard Hotel',
+        dayNumbers: [1, 2],
+      },
+    ],
+  };
+  const bookedTrip: TripData = {
+    ...sampleTrip,
+    days: sampleTrip.days.map((day) =>
+      day.accommodation?.name === 'Tekirdag Vineyard Hotel'
+        ? {
+            ...day,
+            accommodation: {
+              ...day.accommodation,
+              status: 'booked',
+            },
+          }
+        : day
+    ),
+  };
+
+  const next = mergeAccommodationReviewWithTripData(legacyReview, bookedTrip);
+  const candidate = next.accommodations.find((item) => item.id === 'legacy-tekirdag-hotel');
+
+  assert.equal(next.destinations.some((destination) => destination.id === '1-tekirdag'), false);
+  assert.equal(candidate?.destinationId, 'legacy-tekirdag');
+  assert.equal(candidate?.lane, 'booked');
 });
 
 test('promoteCandidateToTrip writes booked stay to matching itinerary days', () => {
