@@ -147,6 +147,40 @@ test('mergeAccommodationReviewWithTripData adds new trip stays without moving ex
   );
 });
 
+test('mergeAccommodationReviewWithTripData promotes itinerary-booked stays on existing cards', () => {
+  const review = buildInitialAccommodationReview(sampleTrip);
+  const staleCandidateId = review.accommodations[0].id;
+  const bookedTrip: TripData = {
+    ...sampleTrip,
+    days: sampleTrip.days.map((day) =>
+      day.accommodation?.name === 'Tekirdag Vineyard Hotel'
+        ? {
+            ...day,
+            accommodation: {
+              ...day.accommodation,
+              status: 'booked',
+              price: 'EUR 360',
+              note: 'Confirmed direct.',
+              detail: {
+                ...day.accommodation.detail,
+                confirmation: 'DIRECT-42',
+                booking_platform: 'Direct',
+              },
+            },
+          }
+        : day
+    ),
+  };
+
+  const next = mergeAccommodationReviewWithTripData(review, bookedTrip);
+  const syncedCandidate = next.accommodations.find((item) => item.id === staleCandidateId);
+
+  assert.equal(syncedCandidate?.lane, 'booked');
+  assert.equal(syncedCandidate?.status, 'booked');
+  assert.equal(syncedCandidate?.booking?.confirmation, 'DIRECT-42');
+  assert.equal(syncedCandidate?.booking?.source, 'Direct');
+});
+
 test('promoteCandidateToTrip writes booked stay to matching itinerary days', () => {
   const review = buildInitialAccommodationReview(sampleTrip);
   const candidateId = review.accommodations[0].id;

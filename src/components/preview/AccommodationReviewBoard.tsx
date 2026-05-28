@@ -35,6 +35,21 @@ function laneLabel(lane: AccommodationReviewLane): string {
   return ACCOMMODATION_REVIEW_LANES.find((item) => item.id === lane)?.label ?? lane;
 }
 
+function laneActionLabel(lane: AccommodationReviewLane): string {
+  switch (lane) {
+    case 'proposed':
+      return 'Propose';
+    case 'considering':
+      return 'Consider';
+    case 'dismissed':
+      return 'Dismiss';
+    case 'booked':
+      return 'Book';
+    default:
+      return laneLabel(lane);
+  }
+}
+
 function destinationStatus(candidates: AccommodationCandidate[]): {
   label: string;
   tone: 'booked' | 'needs-work' | 'dismissed';
@@ -408,6 +423,28 @@ export default function AccommodationReviewBoard({
                           {candidate.terms && <span>{candidate.terms}</span>}
                         </div>
                       )}
+
+                      <div
+                        className="accommodation-review-card-actions"
+                        aria-label={`Move ${candidate.candidate}`}
+                      >
+                        {ACCOMMODATION_REVIEW_LANES.filter(
+                          (targetLane) => targetLane.id !== candidate.lane
+                        ).map((targetLane) => (
+                          <button
+                            key={`${candidate.id}-${targetLane.id}`}
+                            type="button"
+                            disabled={savingCandidateId === candidate.id}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              writeReviewContext(activeDestination, candidate);
+                              moveCandidate(candidate.id, targetLane.id);
+                            }}
+                          >
+                            {laneActionLabel(targetLane.id)}
+                          </button>
+                        ))}
+                      </div>
                     </article>
                   ))}
 

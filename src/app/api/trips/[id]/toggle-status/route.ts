@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
+import { trySyncAccommodationReviewForTrip } from '@/lib/accommodation-review-store';
+import type { TripData } from '@/lib/types';
 
 // POST /api/trips/[id]/toggle-status — Toggle an action item's status
 export async function POST(
@@ -80,6 +82,10 @@ export async function POST(
 
   if (updateError) {
     return NextResponse.json({ error: updateError.message }, { status: 500 });
+  }
+
+  if (item_type === 'accommodation') {
+    await trySyncAccommodationReviewForTrip(admin, id, data as unknown as TripData);
   }
 
   return NextResponse.json({ status: 'ok', new_status: new_status === 'booked' ? 'booked' : 'pending' });

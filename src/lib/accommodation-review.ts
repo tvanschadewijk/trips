@@ -87,9 +87,14 @@ function formatDateRange(startDate?: string, endDate?: string): string | undefin
   return `${formatDate(startDate)}-${formatDate(endDate)}`;
 }
 
+function isBookedAccommodation(accommodation: Accommodation): boolean {
+  const status = accommodation.status?.toLowerCase();
+  return status === 'booked' || status === 'confirmed';
+}
+
 function laneFromAccommodation(accommodation: Accommodation): AccommodationReviewLane {
   const status = accommodation.status?.toLowerCase();
-  if (status === 'booked' || status === 'confirmed') return 'booked';
+  if (isBookedAccommodation(accommodation)) return 'booked';
   if (status === 'rejected' || status === 'dismissed') return 'dismissed';
   if (status === 'pending' || status === 'reserved') return 'considering';
   return 'considering';
@@ -148,6 +153,19 @@ function linkFromAccommodation(accommodation: Accommodation) {
   return { label: 'Booking link', url: platform };
 }
 
+function bookingFromAccommodation(
+  accommodation: Accommodation
+): AccommodationCandidateBooking | undefined {
+  if (!isBookedAccommodation(accommodation)) return undefined;
+  const detail = accommodation.detail;
+  return compactObject({
+    source: detail?.booking_platform,
+    confirmation: detail?.confirmation,
+    price: accommodation.price,
+    note: accommodation.note ?? detail?.booking_note,
+  } satisfies AccommodationCandidateBooking);
+}
+
 function candidateFromAccommodation(args: {
   accommodation: Accommodation;
   destination: AccommodationReviewDestination;
@@ -181,6 +199,7 @@ function candidateFromAccommodation(args: {
     checkInDate: destination.startDate,
     checkOutDate: destination.endDate,
     address: detail?.address,
+    booking: bookingFromAccommodation(accommodation),
     createdBy: 'import',
     updatedAt: new Date().toISOString(),
   } satisfies AccommodationCandidate);
@@ -318,6 +337,89 @@ function candidateMatchesImportedStay(
   );
 }
 
+function demoteOtherBookedCandidates(
+  candidates: AccommodationCandidate[],
+  bookedCandidate: AccommodationCandidate
+): boolean {
+  let changed = false;
+  for (const candidate of candidates) {
+    if (
+      candidate.id !== bookedCandidate.id &&
+      candidate.destinationId === bookedCandidate.destinationId &&
+      normalizeLane(candidate.lane) === 'booked'
+    ) {
+      candidate.lane = 'considering';
+      if (
+        candidate.status?.toLowerCase() === 'booked' ||
+        candidate.status?.toLowerCase() === 'confirmed'
+      ) {
+        candidate.status = 'considering';
+      }
+      candidate.updatedAt = new Date().toISOString();
+      changed = true;
+    }
+  }
+  return changed;
+}
+
+function syncBookedCandidateFromTrip(
+  candidate: AccommodationCandidate,
+  imported: AccommodationCandidate,
+  allCandidates: AccommodationCandidate[]
+): boolean {
+  if (normalizeLane(imported.lane) !== 'booked') return false;
+
+  let changed = demoteOtherBookedCandidates(allCandidates, candidate);
+  if (normalizeLane(candidate.lane) !== 'booked') {
+    candidate.lane = 'booked';
+    changed = true;
+  }
+  if (candidate.status !== 'booked') {
+    candidate.status = 'booked';
+    changed = true;
+  }
+
+  const nextBooking = compactObject({
+    ...(candidate.booking ?? {}),
+    ...(imported.booking ?? {}),
+    price: imported.booking?.price ?? candidate.booking?.price ?? imported.price,
+  } satisfies AccommodationCandidateBooking);
+
+  if (JSON.stringify(candidate.booking ?? {}) !== JSON.stringify(nextBooking)) {
+    candidate.booking = nextBooking;
+    changed = true;
+  }
+
+  if (imported.dates !== undefined && candidate.dates !== imported.dates) {
+    candidate.dates = imported.dates;
+    changed = true;
+  }
+  if (imported.nights !== undefined && candidate.nights !== imported.nights) {
+    candidate.nights = imported.nights;
+    changed = true;
+  }
+  if (
+    imported.dayNumbers !== undefined &&
+    JSON.stringify(candidate.dayNumbers) !== JSON.stringify(imported.dayNumbers)
+  ) {
+    candidate.dayNumbers = imported.dayNumbers;
+    changed = true;
+  }
+  if (imported.checkInDate !== undefined && candidate.checkInDate !== imported.checkInDate) {
+    candidate.checkInDate = imported.checkInDate;
+    changed = true;
+  }
+  if (imported.checkOutDate !== undefined && candidate.checkOutDate !== imported.checkOutDate) {
+    candidate.checkOutDate = imported.checkOutDate;
+    changed = true;
+  }
+
+  if (changed) {
+    candidate.updatedAt = new Date().toISOString();
+  }
+  return changed;
+}
+
 export function mergeAccommodationReviewWithTripData(
   raw: unknown,
   tripData: TripData
@@ -335,10 +437,16 @@ export function mergeAccommodationReviewWithTripData(
   }
 
   for (const candidate of imported.accommodations) {
-    if (
-      !next.accommodations.some((item) => candidateMatchesImportedStay(item, candidate))
-    ) {
+    const existing = next.accommodations.find((item) =>
+      candidateMatchesImportedStay(item, candidate)
+    );
+    if (existing) {
+      changed = syncBookedCandidateFromTrip(existing, candidate, next.accommodations) || changed;
+    } else {
       next.accommodations.push(candidate);
+      if (normalizeLane(candidate.lane) === 'booked') {
+        changed = demoteOtherBookedCandidates(next.accommodations, candidate) || changed;
+      }
       changed = true;
     }
   }

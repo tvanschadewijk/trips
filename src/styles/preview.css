@@ -1334,6 +1334,40 @@ body.trip-on-cover .trip-ask-entry-label { display: inline; }
   padding-top: 8px;
   border-top: 1px solid var(--color-border);
 }
+.accommodation-review-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-top: 8px;
+  border-top: 1px solid var(--color-border);
+}
+.accommodation-review-card-actions button {
+  min-height: 30px;
+  padding: 0 9px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.accommodation-review-card-actions button:disabled {
+  cursor: wait;
+  opacity: 0.5;
+}
+.accommodation-review-card-actions button:last-child {
+  border-color: rgba(193, 79, 42, 0.28);
+  background: var(--color-accent-light);
+  color: var(--color-accent-deep);
+}
+@media (hover: hover) {
+  .accommodation-review-card-actions button:not(:disabled):hover {
+    border-color: var(--color-border-strong);
+    color: var(--color-text-primary);
+  }
+}
 .accommodation-review-links {
   display: flex;
   flex-direction: column;
@@ -2655,6 +2689,224 @@ body.trip-on-cover .trip-ask-entry-label { display: inline; }
   }
 }
 
+/* Accommodation review opens as a dedicated workspace instead of a narrow detail sheet. */
+.detail-sheet.detail-sheet-review {
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  max-width: none;
+  max-height: none;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  border-radius: 0;
+  overflow: hidden;
+  opacity: 0;
+  transform: translateY(100%);
+}
+.detail-overlay.open .detail-sheet.detail-sheet-review {
+  opacity: 1;
+  transform: translateY(0);
+}
+.detail-overlay.open.closing .detail-sheet.detail-sheet-review {
+  opacity: 0;
+  transform: translateY(100%);
+}
+.detail-sheet-review .detail-header {
+  flex: none;
+  min-height: calc(62px + env(safe-area-inset-top));
+  padding: calc(14px + env(safe-area-inset-top)) 16px 12px;
+}
+.detail-sheet-review .detail-header .text-nav-title {
+  font-size: 24px;
+  letter-spacing: 0;
+}
+.detail-sheet-review .detail-body {
+  flex: 1;
+  min-height: 0;
+  padding: 0;
+}
+.detail-sheet-review .detail-body-react {
+  overflow: hidden;
+}
+.detail-sheet-review .accommodation-review-board {
+  height: 100%;
+  min-height: 0;
+}
+.accommodation-review-card-stack {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 767px) {
+  .accommodation-review-board {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .accommodation-review-nav {
+    border-right: 0;
+    border-bottom: 1px solid var(--color-border);
+    overflow: hidden;
+  }
+
+  .accommodation-review-nav-header {
+    min-height: auto;
+    padding: 12px 14px 8px;
+  }
+
+  .accommodation-review-nav-trip-title {
+    max-height: none;
+    font-size: 10px;
+  }
+
+  .accommodation-review-nav-heading {
+    font-size: 24px;
+  }
+
+  .accommodation-review-nav-list {
+    flex: none;
+    flex-direction: row;
+    gap: 8px;
+    padding: 0 14px 12px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: x proximity;
+    touch-action: pan-x;
+  }
+
+  .accommodation-review-nav-list::-webkit-scrollbar,
+  .accommodation-review-kanban::-webkit-scrollbar {
+    display: none;
+  }
+
+  .accommodation-review-nav-item {
+    flex: 0 0 min(74vw, 240px);
+    min-height: 92px;
+    padding: 12px;
+    background-image: none;
+    scroll-snap-align: start;
+  }
+
+  .accommodation-review-nav-item::before,
+  .accommodation-review-nav-item::after {
+    display: none;
+  }
+
+  .accommodation-review-nav-title {
+    font-size: 18px;
+  }
+
+  .accommodation-review-nav-meta {
+    font-size: 11px;
+  }
+
+  .accommodation-review-main {
+    min-height: 0;
+  }
+
+  .accommodation-review-destination {
+    min-height: auto;
+    padding: 14px;
+  }
+
+  .accommodation-review-destination h3 {
+    font-size: 25px;
+  }
+
+  .accommodation-review-kanban {
+    grid-template-columns: none;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(82vw, 360px);
+    gap: 10px;
+    padding: 12px 14px calc(18px + env(safe-area-inset-bottom));
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: x mandatory;
+    touch-action: pan-x;
+  }
+
+  .accommodation-review-lane {
+    min-width: 0;
+    scroll-snap-align: start;
+  }
+
+  .accommodation-review-card {
+    cursor: default;
+  }
+}
+
+@media (min-width: 768px) {
+  .detail-sheet.detail-sheet-review {
+    top: 14px;
+    right: 14px;
+    bottom: 14px;
+    left: 14px;
+    width: auto;
+    height: auto;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    box-shadow: 0 24px 70px rgba(26, 20, 16, 0.18);
+    transform: translateY(18px) scale(0.985);
+  }
+
+  .detail-overlay.open .detail-sheet.detail-sheet-review {
+    transform: translateY(0) scale(1);
+  }
+
+  .detail-overlay.open.closing .detail-sheet.detail-sheet-review {
+    transform: translateY(18px) scale(0.985);
+  }
+
+  .detail-sheet-review .detail-header {
+    min-height: 72px;
+    padding: 18px 24px 14px;
+  }
+
+  .detail-sheet-review .accommodation-review-board {
+    grid-template-columns: minmax(190px, 230px) minmax(0, 1fr);
+  }
+
+  .detail-sheet-review .accommodation-review-kanban {
+    grid-template-columns: repeat(4, minmax(220px, 1fr));
+    gap: 12px;
+    padding: 14px 16px 18px;
+  }
+
+  .detail-sheet-review .accommodation-review-lane {
+    min-width: 0;
+  }
+}
+
+@media (min-width: 1200px) {
+  .detail-sheet.detail-sheet-review {
+    top: 22px;
+    right: 22px;
+    bottom: 22px;
+    left: 22px;
+  }
+
+  .detail-sheet-review .detail-header {
+    padding: 20px 28px 14px;
+  }
+
+  .detail-sheet-review .detail-header .text-nav-title {
+    font-size: 28px;
+  }
+
+  .detail-sheet-review .accommodation-review-board {
+    grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+  }
+
+  .detail-sheet-review .accommodation-review-kanban {
+    grid-template-columns: repeat(4, minmax(240px, 1fr));
+    gap: 14px;
+    padding: 16px 18px 20px;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .trip-app *,
   .trip-app *::before,
@@ -2683,6 +2935,13 @@ body.trip-on-cover .trip-ask-entry-label { display: inline; }
   .detail-overlay:not(.open) .detail-sheet {
     transform: translateY(100%);
   }
+  .detail-sheet.detail-sheet-review,
+  .detail-overlay.open.closing .detail-sheet.detail-sheet-review {
+    transform: translateY(0);
+  }
+  .detail-overlay:not(.open) .detail-sheet.detail-sheet-review {
+    transform: translateY(100%);
+  }
   @media (min-width: 1024px) {
     .detail-sheet,
     .detail-overlay.open.closing .detail-sheet {
@@ -2690,6 +2949,13 @@ body.trip-on-cover .trip-ask-entry-label { display: inline; }
     }
     .detail-overlay:not(.open) .detail-sheet {
       transform: translateX(100%);
+    }
+    .detail-sheet.detail-sheet-review,
+    .detail-overlay.open.closing .detail-sheet.detail-sheet-review {
+      transform: translateY(0) scale(1);
+    }
+    .detail-overlay:not(.open) .detail-sheet.detail-sheet-review {
+      transform: translateY(18px) scale(0.985);
     }
   }
 }
