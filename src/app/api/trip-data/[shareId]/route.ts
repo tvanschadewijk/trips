@@ -5,9 +5,10 @@ import { scrubTripData } from '@/lib/scrub-trip';
 import type { TripData } from '@/lib/types';
 
 // GET /api/trip-data/[shareId] — Public, share-id read for offline use.
-// Returns the same data the /t/[shareId] page renders. Cached by the
-// service worker (TRIP_DATA_CACHE) so a saved trip can rehydrate even
-// when the server is unreachable.
+// Returns the same data the /t/[shareId] page renders. The HTTP response
+// itself must stay fresh after trip edits; explicit offline saves still use
+// the service worker's TRIP_DATA_CACHE for rehydration when the server is
+// unreachable.
 //
 // Non-owners viewing a remix-mode trip get the PII-scrubbed body.
 export async function GET(
@@ -48,7 +49,10 @@ export async function GET(
       },
       {
         headers: {
-          'Cache-Control': 'public, max-age=60, stale-while-revalidate=86400',
+          'Cache-Control': 'no-store, max-age=0, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+          'Vary': 'Cookie',
         },
       }
     );
