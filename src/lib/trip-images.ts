@@ -22,6 +22,18 @@ export function getTripDesktopCoverImageUrl(trip: TripMeta): string {
   );
 }
 
+export function getTripMapImageSources(trip: TripMeta): TripHeroImageSources | undefined {
+  const portrait = assetUrl(trip, 'cover_portrait');
+  const landscape = assetUrl(trip, 'cover_landscape');
+  const fallback = landscape ?? portrait;
+  if (!fallback) return undefined;
+
+  return {
+    mobile: portrait ?? fallback,
+    desktop: landscape ?? fallback,
+  };
+}
+
 export function getTripOverviewImageUrl(trip: TripMeta): string {
   return trip.overview_image ?? trip.hero_image;
 }

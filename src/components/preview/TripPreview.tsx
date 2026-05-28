@@ -10,7 +10,7 @@ import TripRouteAtlas from './TripRouteAtlas';
 import AccommodationReviewBoard from './AccommodationReviewBoard';
 import { renderTripMarkdown } from '@/lib/render-trip-markdown';
 import { buildTripRouteAtlas } from '@/lib/trip-route';
-import { getTripHeroImageSources, getTripOverviewImageUrl } from '@/lib/trip-images';
+import { getTripMapImageSources, getTripOverviewImageUrl } from '@/lib/trip-images';
 import '@/styles/preview.css';
 
 /** Extract 3-letter IATA airport codes from a string like "Amsterdam (AMS) → New York (JFK)" */
@@ -427,7 +427,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     if (typeof w.__tripTransitionResolve !== 'function') return;
 
     const firstTrip = trips[0]?.trip;
-    const url = firstTrip ? getTripHeroImageSources(firstTrip).mobile : undefined;
+    const url = firstTrip ? getTripOverviewImageUrl(firstTrip) : undefined;
     if (!url) { (w.__tripTransitionResolve as () => void)(); w.__tripTransitionResolve = null; return; }
 
     const img = new window.Image();
@@ -1156,69 +1156,71 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
   // Render hero slide
   function renderHeroSlide() {
     if (!trip) return null;
-    const heroSources = getTripHeroImageSources(trip);
-    const heroUsesRouteAtlas = Boolean(routeAtlas);
-    const heroUsesGeneratedArtwork = !heroUsesRouteAtlas && Boolean(
-      trip.image_assets?.cover_portrait?.url || trip.image_assets?.cover_landscape?.url
-    );
-    const heroCanZoom = heroUsesRouteAtlas || heroUsesGeneratedArtwork;
-    const heroImageIsBroken =
-      brokenImages.has(heroSources.mobile) &&
-      (heroSources.desktop === heroSources.mobile || brokenImages.has(heroSources.desktop));
+    const heroImage = getTripOverviewImageUrl(trip);
+    const mapSources = getTripMapImageSources(trip);
+    const heroImageIsBroken = brokenImages.has(heroImage);
+    const mapImageIsBroken = mapSources
+      ? brokenImages.has(mapSources.mobile) &&
+        (mapSources.desktop === mapSources.mobile || brokenImages.has(mapSources.desktop))
+      : false;
+    const showMapImage = mapSources !== undefined && !mapImageIsBroken;
+    const showRouteMap = !showMapImage && Boolean(routeAtlas);
+    const hasMapVisual = showMapImage || showRouteMap;
+    const mapCanZoom = hasMapVisual;
+    const mapVisualHandlers = mapCanZoom ? {
+      onPointerEnter: handleHeroZoomPointerEnter,
+      onPointerMove: handleHeroZoomPointerMove,
+      onPointerLeave: handleHeroZoomPointerLeave,
+      onPointerDown: handleHeroZoomPointerDown,
+      onPointerUp: handleHeroZoomPointerEnd,
+      onPointerCancel: handleHeroZoomPointerEnd,
+      onContextMenu: handleHeroZoomContextMenu,
+    } : {};
+    const renderMapVisual = () => {
+      if (showMapImage && mapSources) {
+        return (
+          <picture className="hero-map-artwork-picture">
+            {mapSources.desktop !== mapSources.mobile && (
+              <source media="(min-width: 680px)" srcSet={mapSources.desktop} />
+            )}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              className="hero-map-artwork-img"
+              src={mapSources.mobile}
+              alt={`${trip.name} route map`}
+              draggable={false}
+              loading="lazy"
+              onError={(event) => {
+                const failedUrl = event.currentTarget.currentSrc || event.currentTarget.src || mapSources.mobile;
+                onImgError(failedUrl);
+                if (failedUrl !== mapSources.mobile && !brokenImages.has(mapSources.mobile)) {
+                  event.currentTarget.src = mapSources.mobile;
+                }
+              }}
+            />
+          </picture>
+        );
+      }
+
+      return routeAtlas ? <TripRouteAtlas atlas={routeAtlas} /> : null;
+    };
+
     return (
       <div className={`slide ${currentSlide === 0 ? 'active' : ''}`}>
         <div className="hero-slide">
           <div
-            className={[
-              'hero-frame',
-              heroUsesRouteAtlas ? 'hero-frame-atlas' : null,
-              heroCanZoom ? 'hero-frame-zoomable' : null,
-              heroZoomActive && heroCanZoom ? 'hero-frame-zooming' : null,
-            ].filter(Boolean).join(' ')}
+            className="hero-frame"
             style={activeTripIndex !== null && transitionTripIndex === activeTripIndex ? { viewTransitionName: TRIP_HERO_TRANSITION_NAME } as React.CSSProperties : undefined}
-            {...(heroCanZoom ? {
-              onPointerEnter: handleHeroZoomPointerEnter,
-              onPointerMove: handleHeroZoomPointerMove,
-              onPointerLeave: handleHeroZoomPointerLeave,
-              onPointerDown: handleHeroZoomPointerDown,
-              onPointerUp: handleHeroZoomPointerEnd,
-              onPointerCancel: handleHeroZoomPointerEnd,
-              onContextMenu: handleHeroZoomContextMenu,
-            } : {})}
           >
-            <div
-              className={`hero-bg ${heroUsesRouteAtlas ? 'hero-bg-atlas' : heroUsesGeneratedArtwork ? 'hero-bg-artwork' : ''}`}
-              style={heroUsesGeneratedArtwork ? { '--hero-artwork-bg': `url(${heroSources.desktop})` } as React.CSSProperties : undefined}
-            >
-              {routeAtlas ? (
-                <TripRouteAtlas atlas={routeAtlas} />
-              ) : (
-                <picture>
-                  {heroSources.desktop !== heroSources.mobile && (
-                    <source media="(min-width: 900px)" srcSet={heroSources.desktop} />
-                  )}
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={heroSources.mobile}
-                    alt={trip.name}
-                    draggable={false}
-                    style={{
-                      width: '100%',
-                      height: '100%',
-                      objectFit: heroUsesGeneratedArtwork ? 'contain' : 'cover',
-                      objectPosition: heroUsesGeneratedArtwork ? 'center top' : 'center',
-                      opacity: heroImageIsBroken ? 0 : 1,
-                    }}
-                    onError={(event) => {
-                      const failedUrl = event.currentTarget.currentSrc || event.currentTarget.src || heroSources.mobile;
-                      onImgError(failedUrl);
-                      if (failedUrl !== heroSources.mobile && !brokenImages.has(heroSources.mobile)) {
-                        event.currentTarget.src = heroSources.mobile;
-                      }
-                    }}
-                  />
-                </picture>
-              )}
+            <div className="hero-bg">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={heroImage}
+                alt={trip.name}
+                draggable={false}
+                style={{ opacity: heroImageIsBroken ? 0 : 1 }}
+                onError={() => onImgError(heroImage)}
+              />
             </div>
             <div className="hero-overlay" />
           </div>
@@ -1234,6 +1236,23 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
                 <div><div className="hero-stat-val">{formatDate(trip.dates.end, { day: 'numeric', month: 'short' })}</div><div className="hero-stat-lbl">end</div></div>
               </div>
             </div>
+            {hasMapVisual && (
+              <figure className="hero-map-card">
+                <figcaption className="hero-map-caption">Route map</figcaption>
+                <div
+                  className={[
+                    'hero-map-visual',
+                    showMapImage ? 'hero-map-visual-artwork' : 'hero-map-visual-atlas',
+                    mapCanZoom ? 'hero-frame-zoomable' : null,
+                    heroZoomActive && mapCanZoom ? 'hero-frame-zooming' : null,
+                  ].filter(Boolean).join(' ')}
+                  style={showMapImage && mapSources ? { '--hero-map-bg': `url(${mapSources.desktop})` } as React.CSSProperties : undefined}
+                  {...mapVisualHandlers}
+                >
+                  {renderMapVisual()}
+                </div>
+              </figure>
+            )}
             {todayInfo && (
               <button
                 className="hero-today-cta"

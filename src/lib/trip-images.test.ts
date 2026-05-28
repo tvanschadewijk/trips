@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   getTripDesktopCoverImageUrl,
   getTripHeroImageSources,
+  getTripMapImageSources,
   getTripMobileCoverImageUrl,
   getTripOgImageUrl,
   getTripOverviewImageUrl,
@@ -40,6 +41,10 @@ test('trip image helpers prefer generated assets by context', () => {
     mobile: 'https://example.com/portrait.png',
     desktop: 'https://example.com/landscape.png',
   });
+  assert.deepEqual(getTripMapImageSources(trip), {
+    mobile: 'https://example.com/portrait.png',
+    desktop: 'https://example.com/landscape.png',
+  });
   assert.equal(getTripOverviewImageUrl(trip), 'https://example.com/overview.jpg');
   assert.equal(getTripOgImageUrl(trip), 'https://example.com/og.png');
 });
@@ -54,5 +59,9 @@ test('trip overview keeps the inspiring photo separate from generated detail cov
   };
 
   assert.equal(getTripOverviewImageUrl(trip), 'https://example.com/default.jpg');
+  assert.deepEqual(getTripMapImageSources(trip), {
+    mobile: 'https://example.com/map-cover.png',
+    desktop: 'https://example.com/map-cover.png',
+  });
   assert.equal(getTripMobileCoverImageUrl(trip), 'https://example.com/map-cover.png');
 });
