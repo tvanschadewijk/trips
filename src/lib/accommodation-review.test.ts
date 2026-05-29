@@ -61,6 +61,38 @@ const sampleTrip: TripData = {
   ],
 };
 
+function singleStayTrip(args: {
+  dayNumber: number;
+  date: string;
+  title: string;
+  accommodationName: string;
+  nights: number;
+}): TripData {
+  return {
+    trip: {
+      name: 'Turkey',
+      subtitle: 'Wine coast and Istanbul',
+      dates: { start: '2026-07-12', end: '2026-07-16' },
+      travelers: ['T', 'A'],
+      summary: 'A compact Turkey route.',
+      hero_image: 'https://example.com/turkey.jpg',
+    },
+    days: [
+      {
+        day_number: args.dayNumber,
+        date: args.date,
+        title: args.title,
+        blocks: [{ time_label: 'Afternoon', content: 'Arrive.', type: 'arrival' }],
+        accommodation: {
+          name: args.accommodationName,
+          status: 'pending',
+          nights: args.nights,
+        },
+      },
+    ],
+  };
+}
+
 test('buildInitialAccommodationReview groups consecutive stay nights into one candidate', () => {
   const review = buildInitialAccommodationReview(sampleTrip);
 
@@ -262,6 +294,85 @@ test('mergeAccommodationReviewWithTripData keeps booked imports on matching lega
   assert.equal(next.destinations.some((destination) => destination.id === '1-tekirdag'), false);
   assert.equal(candidate?.destinationId, 'legacy-tekirdag');
   assert.equal(candidate?.lane, 'booked');
+});
+
+test('mergeAccommodationReviewWithTripData updates a shifted imported stop instead of duplicating it', () => {
+  const oldTrip = singleStayTrip({
+    dayNumber: 7,
+    date: '2026-07-13',
+    title: 'Kavala',
+    accommodationName: 'Kavala City Hotel',
+    nights: 2,
+  });
+  const currentTrip = singleStayTrip({
+    dayNumber: 6,
+    date: '2026-07-12',
+    title: 'Kavala',
+    accommodationName: 'Kavala City Hotel',
+    nights: 2,
+  });
+  const review = buildInitialAccommodationReview(oldTrip);
+  review.accommodations[0].lane = 'dismissed';
+  review.accommodations[0].status = 'dismissed';
+
+  const next = mergeAccommodationReviewWithTripData(review, currentTrip);
+
+  assert.equal(next.destinations.length, 1);
+  assert.equal(next.accommodations.length, 1);
+  assert.equal(next.destinations[0].title, 'Kavala');
+  assert.equal(next.destinations[0].dates, '12 Jul-14 Jul');
+  assert.deepEqual(next.destinations[0].dayNumbers, [6]);
+  assert.equal(next.accommodations[0].candidate, 'Kavala City Hotel');
+  assert.equal(next.accommodations[0].lane, 'dismissed');
+  assert.equal(next.accommodations[0].dates, '12 Jul-14 Jul');
+  assert.deepEqual(next.accommodations[0].dayNumbers, [6]);
+});
+
+test('mergeAccommodationReviewWithTripData prunes stale imported duplicates but preserves manual options', () => {
+  const oldTrip = singleStayTrip({
+    dayNumber: 7,
+    date: '2026-07-13',
+    title: 'Kavala',
+    accommodationName: 'Kavala City Hotel',
+    nights: 2,
+  });
+  const currentTrip = singleStayTrip({
+    dayNumber: 6,
+    date: '2026-07-12',
+    title: 'Kavala',
+    accommodationName: 'Kavala City Hotel',
+    nights: 2,
+  });
+  const oldReview = buildInitialAccommodationReview(oldTrip);
+  const currentReview = buildInitialAccommodationReview(currentTrip);
+  const manualCandidate = {
+    ...oldReview.accommodations[0],
+    id: 'manual-kavala-option',
+    candidate: 'Manual Kavala Inn',
+    lane: 'proposed' as const,
+    status: 'proposed',
+    createdBy: 'user' as const,
+  };
+  const duplicatedReview = {
+    ...currentReview,
+    destinations: [...oldReview.destinations, ...currentReview.destinations],
+    accommodations: [
+      ...oldReview.accommodations,
+      manualCandidate,
+      ...currentReview.accommodations,
+    ],
+  };
+
+  const next = mergeAccommodationReviewWithTripData(duplicatedReview, currentTrip);
+
+  assert.equal(next.destinations.length, 1);
+  assert.equal(
+    next.accommodations.filter((candidate) => candidate.candidate === 'Kavala City Hotel').length,
+    1
+  );
+  const manual = next.accommodations.find((candidate) => candidate.id === manualCandidate.id);
+  assert.equal(manual?.candidate, 'Manual Kavala Inn');
+  assert.equal(manual?.destinationId, next.destinations[0].id);
 });
 
 test('promoteCandidateToTrip writes booked stay to matching itinerary days', () => {
