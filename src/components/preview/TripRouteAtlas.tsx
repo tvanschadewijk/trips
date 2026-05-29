@@ -44,13 +44,14 @@ function curvedPath(
 
 function labelFor(point: ReturnType<typeof projectPoint>) {
   const alignRight = point.x < VIEWBOX.width * 0.58;
+  const anchor: 'start' | 'end' = alignRight ? 'start' : 'end';
   const labelX = point.x + (alignRight ? 26 : -26);
   const labelY = Math.max(70, Math.min(VIEWBOX.height - 70, point.y - 18));
   const width = Math.min(260, Math.max(86, point.label.length * 8.2 + 26));
   const rectX = alignRight ? labelX - 10 : labelX - width + 10;
 
   return {
-    anchor: alignRight ? 'start' : 'end',
+    anchor,
     labelX,
     labelY,
     rectX,
