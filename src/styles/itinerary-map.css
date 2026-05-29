@@ -24,11 +24,38 @@
 .mapbox-map-loading {
   position: absolute;
   inset: 0;
+  z-index: 2;
+  display: grid;
+  place-items: center;
   background:
     linear-gradient(90deg, rgba(251,247,241,0.18), rgba(251,247,241,0.62), rgba(251,247,241,0.18)),
     var(--color-surface-deep, #F4EDE2);
   background-size: 220% 100%;
   animation: map-loading-sheen 1.2s ease-in-out infinite;
+}
+
+.mapbox-map-loading span,
+.mapbox-map-error span {
+  padding: 8px 12px;
+  border: 1px solid rgba(212, 200, 180, 0.72);
+  border-radius: 999px;
+  background: rgba(251, 247, 241, 0.88);
+  color: var(--color-text-muted, #6B6157);
+  font-family: var(--font-sans, 'Inter', system-ui, sans-serif);
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.12em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.mapbox-map-error {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  background: var(--color-surface-deep, #F4EDE2);
 }
 
 @keyframes map-loading-sheen {
@@ -37,6 +64,57 @@
 }
 
 .mapbox-itinerary-map .mapboxgl-map { font-family: var(--font-sans, 'Inter', system-ui, sans-serif); }
+
+.mapbox-stop-popup-shell {
+  z-index: 8;
+}
+
+.mapbox-stop-popup-shell .mapboxgl-popup-content {
+  max-width: min(280px, calc(100vw - 48px));
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid rgba(212, 200, 180, 0.92);
+  border-radius: 8px;
+  background: rgba(251, 247, 241, 0.98);
+  box-shadow: 0 16px 32px -22px rgba(26, 20, 16, 0.62);
+}
+
+.mapbox-stop-popup-shell .mapboxgl-popup-tip {
+  border-top-color: rgba(251, 247, 241, 0.98);
+  border-bottom-color: rgba(251, 247, 241, 0.98);
+}
+
+.mapbox-stop-popup {
+  padding: 12px 14px 13px;
+  color: var(--color-text-primary, #1A1410);
+  font-family: var(--font-sans, 'Inter', system-ui, sans-serif);
+}
+
+.mapbox-stop-popup-kicker {
+  margin-bottom: 4px;
+  color: var(--color-accent, #C14F2A);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.mapbox-stop-popup-title {
+  font-size: 14px;
+  font-weight: 720;
+  letter-spacing: 0;
+  line-height: 1.22;
+}
+
+.mapbox-stop-popup-body {
+  margin-top: 6px;
+  color: var(--color-text-secondary, #3D352E);
+  font-size: 12px;
+  font-weight: 450;
+  letter-spacing: 0;
+  line-height: 1.38;
+}
 
 .mapbox-itinerary-map .mapboxgl-ctrl-logo {
   opacity: 0.56;

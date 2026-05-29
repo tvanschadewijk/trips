@@ -8,6 +8,7 @@ import { ICONS } from './icons';
 import SaveOfflineButton from './SaveOfflineButton';
 import TripRouteAtlas from './TripRouteAtlas';
 import MapboxItineraryMap from './MapboxItineraryMap';
+import type { MapboxPointDetail } from './MapboxItineraryMap';
 import AccommodationReviewBoard from './AccommodationReviewBoard';
 import { renderTripMarkdown } from '@/lib/render-trip-markdown';
 import { buildTripRouteAtlas } from '@/lib/trip-route';
@@ -131,6 +132,68 @@ function routeTextMentionsPoint(dayText: string, label: string): boolean {
   return normalizedLabel
     .split(' ')
     .some((word) => word.length >= 5 && dayText.includes(word));
+}
+
+function truncateMapDetail(value: string | undefined): string {
+  const text = (value ?? '').replace(/\s+/g, ' ').trim();
+  if (text.length <= 150) return text;
+  return `${text.slice(0, 147).replace(/\s+\S*$/, '')}...`;
+}
+
+function snippetsForPoint(day: Day, label: string): string[] {
+  const candidates = [
+    ...(day.transport ?? []).flatMap((transport) => [
+      transport.label,
+      transport.from && transport.to ? `${transport.mode}: ${transport.from} to ${transport.to}` : undefined,
+      transport.detail?.route,
+    ]),
+    ...(day.blocks ?? []).flatMap((block) => [
+      block.detail?.title,
+      block.content,
+      block.detail?.body,
+      block.detail?.why,
+    ]),
+    ...(day.meals ?? []).flatMap((meal) => [meal.name, meal.note]),
+    ...(day.tips ?? []).flatMap((tip) => [tip.title, tip.content]),
+  ].filter((value): value is string => Boolean(value));
+
+  return candidates
+    .filter((value) => routeTextMentionsPoint(normalizeRouteSearchText(value), label))
+    .map(truncateMapDetail)
+    .filter(Boolean)
+    .slice(0, 2);
+}
+
+function mapPointDetailsForDay(atlas: TripRouteAtlasData | undefined, day: Day): Record<string, MapboxPointDetail> | undefined {
+  if (!atlas) return undefined;
+
+  return Object.fromEntries(atlas.points.map((point) => {
+    const snippets = snippetsForPoint(day, point.label);
+    return [
+      point.id,
+      {
+        title: point.label,
+        kicker: `Day ${day.day_number}`,
+        body: snippets.join(' · ') || truncateMapDetail(day.subtitle || day.description || day.title),
+      },
+    ];
+  }));
+}
+
+function mapPointDetailsForTrip(atlas: TripRouteAtlasData | undefined, days: Day[]): Record<string, MapboxPointDetail> | undefined {
+  if (!atlas) return undefined;
+
+  return Object.fromEntries(atlas.points.map((point) => {
+    const day = point.day ? days.find((candidate) => candidate.day_number === point.day) : undefined;
+    return [
+      point.id,
+      {
+        title: point.label,
+        kicker: day ? `Day ${day.day_number}` : point.role === 'home' ? 'Start / finish' : 'Trip stop',
+        body: day ? truncateMapDetail(day.title || day.subtitle || day.description) : '',
+      },
+    ];
+  }));
 }
 
 function buildAtlasFromSelection(
@@ -306,6 +369,23 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     [trips]
   );
   const routeAtlas = activeTripIndex !== null ? routeAtlases[activeTripIndex] : undefined;
+  const routePointDetails = useMemo(
+    () => mapPointDetailsForTrip(routeAtlas, days),
+    [routeAtlas, days]
+  );
+  const dayMapDataByNumber = useMemo<Record<number, { atlas?: TripRouteAtlasData; details?: Record<string, MapboxPointDetail> }>>(() => {
+    if (!routeAtlas) return {};
+
+    const mapData: Record<number, { atlas?: TripRouteAtlasData; details?: Record<string, MapboxPointDetail> }> = {};
+    for (const day of days) {
+      const atlas = buildDayRouteAtlas(routeAtlas, day);
+      mapData[day.day_number] = {
+        atlas,
+        details: mapPointDetailsForDay(atlas, day),
+      };
+    }
+    return mapData;
+  }, [routeAtlas, days]);
 
   // Prewarm the trip JSON cache the SW maintains. Fire-and-forget; even
   // if we never click 'Save offline', the next slow/offline visit can
@@ -1227,6 +1307,9 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
                     atlas={routeAtlas}
                     title={`${trip.name} itinerary map`}
                     variant="day"
+                    interactive
+                    pointDetails={routePointDetails}
+                    showLines={false}
                     fallback={<TripRouteAtlas atlas={routeAtlas} />}
                   />
                 </div>
@@ -1339,7 +1422,8 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
   // Render day slide
   function renderDaySlide(day: Day) {
     const dateStr = formatDate(day.date, { weekday: 'short', day: 'numeric', month: 'short' });
-    const dayRouteAtlas = buildDayRouteAtlas(routeAtlas, day);
+    const dayMapData = dayMapDataByNumber[day.day_number];
+    const dayRouteAtlas = dayMapData?.atlas;
     const dayMapStopCount = dayRouteAtlas
       ? dayRouteAtlas.points.filter((point) => point.role !== 'home').length || dayRouteAtlas.points.length
       : 0;
@@ -1387,6 +1471,9 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
             atlas={dayRouteAtlas}
             title={`Day ${day.day_number} activity map`}
             variant="day"
+            interactive
+            pointDetails={dayMapData?.details}
+            showLines={false}
             fallback={<TripRouteAtlas atlas={dayRouteAtlas} />}
           />
         </div>

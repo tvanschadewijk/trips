@@ -16,11 +16,40 @@ interface MapboxItineraryMapProps {
   interactive?: boolean;
   fallback?: ReactNode;
   className?: string;
+  pointDetails?: Record<string, MapboxPointDetail>;
+  showLines?: boolean;
+}
+
+export interface MapboxPointDetail {
+  title?: string;
+  kicker?: string;
+  body?: string;
 }
 
 type RouteFeatureCollection = FeatureCollection<LineString, { mode: string }>;
-type PointFeatureCollection = FeatureCollection<Point, { label: string; marker: string; role: string }>;
+type PointFeatureCollection = FeatureCollection<Point, {
+  id: string;
+  label: string;
+  marker: string;
+  role: string;
+  detailTitle: string;
+  detailKicker: string;
+  detailBody: string;
+}>;
 type MapboxControl = { disable: () => void };
+type MapboxFeature = {
+  geometry?: { type: string; coordinates?: [number, number] };
+  properties?: Record<string, string>;
+};
+type MapboxLayerEvent = {
+  features?: MapboxFeature[];
+};
+type MapboxPopup = {
+  addTo: (map: MapboxMap) => MapboxPopup;
+  remove: () => void;
+  setHTML: (html: string) => MapboxPopup;
+  setLngLat: (lngLat: [number, number]) => MapboxPopup;
+};
 type MapboxMap = {
   addLayer: (layer: Record<string, unknown>) => void;
   addSource: (id: string, source: Record<string, unknown>) => void;
@@ -29,10 +58,11 @@ type MapboxMap = {
   dragPan: MapboxControl;
   dragRotate: MapboxControl;
   fitBounds: (bounds: [[number, number], [number, number]], options: Record<string, unknown>) => void;
+  getCanvas: () => HTMLCanvasElement;
   isStyleLoaded: () => boolean;
   jumpTo: (options: Record<string, unknown>) => void;
   keyboard: MapboxControl;
-  on: (event: string, handler: (event: { error?: { status?: number } }) => void) => void;
+  on: (event: string, handlerOrLayer: string | ((event: { error?: { status?: number } }) => void), handler?: (event: MapboxLayerEvent) => void) => void;
   remove: () => void;
   resize: () => void;
   scrollZoom: MapboxControl;
@@ -42,11 +72,12 @@ type MapboxModule = {
   default: {
     accessToken: string;
     Map: new (options: Record<string, unknown>) => MapboxMap;
+    Popup: new (options: Record<string, unknown>) => MapboxPopup;
   };
 };
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN;
-const MAP_STYLE = 'mapbox://styles/mapbox/outdoors-v12';
+const MAP_STYLE = 'mapbox://styles/mapbox/streets-v12';
 
 function lineDataFor(atlas: TripRouteAtlas): RouteFeatureCollection {
   const features = atlas.legs
@@ -85,16 +116,20 @@ function lineDataFor(atlas: TripRouteAtlas): RouteFeatureCollection {
   };
 }
 
-function pointDataFor(atlas: TripRouteAtlas): PointFeatureCollection {
+function pointDataFor(atlas: TripRouteAtlas, pointDetails?: Record<string, MapboxPointDetail>): PointFeatureCollection {
   const hasHomeStart = atlas.points[0]?.role === 'home';
   return {
     type: 'FeatureCollection',
     features: atlas.points.map((point) => ({
       type: 'Feature',
       properties: {
+        id: point.id,
         label: point.label,
         marker: point.role === 'home' ? '' : String(hasHomeStart ? point.index : point.index + 1),
         role: point.role ?? 'stop',
+        detailTitle: pointDetails?.[point.id]?.title ?? point.label,
+        detailKicker: pointDetails?.[point.id]?.kicker ?? '',
+        detailBody: pointDetails?.[point.id]?.body ?? '',
       },
       geometry: {
         type: 'Point',
@@ -132,13 +167,44 @@ function fitMap(map: MapboxMap, atlas: TripRouteAtlas, variant: MapVariant) {
       maxZoom: variant === 'overview-card' ? 8.4 : 13,
       padding: variant === 'overview-card'
         ? { top: 28, right: 24, bottom: 28, left: 24 }
-        : { top: 48, right: 44, bottom: 48, left: 44 },
+        : { top: 72, right: 64, bottom: 72, left: 64 },
     }
   );
 }
 
-function addRouteLayers(map: MapboxMap, ids: { route: string; points: string }, variant: MapVariant, routeData: RouteFeatureCollection, pointData: PointFeatureCollection) {
-  if (routeData.features.length) {
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function popupHtml(properties: Record<string, string> | undefined): string {
+  const title = properties?.detailTitle || properties?.label || 'Stop';
+  const kicker = properties?.detailKicker;
+  const body = properties?.detailBody;
+
+  return [
+    '<div class="mapbox-stop-popup">',
+    kicker ? `<div class="mapbox-stop-popup-kicker">${escapeHtml(kicker)}</div>` : '',
+    `<div class="mapbox-stop-popup-title">${escapeHtml(title)}</div>`,
+    body ? `<div class="mapbox-stop-popup-body">${escapeHtml(body)}</div>` : '',
+    '</div>',
+  ].join('');
+}
+
+function addMapLayers(
+  map: MapboxMap,
+  mapboxgl: MapboxModule['default'],
+  ids: { route: string; points: string },
+  variant: MapVariant,
+  routeData: RouteFeatureCollection,
+  pointData: PointFeatureCollection,
+  showLines: boolean
+) {
+  if (showLines && routeData.features.length) {
     map.addSource(ids.route, { type: 'geojson', data: routeData });
     map.addLayer({
       id: `${ids.route}-casing`,
@@ -178,6 +244,16 @@ function addRouteLayers(map: MapboxMap, ids: { route: string; points: string }, 
 
   map.addSource(ids.points, { type: 'geojson', data: pointData });
   map.addLayer({
+    id: `${ids.points}-hit`,
+    type: 'circle',
+    source: ids.points,
+    paint: {
+      'circle-radius': variant === 'overview-card' ? 18 : 22,
+      'circle-color': '#FFFFFF',
+      'circle-opacity': 0,
+    },
+  });
+  map.addLayer({
     id: `${ids.points}-halo`,
     type: 'circle',
     source: ids.points,
@@ -213,21 +289,50 @@ function addRouteLayers(map: MapboxMap, ids: { route: string; points: string }, 
     type: 'symbol',
     source: ids.points,
     layout: {
-      'text-field': variant === 'overview-card' ? ['get', 'marker'] : ['get', 'label'],
+      'text-field': ['get', 'marker'],
       'text-font': ['Open Sans Semibold', 'Arial Unicode MS Bold'],
       'text-size': variant === 'overview-card' ? 10 : 12,
-      'text-offset': variant === 'overview-card' ? [0, 0] : [0, 1.45],
-      'text-anchor': variant === 'overview-card' ? 'center' : 'top',
+      'text-offset': [0, 0],
+      'text-anchor': 'center',
       'text-max-width': 9,
-      'text-allow-overlap': variant === 'overview-card',
+      'text-allow-overlap': true,
       'symbol-sort-key': ['to-number', ['get', 'marker'], 0],
     },
     paint: {
-      'text-color': variant === 'overview-card' ? '#FBF7F1' : '#1A1410',
-      'text-halo-color': variant === 'overview-card' ? '#C14F2A' : '#FBF7F1',
-      'text-halo-width': variant === 'overview-card' ? 0.2 : 1.6,
+      'text-color': '#FBF7F1',
+      'text-halo-color': '#C14F2A',
+      'text-halo-width': 0.2,
     },
   });
+
+  const popup = new mapboxgl.Popup({
+    closeButton: false,
+    closeOnClick: false,
+    className: 'mapbox-stop-popup-shell',
+    offset: 16,
+  });
+  const hitLayerId = `${ids.points}-hit`;
+
+  const showPopup = (event: MapboxLayerEvent) => {
+    const feature = event.features?.[0];
+    const coordinates = feature?.geometry?.coordinates;
+    if (!coordinates) return;
+    popup
+      .setLngLat([coordinates[0], coordinates[1]])
+      .setHTML(popupHtml(feature.properties))
+      .addTo(map);
+  };
+
+  map.on('mouseenter', hitLayerId, (event) => {
+    map.getCanvas().style.cursor = 'pointer';
+    showPopup(event);
+  });
+  map.on('mousemove', hitLayerId, showPopup);
+  map.on('mouseleave', hitLayerId, () => {
+    map.getCanvas().style.cursor = '';
+    popup.remove();
+  });
+  map.on('click', hitLayerId, showPopup);
 }
 
 export default function MapboxItineraryMap({
@@ -237,6 +342,8 @@ export default function MapboxItineraryMap({
   interactive = false,
   fallback,
   className,
+  pointDetails,
+  showLines = variant !== 'day',
 }: MapboxItineraryMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapboxMap | null>(null);
@@ -244,8 +351,8 @@ export default function MapboxItineraryMap({
   const [ready, setReady] = useState(false);
   const [failed, setFailed] = useState(false);
   const routeData = useMemo(() => lineDataFor(atlas), [atlas]);
-  const pointData = useMemo(() => pointDataFor(atlas), [atlas]);
-  const showFallback = failed || !MAPBOX_TOKEN || atlas.points.length === 0;
+  const pointData = useMemo(() => pointDataFor(atlas, pointDetails), [atlas, pointDetails]);
+  const showFallback = !MAPBOX_TOKEN || atlas.points.length === 0;
   const fallbackNode = fallback ? <div className="mapbox-fallback">{fallback}</div> : null;
 
   useEffect(() => {
@@ -289,7 +396,7 @@ export default function MapboxItineraryMap({
           map.remove();
           mapRef.current = null;
           setFailed(true);
-        }, 6000);
+        }, 15000);
 
         if (!interactive) {
           map.boxZoom.disable();
@@ -320,7 +427,7 @@ export default function MapboxItineraryMap({
           try {
             if (fallbackTimer) window.clearTimeout(fallbackTimer);
             map.resize();
-            addRouteLayers(map, sourceIds, variant, routeData, pointData);
+            addMapLayers(map, mapboxgl, sourceIds, variant, routeData, pointData, showLines);
             fitMap(map, atlas, variant);
             setReady(true);
           } catch {
@@ -346,7 +453,7 @@ export default function MapboxItineraryMap({
       mapRef.current?.remove();
       mapRef.current = null;
     };
-  }, [atlas, interactive, pointData, routeData, variant]);
+  }, [atlas, interactive, pointData, routeData, showLines, variant]);
 
   return (
     <div
@@ -362,11 +469,14 @@ export default function MapboxItineraryMap({
     >
       {showFallback ? (
         fallbackNode
+      ) : failed ? (
+        <div className="mapbox-map-error">
+          <span>Map could not load</span>
+        </div>
       ) : (
         <>
-          {!ready ? fallbackNode : null}
           <div ref={containerRef} className="mapbox-map-canvas" />
-          {!ready && !fallbackNode && <div className="mapbox-map-loading" aria-hidden="true" />}
+          {!ready && <div className="mapbox-map-loading" aria-hidden="true"><span>Loading map</span></div>}
         </>
       )}
     </div>
