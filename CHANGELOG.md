@@ -4,6 +4,19 @@ Selected product updates for OurTrips.
 
 ## Unreleased
 
+## 2026-05-29 — Map previews and accommodation review sync
+
+### Added
+- Added richer itinerary map previews so trip routes are easier to scan at a glance.
+
+### Improved
+- Reworked the trip overview so the map supports the story of the trip instead of overpowering it.
+- Expanded accommodation review so saved stays and planning decisions feel more connected inside a trip.
+
+### Fixed
+- Fixed cases where shared trip pages could show out-of-date trip details right after an edit.
+- Fixed a set of accommodation planning issues that could duplicate stays or lose booking status during updates.
+
 ### Improved
 - Refined desktop trip previews, trip media handling, and generated cover prompts for richer trip presentation.
 - Tightened the public itineraries experience with better imagery, layout polish, and cover framing updates.
