@@ -246,6 +246,7 @@ export default function MapboxItineraryMap({
   const routeData = useMemo(() => lineDataFor(atlas), [atlas]);
   const pointData = useMemo(() => pointDataFor(atlas), [atlas]);
   const showFallback = failed || !MAPBOX_TOKEN || atlas.points.length === 0;
+  const fallbackNode = fallback ? <div className="mapbox-fallback">{fallback}</div> : null;
 
   useEffect(() => {
     setReady(false);
@@ -257,6 +258,7 @@ export default function MapboxItineraryMap({
 
     let cancelled = false;
     let resizeObserver: ResizeObserver | undefined;
+    let fallbackTimer: number | undefined;
 
     async function loadMap() {
       try {
@@ -281,6 +283,13 @@ export default function MapboxItineraryMap({
         });
 
         mapRef.current = map;
+        fallbackTimer = window.setTimeout(() => {
+          if (cancelled) return;
+          cancelled = true;
+          map.remove();
+          mapRef.current = null;
+          setFailed(true);
+        }, 6000);
 
         if (!interactive) {
           map.boxZoom.disable();
@@ -294,6 +303,8 @@ export default function MapboxItineraryMap({
 
         const fail = () => {
           if (cancelled) return;
+          cancelled = true;
+          if (fallbackTimer) window.clearTimeout(fallbackTimer);
           map.remove();
           mapRef.current = null;
           setFailed(true);
@@ -305,10 +316,16 @@ export default function MapboxItineraryMap({
         });
 
         map.on('load', () => {
-          if (cancelled || !map.isStyleLoaded()) return;
-          addRouteLayers(map, sourceIds, variant, routeData, pointData);
-          fitMap(map, atlas, variant);
-          setReady(true);
+          if (cancelled) return;
+          try {
+            if (fallbackTimer) window.clearTimeout(fallbackTimer);
+            map.resize();
+            addRouteLayers(map, sourceIds, variant, routeData, pointData);
+            fitMap(map, atlas, variant);
+            setReady(true);
+          } catch {
+            fail();
+          }
         });
 
         if (typeof ResizeObserver !== 'undefined' && containerRef.current) {
@@ -324,6 +341,7 @@ export default function MapboxItineraryMap({
 
     return () => {
       cancelled = true;
+      if (fallbackTimer) window.clearTimeout(fallbackTimer);
       resizeObserver?.disconnect();
       mapRef.current?.remove();
       mapRef.current = null;
@@ -343,11 +361,12 @@ export default function MapboxItineraryMap({
       role="img"
     >
       {showFallback ? (
-        <div className="mapbox-fallback">{fallback}</div>
+        fallbackNode
       ) : (
         <>
+          {!ready ? fallbackNode : null}
           <div ref={containerRef} className="mapbox-map-canvas" />
-          {!ready && <div className="mapbox-map-loading" aria-hidden="true" />}
+          {!ready && !fallbackNode && <div className="mapbox-map-loading" aria-hidden="true" />}
         </>
       )}
     </div>

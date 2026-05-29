@@ -9,7 +9,17 @@
   isolation: isolate;
 }
 
-.mapbox-map-canvas { position: absolute; inset: 0; }
+.mapbox-map-canvas {
+  position: absolute;
+  inset: 0;
+  opacity: 1;
+  transition: opacity 180ms ease;
+  z-index: 1;
+}
+
+.mapbox-itinerary-map:not(.is-ready) .mapbox-map-canvas {
+  opacity: 0;
+}
 
 .mapbox-map-loading {
   position: absolute;
@@ -52,6 +62,7 @@
   background:
     radial-gradient(circle at 28% 16%, rgba(193, 79, 42, 0.10), transparent 34%),
     linear-gradient(180deg, #F4EDE2 0%, #FBF7F1 62%, #E8E1D6 100%);
+  z-index: 0;
 }
 
 .route-atlas-stage {

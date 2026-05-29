@@ -306,7 +306,16 @@
   background: var(--color-surface-deep);
   isolation: isolate;
 }
-.mapbox-map-canvas { position: absolute; inset: 0; }
+.mapbox-map-canvas {
+  position: absolute;
+  inset: 0;
+  opacity: 1;
+  transition: opacity 180ms ease;
+  z-index: 1;
+}
+.mapbox-itinerary-map:not(.is-ready) .mapbox-map-canvas {
+  opacity: 0;
+}
 .mapbox-map-loading {
   position: absolute;
   inset: 0;
@@ -342,6 +351,7 @@
   background:
     radial-gradient(circle at 28% 16%, rgba(193, 79, 42, 0.10), transparent 34%),
     linear-gradient(180deg, #F4EDE2 0%, #FBF7F1 62%, #E8E1D6 100%);
+  z-index: 0;
 }
 .route-atlas-stage {
   position: relative;
@@ -2410,8 +2420,12 @@ body.trip-on-cover .trip-ask-entry-label { display: inline; }
   }
 
   .hero-route-map-card {
-    width: min(620px, 100%);
-    margin-top: 28px;
+    position: fixed;
+    right: 56px;
+    bottom: 56px;
+    z-index: 4;
+    width: min(620px, calc(58vw - 112px));
+    margin-top: 0;
     background: var(--color-card);
     border: 1px solid var(--color-border);
     border-radius: 6px;
