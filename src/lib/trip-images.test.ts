@@ -1,10 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  getTripDesktopCoverImageUrl,
-  getTripHeroImageSources,
-  getTripMapImageSources,
-  getTripMobileCoverImageUrl,
   getTripOgImageUrl,
   getTripOverviewImageUrl,
 } from './trip-images';
@@ -20,36 +16,22 @@ const baseTrip: TripMeta = {
   overview_image: 'https://example.com/overview.jpg',
 };
 
-test('trip image helpers fall back to legacy images', () => {
-  assert.equal(getTripMobileCoverImageUrl(baseTrip), 'https://example.com/default.jpg');
-  assert.equal(getTripDesktopCoverImageUrl(baseTrip), 'https://example.com/default.jpg');
+test('trip overview image prefers the scenic overview image', () => {
   assert.equal(getTripOverviewImageUrl(baseTrip), 'https://example.com/overview.jpg');
-  assert.equal(getTripOgImageUrl(baseTrip), 'https://example.com/default.jpg');
+  assert.equal(getTripOgImageUrl(baseTrip), 'https://example.com/overview.jpg');
 });
 
-test('trip image helpers prefer generated assets by context', () => {
+test('trip overview image falls back to the legacy hero image', () => {
   const trip: TripMeta = {
     ...baseTrip,
-    image_assets: {
-      cover_portrait: { url: 'https://example.com/portrait.png' },
-      cover_landscape: { url: 'https://example.com/landscape.png' },
-      social_og: { url: 'https://example.com/og.png' },
-    },
+    overview_image: undefined,
   };
 
-  assert.deepEqual(getTripHeroImageSources(trip), {
-    mobile: 'https://example.com/portrait.png',
-    desktop: 'https://example.com/landscape.png',
-  });
-  assert.deepEqual(getTripMapImageSources(trip), {
-    mobile: 'https://example.com/portrait.png',
-    desktop: 'https://example.com/landscape.png',
-  });
-  assert.equal(getTripOverviewImageUrl(trip), 'https://example.com/overview.jpg');
-  assert.equal(getTripOgImageUrl(trip), 'https://example.com/og.png');
+  assert.equal(getTripOverviewImageUrl(trip), 'https://example.com/default.jpg');
+  assert.equal(getTripOgImageUrl(trip), 'https://example.com/default.jpg');
 });
 
-test('trip overview keeps the inspiring photo separate from generated detail covers', () => {
+test('generated map assets are not used for public overview imagery', () => {
   const trip: TripMeta = {
     ...baseTrip,
     overview_image: undefined,
@@ -59,9 +41,5 @@ test('trip overview keeps the inspiring photo separate from generated detail cov
   };
 
   assert.equal(getTripOverviewImageUrl(trip), 'https://example.com/default.jpg');
-  assert.deepEqual(getTripMapImageSources(trip), {
-    mobile: 'https://example.com/map-cover.png',
-    desktop: 'https://example.com/map-cover.png',
-  });
-  assert.equal(getTripMobileCoverImageUrl(trip), 'https://example.com/map-cover.png');
+  assert.equal(getTripOgImageUrl(trip), 'https://example.com/default.jpg');
 });

@@ -6,11 +6,9 @@ import { flushSync } from 'react-dom';
 import type { TripData, Day, Transport, Accommodation, Tip, Meal, Block, RichDetail } from '@/lib/types';
 import { ICONS } from './icons';
 import SaveOfflineButton from './SaveOfflineButton';
-import TripRouteAtlas from './TripRouteAtlas';
 import AccommodationReviewBoard from './AccommodationReviewBoard';
 import { renderTripMarkdown } from '@/lib/render-trip-markdown';
-import { buildTripRouteAtlas } from '@/lib/trip-route';
-import { getTripMapImageSources, getTripOverviewImageUrl } from '@/lib/trip-images';
+import { getTripOverviewImageUrl } from '@/lib/trip-images';
 import '@/styles/preview.css';
 
 /** Extract 3-letter IATA airport codes from a string like "Amsterdam (AMS) → New York (JFK)" */
@@ -79,7 +77,6 @@ function renderRichDetail(detail?: RichDetail): string {
 const MAX_VISIBLE_DOTS = 7;
 const TRIP_HERO_TRANSITION_NAME = 'trip-hero';
 const DETAIL_CLOSE_MS = 420;
-const HERO_ZOOM_HOLD_MS = 320;
 
 type DetailContent = {
   title: string;
@@ -166,10 +163,6 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
   const detailBodyRef = useRef<HTMLDivElement>(null);
   const detailCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const detailClosingRef = useRef(false);
-  const heroZoomHoldTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const heroZoomActiveRef = useRef(false);
-  const heroZoomPendingPointerRef = useRef<{ id: number; x: number; y: number } | null>(null);
-  const [heroZoomActive, setHeroZoomActiveState] = useState(false);
 
   // Touch state
   const touchState = useRef({ startX: 0, startY: 0, startTime: 0, dx: 0, isDragging: false, isScrolling: null as boolean | null });
@@ -180,98 +173,6 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
   const days = activeTripData?.days || [];
   const markdownSource = activeTripData?.markdown_source;
   const totalSlides = 1 + days.length;
-  const routeAtlas = useMemo(
-    () => (activeTripData ? buildTripRouteAtlas(activeTripData) : undefined),
-    [activeTripData]
-  );
-
-  const clearHeroZoomHoldTimer = useCallback(() => {
-    if (heroZoomHoldTimerRef.current) {
-      clearTimeout(heroZoomHoldTimerRef.current);
-      heroZoomHoldTimerRef.current = null;
-    }
-  }, []);
-
-  const setHeroZoomActive = useCallback((active: boolean) => {
-    heroZoomActiveRef.current = active;
-    setHeroZoomActiveState(active);
-  }, []);
-
-  const updateHeroZoomPoint = useCallback((target: HTMLElement, clientX: number, clientY: number) => {
-    const rect = target.getBoundingClientRect();
-    if (!rect.width || !rect.height) return;
-    const x = Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
-    const y = Math.max(0, Math.min(100, ((clientY - rect.top) / rect.height) * 100));
-    target.style.setProperty('--hero-zoom-x', `${x.toFixed(2)}%`);
-    target.style.setProperty('--hero-zoom-y', `${y.toFixed(2)}%`);
-  }, []);
-
-  const startHeroZoom = useCallback((target: HTMLElement, pointerId: number, clientX: number, clientY: number) => {
-    updateHeroZoomPoint(target, clientX, clientY);
-    try {
-      target.setPointerCapture(pointerId);
-    } catch {}
-    setHeroZoomActive(true);
-  }, [setHeroZoomActive, updateHeroZoomPoint]);
-
-  const handleHeroZoomPointerEnter = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
-    if (event.pointerType !== 'mouse') return;
-    updateHeroZoomPoint(event.currentTarget, event.clientX, event.clientY);
-    setHeroZoomActive(true);
-  }, [setHeroZoomActive, updateHeroZoomPoint]);
-
-  const handleHeroZoomPointerMove = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
-    const pending = heroZoomPendingPointerRef.current;
-    if (pending && pending.id === event.pointerId && !heroZoomActiveRef.current) {
-      const dx = event.clientX - pending.x;
-      const dy = event.clientY - pending.y;
-      if (Math.sqrt(dx * dx + dy * dy) > 12) {
-        clearHeroZoomHoldTimer();
-        heroZoomPendingPointerRef.current = null;
-      }
-    }
-    if (event.pointerType === 'mouse' || heroZoomActiveRef.current) {
-      updateHeroZoomPoint(event.currentTarget, event.clientX, event.clientY);
-    }
-  }, [clearHeroZoomHoldTimer, updateHeroZoomPoint]);
-
-  const handleHeroZoomPointerLeave = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
-    clearHeroZoomHoldTimer();
-    heroZoomPendingPointerRef.current = null;
-    if (event.pointerType === 'mouse') setHeroZoomActive(false);
-  }, [clearHeroZoomHoldTimer, setHeroZoomActive]);
-
-  const handleHeroZoomPointerDown = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
-    if (event.pointerType === 'mouse') {
-      updateHeroZoomPoint(event.currentTarget, event.clientX, event.clientY);
-      return;
-    }
-    clearHeroZoomHoldTimer();
-    const target = event.currentTarget;
-    const pointerId = event.pointerId;
-    const clientX = event.clientX;
-    const clientY = event.clientY;
-    heroZoomPendingPointerRef.current = { id: pointerId, x: clientX, y: clientY };
-    heroZoomHoldTimerRef.current = setTimeout(() => {
-      if (heroZoomPendingPointerRef.current?.id !== pointerId) return;
-      startHeroZoom(target, pointerId, clientX, clientY);
-    }, HERO_ZOOM_HOLD_MS);
-  }, [clearHeroZoomHoldTimer, startHeroZoom, updateHeroZoomPoint]);
-
-  const handleHeroZoomPointerEnd = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
-    clearHeroZoomHoldTimer();
-    heroZoomPendingPointerRef.current = null;
-    if (event.pointerType !== 'mouse') {
-      setHeroZoomActive(false);
-      try {
-        event.currentTarget.releasePointerCapture(event.pointerId);
-      } catch {}
-    }
-  }, [clearHeroZoomHoldTimer, setHeroZoomActive]);
-
-  const handleHeroZoomContextMenu = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
-    event.preventDefault();
-  }, []);
 
   // Prewarm the trip JSON cache the SW maintains. Fire-and-forget; even
   // if we never click 'Save offline', the next slow/offline visit can
@@ -513,10 +414,6 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
       touchState.current = { startX: e.touches[0].clientX, startY: e.touches[0].clientY, startTime: Date.now(), dx: 0, isDragging: true, isScrolling: null };
     };
     const onMove = (e: TouchEvent) => {
-      if (heroZoomActiveRef.current) {
-        e.preventDefault();
-        return;
-      }
       const ts = touchState.current;
       if (!ts.isDragging) return;
       const moveX = e.touches[0].clientX - ts.startX;
@@ -625,15 +522,8 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
   useEffect(() => {
     return () => {
       if (detailCloseTimerRef.current) clearTimeout(detailCloseTimerRef.current);
-      if (heroZoomHoldTimerRef.current) clearTimeout(heroZoomHoldTimerRef.current);
     };
   }, []);
-
-  useEffect(() => {
-    clearHeroZoomHoldTimer();
-    heroZoomPendingPointerRef.current = null;
-    setHeroZoomActive(false);
-  }, [activeTripIndex, currentSlide, clearHeroZoomHoldTimer, setHeroZoomActive]);
 
   const showDetail = useCallback((content: DetailContent) => {
     if (detailCloseTimerRef.current) {
@@ -1157,53 +1047,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
   function renderHeroSlide() {
     if (!trip) return null;
     const heroImage = getTripOverviewImageUrl(trip);
-    const mapSources = getTripMapImageSources(trip);
     const heroImageIsBroken = brokenImages.has(heroImage);
-    const mapImageIsBroken = mapSources
-      ? brokenImages.has(mapSources.mobile) &&
-        (mapSources.desktop === mapSources.mobile || brokenImages.has(mapSources.desktop))
-      : false;
-    const showMapImage = mapSources !== undefined && !mapImageIsBroken;
-    const showRouteMap = !showMapImage && Boolean(routeAtlas);
-    const hasMapVisual = showMapImage || showRouteMap;
-    const mapCanZoom = hasMapVisual;
-    const mapVisualHandlers = mapCanZoom ? {
-      onPointerEnter: handleHeroZoomPointerEnter,
-      onPointerMove: handleHeroZoomPointerMove,
-      onPointerLeave: handleHeroZoomPointerLeave,
-      onPointerDown: handleHeroZoomPointerDown,
-      onPointerUp: handleHeroZoomPointerEnd,
-      onPointerCancel: handleHeroZoomPointerEnd,
-      onContextMenu: handleHeroZoomContextMenu,
-    } : {};
-    const renderMapVisual = () => {
-      if (showMapImage && mapSources) {
-        return (
-          <picture className="hero-map-artwork-picture">
-            {mapSources.desktop !== mapSources.mobile && (
-              <source media="(min-width: 680px)" srcSet={mapSources.desktop} />
-            )}
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              className="hero-map-artwork-img"
-              src={mapSources.mobile}
-              alt={`${trip.name} route map`}
-              draggable={false}
-              loading="lazy"
-              onError={(event) => {
-                const failedUrl = event.currentTarget.currentSrc || event.currentTarget.src || mapSources.mobile;
-                onImgError(failedUrl);
-                if (failedUrl !== mapSources.mobile && !brokenImages.has(mapSources.mobile)) {
-                  event.currentTarget.src = mapSources.mobile;
-                }
-              }}
-            />
-          </picture>
-        );
-      }
-
-      return routeAtlas ? <TripRouteAtlas atlas={routeAtlas} /> : null;
-    };
 
     return (
       <div className={`slide ${currentSlide === 0 ? 'active' : ''}`}>
@@ -1236,23 +1080,6 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
                 <div><div className="hero-stat-val">{formatDate(trip.dates.end, { day: 'numeric', month: 'short' })}</div><div className="hero-stat-lbl">end</div></div>
               </div>
             </div>
-            {hasMapVisual && (
-              <figure className="hero-map-card">
-                <figcaption className="hero-map-caption">Route map</figcaption>
-                <div
-                  className={[
-                    'hero-map-visual',
-                    showMapImage ? 'hero-map-visual-artwork' : 'hero-map-visual-atlas',
-                    mapCanZoom ? 'hero-frame-zoomable' : null,
-                    heroZoomActive && mapCanZoom ? 'hero-frame-zooming' : null,
-                  ].filter(Boolean).join(' ')}
-                  style={showMapImage && mapSources ? { '--hero-map-bg': `url(${mapSources.desktop})` } as React.CSSProperties : undefined}
-                  {...mapVisualHandlers}
-                >
-                  {renderMapVisual()}
-                </div>
-              </figure>
-            )}
             {todayInfo && (
               <button
                 className="hero-today-cta"
@@ -1360,7 +1187,6 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
   // Render day slide
   function renderDaySlide(day: Day) {
     const dateStr = formatDate(day.date, { weekday: 'short', day: 'numeric', month: 'short' });
-
     const statsChips = day.stats?.length ? (
       <div className="hero-stats-row">
         {day.stats.map((s, i) => (
