@@ -87,6 +87,52 @@ function boundsForAtlasPoints(points: TripRouteAtlasData['points']): TripRouteAt
   };
 }
 
+function normalizeRouteSearchText(value: string | undefined): string {
+  return (value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/&/g, ' and ')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+    .replace(/\s+/g, ' ');
+}
+
+function dayRouteSearchText(day: Day): string {
+  return normalizeRouteSearchText([
+    day.title,
+    day.subtitle,
+    day.description,
+    day.accommodation?.name,
+    ...(day.transport ?? []).flatMap((transport) => [
+      transport.label,
+      transport.from,
+      transport.to,
+      transport.detail?.route,
+    ]),
+    ...(day.blocks ?? []).flatMap((block) => [
+      block.type,
+      block.content,
+      block.detail?.title,
+      block.detail?.body,
+      block.detail?.why,
+      block.detail?.vibe,
+    ]),
+    ...(day.meals ?? []).flatMap((meal) => [meal.name, meal.note]),
+    ...(day.tips ?? []).flatMap((tip) => [tip.title, tip.content]),
+  ].filter(Boolean).join(' '));
+}
+
+function routeTextMentionsPoint(dayText: string, label: string): boolean {
+  const normalizedLabel = normalizeRouteSearchText(label);
+  if (normalizedLabel.length < 4) return false;
+  if (dayText.includes(normalizedLabel)) return true;
+
+  return normalizedLabel
+    .split(' ')
+    .some((word) => word.length >= 5 && dayText.includes(word));
+}
+
 function buildAtlasFromSelection(
   atlas: TripRouteAtlasData,
   selectedIndices: number[],
@@ -131,9 +177,10 @@ function buildAtlasFromSelection(
   };
 }
 
-function buildDayRouteAtlas(atlas: TripRouteAtlasData | undefined, dayNumber: number): TripRouteAtlasData | undefined {
+function buildDayRouteAtlas(atlas: TripRouteAtlasData | undefined, day: Day): TripRouteAtlasData | undefined {
   if (!atlas) return undefined;
 
+  const dayNumber = day.day_number;
   const selected = new Set<number>();
   atlas.points.forEach((point, index) => {
     if (point.day === dayNumber) selected.add(index);
@@ -144,6 +191,13 @@ function buildDayRouteAtlas(atlas: TripRouteAtlasData | undefined, dayNumber: nu
       selected.add(leg.to);
     }
   });
+
+  if (!selected.size) {
+    const dayText = dayRouteSearchText(day);
+    atlas.points.forEach((point, index) => {
+      if (routeTextMentionsPoint(dayText, point.label)) selected.add(index);
+    });
+  }
 
   return buildAtlasFromSelection(atlas, [...selected].sort((a, b) => a - b), dayNumber);
 }
@@ -879,7 +933,6 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     const dayCount = td.days.length;
     const isPast = endD < now;
     const statusLabel = isPast ? 'Completed' : (dayCount === 0 ? 'Planning' : `${nights} nights`);
-    const cardAtlas = routeAtlases[origIdx];
 
     return (
       <div key={origIdx} className="trip-card" role="button" tabIndex={0} aria-label={`${t.name} — ${t.subtitle}`} onClick={(e) => {
@@ -894,16 +947,6 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
           <img className="trip-card-img" src={img} alt={t.name} style={{ opacity: brokenImages.has(img) ? 0 : 1 }} onError={() => onImgError(img)} loading="lazy" />
           <div className="trip-card-gradient" />
         </div>
-        {cardAtlas ? (
-          <div className="trip-card-route-map">
-            <MapboxItineraryMap
-              atlas={cardAtlas}
-              title={`${t.name} route map`}
-              variant="overview-card"
-              fallback={<TripRouteAtlas atlas={cardAtlas} />}
-            />
-          </div>
-        ) : null}
         <div className="trip-card-badge">{statusLabel}</div>
         {onDelete && <button className="trip-card-delete" onClick={(e) => { e.stopPropagation(); setDeleteConfirm(origIdx); }} aria-label={`Delete ${t.name}`}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
@@ -1138,6 +1181,9 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     if (!trip) return null;
     const heroImage = getTripOverviewImageUrl(trip);
     const heroImageIsBroken = brokenImages.has(heroImage);
+    const routeStopCount = routeAtlas
+      ? routeAtlas.points.filter((point) => point.role !== 'home').length || routeAtlas.points.length
+      : 0;
 
     return (
       <div className={`slide ${currentSlide === 0 ? 'active' : ''}`}>
@@ -1170,6 +1216,22 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
                 <div><div className="hero-stat-val">{formatDate(trip.dates.end, { day: 'numeric', month: 'short' })}</div><div className="hero-stat-lbl">end</div></div>
               </div>
             </div>
+            {routeAtlas ? (
+              <div className="hero-route-map-card">
+                <div className="hero-route-map-header">
+                  <span className="text-section-title"><span className="section-icon"><Icon name="route" /></span>Itinerary map</span>
+                  <span className="hero-route-map-count">{routeStopCount} stop{routeStopCount === 1 ? '' : 's'}</span>
+                </div>
+                <div className="hero-route-map-frame">
+                  <MapboxItineraryMap
+                    atlas={routeAtlas}
+                    title={`${trip.name} itinerary map`}
+                    variant="day"
+                    fallback={<TripRouteAtlas atlas={routeAtlas} />}
+                  />
+                </div>
+              </div>
+            ) : null}
             {todayInfo && (
               <button
                 className="hero-today-cta"
@@ -1277,7 +1339,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
   // Render day slide
   function renderDaySlide(day: Day) {
     const dateStr = formatDate(day.date, { weekday: 'short', day: 'numeric', month: 'short' });
-    const dayRouteAtlas = buildDayRouteAtlas(routeAtlas, day.day_number);
+    const dayRouteAtlas = buildDayRouteAtlas(routeAtlas, day);
     const dayMapStopCount = dayRouteAtlas
       ? dayRouteAtlas.points.filter((point) => point.role !== 'home').length || dayRouteAtlas.points.length
       : 0;
