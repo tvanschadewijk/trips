@@ -251,7 +251,9 @@ export default function MapboxItineraryMap({
     setReady(false);
     setFailed(false);
 
-    if (!MAPBOX_TOKEN || atlas.points.length === 0 || !containerRef.current) return;
+    const mapboxToken = MAPBOX_TOKEN;
+    if (!mapboxToken || atlas.points.length === 0 || !containerRef.current) return;
+    const resolvedMapboxToken: string = mapboxToken;
 
     let cancelled = false;
     let resizeObserver: ResizeObserver | undefined;
@@ -261,7 +263,7 @@ export default function MapboxItineraryMap({
         const mapboxgl = ((await import('mapbox-gl')) as unknown as MapboxModule).default;
         if (cancelled || !containerRef.current) return;
 
-        mapboxgl.accessToken = MAPBOX_TOKEN;
+        mapboxgl.accessToken = resolvedMapboxToken;
         const sourceIds = {
           route: `${idRef.current}-route`,
           points: `${idRef.current}-points`,
