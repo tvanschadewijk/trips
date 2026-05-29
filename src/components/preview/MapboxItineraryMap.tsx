@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 import type { FeatureCollection, LineString, Point } from 'geojson';
 import type { TripRouteAtlas } from '@/lib/trip-route';
 import 'mapbox-gl/dist/mapbox-gl.css';
+import '@/styles/itinerary-map.css';
 
 type MapVariant = 'overview-card' | 'day';
 

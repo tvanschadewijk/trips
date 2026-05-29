@@ -1,0 +1,195 @@
+/* Shared itinerary maps. Mapbox is primary; the SVG atlas keeps previews useful without a token. */
+.mapbox-itinerary-map {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--color-surface-deep, #F4EDE2);
+  isolation: isolate;
+}
+
+.mapbox-map-canvas { position: absolute; inset: 0; }
+
+.mapbox-map-loading {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, rgba(251,247,241,0.18), rgba(251,247,241,0.62), rgba(251,247,241,0.18)),
+    var(--color-surface-deep, #F4EDE2);
+  background-size: 220% 100%;
+  animation: map-loading-sheen 1.2s ease-in-out infinite;
+}
+
+@keyframes map-loading-sheen {
+  from { background-position: 120% 0; }
+  to { background-position: -120% 0; }
+}
+
+.mapbox-itinerary-map .mapboxgl-map { font-family: var(--font-sans, 'Inter', system-ui, sans-serif); }
+
+.mapbox-itinerary-map .mapboxgl-ctrl-logo {
+  opacity: 0.56;
+  transform: scale(0.72);
+  transform-origin: bottom left;
+}
+
+.mapbox-itinerary-map .mapboxgl-ctrl-attrib {
+  background: rgba(251, 247, 241, 0.76);
+  color: var(--color-text-muted, #6B6157);
+  font-family: var(--font-sans, 'Inter', system-ui, sans-serif);
+  font-size: 9px;
+  line-height: 1.2;
+}
+
+.mapbox-itinerary-map .mapboxgl-ctrl-attrib a { color: var(--color-text-secondary, #3D352E); }
+
+.mapbox-fallback {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(circle at 28% 16%, rgba(193, 79, 42, 0.10), transparent 34%),
+    linear-gradient(180deg, #F4EDE2 0%, #FBF7F1 62%, #E8E1D6 100%);
+}
+
+.route-atlas-stage {
+  position: relative;
+  width: min(92vw, 58vh);
+  max-width: 680px;
+  aspect-ratio: 5 / 7;
+}
+
+.route-atlas-svg { display: block; width: 100%; height: 100%; }
+
+.route-atlas-coast {
+  fill: none;
+  stroke: #D4C8B4;
+  stroke-width: 1.4;
+  stroke-dasharray: 3 8;
+  opacity: 0.55;
+}
+
+.route-atlas-coast-b { opacity: 0.35; }
+
+.route-atlas-grid path {
+  fill: none;
+  stroke: #D4C8B4;
+  stroke-width: 1;
+  stroke-dasharray: 2 14;
+  opacity: 0.42;
+}
+
+.route-atlas-leg {
+  fill: none;
+  stroke: var(--color-accent, #C14F2A);
+  stroke-width: 6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 2px 0 rgba(251, 247, 241, 0.8));
+}
+
+.route-atlas-leg-car,
+.route-atlas-leg-route { stroke: var(--color-accent, #C14F2A); }
+
+.route-atlas-leg-train {
+  stroke: var(--color-text-primary, #1A1410);
+  stroke-dasharray: 16 10;
+}
+
+.route-atlas-leg-ferry {
+  stroke: #2F6B4A;
+  stroke-dasharray: 4 16;
+}
+
+.route-atlas-leg-walk {
+  stroke: #9B4F2E;
+  stroke-width: 5;
+  stroke-dasharray: 2 13;
+}
+
+.route-atlas-leg-flight {
+  stroke: #6B6157;
+  stroke-width: 4;
+  stroke-dasharray: 24 14;
+}
+
+.route-atlas-label-rule {
+  stroke: #D4C8B4;
+  stroke-width: 1;
+}
+
+.route-atlas-label-bg {
+  fill: rgba(251, 247, 241, 0.9);
+  stroke: #D4C8B4;
+  stroke-width: 1;
+}
+
+.route-atlas-label {
+  font-family: var(--font-sans, 'Inter', system-ui, sans-serif);
+  font-size: 17px;
+  font-weight: 580;
+  letter-spacing: 0;
+  fill: var(--color-text-primary, #1A1410);
+}
+
+.route-atlas-marker-halo {
+  fill: rgba(251, 247, 241, 0.92);
+  stroke: var(--color-accent, #C14F2A);
+  stroke-width: 2;
+}
+
+.route-atlas-marker { fill: var(--color-accent, #C14F2A); }
+
+.route-atlas-marker-number {
+  font-family: var(--font-sans, 'Inter', system-ui, sans-serif);
+  font-size: 13px;
+  font-weight: 620;
+  text-anchor: middle;
+  fill: #FBF7F1;
+  pointer-events: none;
+}
+
+.route-atlas-point-home { opacity: 0.66; }
+
+.route-atlas-point-home .route-atlas-label {
+  font-size: 15px;
+  font-weight: 520;
+  fill: var(--color-text-muted, #6B6157);
+}
+
+.route-atlas-point-home .route-atlas-marker { fill: var(--color-text-muted, #6B6157); }
+.route-atlas-point-home .route-atlas-marker-halo { stroke: var(--color-text-muted, #6B6157); }
+
+.route-atlas-legend text {
+  font-family: var(--font-sans, 'Inter', system-ui, sans-serif);
+  font-size: 14px;
+  font-weight: 560;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  fill: var(--color-text-muted, #6B6157);
+}
+
+.mapbox-fallback .route-atlas-stage {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+}
+
+.mapbox-fallback .route-atlas-svg {
+  width: 100%;
+  height: 100%;
+}
+
+.mapbox-itinerary-map-overview-card .mapboxgl-ctrl-logo { transform: scale(0.52); }
+
+.mapbox-itinerary-map-overview-card .mapboxgl-ctrl-attrib {
+  max-width: 70%;
+  font-size: 7px;
+}
+
+.mapbox-itinerary-map-overview-card .mapbox-fallback .route-atlas-stage {
+  width: 112%;
+  height: 112%;
+}

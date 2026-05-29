@@ -3,9 +3,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import MapboxItineraryMap from '@/components/preview/MapboxItineraryMap';
+import TripRouteAtlas from '@/components/preview/TripRouteAtlas';
 import { createClient } from '@/lib/supabase/client';
 import type { TripData } from '@/lib/types';
 import { getTripOverviewImageUrl } from '@/lib/trip-images';
+import { buildTripRouteAtlas } from '@/lib/trip-route';
 import { useSavedTripIds } from '@/lib/offline';
 import { useOnlineStatus } from '@/lib/online-status';
 import { isPublicItineraryShareId } from '@/lib/public-itineraries';
@@ -410,6 +413,7 @@ export default function DashboardPage() {
               const startD = new Date(t.dates.start + 'T12:00:00');
               const endD = new Date(t.dates.end + 'T12:00:00');
               const nights = Math.round((endD.getTime() - startD.getTime()) / 86400000);
+              const routeAtlas = buildTripRouteAtlas(trip.data);
 
               return (
                 <div key={trip.id} className="dash-card">
@@ -457,6 +461,16 @@ export default function DashboardPage() {
                       </div>
                     </div>
                   </Link>
+                  {routeAtlas ? (
+                    <div className="dash-card-route-map">
+                      <MapboxItineraryMap
+                        atlas={routeAtlas}
+                        title={`${t.name} route map`}
+                        variant="overview-card"
+                        fallback={<TripRouteAtlas atlas={routeAtlas} />}
+                      />
+                    </div>
+                  ) : null}
                   <div className="dash-card-menu-wrap">
                     <button
                       className="dash-card-menu-btn"
