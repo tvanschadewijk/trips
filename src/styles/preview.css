@@ -260,6 +260,168 @@
   margin-top: 3px;
 }
 
+/* Mapbox itinerary maps with a printed-atlas fallback. */
+.mapbox-itinerary-map {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--color-surface-deep);
+  isolation: isolate;
+}
+.mapbox-map-canvas { position: absolute; inset: 0; }
+.mapbox-map-loading {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, rgba(251,247,241,0.18), rgba(251,247,241,0.62), rgba(251,247,241,0.18)),
+    var(--color-surface-deep);
+  background-size: 220% 100%;
+  animation: map-loading-sheen 1.2s ease-in-out infinite;
+}
+@keyframes map-loading-sheen {
+  from { background-position: 120% 0; }
+  to { background-position: -120% 0; }
+}
+.mapbox-itinerary-map .mapboxgl-map { font-family: var(--font-sans); }
+.mapbox-itinerary-map .mapboxgl-ctrl-logo {
+  opacity: 0.56;
+  transform: scale(0.72);
+  transform-origin: bottom left;
+}
+.mapbox-itinerary-map .mapboxgl-ctrl-attrib {
+  background: rgba(251, 247, 241, 0.76);
+  color: var(--color-text-muted);
+  font-family: var(--font-sans);
+  font-size: 9px;
+  line-height: 1.2;
+}
+.mapbox-itinerary-map .mapboxgl-ctrl-attrib a { color: var(--color-text-secondary); }
+.mapbox-fallback {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(circle at 28% 16%, rgba(193, 79, 42, 0.10), transparent 34%),
+    linear-gradient(180deg, #F4EDE2 0%, #FBF7F1 62%, #E8E1D6 100%);
+}
+.route-atlas-stage {
+  position: relative;
+  width: min(92vw, 58vh);
+  max-width: 680px;
+  aspect-ratio: 5 / 7;
+}
+.route-atlas-svg { display: block; width: 100%; height: 100%; }
+.route-atlas-coast {
+  fill: none;
+  stroke: #D4C8B4;
+  stroke-width: 1.4;
+  stroke-dasharray: 3 8;
+  opacity: 0.55;
+}
+.route-atlas-coast-b { opacity: 0.35; }
+.route-atlas-grid path {
+  fill: none;
+  stroke: #D4C8B4;
+  stroke-width: 1;
+  stroke-dasharray: 2 14;
+  opacity: 0.42;
+}
+.route-atlas-leg {
+  fill: none;
+  stroke: var(--color-accent);
+  stroke-width: 6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 2px 0 rgba(251, 247, 241, 0.8));
+}
+.route-atlas-leg-car,
+.route-atlas-leg-route { stroke: var(--color-accent); }
+.route-atlas-leg-train {
+  stroke: var(--color-text-primary);
+  stroke-dasharray: 16 10;
+}
+.route-atlas-leg-ferry {
+  stroke: #2F6B4A;
+  stroke-dasharray: 4 16;
+}
+.route-atlas-leg-walk {
+  stroke: #9B4F2E;
+  stroke-width: 5;
+  stroke-dasharray: 2 13;
+}
+.route-atlas-leg-flight {
+  stroke: #6B6157;
+  stroke-width: 4;
+  stroke-dasharray: 24 14;
+}
+.route-atlas-label-rule {
+  stroke: #D4C8B4;
+  stroke-width: 1;
+}
+.route-atlas-label-bg {
+  fill: rgba(251, 247, 241, 0.9);
+  stroke: #D4C8B4;
+  stroke-width: 1;
+}
+.route-atlas-label {
+  font-family: var(--font-sans);
+  font-size: 17px;
+  font-weight: 580;
+  letter-spacing: 0;
+  fill: var(--color-text-primary);
+}
+.route-atlas-marker-halo {
+  fill: rgba(251, 247, 241, 0.92);
+  stroke: var(--color-accent);
+  stroke-width: 2;
+}
+.route-atlas-marker { fill: var(--color-accent); }
+.route-atlas-marker-number {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 620;
+  text-anchor: middle;
+  fill: #FBF7F1;
+  pointer-events: none;
+}
+.route-atlas-point-home { opacity: 0.66; }
+.route-atlas-point-home .route-atlas-label {
+  font-size: 15px;
+  font-weight: 520;
+  fill: var(--color-text-muted);
+}
+.route-atlas-point-home .route-atlas-marker { fill: var(--color-text-muted); }
+.route-atlas-point-home .route-atlas-marker-halo { stroke: var(--color-text-muted); }
+.route-atlas-legend text {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 560;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  fill: var(--color-text-muted);
+}
+.mapbox-fallback .route-atlas-stage {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+}
+.mapbox-fallback .route-atlas-svg {
+  width: 100%;
+  height: 100%;
+}
+.mapbox-itinerary-map-overview-card .mapboxgl-ctrl-logo { transform: scale(0.52); }
+.mapbox-itinerary-map-overview-card .mapboxgl-ctrl-attrib {
+  max-width: 70%;
+  font-size: 7px;
+}
+.mapbox-itinerary-map-overview-card .mapbox-fallback .route-atlas-stage {
+  width: 112%;
+  height: 112%;
+}
+
 /* Ask-your-travel-expert entry pill. Secondary style next to Explore:
    white sheet, hair-thin warm border, ink content + terracotta icon
    accent. Two layouts keyed off body.trip-on-cover:
@@ -459,7 +621,13 @@ body.trip-on-cover .trip-ask-entry-label { display: inline; }
 .day-header-plain .text-label-dark { color: var(--color-accent); }
 .day-header-plain .text-card-title { color: var(--color-text-primary); }
 .day-slide > .text-body-italic { color: var(--color-text-muted); }
-
+.day-visual-stack { display: grid; gap: 12px; margin-bottom: 16px; }
+.day-visual-stack .day-hero,
+.day-visual-stack .day-header-plain { margin-bottom: 0; }
+.day-map-card { overflow: hidden; background: var(--color-card); border: 1px solid var(--color-border); border-radius: var(--radius-card); box-shadow: var(--shadow-card); }
+.day-map-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 13px 14px 10px; border-bottom: 1px solid var(--color-border); }
+.day-map-count { flex-shrink: 0; font-family: var(--font-sans); font-size: 11px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-accent); }
+.day-map-frame { position: relative; height: 260px; background: var(--color-surface-deep); }
 /* Day description */
 .day-description {
   font-family: var(--font-serif);
@@ -1006,6 +1174,44 @@ body.trip-on-cover .trip-ask-entry-label { display: inline; }
   font-size: 12px;
   line-height: 1.35;
 }
+.accommodation-review-header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.accommodation-review-complete-pill {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: rgba(68, 119, 88, 0.1);
+  color: var(--color-success);
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+.accommodation-review-mode-button {
+  display: none;
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 999px;
+  background: var(--color-card);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+}
+.accommodation-review-lane-tabs,
+.accommodation-review-booked-overview {
+  display: none;
+}
 .accommodation-review-kanban {
   flex: 1;
   min-height: 0;
@@ -1020,6 +1226,7 @@ body.trip-on-cover .trip-ask-entry-label { display: inline; }
 }
 .accommodation-review-lane {
   min-width: 178px;
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   min-height: 100%;
@@ -1052,17 +1259,24 @@ body.trip-on-cover .trip-ask-entry-label { display: inline; }
 }
 .accommodation-review-card-stack {
   flex: 1;
+  width: 100%;
   display: flex;
   flex-direction: column;
   gap: 9px;
+  min-width: 0;
   min-height: 180px;
   padding: 9px;
+  box-sizing: border-box;
 }
 .accommodation-review-card {
   display: flex;
   flex-direction: column;
   gap: 9px;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
   padding: 12px;
+  box-sizing: border-box;
   border: 1px solid var(--color-border);
   border-radius: 6px;
   background: var(--color-card);
@@ -1080,13 +1294,36 @@ body.trip-on-cover .trip-ask-entry-label { display: inline; }
   opacity: 0.56;
   cursor: wait;
 }
+.accommodation-review-card.overview-card {
+  cursor: default;
+}
+.accommodation-review-card-destination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--color-border);
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: 650;
+  line-height: 1.25;
+  text-transform: uppercase;
+  color: var(--color-accent);
+}
+.accommodation-review-card-destination span:last-child {
+  color: var(--color-text-muted);
+  text-align: right;
+}
 .accommodation-review-card-topline {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 8px;
+  min-width: 0;
 }
 .accommodation-review-card h4 {
+  min-width: 0;
   margin: 0;
   font-family: var(--font-serif);
   font-optical-sizing: auto;
@@ -1095,6 +1332,7 @@ body.trip-on-cover .trip-ask-entry-label { display: inline; }
   font-weight: 420;
   letter-spacing: 0;
   color: var(--color-text-primary);
+  overflow-wrap: anywhere;
 }
 .accommodation-review-card-topline span {
   flex: none;
@@ -1104,16 +1342,20 @@ body.trip-on-cover .trip-ask-entry-label { display: inline; }
   color: var(--color-accent-deep);
   text-align: right;
   overflow-wrap: anywhere;
+  word-break: break-word;
 }
 .accommodation-review-card-copy {
+  min-width: 0;
   margin: 0;
   font-family: var(--font-sans);
   font-size: 13px;
   line-height: 1.45;
   color: var(--color-text-secondary);
+  overflow-wrap: anywhere;
 }
 .accommodation-review-card-facts,
 .accommodation-review-card-notes {
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 5px;
@@ -1506,6 +1748,23 @@ body.trip-on-cover .trip-ask-entry-label { display: inline; }
 .trip-card-img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.4s cubic-bezier(0.25, 0.1, 0.25, 1); }
 @media (hover: hover) { .trip-card:hover .trip-card-img { transform: scale(1.03); } }
 .trip-card-gradient { position: absolute; inset: 0; background: linear-gradient(to top, rgba(26,20,16,0.78) 0%, rgba(26,20,16,0.32) 40%, rgba(26,20,16,0.04) 100%); }
+.trip-card-route-map {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  width: min(48%, 178px);
+  height: 108px;
+  overflow: hidden;
+  border: 1px solid rgba(251, 247, 241, 0.62);
+  border-radius: 6px;
+  background: var(--color-surface-deep);
+  box-shadow: rgba(26, 20, 16, 0.22) 0 12px 28px -10px;
+  pointer-events: none;
+  z-index: 1;
+}
+.trip-card-route-map .mapbox-itinerary-map {
+  border-radius: inherit;
+}
 .trip-card-body { position: absolute; bottom: 0; left: 0; right: 0; padding: 22px; }
 .trip-card-dates { font-family: var(--font-sans); font-size: 11px; font-weight: 600; color: rgba(251,247,241,0.78); letter-spacing: 0.14em; text-transform: uppercase; margin-bottom: 8px; }
 .trip-card-name { font-family: var(--font-serif); font-optical-sizing: auto; font-variation-settings: 'SOFT' 50; font-size: 32px; font-weight: 380; letter-spacing: -0.018em; color: #FBF7F1; line-height: 1.05; margin-bottom: 4px; }
@@ -2022,6 +2281,11 @@ body.trip-on-cover .trip-ask-entry-label { display: inline; }
     border-radius: 6px;
   }
 
+  .trip-card-route-map {
+    width: min(46%, 210px);
+    height: 142px;
+  }
+
   .trip-card-name {
     font-size: 40px;
     letter-spacing: 0;
@@ -2255,7 +2519,8 @@ body.trip-on-cover .trip-ask-entry-label { display: inline; }
   }
 
   .day-slide > .day-hero,
-  .day-slide > .day-header-plain {
+  .day-slide > .day-header-plain,
+  .day-slide > .day-visual-stack {
     grid-column: 1;
     grid-row: 1 / span 40;
     position: sticky;
@@ -2264,6 +2529,13 @@ body.trip-on-cover .trip-ask-entry-label { display: inline; }
     min-height: 560px;
     height: calc(100dvh - var(--nav-height) - 92px);
     border-radius: 6px;
+  }
+
+  .day-slide > .day-visual-stack {
+    display: grid;
+    grid-template-rows: minmax(220px, 0.92fr) minmax(280px, 1.08fr);
+    gap: 16px;
+    overflow: hidden;
   }
 
   .day-slide > .day-header-plain {
@@ -2275,11 +2547,43 @@ body.trip-on-cover .trip-ask-entry-label { display: inline; }
     border: 1px solid var(--color-border);
   }
 
-  .day-slide > :not(.day-hero):not(.day-header-plain) {
+  .day-visual-stack > .day-hero,
+  .day-visual-stack > .day-header-plain {
+    position: relative;
+    top: auto;
+    min-height: 0;
+    height: auto;
+    margin: 0;
+    border-radius: 6px;
+  }
+
+  .day-visual-stack > .day-header-plain {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    padding: 28px;
+    background: var(--color-surface-deep);
+    border: 1px solid var(--color-border);
+  }
+
+  .day-visual-stack .day-map-card {
+    min-height: 0;
+    height: auto;
+    margin: 0;
+    border-radius: 6px;
+    box-shadow: none;
+  }
+
+  .day-visual-stack .day-map-frame {
+    height: 100%;
+    min-height: 0;
+  }
+
+  .day-slide > :not(.day-hero):not(.day-header-plain):not(.day-visual-stack) {
     grid-column: 2;
   }
 
-  .day-slide > :not(.day-hero):not(.day-header-plain):nth-child(2) {
+  .day-slide > :not(.day-hero):not(.day-header-plain):not(.day-visual-stack):nth-child(2) {
     margin-top: calc(var(--nav-height) + 36px);
   }
 
@@ -2551,6 +2855,77 @@ body.trip-on-cover .trip-ask-entry-label { display: inline; }
     grid-template-rows: auto minmax(0, 1fr);
   }
 
+  .accommodation-review-board.mobile-overview-mode {
+    display: block;
+    min-height: min(640px, calc(100dvh - 130px));
+    overflow: hidden;
+  }
+
+  .accommodation-review-board.mobile-overview-mode .accommodation-review-nav,
+  .accommodation-review-board.mobile-overview-mode .accommodation-review-main {
+    display: none;
+  }
+
+  .accommodation-review-board.mobile-overview-mode .accommodation-review-booked-overview {
+    display: flex;
+  }
+
+  .accommodation-review-booked-overview {
+    height: 100%;
+    min-height: 0;
+    flex-direction: column;
+    background: var(--color-surface);
+  }
+
+  .accommodation-review-booked-overview-header {
+    flex: none;
+    display: block;
+    padding: 16px 14px 12px;
+    border-bottom: 1px solid var(--color-border);
+    background: var(--color-card);
+  }
+
+  .accommodation-review-booked-overview-header > div {
+    min-width: 0;
+  }
+
+  .accommodation-review-booked-overview-header .accommodation-review-mode-button {
+    flex: none;
+    display: inline-flex;
+    margin-top: 10px;
+  }
+
+  .accommodation-review-booked-overview-header h3 {
+    margin: 0;
+    font-family: var(--font-serif);
+    font-optical-sizing: auto;
+    font-size: 26px;
+    line-height: 1.05;
+    font-weight: 390;
+    letter-spacing: 0;
+    color: var(--color-text-primary);
+  }
+
+  .accommodation-review-booked-overview-header p {
+    margin: 6px 0 0;
+    font-family: var(--font-sans);
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.35;
+    color: var(--color-success);
+  }
+
+  .accommodation-review-booked-overview-list {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px 14px calc(18px + env(safe-area-inset-bottom));
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
   .accommodation-review-nav {
     border-right: 0;
     border-bottom: 1px solid var(--color-border);
@@ -2621,25 +2996,118 @@ body.trip-on-cover .trip-ask-entry-label { display: inline; }
     font-size: 25px;
   }
 
-  .accommodation-review-kanban {
-    grid-template-columns: none;
-    grid-auto-flow: column;
-    grid-auto-columns: minmax(82vw, 360px);
-    gap: 10px;
-    padding: 12px 14px calc(18px + env(safe-area-inset-bottom));
+  .accommodation-review-header-actions {
+    max-width: 46%;
+  }
+
+  .accommodation-review-complete-pill {
+    height: 22px;
+    padding: 0 9px;
+    font-size: 10px;
+  }
+
+  .accommodation-review-mode-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .accommodation-review-lane-tabs {
+    flex: none;
+    display: flex;
+    gap: 7px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--color-border);
+    background: var(--color-card);
     overflow-x: auto;
-    overflow-y: hidden;
-    scroll-snap-type: x mandatory;
-    touch-action: pan-x;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .accommodation-review-lane-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .accommodation-review-lane-tabs button {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    min-height: 32px;
+    padding: 0 10px;
+    border: 1px solid var(--color-border);
+    border-radius: 999px;
+    background: var(--color-surface);
+    color: var(--color-text-muted);
+    font-family: var(--font-sans);
+    font-size: 11px;
+    font-weight: 650;
+    cursor: pointer;
+  }
+
+  .accommodation-review-lane-tabs button span:last-child {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: rgba(118, 94, 74, 0.1);
+    color: var(--color-text-muted);
+    font-size: 10px;
+  }
+
+  .accommodation-review-lane-tabs button.active {
+    border-color: rgba(193, 79, 42, 0.32);
+    background: var(--color-accent-light);
+    color: var(--color-accent-deep);
+  }
+
+  .accommodation-review-lane-tabs button.active span:last-child {
+    background: rgba(193, 79, 42, 0.16);
+    color: var(--color-accent-deep);
+  }
+
+  .accommodation-review-kanban {
+    display: block;
+    padding: 12px 14px calc(18px + env(safe-area-inset-bottom));
+    overflow-x: hidden;
+    overflow-y: auto;
+    scroll-snap-type: none;
+    touch-action: pan-y;
   }
 
   .accommodation-review-lane {
+    display: none;
+    width: 100%;
     min-width: 0;
-    scroll-snap-align: start;
+    max-width: 100%;
+    min-height: 100%;
+    scroll-snap-align: none;
+  }
+
+  .accommodation-review-lane.mobile-active {
+    display: flex;
   }
 
   .accommodation-review-card {
     cursor: default;
+  }
+
+  .accommodation-review-card-copy,
+  .accommodation-review-card-facts span,
+  .accommodation-review-card-notes span,
+  .accommodation-review-card-rating span:last-child {
+    max-width: calc(100vw - 92px);
+  }
+
+  .accommodation-review-card-topline {
+    flex-direction: column;
+  }
+
+  .accommodation-review-card-topline span {
+    max-width: 100%;
+    text-align: left;
   }
 }
 

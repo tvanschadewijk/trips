@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import LogoSuffix from '@/components/ui/LogoSuffix';
-import { createClient } from '@/lib/supabase/client';
+import { createClient, isSupabaseConfigured } from '@/lib/supabase/client';
 import '@/styles/login.css';
 
 export default function LoginPage() {
@@ -14,6 +14,11 @@ export default function LoginPage() {
   // If user already has a session (e.g. just returned from OAuth callback),
   // redirect to dashboard instead of showing the login page again.
   useEffect(() => {
+    if (!isSupabaseConfigured()) {
+      setReady(true);
+      return;
+    }
+
     const supabase = createClient();
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (user) {
@@ -26,6 +31,8 @@ export default function LoginPage() {
   }, [router]);
 
   async function handleGoogle() {
+    if (!isSupabaseConfigured()) return;
+
     const supabase = createClient();
     const params = new URLSearchParams(window.location.search);
     const next = params.get('next') || '/dashboard';
@@ -47,9 +54,19 @@ export default function LoginPage() {
 
       <div className="login-card">
         <h2 className="login-title">Sign in to OurTrips</h2>
-        <p className="login-desc">Sign in to manage and share your trips.</p>
+        <p className="login-desc">
+          {isSupabaseConfigured()
+            ? 'Sign in to manage and share your trips.'
+            : 'Supabase is not configured for this local preview yet.'}
+        </p>
 
-        <button type="button" className="login-btn-google" onClick={handleGoogle}>
+        {!isSupabaseConfigured() && (
+          <div className="login-config-warning">
+            Add <code>NEXT_PUBLIC_SUPABASE_URL</code> and <code>NEXT_PUBLIC_SUPABASE_ANON_KEY</code> to <code>.env.local</code> to enable Google sign-in.
+          </div>
+        )}
+
+        <button type="button" className="login-btn-google" onClick={handleGoogle} disabled={!isSupabaseConfigured()}>
           <svg viewBox="0 0 24 24" width="20" height="20">
             <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/>
             <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>

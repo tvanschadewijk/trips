@@ -6,8 +6,12 @@ import { flushSync } from 'react-dom';
 import type { TripData, Day, Transport, Accommodation, Tip, Meal, Block, RichDetail } from '@/lib/types';
 import { ICONS } from './icons';
 import SaveOfflineButton from './SaveOfflineButton';
+import TripRouteAtlas from './TripRouteAtlas';
+import MapboxItineraryMap from './MapboxItineraryMap';
 import AccommodationReviewBoard from './AccommodationReviewBoard';
 import { renderTripMarkdown } from '@/lib/render-trip-markdown';
+import { buildTripRouteAtlas } from '@/lib/trip-route';
+import type { TripRouteAtlas as TripRouteAtlasData, TripRouteAtlasLeg } from '@/lib/trip-route';
 import { getTripOverviewImageUrl } from '@/lib/trip-images';
 import '@/styles/preview.css';
 
@@ -72,6 +76,76 @@ function renderRichDetail(detail?: RichDetail): string {
     renderMarkdownSection('Booking note', detail.booking_note),
     renderMarkdownSection('Dog note', detail.dog_note),
   ].join('');
+}
+
+function boundsForAtlasPoints(points: TripRouteAtlasData['points']): TripRouteAtlasData['bounds'] {
+  return {
+    minLat: Math.min(...points.map((point) => point.lat)),
+    maxLat: Math.max(...points.map((point) => point.lat)),
+    minLng: Math.min(...points.map((point) => point.lng)),
+    maxLng: Math.max(...points.map((point) => point.lng)),
+  };
+}
+
+function buildAtlasFromSelection(
+  atlas: TripRouteAtlasData,
+  selectedIndices: number[],
+  dayNumber: number
+): TripRouteAtlasData | undefined {
+  if (!selectedIndices.length) return undefined;
+
+  const oldToNew = new Map<number, number>();
+  const points = selectedIndices.map((oldIndex, newIndex) => {
+    const point = atlas.points[oldIndex];
+    oldToNew.set(oldIndex, newIndex);
+    return {
+      ...point,
+      id: `day-${dayNumber}-${newIndex}-${point.id}`,
+      index: newIndex,
+    };
+  });
+
+  let legs: TripRouteAtlasLeg[] = atlas.legs
+    .filter((leg) => oldToNew.has(leg.from) && oldToNew.has(leg.to))
+    .map((leg) => ({
+      ...leg,
+      from: oldToNew.get(leg.from)!,
+      to: oldToNew.get(leg.to)!,
+    }));
+
+  if (!legs.length && points.length > 1) {
+    legs = points.slice(1).map((point, index) => ({
+      from: index,
+      to: index + 1,
+      day: dayNumber,
+      label: point.label,
+      mode: point.modeFromPrevious ?? point.mode ?? 'route',
+    }));
+  }
+
+  return {
+    points,
+    legs,
+    modes: [...new Set(legs.map((leg) => leg.mode))],
+    bounds: boundsForAtlasPoints(points),
+  };
+}
+
+function buildDayRouteAtlas(atlas: TripRouteAtlasData | undefined, dayNumber: number): TripRouteAtlasData | undefined {
+  if (!atlas) return undefined;
+
+  const selected = new Set<number>();
+  atlas.points.forEach((point, index) => {
+    if (point.day === dayNumber) selected.add(index);
+  });
+  atlas.legs.forEach((leg) => {
+    if (leg.day === dayNumber) {
+      selected.add(leg.from);
+      selected.add(leg.to);
+    }
+  });
+
+  return buildAtlasFromSelection(atlas, [...selected].sort((a, b) => a - b), dayNumber);
 }
 
 const MAX_VISIBLE_DOTS = 7;
@@ -173,6 +247,11 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
   const days = activeTripData?.days || [];
   const markdownSource = activeTripData?.markdown_source;
   const totalSlides = 1 + days.length;
+  const routeAtlases = useMemo(
+    () => trips.map((tripData) => buildTripRouteAtlas(tripData)),
+    [trips]
+  );
+  const routeAtlas = activeTripIndex !== null ? routeAtlases[activeTripIndex] : undefined;
 
   // Prewarm the trip JSON cache the SW maintains. Fire-and-forget; even
   // if we never click 'Save offline', the next slow/offline visit can
@@ -800,6 +879,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     const dayCount = td.days.length;
     const isPast = endD < now;
     const statusLabel = isPast ? 'Completed' : (dayCount === 0 ? 'Planning' : `${nights} nights`);
+    const cardAtlas = routeAtlases[origIdx];
 
     return (
       <div key={origIdx} className="trip-card" role="button" tabIndex={0} aria-label={`${t.name} — ${t.subtitle}`} onClick={(e) => {
@@ -814,6 +894,16 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
           <img className="trip-card-img" src={img} alt={t.name} style={{ opacity: brokenImages.has(img) ? 0 : 1 }} onError={() => onImgError(img)} loading="lazy" />
           <div className="trip-card-gradient" />
         </div>
+        {cardAtlas ? (
+          <div className="trip-card-route-map">
+            <MapboxItineraryMap
+              atlas={cardAtlas}
+              title={`${t.name} route map`}
+              variant="overview-card"
+              fallback={<TripRouteAtlas atlas={cardAtlas} />}
+            />
+          </div>
+        ) : null}
         <div className="trip-card-badge">{statusLabel}</div>
         {onDelete && <button className="trip-card-delete" onClick={(e) => { e.stopPropagation(); setDeleteConfirm(origIdx); }} aria-label={`Delete ${t.name}`}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
@@ -1187,6 +1277,11 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
   // Render day slide
   function renderDaySlide(day: Day) {
     const dateStr = formatDate(day.date, { weekday: 'short', day: 'numeric', month: 'short' });
+    const dayRouteAtlas = buildDayRouteAtlas(routeAtlas, day.day_number);
+    const dayMapStopCount = dayRouteAtlas
+      ? dayRouteAtlas.points.filter((point) => point.role !== 'home').length || dayRouteAtlas.points.length
+      : 0;
+
     const statsChips = day.stats?.length ? (
       <div className="hero-stats-row">
         {day.stats.map((s, i) => (
@@ -1218,6 +1313,30 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
         {statsChips}
       </div>
     );
+
+    const dayMapSection = dayRouteAtlas ? (
+      <div className="day-map-card">
+        <div className="day-map-header">
+          <span className="text-section-title"><span className="section-icon"><Icon name="route" /></span>Day map</span>
+          <span className="day-map-count">{dayMapStopCount} stop{dayMapStopCount === 1 ? '' : 's'}</span>
+        </div>
+        <div className="day-map-frame">
+          <MapboxItineraryMap
+            atlas={dayRouteAtlas}
+            title={`Day ${day.day_number} activity map`}
+            variant="day"
+            fallback={<TripRouteAtlas atlas={dayRouteAtlas} />}
+          />
+        </div>
+      </div>
+    ) : null;
+
+    const visualSection = dayMapSection ? (
+      <div className="day-visual-stack">
+        {heroSection}
+        {dayMapSection}
+      </div>
+    ) : heroSection;
 
     const descSection = day.description ? (
       <p className="day-description">{day.description}</p>
@@ -1407,7 +1526,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     return (
       <div key={day.day_number} className={`slide ${currentSlide === day.day_number ? 'active' : ''}`}>
         <div className="day-slide">
-          {heroSection}
+          {visualSection}
           {descSection}
           {progSection}
           {transSection}
