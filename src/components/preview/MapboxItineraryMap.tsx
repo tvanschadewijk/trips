@@ -18,6 +18,7 @@ interface MapboxItineraryMapProps {
   className?: string;
   pointDetails?: Record<string, MapboxPointDetail>;
   showLines?: boolean;
+  enabled?: boolean;
 }
 
 export interface MapboxPointDetail {
@@ -344,6 +345,7 @@ export default function MapboxItineraryMap({
   className,
   pointDetails,
   showLines = variant !== 'day',
+  enabled = true,
 }: MapboxItineraryMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapboxMap | null>(null);
@@ -353,6 +355,7 @@ export default function MapboxItineraryMap({
   const routeData = useMemo(() => lineDataFor(atlas), [atlas]);
   const pointData = useMemo(() => pointDataFor(atlas, pointDetails), [atlas, pointDetails]);
   const showFallback = !MAPBOX_TOKEN || atlas.points.length === 0;
+  const showDeferred = !enabled && !showFallback;
   const fallbackNode = fallback ? <div className="mapbox-fallback">{fallback}</div> : null;
 
   useEffect(() => {
@@ -360,7 +363,7 @@ export default function MapboxItineraryMap({
     setFailed(false);
 
     const mapboxToken = MAPBOX_TOKEN;
-    if (!mapboxToken || atlas.points.length === 0 || !containerRef.current) return;
+    if (!enabled || !mapboxToken || atlas.points.length === 0 || !containerRef.current) return;
     const resolvedMapboxToken: string = mapboxToken;
 
     let cancelled = false;
@@ -453,7 +456,7 @@ export default function MapboxItineraryMap({
       mapRef.current?.remove();
       mapRef.current = null;
     };
-  }, [atlas, interactive, pointData, routeData, showLines, variant]);
+  }, [atlas, enabled, interactive, pointData, routeData, showLines, variant]);
 
   return (
     <div
@@ -462,12 +465,15 @@ export default function MapboxItineraryMap({
         `mapbox-itinerary-map-${variant}`,
         ready ? 'is-ready' : '',
         showFallback ? 'is-fallback' : '',
+        showDeferred ? 'is-deferred' : '',
         className ?? '',
       ].filter(Boolean).join(' ')}
       aria-label={title}
       role="img"
     >
-      {showFallback ? (
+      {showDeferred ? (
+        <div className="mapbox-map-deferred" aria-hidden="true" />
+      ) : showFallback ? (
         fallbackNode
       ) : failed ? (
         <div className="mapbox-map-error">

@@ -58,6 +58,12 @@
   background: var(--color-surface-deep, #F4EDE2);
 }
 
+.mapbox-map-deferred {
+  position: absolute;
+  inset: 0;
+  background: var(--color-surface-deep, #F4EDE2);
+}
+
 @keyframes map-loading-sheen {
   from { background-position: 120% 0; }
   to { background-position: -120% 0; }

@@ -1310,6 +1310,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
                     interactive
                     pointDetails={routePointDetails}
                     showLines={false}
+                    enabled={currentSlide === 0}
                     fallback={<TripRouteAtlas atlas={routeAtlas} />}
                   />
                 </div>
@@ -1474,6 +1475,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
             interactive
             pointDetails={dayMapData?.details}
             showLines={false}
+            enabled={currentSlide === day.day_number}
             fallback={<TripRouteAtlas atlas={dayRouteAtlas} />}
           />
         </div>
