@@ -1,6 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildTripRouteAtlas, lookupRoutePlace } from './trip-route';
+import {
+  buildDayRouteMapSearchText,
+  buildTripRouteAtlas,
+  lookupRoutePlace,
+  routePlaceTextMatches,
+} from './trip-route';
 import type { TripData } from './types';
 
 function baseTrip(days: TripData['days']): TripData {
@@ -121,6 +126,40 @@ test('stored route_points override derived geocoding when present', () => {
 test('lookupRoutePlace handles known spelling variants', () => {
   assert.equal(lookupRoutePlace('Bridge of Orkey')?.label, 'Bridge of Orchy');
   assert.equal(lookupRoutePlace('Lago Maggiore')?.label, 'Lake Maggiore');
+});
+
+test('day route map search ignores explanatory prose from other route days', () => {
+  const day: TripData['days'][number] = {
+    day_number: 3,
+    date: '2026-06-29',
+    title: 'Lake Como / Brunate -> Ravenna',
+    subtitle: 'Into mosaics and the Adriatic line',
+    transport: [
+      { mode: 'car', label: 'Self-drive - Varenna -> Ravenna', from: 'Varenna', to: 'Ravenna' },
+    ],
+    blocks: [
+      {
+        type: 'activity',
+        time_label: 'Morning',
+        content: 'Drive from Lake Como to Ravenna.',
+        detail: {
+          title: 'Adriatic Positioning',
+          why: 'Ravenna keeps the descent culturally interesting while putting the car on the right side of Italy for Gargano and Brindisi.',
+        },
+      },
+    ],
+  };
+
+  const searchText = buildDayRouteMapSearchText(day);
+  assert.equal(routePlaceTextMatches(searchText, 'Lake Como'), true);
+  assert.equal(routePlaceTextMatches(searchText, 'Ravenna'), true);
+  assert.equal(routePlaceTextMatches(searchText, 'Gargano'), false);
+  assert.equal(routePlaceTextMatches(searchText, 'Brindisi'), false);
+});
+
+test('route place matching uses known aliases without substring bleed', () => {
+  assert.equal(routePlaceTextMatches('Ucmakdere / Sarkoy Wine Coast', 'Tekirdag Wine Coast'), true);
+  assert.equal(routePlaceTextMatches('Barbare Vineyard House', 'Bari'), false);
 });
 
 test('buildTripRouteAtlas derives walking legs from itinerary stage titles', () => {

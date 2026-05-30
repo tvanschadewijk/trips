@@ -131,6 +131,47 @@ export function lookupRoutePlace(value: string): GazetteerEntry | undefined {
   return undefined;
 }
 
+function normalizedTextIncludesPhrase(text: string, phrase: string): boolean {
+  return ` ${text} `.includes(` ${phrase} `);
+}
+
+export function routePlaceTextMatches(value: string | undefined, label: string): boolean {
+  const normalizedText = normalizePlace(value ?? '');
+  if (!normalizedText) return false;
+
+  const match = lookupRoutePlace(label);
+  const phrases = match ? [match.label, ...match.aliases] : [label];
+
+  return [...new Set(phrases)]
+    .map(normalizePlace)
+    .some((phrase) => phrase.length >= 4 && normalizedTextIncludesPhrase(normalizedText, phrase));
+}
+
+export function buildDayRouteMapSearchText(day: Day): string {
+  return normalizePlace([
+    day.title,
+    day.subtitle,
+    day.accommodation?.name,
+    day.accommodation?.detail?.title,
+    day.accommodation?.detail?.address,
+    ...(day.transport ?? []).flatMap((transport) => [
+      transport.label,
+      transport.from,
+      transport.to,
+    ]),
+    ...(day.blocks ?? []).flatMap((block) => [
+      block.content,
+      block.detail?.title,
+      ...(block.options ?? []).map((option) => option.label),
+    ]),
+    ...(day.meals ?? []).flatMap((meal) => [
+      meal.name,
+      meal.detail?.title,
+      meal.detail?.address,
+    ]),
+  ].filter(Boolean).join(' '));
+}
+
 function sanitizeMode(mode?: string): string {
   const normalized = normalizePlace(mode ?? '');
   if (!normalized) return 'route';

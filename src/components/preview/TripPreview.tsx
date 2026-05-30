@@ -11,7 +11,7 @@ import MapboxItineraryMap from './MapboxItineraryMap';
 import type { MapboxPointDetail } from './MapboxItineraryMap';
 import AccommodationReviewBoard from './AccommodationReviewBoard';
 import { renderTripMarkdown } from '@/lib/render-trip-markdown';
-import { buildTripRouteAtlas } from '@/lib/trip-route';
+import { buildDayRouteMapSearchText, buildTripRouteAtlas, routePlaceTextMatches } from '@/lib/trip-route';
 import type { TripRouteAtlas as TripRouteAtlasData, TripRouteAtlasLeg } from '@/lib/trip-route';
 import { getTripOverviewImageUrl } from '@/lib/trip-images';
 import '@/styles/preview.css';
@@ -99,44 +99,18 @@ function normalizeRouteSearchText(value: string | undefined): string {
     .replace(/\s+/g, ' ');
 }
 
-function dayRouteSearchText(day: Day): string {
-  return normalizeRouteSearchText([
-    day.title,
-    day.subtitle,
-    day.description,
-    day.accommodation?.name,
-    ...(day.transport ?? []).flatMap((transport) => [
-      transport.label,
-      transport.from,
-      transport.to,
-      transport.detail?.route,
-    ]),
-    ...(day.blocks ?? []).flatMap((block) => [
-      block.type,
-      block.content,
-      block.detail?.title,
-      block.detail?.body,
-      block.detail?.why,
-      block.detail?.vibe,
-    ]),
-    ...(day.meals ?? []).flatMap((meal) => [meal.name, meal.note]),
-    ...(day.tips ?? []).flatMap((tip) => [tip.title, tip.content]),
-  ].filter(Boolean).join(' '));
-}
-
 function routeTextMentionsPoint(dayText: string, label: string): boolean {
   const normalizedLabel = normalizeRouteSearchText(label);
   if (normalizedLabel.length < 4) return false;
-  if (dayText.includes(normalizedLabel)) return true;
+  if (routePlaceTextMatches(dayText, label)) return true;
 
   return normalizedLabel
     .split(' ')
-    .some((word) => word.length >= 5 && dayText.includes(word));
+    .some((word) => word.length >= 5 && ` ${dayText} `.includes(` ${word} `));
 }
 
 function routeTextIncludesExactPoint(dayText: string, label: string): boolean {
-  const normalizedLabel = normalizeRouteSearchText(label);
-  return normalizedLabel.length >= 4 && dayText.includes(normalizedLabel);
+  return routePlaceTextMatches(dayText, label);
 }
 
 function truncateMapDetail(value: string | undefined): string {
@@ -255,7 +229,7 @@ function buildDayRouteAtlas(atlas: TripRouteAtlasData | undefined, day: Day): Tr
   });
 
   if (!selected.size) {
-    const dayText = dayRouteSearchText(day);
+    const dayText = buildDayRouteMapSearchText(day);
     atlas.points.forEach((point, index) => {
       if (routeTextIncludesExactPoint(dayText, point.label)) selected.add(index);
     });
