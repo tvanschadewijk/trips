@@ -463,6 +463,8 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
   const [slideMotionMode, setSlideMotionMode] = useState<SlideMotionMode>('settled');
   const [slideDirection, setSlideDirection] = useState<SlideDirection>('none');
   const [overviewFaded, setOverviewFaded] = useState(autoOpen ? true : false);
+  const [showOverviewMap, setShowOverviewMap] = useState(false);
+  const [isDesktopPreview, setIsDesktopPreview] = useState<boolean | null>(null);
   const [transitionTripIndex, setTransitionTripIndex] = useState<number | null>(autoOpen ? 0 : null);
   const [showArchive, setShowArchive] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -499,6 +501,27 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     () => mapPointDetailsForTrip(routeAtlas, days),
     [routeAtlas, days]
   );
+
+  useEffect(() => {
+    setShowOverviewMap(false);
+  }, [activeTripIndex]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const query = window.matchMedia('(min-width: 1024px)');
+    const syncPreviewMode = () => setIsDesktopPreview(query.matches);
+
+    syncPreviewMode();
+    query.addEventListener('change', syncPreviewMode);
+
+    return () => query.removeEventListener('change', syncPreviewMode);
+  }, []);
+
+  useEffect(() => {
+    if (isDesktopPreview === false) setShowOverviewMap(false);
+  }, [isDesktopPreview]);
+
   const dayMapDataByNumber = useMemo<Record<number, { atlas?: TripRouteAtlasData; details?: Record<string, MapboxPointDetail>; searchTargets: MapboxPoiSearchTarget[] }>>(() => {
     if (!routeAtlas) return {};
 
@@ -1391,25 +1414,57 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     const routeStopCount = routeAtlas
       ? routeAtlas.points.filter((point) => point.role !== 'home').length || routeAtlas.points.length
       : 0;
+    const desktopOverviewMapVisible = Boolean(showOverviewMap && routeAtlas && isDesktopPreview);
 
     return (
       <div className={`slide ${currentSlide === 0 ? 'active' : ''}`}>
         <div className="hero-slide">
           <div
-            className="hero-frame"
+            className={`hero-frame${desktopOverviewMapVisible ? ' is-map-visible' : ''}`}
             style={activeTripIndex !== null && transitionTripIndex === activeTripIndex ? { viewTransitionName: TRIP_HERO_TRANSITION_NAME } as React.CSSProperties : undefined}
           >
-            <div className="hero-bg">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={heroImage}
-                alt={trip.name}
-                draggable={false}
-                style={{ opacity: heroImageIsBroken ? 0 : 1 }}
-                onError={() => onImgError(heroImage)}
-              />
-            </div>
-            <div className="hero-overlay" />
+            {desktopOverviewMapVisible && routeAtlas ? (
+              <div className="hero-map-stage">
+                <MapboxItineraryMap
+                  atlas={routeAtlas}
+                  title={`${trip.name} itinerary map`}
+                  variant="overview-card"
+                  interactive
+                  pointDetails={routePointDetails}
+                  showLines={false}
+                  enabled={currentSlide === 0 && desktopOverviewMapVisible}
+                  loadingLabel="Loading overview map"
+                  loadingHint={routeStopCount >= 12 ? 'This might take a minute with this many stops.' : undefined}
+                  fallback={<TripRouteAtlas atlas={routeAtlas} />}
+                />
+              </div>
+            ) : (
+              <>
+                <div className="hero-bg">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={heroImage}
+                    alt={trip.name}
+                    draggable={false}
+                    style={{ opacity: heroImageIsBroken ? 0 : 1 }}
+                    onError={() => onImgError(heroImage)}
+                  />
+                </div>
+                <div className="hero-overlay" />
+              </>
+            )}
+            {routeAtlas ? (
+              <button
+                type="button"
+                className="hero-map-toggle"
+                onClick={() => setShowOverviewMap((value) => !value)}
+                aria-pressed={showOverviewMap}
+                aria-label={showOverviewMap ? 'Show trip photo' : 'Show itinerary map'}
+              >
+                <span aria-hidden="true"><Icon name={showOverviewMap ? 'mountain' : 'route'} /></span>
+                <span>{showOverviewMap ? 'Photo' : 'Map'}</span>
+              </button>
+            ) : null}
           </div>
           <div className="hero-body">
             <h1 className="text-hero-title">{trip.name}</h1>
@@ -1437,7 +1492,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
                     interactive
                     pointDetails={routePointDetails}
                     showLines={false}
-                    enabled={currentSlide === 0}
+                    enabled={currentSlide === 0 && isDesktopPreview === false}
                     loadingLabel="Loading overview map"
                     loadingHint={routeStopCount >= 12 ? 'This might take a minute with this many stops.' : undefined}
                     fallback={<TripRouteAtlas atlas={routeAtlas} />}

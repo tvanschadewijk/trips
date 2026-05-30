@@ -146,6 +146,10 @@
 .hero-bg picture { display: block; width: 100%; height: 100%; }
 .hero-bg img { width: 100%; height: 100%; object-fit: cover; }
 .hero-overlay { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(to top, rgba(26,20,16,0.62) 0%, rgba(26,20,16,0.32) 35%, rgba(26,20,16,0.10) 65%, transparent 100%); }
+.hero-map-stage,
+.hero-map-toggle {
+  display: none;
+}
 .hero-body {
   position: relative;
   z-index: 1;
@@ -2405,6 +2409,56 @@ body.trip-on-cover .trip-ask-entry-label { display: inline; }
     background: linear-gradient(to top, rgba(26, 20, 16, 0.28), rgba(26, 20, 16, 0.02) 55%);
   }
 
+  .hero-map-stage {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    display: block;
+    overflow: hidden;
+    border-radius: inherit;
+    background: var(--color-surface-deep);
+  }
+
+  .hero-map-stage .mapbox-itinerary-map {
+    height: 100%;
+    min-height: 100%;
+    border-radius: inherit;
+  }
+
+  .hero-map-toggle {
+    position: absolute;
+    top: 18px;
+    right: 18px;
+    z-index: 4;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 40px;
+    padding: 0 14px;
+    border: 1px solid rgba(232, 225, 214, 0.72);
+    border-radius: 999px;
+    background: rgba(251, 247, 241, 0.88);
+    color: var(--color-text-primary);
+    box-shadow: 0 14px 34px -24px rgba(26, 20, 16, 0.72);
+    backdrop-filter: blur(14px) saturate(150%);
+    -webkit-backdrop-filter: blur(14px) saturate(150%);
+    font-family: var(--font-sans);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+
+  .hero-map-toggle svg {
+    width: 15px;
+    height: 15px;
+  }
+
+  .hero-map-toggle:hover {
+    border-color: var(--color-border-strong);
+  }
+
   .hero-body {
     grid-column: 1;
     grid-row: 1;
@@ -2470,6 +2524,7 @@ body.trip-on-cover .trip-ask-entry-label { display: inline; }
   }
 
   .hero-route-map-card {
+    display: none;
     position: relative;
     right: auto;
     bottom: auto;
