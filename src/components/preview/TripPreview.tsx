@@ -134,6 +134,11 @@ function routeTextMentionsPoint(dayText: string, label: string): boolean {
     .some((word) => word.length >= 5 && dayText.includes(word));
 }
 
+function routeTextIncludesExactPoint(dayText: string, label: string): boolean {
+  const normalizedLabel = normalizeRouteSearchText(label);
+  return normalizedLabel.length >= 4 && dayText.includes(normalizedLabel);
+}
+
 function truncateMapDetail(value: string | undefined): string {
   const text = (value ?? '').replace(/\s+/g, ' ').trim();
   if (text.length <= 150) return text;
@@ -248,17 +253,11 @@ function buildDayRouteAtlas(atlas: TripRouteAtlasData | undefined, day: Day): Tr
   atlas.points.forEach((point, index) => {
     if (point.day === dayNumber) selected.add(index);
   });
-  atlas.legs.forEach((leg) => {
-    if (leg.day === dayNumber) {
-      selected.add(leg.from);
-      selected.add(leg.to);
-    }
-  });
 
   if (!selected.size) {
     const dayText = dayRouteSearchText(day);
     atlas.points.forEach((point, index) => {
-      if (routeTextMentionsPoint(dayText, point.label)) selected.add(index);
+      if (routeTextIncludesExactPoint(dayText, point.label)) selected.add(index);
     });
   }
 
@@ -1311,6 +1310,8 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
                     pointDetails={routePointDetails}
                     showLines={false}
                     enabled={currentSlide === 0}
+                    loadingLabel="Loading overview map"
+                    loadingHint={routeStopCount >= 12 ? 'This might take a minute with this many stops.' : undefined}
                     fallback={<TripRouteAtlas atlas={routeAtlas} />}
                   />
                 </div>

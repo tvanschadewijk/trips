@@ -13,12 +13,7 @@
   position: absolute;
   inset: 0;
   opacity: 1;
-  transition: opacity 180ms ease;
   z-index: 1;
-}
-
-.mapbox-itinerary-map:not(.is-ready) .mapbox-map-canvas {
-  opacity: 0;
 }
 
 .mapbox-map-loading {
@@ -27,26 +22,64 @@
   z-index: 2;
   display: grid;
   place-items: center;
+  padding: 18px;
   background:
-    linear-gradient(90deg, rgba(251,247,241,0.18), rgba(251,247,241,0.62), rgba(251,247,241,0.18)),
-    var(--color-surface-deep, #F4EDE2);
-  background-size: 220% 100%;
-  animation: map-loading-sheen 1.2s ease-in-out infinite;
+    radial-gradient(circle at 24% 18%, rgba(193, 79, 42, 0.08), transparent 36%),
+    rgba(244, 237, 226, 0.92);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
 }
 
-.mapbox-map-loading span,
+.mapbox-map-loading-panel,
 .mapbox-map-error span {
-  padding: 8px 12px;
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  max-width: min(280px, 86%);
+  padding: 12px 14px;
   border: 1px solid rgba(212, 200, 180, 0.72);
-  border-radius: 999px;
-  background: rgba(251, 247, 241, 0.88);
+  border-radius: 8px;
+  background: rgba(251, 247, 241, 0.9);
   color: var(--color-text-muted, #6B6157);
   font-family: var(--font-sans, 'Inter', system-ui, sans-serif);
+  box-shadow: 0 16px 32px -26px rgba(26, 20, 16, 0.55);
+}
+
+.mapbox-map-loading-label {
   font-size: 11px;
   font-weight: 650;
   letter-spacing: 0.12em;
   line-height: 1;
   text-transform: uppercase;
+}
+
+.mapbox-map-loading-hint {
+  color: var(--color-text-secondary, #3D352E);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1.35;
+  text-align: center;
+  text-transform: none;
+}
+
+.mapbox-map-loading-bar {
+  position: relative;
+  width: 100%;
+  height: 3px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(212, 200, 180, 0.58);
+}
+
+.mapbox-map-loading-bar::after {
+  position: absolute;
+  inset: 0;
+  width: 46%;
+  border-radius: inherit;
+  background: var(--color-accent, #C14F2A);
+  animation: map-loading-progress 1.15s ease-in-out infinite;
+  content: '';
 }
 
 .mapbox-map-error {
@@ -67,6 +100,11 @@
 @keyframes map-loading-sheen {
   from { background-position: 120% 0; }
   to { background-position: -120% 0; }
+}
+
+@keyframes map-loading-progress {
+  from { transform: translateX(-105%); }
+  to { transform: translateX(225%); }
 }
 
 .mapbox-itinerary-map .mapboxgl-map { font-family: var(--font-sans, 'Inter', system-ui, sans-serif); }

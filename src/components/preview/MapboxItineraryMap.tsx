@@ -19,6 +19,8 @@ interface MapboxItineraryMapProps {
   pointDetails?: Record<string, MapboxPointDetail>;
   showLines?: boolean;
   enabled?: boolean;
+  loadingLabel?: string;
+  loadingHint?: string;
 }
 
 export interface MapboxPointDetail {
@@ -346,6 +348,8 @@ export default function MapboxItineraryMap({
   pointDetails,
   showLines = variant !== 'day',
   enabled = true,
+  loadingLabel = 'Loading map',
+  loadingHint,
 }: MapboxItineraryMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapboxMap | null>(null);
@@ -482,7 +486,15 @@ export default function MapboxItineraryMap({
       ) : (
         <>
           <div ref={containerRef} className="mapbox-map-canvas" />
-          {!ready && <div className="mapbox-map-loading" aria-hidden="true"><span>Loading map</span></div>}
+          {!ready && (
+            <div className="mapbox-map-loading" role="status" aria-live="polite">
+              <div className="mapbox-map-loading-panel">
+                <span className="mapbox-map-loading-label">{loadingLabel}</span>
+                {loadingHint ? <span className="mapbox-map-loading-hint">{loadingHint}</span> : null}
+                <span className="mapbox-map-loading-bar" aria-hidden="true" />
+              </div>
+            </div>
+          )}
         </>
       )}
     </div>
