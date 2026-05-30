@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { FeatureCollection, LineString, Point } from 'geojson';
-import type { TripRouteAtlas } from '@/lib/trip-route';
+import type { TripRouteAtlas, TripRouteAtlasPoint } from '@/lib/trip-route';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import '@/styles/itinerary-map.css';
 
@@ -21,12 +21,24 @@ interface MapboxItineraryMapProps {
   enabled?: boolean;
   loadingLabel?: string;
   loadingHint?: string;
+  searchTargets?: MapboxPoiSearchTarget[];
 }
 
 export interface MapboxPointDetail {
   title?: string;
   kicker?: string;
   body?: string;
+}
+
+export interface MapboxPoiSearchTarget {
+  id: string;
+  label: string;
+  query?: string;
+  kind?: 'place' | 'poi';
+  role?: TripRouteAtlasPoint['role'];
+  detail?: MapboxPointDetail;
+  proximity?: [number, number];
+  bbox?: [number, number, number, number];
 }
 
 type RouteFeatureCollection = FeatureCollection<LineString, { mode: string }>;
@@ -78,9 +90,26 @@ type MapboxModule = {
     Popup: new (options: Record<string, unknown>) => MapboxPopup;
   };
 };
+type SearchBoxFeature = {
+  geometry?: { type?: string; coordinates?: [number, number] };
+  properties?: {
+    name?: string;
+    full_address?: string;
+    place_formatted?: string;
+    feature_type?: string;
+  };
+};
+type SearchBoxResponse = {
+  features?: SearchBoxFeature[];
+};
+type ResolvedSearchTarget = {
+  point: TripRouteAtlasPoint;
+  detail: MapboxPointDetail;
+};
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN;
 const MAP_STYLE = 'mapbox://styles/mapbox/streets-v12';
+const SEARCH_CACHE = new Map<string, ResolvedSearchTarget | null>();
 
 function lineDataFor(atlas: TripRouteAtlas): RouteFeatureCollection {
   const features = atlas.legs
@@ -119,6 +148,29 @@ function lineDataFor(atlas: TripRouteAtlas): RouteFeatureCollection {
   };
 }
 
+function boundsFor(points: TripRouteAtlasPoint[]): TripRouteAtlas['bounds'] {
+  return {
+    minLat: Math.min(...points.map((point) => point.lat)),
+    maxLat: Math.max(...points.map((point) => point.lat)),
+    minLng: Math.min(...points.map((point) => point.lng)),
+    maxLng: Math.max(...points.map((point) => point.lng)),
+  };
+}
+
+function atlasFromResolvedTargets(resolved: ResolvedSearchTarget[]): TripRouteAtlas {
+  const points = resolved.map(({ point }, index) => ({
+    ...point,
+    index,
+  }));
+
+  return {
+    points,
+    legs: [],
+    modes: [],
+    bounds: boundsFor(points),
+  };
+}
+
 function pointDataFor(atlas: TripRouteAtlas, pointDetails?: Record<string, MapboxPointDetail>): PointFeatureCollection {
   const hasHomeStart = atlas.points[0]?.role === 'home';
   return {
@@ -140,6 +192,105 @@ function pointDataFor(atlas: TripRouteAtlas, pointDetails?: Record<string, Mapbo
       },
     })),
   };
+}
+
+function normalizeSearchText(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/&/g, ' and ')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+    .replace(/\s+/g, ' ');
+}
+
+function searchQueriesFor(target: MapboxPoiSearchTarget): string[] {
+  const base = target.query || target.label;
+  const withoutApostrophes = base.replace(/[’']/g, ' ');
+  return [...new Set([base, withoutApostrophes, target.label, target.label.replace(/[’']/g, ' ')])]
+    .map((query) => query.trim())
+    .filter((query) => query.length >= 3);
+}
+
+function featureCoordinates(feature: SearchBoxFeature): [number, number] | undefined {
+  const coordinates = feature.geometry?.coordinates;
+  if (!coordinates) return undefined;
+  const [lng, lat] = coordinates;
+  if (!Number.isFinite(lng) || !Number.isFinite(lat)) return undefined;
+  return [lng, lat];
+}
+
+function pickSearchFeature(features: SearchBoxFeature[] | undefined, target: MapboxPoiSearchTarget): SearchBoxFeature | undefined {
+  const candidates = (features ?? []).filter((feature) => featureCoordinates(feature));
+  if (!candidates.length) return undefined;
+  if (target.kind === 'place') return candidates[0];
+
+  const targetText = normalizeSearchText(target.label);
+  return candidates.find((feature) => {
+    const featureType = feature.properties?.feature_type;
+    if (featureType === 'place' || featureType === 'city') return false;
+    const name = normalizeSearchText(feature.properties?.name ?? '');
+    return !name || targetText.includes(name) || name.includes(targetText.split(' ')[0] ?? targetText);
+  }) ?? candidates.find((feature) => {
+    const featureType = feature.properties?.feature_type;
+    return featureType !== 'place' && featureType !== 'city';
+  });
+}
+
+async function resolveSearchTarget(target: MapboxPoiSearchTarget, accessToken: string): Promise<ResolvedSearchTarget | null> {
+  const cacheKey = JSON.stringify({
+    label: target.label,
+    query: target.query,
+    proximity: target.proximity,
+    bbox: target.bbox,
+    kind: target.kind,
+  });
+  if (SEARCH_CACHE.has(cacheKey)) return SEARCH_CACHE.get(cacheKey) ?? null;
+
+  for (const query of searchQueriesFor(target)) {
+    const url = new URL('https://api.mapbox.com/search/searchbox/v1/forward');
+    url.searchParams.set('q', query);
+    url.searchParams.set('access_token', accessToken);
+    url.searchParams.set('language', 'en');
+    url.searchParams.set('limit', '5');
+    url.searchParams.set('types', target.kind === 'place' ? 'place,city,poi,address' : 'poi,address');
+    if (target.proximity) url.searchParams.set('proximity', `${target.proximity[0]},${target.proximity[1]}`);
+    if (target.bbox) url.searchParams.set('bbox', target.bbox.join(','));
+
+    try {
+      const response = await fetch(url);
+      if (!response.ok) continue;
+      const result = await response.json() as SearchBoxResponse;
+      const feature = pickSearchFeature(result.features, target);
+      const coordinates = feature ? featureCoordinates(feature) : undefined;
+      if (!feature || !coordinates) continue;
+
+      const resolved: ResolvedSearchTarget = {
+        point: {
+          id: target.id,
+          index: 0,
+          label: target.label,
+          lat: coordinates[1],
+          lng: coordinates[0],
+          role: target.role ?? 'stop',
+          source: 'derived',
+        },
+        detail: {
+          title: target.detail?.title ?? target.label,
+          kicker: target.detail?.kicker,
+          body: target.detail?.body || feature.properties?.full_address || feature.properties?.place_formatted || '',
+        },
+      };
+      SEARCH_CACHE.set(cacheKey, resolved);
+      return resolved;
+    } catch {
+      continue;
+    }
+  }
+
+  SEARCH_CACHE.set(cacheKey, null);
+  return null;
 }
 
 function centerFor(atlas: TripRouteAtlas): [number, number] {
@@ -350,24 +501,69 @@ export default function MapboxItineraryMap({
   enabled = true,
   loadingLabel = 'Loading map',
   loadingHint,
+  searchTargets = [],
 }: MapboxItineraryMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapboxMap | null>(null);
   const idRef = useRef(`itinerary-map-${Math.random().toString(36).slice(2)}`);
   const [ready, setReady] = useState(false);
   const [failed, setFailed] = useState(false);
-  const routeData = useMemo(() => lineDataFor(atlas), [atlas]);
-  const pointData = useMemo(() => pointDataFor(atlas, pointDetails), [atlas, pointDetails]);
-  const showFallback = !MAPBOX_TOKEN || atlas.points.length === 0;
+  const [searchComplete, setSearchComplete] = useState(searchTargets.length === 0);
+  const [resolvedSearchTargets, setResolvedSearchTargets] = useState<ResolvedSearchTarget[]>([]);
+  const searchTargetSignature = useMemo(() => JSON.stringify(searchTargets), [searchTargets]);
+  const resolvedSearchDetails = useMemo<Record<string, MapboxPointDetail>>(
+    () => Object.fromEntries(resolvedSearchTargets.map((target) => [target.point.id, target.detail])),
+    [resolvedSearchTargets]
+  );
+  const displayAtlas = useMemo(
+    () => searchComplete && resolvedSearchTargets.length ? atlasFromResolvedTargets(resolvedSearchTargets) : atlas,
+    [atlas, resolvedSearchTargets, searchComplete]
+  );
+  const displayPointDetails = resolvedSearchTargets.length && searchComplete ? resolvedSearchDetails : pointDetails;
+  const routeData = useMemo(() => lineDataFor(displayAtlas), [displayAtlas]);
+  const pointData = useMemo(() => pointDataFor(displayAtlas, displayPointDetails), [displayAtlas, displayPointDetails]);
+  const waitingForSearch = enabled && Boolean(MAPBOX_TOKEN) && searchTargets.length > 0 && !searchComplete;
+  const showFallback = !MAPBOX_TOKEN || (!waitingForSearch && displayAtlas.points.length === 0);
   const showDeferred = !enabled && !showFallback;
   const fallbackNode = fallback ? <div className="mapbox-fallback">{fallback}</div> : null;
+  const effectiveLoadingLabel = waitingForSearch ? 'Finding day places' : loadingLabel;
+  const effectiveLoadingHint = waitingForSearch ? 'Looking up hotels, restaurants and sights for this day.' : loadingHint;
+
+  useEffect(() => {
+    const mapboxToken = MAPBOX_TOKEN;
+    if (!enabled || !mapboxToken || !searchTargets.length) {
+      setResolvedSearchTargets([]);
+      setSearchComplete(searchTargets.length === 0);
+      return;
+    }
+
+    let cancelled = false;
+    setResolvedSearchTargets([]);
+    setSearchComplete(false);
+
+    async function loadSearchTargets() {
+      const limitedTargets = searchTargets.slice(0, 10);
+      const resolved = await Promise.all(
+        limitedTargets.map((target) => resolveSearchTarget(target, mapboxToken))
+      );
+      if (cancelled) return;
+      setResolvedSearchTargets(resolved.filter((target): target is ResolvedSearchTarget => Boolean(target)));
+      setSearchComplete(true);
+    }
+
+    loadSearchTargets();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [enabled, searchTargetSignature, searchTargets]);
 
   useEffect(() => {
     setReady(false);
     setFailed(false);
 
     const mapboxToken = MAPBOX_TOKEN;
-    if (!enabled || !mapboxToken || atlas.points.length === 0 || !containerRef.current) return;
+    if (!enabled || waitingForSearch || !mapboxToken || displayAtlas.points.length === 0 || !containerRef.current) return;
     const resolvedMapboxToken: string = mapboxToken;
 
     let cancelled = false;
@@ -387,8 +583,8 @@ export default function MapboxItineraryMap({
         const map = new mapboxgl.Map({
           container: containerRef.current,
           style: MAP_STYLE,
-          center: centerFor(atlas),
-          zoom: atlas.points.length === 1 ? 11 : 6,
+          center: centerFor(displayAtlas),
+          zoom: displayAtlas.points.length === 1 ? 11 : 6,
           interactive,
           attributionControl: true,
           cooperativeGestures: false,
@@ -435,7 +631,7 @@ export default function MapboxItineraryMap({
             if (fallbackTimer) window.clearTimeout(fallbackTimer);
             map.resize();
             addMapLayers(map, mapboxgl, sourceIds, variant, routeData, pointData, showLines);
-            fitMap(map, atlas, variant);
+            fitMap(map, displayAtlas, variant);
             setReady(true);
           } catch {
             fail();
@@ -460,7 +656,7 @@ export default function MapboxItineraryMap({
       mapRef.current?.remove();
       mapRef.current = null;
     };
-  }, [atlas, enabled, interactive, pointData, routeData, showLines, variant]);
+  }, [displayAtlas, enabled, interactive, pointData, routeData, showLines, variant, waitingForSearch]);
 
   return (
     <div
@@ -489,8 +685,8 @@ export default function MapboxItineraryMap({
           {!ready && (
             <div className="mapbox-map-loading" role="status" aria-live="polite">
               <div className="mapbox-map-loading-panel">
-                <span className="mapbox-map-loading-label">{loadingLabel}</span>
-                {loadingHint ? <span className="mapbox-map-loading-hint">{loadingHint}</span> : null}
+                <span className="mapbox-map-loading-label">{effectiveLoadingLabel}</span>
+                {effectiveLoadingHint ? <span className="mapbox-map-loading-hint">{effectiveLoadingHint}</span> : null}
                 <span className="mapbox-map-loading-bar" aria-hidden="true" />
               </div>
             </div>
