@@ -528,6 +528,7 @@ export default function ItineraryMap({
       return;
     }
 
+    const googleMapsApiKey = apiKey;
     let cancelled = false;
     setResolvedSearchTargets([]);
     setSearchComplete(false);
@@ -535,7 +536,7 @@ export default function ItineraryMap({
     async function loadSearchTargets() {
       const limitedTargets = searchTargets.slice(0, 10);
       const resolved = await Promise.all(
-        limitedTargets.map((target) => resolveSearchTarget(target, apiKey))
+        limitedTargets.map((target) => resolveSearchTarget(target, googleMapsApiKey))
       );
       if (cancelled) return;
       setResolvedSearchTargets(resolved.filter((target): target is ResolvedSearchTarget => Boolean(target)));

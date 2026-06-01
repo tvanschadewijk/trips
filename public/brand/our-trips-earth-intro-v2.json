@@ -1,0 +1,23 @@
+{
+  "request_id": "106545e0-59c5-9525-94d4-56af6f5c00fe",
+  "generated_at": "2026-04-02T15:54:29.397Z",
+  "output_path": "public/brand/our-trips-earth-intro-v2.mp4",
+  "model": "grok-imagine-video",
+  "duration": 10,
+  "aspect_ratio": "16:9",
+  "resolution": "720p",
+  "prompt": "Animated cinematic travel brand ident, not a static poster or still image. Ten-second photorealistic CGI shot from low Earth orbit. Earth is centered slightly below frame center with a clearly visible round curvature and realistic blue oceans, green forests, golden deserts, white cloud bands, and deep black space with faint stars. The camera slowly dollies forward during the whole shot while the Earth visibly rotates counter-clockwise. Make the motion obvious but graceful. Across the shot, six glowing destination pins appear one after another across different continents, including Europe, Africa, India, South America, North America, and East Asia. Each pin appears with a warm white or soft golden pulse, a tiny light burst, and a subtle expanding ring, and remains visible after appearing so multiple pins accumulate across the globe. In the final third of the shot, elegant premium title text reading OurTrips fades in cleanly over the scene. The overall look should feel like luxury travel branding mixed with satellite imagery and high-end CGI, with smooth motion, beautiful atmospheric glow, and a sense of discovery.",
+  "result": {
+    "status": "done",
+    "video": {
+      "url": "https://vidgen.x.ai/xai-vidgen-bucket/xai-video-92579a07-4b43-4dcd-8062-f80be5306293.mp4",
+      "duration": 10,
+      "respect_moderation": true
+    },
+    "model": "grok-imagine-video",
+    "usage": {
+      "cost_in_usd_ticks": 7000000000
+    },
+    "progress": 100
+  }
+}

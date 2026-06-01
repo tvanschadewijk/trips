@@ -3,12 +3,11 @@ import { z } from 'zod';
 
 import {
   AccommodationReviewConflictError,
-  buildInitialAccommodationReview,
-  mergeAccommodationReviewWithTripData,
   moveAccommodationCandidate,
   promoteCandidateToTrip,
   updateAccommodationCandidate,
 } from '@/lib/accommodation-review';
+import { syncAccommodationReviewForTrip } from '@/lib/accommodation-review-store';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import type {
@@ -130,34 +129,7 @@ async function loadOrCreateReview(
   tripId: string,
   tripData: TripData
 ): Promise<AccommodationReview> {
-  const { data: row, error } = await admin
-    .from('trip_accommodation_reviews')
-    .select('data')
-    .eq('trip_id', tripId)
-    .maybeSingle();
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  if (row?.data) {
-    return mergeAccommodationReviewWithTripData(row.data, tripData);
-  }
-
-  const review = buildInitialAccommodationReview(tripData);
-  const { error: insertError } = await admin
-    .from('trip_accommodation_reviews')
-    .upsert({
-      trip_id: tripId,
-      data: review,
-      updated_at: new Date().toISOString(),
-    });
-
-  if (insertError) {
-    throw new Error(insertError.message);
-  }
-
-  return review;
+  return syncAccommodationReviewForTrip(admin, tripId, tripData);
 }
 
 async function saveReview(
@@ -268,6 +240,14 @@ export async function PATCH(
     }
 
     await saveReview(access.admin, access.tripId, nextReview);
+
+    if (nextTripData) {
+      nextReview = await syncAccommodationReviewForTrip(
+        access.admin,
+        access.tripId,
+        nextTripData
+      );
+    }
 
     return NextResponse.json({
       review: nextReview,

@@ -1,6 +1,31 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import LogoSuffix from '@/components/ui/LogoSuffix';
 import '@/styles/guide.css';
+
+export const metadata: Metadata = {
+  title: 'How to Install the OurTrips Skill',
+  description:
+    'Install the free OurTrips skill for Claude or Codex and turn AI travel planning conversations into shareable itineraries.',
+  alternates: {
+    canonical: 'https://ourtrips.to/guide',
+  },
+  openGraph: {
+    title: 'How to Install the OurTrips Skill',
+    description:
+      'Install the free OurTrips skill for Claude or Codex and turn AI travel planning conversations into shareable itineraries.',
+    url: 'https://ourtrips.to/guide',
+    siteName: 'OurTrips',
+    locale: 'en_US',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'How to Install the OurTrips Skill',
+    description:
+      'Install the free OurTrips skill for Claude or Codex and turn AI travel planning conversations into shareable itineraries.',
+  },
+};
 
 export default function GuidePage() {
   return (

@@ -118,6 +118,13 @@ self.addEventListener('fetch', (event) => {
 
   if (request.method !== 'GET') return;
 
+  // Dev previews should always hit the local server directly; otherwise a
+  // stopped localhost can make them look like intentionally cached offline pages.
+  if (url.origin === self.location.origin &&
+      (url.pathname === '/dev' || url.pathname.startsWith('/dev/'))) {
+    return;
+  }
+
   // Navigations get our offline-aware behavior across the board.
   if (isNavigationRequest(request)) {
     if (isTripPage(url)) {

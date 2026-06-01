@@ -2,7 +2,9 @@
 
 /* eslint-disable @next/next/no-img-element */
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type MouseEvent } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   itineraryCategories,
   type PublicItinerary,
@@ -22,6 +24,7 @@ const sliderLabels: Array<{ key: SliderKey; label: string; low: string; high: st
 ];
 
 export default function ItinerariesExplorer({ itineraries }: ItinerariesExplorerProps) {
+  const router = useRouter();
   const [category, setCategory] = useState<PublicItineraryCategory>('all');
   const [minimums, setMinimums] = useState<Record<SliderKey, number>>({
     activity: 1,
@@ -45,6 +48,42 @@ export default function ItinerariesExplorer({ itineraries }: ItinerariesExplorer
   const resetFilters = () => {
     setCategory('all');
     setMinimums({ activity: 1, aspiration: 1, romance: 1 });
+  };
+
+  const openItinerary = (
+    event: MouseEvent<HTMLAnchorElement>,
+    itinerary: PublicItinerary
+  ) => {
+    if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+      return;
+    }
+
+    try {
+      sessionStorage.setItem(`vt-itinerary:${itinerary.canonicalPath}`, JSON.stringify({
+        heroImage: itinerary.image,
+        name: itinerary.name,
+        subtitle: itinerary.subtitle,
+      }));
+    } catch {}
+
+    const startViewTransition = (document as Document & {
+      startViewTransition?: (callback: () => Promise<void>) => void;
+    }).startViewTransition;
+
+    if (!startViewTransition) return;
+
+    event.preventDefault();
+    const card = event.currentTarget.closest('.itinerary-card');
+    const frame = card?.querySelector('.itinerary-card-image-link') as HTMLElement | null;
+    if (frame) frame.style.viewTransitionName = 'trip-hero';
+
+    startViewTransition.call(document, async () => {
+      router.push(itinerary.canonicalPath);
+      await new Promise<void>((resolve) => {
+        (window as unknown as Record<string, unknown>).__tripTransitionResolve = resolve;
+        setTimeout(resolve, 700);
+      });
+    });
   };
 
   return (
@@ -104,9 +143,9 @@ export default function ItinerariesExplorer({ itineraries }: ItinerariesExplorer
       <div className="itinerary-grid" aria-live="polite">
         {filtered.map((itinerary) => (
           <article className="itinerary-card" key={itinerary.name}>
-            <a className="itinerary-card-image-link" href={itinerary.url} aria-label={itinerary.name}>
+            <Link className="itinerary-card-image-link" href={itinerary.canonicalPath} aria-label={itinerary.name} onClick={(event) => openItinerary(event, itinerary)}>
               <img src={itinerary.image} alt="" className="itinerary-card-image" loading="lazy" />
-            </a>
+            </Link>
             <div className="itinerary-card-body">
               <div className="itinerary-card-meta">
                 <span>{itinerary.days} days</span>
@@ -125,13 +164,13 @@ export default function ItinerariesExplorer({ itineraries }: ItinerariesExplorer
                   <span key={tag}>{tag}</span>
                 ))}
               </div>
-              <a className="itinerary-card-link" href={itinerary.url}>
+              <Link className="itinerary-card-link" href={itinerary.canonicalPath} onClick={(event) => openItinerary(event, itinerary)}>
                 Open itinerary
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <path d="M5 12h14" />
                   <path d="m12 5 7 7-7 7" />
                 </svg>
-              </a>
+              </Link>
             </div>
           </article>
         ))}

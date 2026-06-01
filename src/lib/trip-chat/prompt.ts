@@ -53,7 +53,7 @@ You have these tools:
 
   - \`mcp__trip_editor__get_trip\` — read the full current state of the trip. Use this only when the edit needs fields outside the narrow list tools, or when you must update markdown_source alongside structural changes.
   - \`mcp__trip_editor__list_accommodations\` — list only the trip's hotels/stays with day numbers, dates, location hints, existing dog_note fields, and JSON paths. Use this instead of \`get_trip\` for "all hotels", accommodation policy, check-in, parking, pet, or stay-specific questions.
-  - \`mcp__trip_editor__list_accommodation_review\` — list the private accommodation-review Kanban board: destinations, hotel candidates, lanes, and recent reviewer events. Use this when the user is in the Accommodation Review surface or asks about proposed / under consideration / dismissed / booked hotel options.
+  - \`mcp__trip_editor__list_accommodation_review\` — list the private accommodation-review Kanban board: destinations, hotel candidates, lanes, and recent reviewer events. Use this when the user is in the Accommodation Review surface or asks about proposed / under consideration / dismissed / booked hotel options. Destinations are derived from the canonical trip itinerary.
   - \`mcp__trip_editor__update_trip\` — apply an edit. Merge-patch semantics: top-level \`trip\` is deep-merged into \`data.trip\`; \`days\`, if provided, replaces \`data.days\` wholesale.
   - \`mcp__trip_editor__update_accommodation\` — patch top-level accommodation card fields (\`name\`, \`price\`, \`rating\`, \`status\`, \`nights\`, \`note\`) using a path from \`list_accommodations\`. Use this for hotel/stay renames or visible stay-card fixes on long trips instead of replacing the full \`days\` array; when markdown exists, it also maintains the "OurTrips agent notes" section.
   - \`mcp__trip_editor__update_accommodation_detail\` — patch one accommodation's \`detail\` object using a path from \`list_accommodations\`. Use this for precise hotel notes like \`dog_note\`, \`parking\`, \`phone\`, \`wifi\`, and policy source fields without resending the full days array.
@@ -100,6 +100,10 @@ Prefer narrow trip tools over full-trip reads:
     "why did we reject it"): call \`list_accommodation_review\` first. The
     review board is private decision state; keep proposed, dismissed, and
     messy comparison notes there instead of writing them into the public trip.
+    Its destination list is derived from the canonical itinerary
+    \`trips.data.days[].accommodation\`; if the user asks to remove, rename,
+    merge, or consolidate a stay destination, edit the canonical itinerary
+    with \`get_trip\` + \`update_trip\`, not just private candidate cards.
   - When you propose new hotels, create one candidate card per hotel with
     \`create_accommodation_candidate\`. Put fresh finds in \`proposed\`; only
     move to \`considering\` or \`booked\` when the user signals that decision.

@@ -1,49 +1,100 @@
 /* eslint-disable @next/next/no-img-element */
 
+import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
-import { headers } from 'next/headers';
 import Link from 'next/link';
-import { createClient } from '@/lib/supabase/server';
 import LogoSuffix from '@/components/ui/LogoSuffix';
 import { publicItineraries } from '@/lib/public-itineraries';
 import '@/styles/landing.css';
 
-export default async function Home() {
-  try {
-    const hdrs = await headers();
-    const referer = hdrs.get('referer');
-    const host = hdrs.get('host');
-    let fromInternal = false;
-    if (referer && host) {
-      try {
-        const url = new URL(referer);
-        fromInternal = url.host === host && url.pathname !== '/';
-      } catch {}
-    }
+export const metadata: Metadata = {
+  title: 'OurTrips — AI Travel Itineraries, Beautifully Presented',
+  description:
+    'Create and share beautiful, interactive travel itineraries from AI planning conversations. Plan day-by-day, add places, save offline, and share with anyone.',
+  alternates: {
+    canonical: 'https://ourtrips.to',
+  },
+  openGraph: {
+    title: 'OurTrips — AI Travel Itineraries, Beautifully Presented',
+    description:
+      'Create and share beautiful, interactive travel itineraries from AI planning conversations. Plan day-by-day, add places, save offline, and share with anyone.',
+    url: 'https://ourtrips.to',
+    siteName: 'OurTrips',
+    locale: 'en_US',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'OurTrips — AI Travel Itineraries, Beautifully Presented',
+    description:
+      'Create and share beautiful, interactive travel itineraries from AI planning conversations. Plan day-by-day, add places, save offline, and share with anyone.',
+  },
+};
 
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user && !fromInternal) {
-      const today = new Date().toISOString().slice(0, 10);
-      const { data: trips } = await supabase
-        .from('trips')
-        .select('share_id, data')
-        .eq('user_id', user.id);
-      const active = trips?.find(t => {
-        const start = t.data?.trip?.dates?.start;
-        const end = t.data?.trip?.dates?.end;
-        return start && end && start <= today && today <= end;
-      });
-      if (active) redirect(`/t/${active.share_id}`);
-      redirect('/dashboard');
+export default async function Home() {
+  if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    try {
+      const [{ headers }, { createClient }] = await Promise.all([
+        import('next/headers'),
+        import('@/lib/supabase/server'),
+      ]);
+      const hdrs = await headers();
+      const referer = hdrs.get('referer');
+      const host = hdrs.get('host');
+      let fromInternal = false;
+      if (referer && host) {
+        try {
+          const url = new URL(referer);
+          fromInternal = url.host === host && url.pathname !== '/';
+        } catch {}
+      }
+
+      const supabase = await createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user && !fromInternal) {
+        const today = new Date().toISOString().slice(0, 10);
+        const { data: trips } = await supabase
+          .from('trips')
+          .select('share_id, data')
+          .eq('user_id', user.id);
+        const active = trips?.find(t => {
+          const start = t.data?.trip?.dates?.start;
+          const end = t.data?.trip?.dates?.end;
+          return start && end && start <= today && today <= end;
+        });
+        if (active) redirect(`/t/${active.share_id}`);
+        redirect('/dashboard');
+      }
+    } catch (err) {
+      // redirect() throws to signal navigation — re-throw so Next.js handles it
+      if (err && typeof err === 'object' && 'digest' in err && typeof (err as { digest: unknown }).digest === 'string' && (err as { digest: string }).digest.startsWith('NEXT_REDIRECT')) {
+        throw err;
+      }
+      // Supabase unavailable — show landing page
     }
-  } catch (err) {
-    // redirect() throws to signal navigation — re-throw so Next.js handles it
-    if (err && typeof err === 'object' && 'digest' in err && typeof (err as { digest: unknown }).digest === 'string' && (err as { digest: string }).digest.startsWith('NEXT_REDIRECT')) {
-      throw err;
-    }
-    // Supabase not configured — show landing page
   }
+
+  const jsonLd = [
+    {
+      '@context': 'https://schema.org',
+      '@type': 'Organization',
+      name: 'OurTrips',
+      url: 'https://ourtrips.to',
+      logo: 'https://ourtrips.to/icons/icon-192.png',
+    },
+    {
+      '@context': 'https://schema.org',
+      '@type': 'WebSite',
+      name: 'OurTrips',
+      url: 'https://ourtrips.to',
+      potentialAction: {
+        '@type': 'ViewAction',
+        target: 'https://ourtrips.to/itineraries',
+        name: 'Browse itineraries',
+      },
+    },
+  ];
+
   return (
     <div className="landing">
       <nav className="landing-nav">
@@ -119,9 +170,9 @@ export default async function Home() {
         <div className="landing-itinerary-grid">
           {publicItineraries.slice(0, 3).map((itinerary) => (
             <article className="landing-itinerary-card" key={itinerary.name}>
-              <a href={itinerary.url} className="landing-itinerary-image-link" aria-label={itinerary.name}>
+              <Link href={itinerary.canonicalPath} className="landing-itinerary-image-link" aria-label={itinerary.name}>
                 <img src={itinerary.image} alt="" className="landing-itinerary-image" loading="lazy" />
-              </a>
+              </Link>
               <div className="landing-itinerary-body">
                 <div className="landing-itinerary-meta">
                   <span>{itinerary.days} days</span>
@@ -129,10 +180,10 @@ export default async function Home() {
                 </div>
                 <h3>{itinerary.name}</h3>
                 <p>{itinerary.subtitle}</p>
-                <a href={itinerary.url} className="landing-itinerary-link">
+                <Link href={itinerary.canonicalPath} className="landing-itinerary-link">
                   Open itinerary
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
-                </a>
+                </Link>
               </div>
             </article>
           ))}
@@ -207,6 +258,10 @@ export default async function Home() {
           </span>
         </div>
       </footer>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
     </div>
   );
 }

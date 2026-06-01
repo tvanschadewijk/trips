@@ -1,14 +1,14 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { mergeAccommodationReviewWithTripData } from '@/lib/accommodation-review';
-import type { createAdminClient } from '@/lib/supabase/admin';
-import type { TripData } from '@/lib/types';
+import type { AccommodationReview, TripData } from '@/lib/types';
 
-type AdminClient = ReturnType<typeof createAdminClient>;
+type AdminClient = SupabaseClient;
 
 export async function syncAccommodationReviewForTrip(
   admin: AdminClient,
   tripId: string,
   tripData: TripData
-) {
+): Promise<AccommodationReview> {
   const { data: row, error } = await admin
     .from('trip_accommodation_reviews')
     .select('data')
@@ -20,17 +20,24 @@ export async function syncAccommodationReviewForTrip(
   }
 
   const review = mergeAccommodationReviewWithTripData(row?.data ?? null, tripData);
-  const { error: upsertError } = await admin
-    .from('trip_accommodation_reviews')
-    .upsert({
-      trip_id: tripId,
-      data: review,
-      updated_at: new Date().toISOString(),
-    });
+  const shouldPersist =
+    !row?.data || JSON.stringify(row.data) !== JSON.stringify(review);
 
-  if (upsertError) {
-    throw new Error(upsertError.message);
+  if (shouldPersist) {
+    const { error: upsertError } = await admin
+      .from('trip_accommodation_reviews')
+      .upsert({
+        trip_id: tripId,
+        data: review,
+        updated_at: new Date().toISOString(),
+      });
+
+    if (upsertError) {
+      throw new Error(upsertError.message);
+    }
   }
+
+  return review;
 }
 
 export async function trySyncAccommodationReviewForTrip(

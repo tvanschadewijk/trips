@@ -266,6 +266,7 @@ export function buildInitialAccommodationReview(tripData: TripData): Accommodati
     index = cursor - 1;
   }
 
+  const normalized = mergeOverlappingImportedDestinations(destinations, accommodations);
   const tripSlug = slugify(tripData.trip.name);
   return {
     tripTitle: tripData.trip.name,
@@ -274,11 +275,65 @@ export function buildInitialAccommodationReview(tripData: TripData): Accommodati
     updatedAt: new Date().toISOString(),
     storageKey: `ourtrips:accommodation-review:${tripSlug}`,
     summary: tripData.trip.subtitle || tripData.trip.summary,
-    destinations,
-    accommodations,
+    destinations: normalized.destinations,
+    accommodations: normalized.accommodations,
     events: [],
     reviewerVersion: 1,
     layoutVersion: 'kanban-v1',
+  };
+}
+
+function mergeOverlappingImportedDestinations(
+  destinations: AccommodationReviewDestination[],
+  accommodations: AccommodationCandidate[]
+): {
+  destinations: AccommodationReviewDestination[];
+  accommodations: AccommodationCandidate[];
+} {
+  const nextDestinations: AccommodationReviewDestination[] = [];
+  const destinationIdMap = new Map<string, string>();
+
+  for (const destination of destinations) {
+    const existing = nextDestinations.find((candidate) =>
+      destinationsOverlap(candidate, destination)
+    );
+
+    if (!existing) {
+      nextDestinations.push({ ...destination });
+      destinationIdMap.set(destination.id, destination.id);
+      continue;
+    }
+
+    destinationIdMap.set(destination.id, existing.id);
+    const dayNumbers = Array.from(
+      new Set([...(existing.dayNumbers ?? []), ...(destination.dayNumbers ?? [])])
+    ).sort((a, b) => a - b);
+    if (dayNumbers.length) existing.dayNumbers = dayNumbers;
+  }
+
+  const nextAccommodations = accommodations.map((candidate) => {
+    const mappedDestinationId =
+      destinationIdMap.get(candidate.destinationId) ?? candidate.destinationId;
+    const destination = nextDestinations.find((item) => item.id === mappedDestinationId);
+    if (!destination) {
+      return candidate;
+    }
+
+    return compactObject({
+      ...candidate,
+      destinationId: mappedDestinationId,
+      stop: destination.title,
+      dates: destination.dates ?? candidate.dates,
+      nights: destination.nights ?? candidate.nights,
+      dayNumbers: destination.dayNumbers ?? candidate.dayNumbers,
+      checkInDate: destination.startDate ?? candidate.checkInDate,
+      checkOutDate: destination.endDate ?? candidate.checkOutDate,
+    } satisfies AccommodationCandidate);
+  });
+
+  return {
+    destinations: nextDestinations,
+    accommodations: nextAccommodations,
   };
 }
 

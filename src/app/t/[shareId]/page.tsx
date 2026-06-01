@@ -1,11 +1,14 @@
 import type { Metadata } from 'next';
+import { notFound } from 'next/navigation';
 import TripPreview from '@/components/preview/TripPreview';
 import TripChatPanel from '@/components/chat/TripChatPanel';
 import { createClient } from '@/lib/supabase/server';
-import { sampleTrips } from '@/lib/sample-data';
 import { checkIsAdmin, loadChatHistory } from '@/lib/trip-chat/history';
 import { scrubTripData } from '@/lib/scrub-trip';
-import { isPublicItineraryShareId } from '@/lib/public-itineraries';
+import {
+  getPublicItineraryByShareId,
+  isPublicItineraryShareId,
+} from '@/lib/public-itineraries';
 import type { TripData } from '@/lib/types';
 
 interface Props {
@@ -14,6 +17,7 @@ interface Props {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { shareId } = await params;
+  const publicItinerary = getPublicItineraryByShareId(shareId);
   try {
     const supabase = await createClient();
     const { data } = await supabase
@@ -29,14 +33,28 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       return {
         title,
         description,
-        openGraph: { title, description, type: 'article' },
+        robots: { index: false, follow: true },
+        alternates: publicItinerary
+          ? {
+              canonical: publicItinerary.url,
+            }
+          : undefined,
+        openGraph: {
+          title,
+          description,
+          type: 'article',
+          url: publicItinerary?.url ?? `https://ourtrips.to/t/${shareId}`,
+        },
         twitter: { card: 'summary_large_image', title, description },
       };
     }
   } catch {
     // fall through
   }
-  return {};
+  return {
+    title: 'Trip not found — OurTrips',
+    robots: { index: false, follow: false },
+  };
 }
 
 async function fetchTripAndViewer(shareId: string): Promise<{
@@ -85,7 +103,7 @@ async function fetchTripAndViewer(shareId: string): Promise<{
       shareMode,
     };
   } catch {
-    // Supabase not connected yet — fall through to sample data
+    // Supabase not connected or the trip is unavailable.
     return null;
   }
 }
@@ -97,17 +115,7 @@ export default async function TripPage({ params }: Props) {
   const isPublicSample = isPublicItineraryShareId(shareId);
 
   if (!result) {
-    // Fallback: show first sample trip with days
-    const sample = sampleTrips.find(t => t.days.length > 0);
-    if (!sample) {
-      return (
-        <div style={{ minHeight: '100dvh', background: '#FBF7F1', color: '#1A1410', padding: 60, textAlign: 'center', fontFamily: 'Inter, system-ui, sans-serif' }}>
-          <h1 style={{ fontFamily: '"Fraunces", Georgia, serif', fontSize: 32, fontWeight: 400, letterSpacing: '-0.012em', marginBottom: 12 }}>Trip not found</h1>
-          <p style={{ color: '#6B6157', fontSize: 15 }}>This link may be invalid or the trip may have been removed.</p>
-        </div>
-      );
-    }
-    return <TripPreview trips={[sample]} autoOpen />;
+    notFound();
   }
 
   // Trip owners (and admins, who can edit any trip for support) get the

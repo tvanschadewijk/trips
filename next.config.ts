@@ -6,6 +6,7 @@ const supabaseHostname = process.env.NEXT_PUBLIC_SUPABASE_URL
   : undefined;
 
 const nextConfig: NextConfig = {
+  devIndicators: false,
   env: {
     NEXT_PUBLIC_APP_VERSION: packageJson.version,
   },

@@ -23,6 +23,17 @@ type ReviewResponse = {
   trip_data?: TripData | null;
 };
 
+const MOBILE_LANE_PRIORITY: AccommodationReviewLane[] = [
+  'booked',
+  'considering',
+  'proposed',
+  'dismissed',
+];
+
+const MOBILE_REVIEW_LANES = MOBILE_LANE_PRIORITY.map((laneId) =>
+  ACCOMMODATION_REVIEW_LANES.find((lane) => lane.id === laneId)
+).filter((lane): lane is (typeof ACCOMMODATION_REVIEW_LANES)[number] => Boolean(lane));
+
 function domainFor(url: string): string {
   try {
     return new URL(url).hostname.replace(/^www\./, '');
@@ -54,6 +65,16 @@ function candidateLane(candidate: AccommodationCandidate): AccommodationReviewLa
   const status = candidate.status?.toLowerCase();
   if (status === 'booked' || status === 'confirmed' || candidate.booking) return 'booked';
   return candidate.lane;
+}
+
+function preferredLaneForCandidates(
+  candidates: AccommodationCandidate[]
+): AccommodationReviewLane {
+  return (
+    MOBILE_LANE_PRIORITY.find((lane) =>
+      candidates.some((candidate) => candidateLane(candidate) === lane)
+    ) ?? 'booked'
+  );
 }
 
 function destinationStatus(candidates: AccommodationCandidate[]): {
@@ -115,14 +136,34 @@ export default function AccommodationReviewBoard({
 }: Props) {
   const [review, setReview] = useState<AccommodationReview | null>(null);
   const [activeDestinationId, setActiveDestinationId] = useState<string | null>(null);
+  const [mobileReviewMode, setMobileReviewMode] = useState<'overview' | 'edit'>('overview');
+  const [activeMobileLane, setActiveMobileLane] =
+    useState<AccommodationReviewLane>('booked');
   const [draggingCandidateId, setDraggingCandidateId] = useState<string | null>(null);
   const [savingCandidateId, setSavingCandidateId] = useState<string | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
   const [bookingPrompt, setBookingPrompt] = useState<{
     candidateId: string;
     lane: AccommodationReviewLane;
     conflictCandidateId?: string;
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const onReviewUpdated = (event: Event) => {
+      const detail = event instanceof CustomEvent ? event.detail : null;
+      if (!detail?.tripId || detail.tripId === tripId) {
+        setReloadToken((value) => value + 1);
+      }
+    };
+
+    window.addEventListener('ourtrips:accommodation-review-updated', onReviewUpdated);
+    return () => {
+      window.removeEventListener('ourtrips:accommodation-review-updated', onReviewUpdated);
+    };
+  }, [tripId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -139,7 +180,11 @@ export default function AccommodationReviewBoard({
         const json = (await response.json()) as ReviewResponse;
         if (cancelled) return;
         setReview(json.review);
-        setActiveDestinationId((current) => current ?? json.review.destinations[0]?.id ?? null);
+        setActiveDestinationId((current) =>
+          current && json.review.destinations.some((destination) => destination.id === current)
+            ? current
+            : json.review.destinations[0]?.id ?? null
+        );
       } catch (err) {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : String(err));
@@ -150,7 +195,7 @@ export default function AccommodationReviewBoard({
     return () => {
       cancelled = true;
     };
-  }, [tripId]);
+  }, [tripId, tripData, reloadToken]);
 
   const destinations = review?.destinations ?? [];
   const activeDestination = useMemo(() => {
@@ -171,6 +216,58 @@ export default function AccommodationReviewBoard({
       (candidate) => candidate.destinationId === activeDestination.id
     );
   }, [activeDestination, review]);
+
+  const allDestinationsBooked = useMemo(() => {
+    if (!review || !destinations.length) return false;
+    return destinations.every((destination) =>
+      review.accommodations.some(
+        (candidate) =>
+          candidate.destinationId === destination.id &&
+          candidateLane(candidate) === 'booked'
+      )
+    );
+  }, [destinations, review]);
+
+  const bookedOverviewItems = useMemo(() => {
+    if (!review) return [];
+    return destinations.flatMap((destination) =>
+      review.accommodations
+        .filter(
+          (candidate) =>
+            candidate.destinationId === destination.id &&
+            candidateLane(candidate) === 'booked'
+        )
+        .map((candidate) => ({ candidate, destination }))
+    );
+  }, [destinations, review]);
+
+  const mobileLaneCounts = useMemo(() => {
+    return ACCOMMODATION_REVIEW_LANES.reduce(
+      (counts, lane) => {
+        counts[lane.id] = candidatesForDestination.filter(
+          (candidate) => candidateLane(candidate) === lane.id
+        ).length;
+        return counts;
+      },
+      {} as Record<AccommodationReviewLane, number>
+    );
+  }, [candidatesForDestination]);
+
+  const preferredMobileLane = useMemo(
+    () => preferredLaneForCandidates(candidatesForDestination),
+    [candidatesForDestination]
+  );
+
+  useEffect(() => {
+    if (!review) return;
+    if (!allDestinationsBooked) {
+      setMobileReviewMode('edit');
+    }
+  }, [allDestinationsBooked, review]);
+
+  useEffect(() => {
+    setActiveMobileLane(preferredMobileLane);
+  }, [activeDestination?.id, preferredMobileLane]);
 
   const moveCandidate = useCallback(
     async (candidateId: string, lane: AccommodationReviewLane, confirmed = false) => {
@@ -227,6 +324,7 @@ export default function AccommodationReviewBoard({
         }
         const json = (await response.json()) as ReviewResponse;
         setReview(json.review);
+        setActiveMobileLane(lane);
         if (json.trip_data) {
           onTripDataUpdated?.(json.trip_data);
         }
@@ -265,6 +363,119 @@ export default function AccommodationReviewBoard({
     );
   }, [bookingPrompt, review]);
 
+  const renderCandidateCard = (
+    candidate: AccommodationCandidate,
+    options: {
+      destination?: AccommodationReviewDestination;
+      showActions?: boolean;
+      showDestination?: boolean;
+    } = {}
+  ) => {
+    const cardDestination = options.destination ?? activeDestination;
+    const showActions = options.showActions ?? true;
+    const enableDrag = showActions && savingCandidateId !== candidate.id;
+
+    return (
+      <article
+        key={candidate.id}
+        className={`accommodation-review-card${savingCandidateId === candidate.id ? ' saving' : ''}${showActions ? '' : ' overview-card'}`}
+        draggable={enableDrag}
+        tabIndex={0}
+        onClick={() => writeReviewContext(cardDestination, candidate)}
+        onFocus={() => writeReviewContext(cardDestination, candidate)}
+        onDragStart={
+          showActions
+            ? (event) => {
+                setDraggingCandidateId(candidate.id);
+                event.dataTransfer.effectAllowed = 'move';
+                event.dataTransfer.setData('text/plain', candidate.id);
+                writeReviewContext(cardDestination, candidate);
+              }
+            : undefined
+        }
+        onDragEnd={showActions ? () => setDraggingCandidateId(null) : undefined}
+      >
+        {options.showDestination && cardDestination && (
+          <div className="accommodation-review-card-destination">
+            <span>{cardDestination.title}</span>
+            <span>{cardDestination.dates}</span>
+          </div>
+        )}
+
+        <div className="accommodation-review-card-topline">
+          <h4>{candidate.candidate}</h4>
+          {candidate.price && <span>{candidate.price}</span>}
+        </div>
+
+        {candidate.why && (
+          <p className="accommodation-review-card-copy">{candidate.why}</p>
+        )}
+
+        <div className="accommodation-review-card-facts">
+          {candidate.rateCheck?.best && <span>Best {candidate.rateCheck.best}</span>}
+          {candidate.parking && <span>Parking {candidate.parking}</span>}
+          {candidate.dog && <span>Dog {candidate.dog}</span>}
+        </div>
+
+        {ratingText(candidate) && (
+          <div className="accommodation-review-card-rating">
+            <span className="accommodation-review-card-rating-label">Ratings</span>
+            <span>{ratingText(candidate)}</span>
+          </div>
+        )}
+
+        {candidate.links?.length ? (
+          <div className="accommodation-review-links">
+            {candidate.links.slice(0, 2).map((link) => (
+              <a
+                key={`${candidate.id}-${link.url}`}
+                href={link.url}
+                target="_blank"
+                rel="noreferrer"
+                title={domainFor(link.url)}
+                onClick={(event) => event.stopPropagation()}
+              >
+                <span>{link.label}</span>
+              </a>
+            ))}
+          </div>
+        ) : null}
+
+        {(candidate.blockers || candidate.action || candidate.terms) && (
+          <div className="accommodation-review-card-notes">
+            {candidate.blockers && <span>{candidate.blockers}</span>}
+            {candidate.action && <span>{candidate.action}</span>}
+            {candidate.terms && <span>{candidate.terms}</span>}
+          </div>
+        )}
+
+        {showActions && (
+          <div
+            className="accommodation-review-card-actions"
+            aria-label={`Move ${candidate.candidate}`}
+          >
+            {ACCOMMODATION_REVIEW_LANES.filter(
+              (targetLane) => targetLane.id !== candidateLane(candidate)
+            ).map((targetLane) => (
+              <button
+                key={`${candidate.id}-${targetLane.id}`}
+                type="button"
+                disabled={savingCandidateId === candidate.id}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  writeReviewContext(cardDestination, candidate);
+                  moveCandidate(candidate.id, targetLane.id);
+                }}
+              >
+                {laneActionLabel(targetLane.id)}
+              </button>
+            ))}
+          </div>
+        )}
+      </article>
+    );
+  };
+
   if (error && !review) {
     return (
       <div className="accommodation-review-empty">
@@ -291,8 +502,44 @@ export default function AccommodationReviewBoard({
     );
   }
 
+  const boardClassName = [
+    'accommodation-review-board',
+    allDestinationsBooked ? 'all-booked' : null,
+    allDestinationsBooked && mobileReviewMode === 'overview'
+      ? 'mobile-overview-mode'
+      : null,
+  ].filter(Boolean).join(' ');
+
   return (
-    <div className="accommodation-review-board">
+    <div className={boardClassName}>
+      {allDestinationsBooked && (
+        <section className="accommodation-review-booked-overview" aria-label="Booked stays">
+          <div className="accommodation-review-booked-overview-header">
+            <div>
+              <div className="accommodation-review-kicker">Booked stays</div>
+              <h3>{tripData.trip.name}</h3>
+              <p>{bookedOverviewItems.length} stays confirmed</p>
+            </div>
+            <button
+              type="button"
+              className="accommodation-review-mode-button"
+              onClick={() => setMobileReviewMode('edit')}
+            >
+              Edit
+            </button>
+          </div>
+          <div className="accommodation-review-booked-overview-list">
+            {bookedOverviewItems.map(({ candidate, destination }) =>
+              renderCandidateCard(candidate, {
+                destination,
+                showActions: false,
+                showDestination: true,
+              })
+            )}
+          </div>
+        </section>
+      )}
+
       <nav className="accommodation-review-nav" aria-label="Stays">
         <div className="accommodation-review-nav-header">
           <div className="accommodation-review-nav-trip-title" title={tripData.trip.name}>
@@ -338,7 +585,41 @@ export default function AccommodationReviewBoard({
             <div className="accommodation-review-kicker">Stay review</div>
             <h3>{activeDestination?.title}</h3>
           </div>
-          {error && <div className="accommodation-review-error">{error}</div>}
+          <div className="accommodation-review-header-actions">
+            {allDestinationsBooked && (
+              <>
+                <span className="accommodation-review-complete-pill">All booked</span>
+                <button
+                  type="button"
+                  className="accommodation-review-mode-button"
+                  onClick={() =>
+                    setMobileReviewMode((mode) =>
+                      mode === 'edit' ? 'overview' : 'edit'
+                    )
+                  }
+                >
+                  {mobileReviewMode === 'edit' ? 'Overview' : 'Edit'}
+                </button>
+              </>
+            )}
+            {error && <div className="accommodation-review-error">{error}</div>}
+          </div>
+        </div>
+
+        <div className="accommodation-review-lane-tabs" role="tablist" aria-label="Review lanes">
+          {MOBILE_REVIEW_LANES.map((lane) => (
+            <button
+              key={lane.id}
+              type="button"
+              role="tab"
+              aria-selected={activeMobileLane === lane.id}
+              className={activeMobileLane === lane.id ? 'active' : undefined}
+              onClick={() => setActiveMobileLane(lane.id)}
+            >
+              <span>{lane.label}</span>
+              <span>{mobileLaneCounts[lane.id]}</span>
+            </button>
+          ))}
         </div>
 
         <div className="accommodation-review-kanban">
@@ -349,7 +630,7 @@ export default function AccommodationReviewBoard({
             return (
               <section
                 key={lane.id}
-                className={`accommodation-review-lane lane-${lane.id}${draggingCandidateId ? ' drag-active' : ''}`}
+                className={`accommodation-review-lane lane-${lane.id}${activeMobileLane === lane.id ? ' mobile-active' : ''}${draggingCandidateId ? ' drag-active' : ''}`}
                 onDragOver={(event) => {
                   event.preventDefault();
                   event.dataTransfer.dropEffect = 'move';
@@ -369,94 +650,7 @@ export default function AccommodationReviewBoard({
                   }}
                   onDrop={(event) => handleCandidateDrop(event, lane.id)}
                 >
-                  {laneCandidates.map((candidate) => (
-                    <article
-                      key={candidate.id}
-                      className={`accommodation-review-card${savingCandidateId === candidate.id ? ' saving' : ''}`}
-                      draggable={savingCandidateId !== candidate.id}
-                      tabIndex={0}
-                      onClick={() => writeReviewContext(activeDestination, candidate)}
-                      onFocus={() => writeReviewContext(activeDestination, candidate)}
-                      onDragStart={(event) => {
-                        setDraggingCandidateId(candidate.id);
-                        event.dataTransfer.effectAllowed = 'move';
-                        event.dataTransfer.setData('text/plain', candidate.id);
-                        writeReviewContext(activeDestination, candidate);
-                      }}
-                      onDragEnd={() => setDraggingCandidateId(null)}
-                    >
-                      <div className="accommodation-review-card-topline">
-                        <h4>{candidate.candidate}</h4>
-                        {candidate.price && <span>{candidate.price}</span>}
-                      </div>
-
-                      {candidate.why && (
-                        <p className="accommodation-review-card-copy">{candidate.why}</p>
-                      )}
-
-                      <div className="accommodation-review-card-facts">
-                        {candidate.rateCheck?.best && (
-                          <span>Best {candidate.rateCheck.best}</span>
-                        )}
-                        {candidate.parking && <span>Parking {candidate.parking}</span>}
-                        {candidate.dog && <span>Dog {candidate.dog}</span>}
-                      </div>
-
-                      {ratingText(candidate) && (
-                        <div className="accommodation-review-card-rating">
-                          <span className="accommodation-review-card-rating-label">Ratings</span>
-                          <span>{ratingText(candidate)}</span>
-                        </div>
-                      )}
-
-                      {candidate.links?.length ? (
-                        <div className="accommodation-review-links">
-                          {candidate.links.slice(0, 2).map((link) => (
-                            <a
-                              key={`${candidate.id}-${link.url}`}
-                              href={link.url}
-                              target="_blank"
-                              rel="noreferrer"
-                              title={domainFor(link.url)}
-                              onClick={(event) => event.stopPropagation()}
-                            >
-                              <span>{link.label}</span>
-                            </a>
-                          ))}
-                        </div>
-                      ) : null}
-
-                      {(candidate.blockers || candidate.action || candidate.terms) && (
-                        <div className="accommodation-review-card-notes">
-                          {candidate.blockers && <span>{candidate.blockers}</span>}
-                          {candidate.action && <span>{candidate.action}</span>}
-                          {candidate.terms && <span>{candidate.terms}</span>}
-                        </div>
-                      )}
-
-                      <div
-                        className="accommodation-review-card-actions"
-                        aria-label={`Move ${candidate.candidate}`}
-                      >
-                        {ACCOMMODATION_REVIEW_LANES.filter(
-                          (targetLane) => targetLane.id !== candidateLane(candidate)
-                        ).map((targetLane) => (
-                          <button
-                            key={`${candidate.id}-${targetLane.id}`}
-                            type="button"
-                            disabled={savingCandidateId === candidate.id}
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              writeReviewContext(activeDestination, candidate);
-                              moveCandidate(candidate.id, targetLane.id);
-                            }}
-                          >
-                            {laneActionLabel(targetLane.id)}
-                          </button>
-                        ))}
-                      </div>
-                    </article>
-                  ))}
+                  {laneCandidates.map((candidate) => renderCandidateCard(candidate))}
 
                   {laneCandidates.length === 0 && (
                     <div className="accommodation-review-lane-empty" />

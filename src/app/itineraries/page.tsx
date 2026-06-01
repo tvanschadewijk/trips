@@ -21,9 +21,53 @@ export const metadata: Metadata = {
     locale: 'en_US',
     type: 'website',
   },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Itineraries — OurTrips',
+    description:
+      'Public, remixable travel itineraries for family travel, food trips, adventure routes, romantic escapes, and once-in-a-lifetime journeys.',
+  },
 };
 
 export default function ItinerariesPage() {
+  const jsonLd = [
+    {
+      '@context': 'https://schema.org',
+      '@type': 'CollectionPage',
+      name: 'OurTrips Itineraries',
+      description:
+        'Public, remixable travel itineraries for family travel, food trips, adventure routes, romantic escapes, and once-in-a-lifetime journeys.',
+      url: 'https://ourtrips.to/itineraries',
+      mainEntity: {
+        '@type': 'ItemList',
+        itemListElement: publicItineraries.map((itinerary, index) => ({
+          '@type': 'ListItem',
+          position: index + 1,
+          name: itinerary.name,
+          url: itinerary.url,
+        })),
+      },
+    },
+    {
+      '@context': 'https://schema.org',
+      '@type': 'BreadcrumbList',
+      itemListElement: [
+        {
+          '@type': 'ListItem',
+          position: 1,
+          name: 'Home',
+          item: 'https://ourtrips.to',
+        },
+        {
+          '@type': 'ListItem',
+          position: 2,
+          name: 'Itineraries',
+          item: 'https://ourtrips.to/itineraries',
+        },
+      ],
+    },
+  ];
+
   return (
     <div className="itineraries-page">
       <nav className="itineraries-nav">
@@ -75,6 +119,10 @@ export default function ItinerariesPage() {
           <span className="itineraries-footer-copy">Built by Thijs van Schadewijk</span>
         </div>
       </footer>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
     </div>
   );
 }

@@ -20,3 +20,12 @@ export const FIXED_SDK_OPTIONS = {
   tools: ['AskUserQuestion', 'WebSearch'],
   permissionMode: 'dontAsk' as const,
 } as const;
+
+export const DEFAULT_TRIP_CHAT_MODEL = 'claude-haiku-4-5-20251001';
+export const TRIP_CHAT_MODEL_ENV = 'TRIP_CHAT_MODEL';
+
+export function resolveTripChatModel(
+  env: Record<string, string | undefined> = process.env
+): string {
+  return env[TRIP_CHAT_MODEL_ENV]?.trim() || DEFAULT_TRIP_CHAT_MODEL;
+}

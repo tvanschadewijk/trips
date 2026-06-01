@@ -22,7 +22,12 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { FIXED_SDK_OPTIONS } from './sdk-options';
+import {
+  DEFAULT_TRIP_CHAT_MODEL,
+  FIXED_SDK_OPTIONS,
+  TRIP_CHAT_MODEL_ENV,
+  resolveTripChatModel,
+} from './sdk-options';
 
 test('FIXED_SDK_OPTIONS.settingSources is an empty array (locks out CLAUDE.md + skills)', () => {
   assert.ok(
@@ -49,5 +54,16 @@ test('FIXED_SDK_OPTIONS.permissionMode is dontAsk (default-deny in serverless)',
     FIXED_SDK_OPTIONS.permissionMode,
     'dontAsk',
     'Permission mode must be dontAsk; there is no human available to answer a prompt in a POST handler'
+  );
+});
+
+test('resolveTripChatModel defaults to the cheap trip-chat model', () => {
+  assert.equal(resolveTripChatModel({}), DEFAULT_TRIP_CHAT_MODEL);
+});
+
+test('resolveTripChatModel honors a trimmed TRIP_CHAT_MODEL override', () => {
+  assert.equal(
+    resolveTripChatModel({ [TRIP_CHAT_MODEL_ENV]: ' claude-sonnet-4-6 ' }),
+    'claude-sonnet-4-6'
   );
 });

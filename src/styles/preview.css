@@ -38,6 +38,48 @@
   --app-max-width: 430px;
   --nav-height: 56px;
   --date-strip-height: 54px;
+  --trip-chat-sheet-width: 520px;
+  --trip-chat-sheet-max-height: min(43vh, 360px);
+  --trip-chat-sheet-radius: 22px;
+  --trip-chat-header-padding: 4px 16px 10px;
+  --trip-chat-title-size: 17px;
+  --trip-chat-title-line-height: 1.15;
+  --trip-chat-messages-padding: 14px 16px;
+  --trip-chat-message-gap: 12px;
+  --trip-chat-empty-padding: 16px 0;
+  --trip-chat-empty-font-size: 14px;
+  --trip-chat-empty-line-height: 1.55;
+  --trip-chat-assistant-bubble-max-width: 88%;
+  --trip-chat-assistant-bubble-padding: 10px 14px;
+  --trip-chat-assistant-bubble-radius: 14px;
+  --trip-chat-assistant-bubble-font-size: 14px;
+  --trip-chat-assistant-bubble-line-height: 1.5;
+  --trip-chat-user-bubble-max-width: 88%;
+  --trip-chat-user-bubble-padding: 10px 14px;
+  --trip-chat-user-bubble-radius: 14px;
+  --trip-chat-user-bubble-font-size: 14px;
+  --trip-chat-user-bubble-line-height: 1.5;
+  --trip-chat-markdown-paragraph-gap: 8px;
+  --trip-chat-markdown-heading-margin: 12px 0 6px;
+  --trip-chat-markdown-h1-size: 18px;
+  --trip-chat-markdown-h2-size: 16px;
+  --trip-chat-markdown-h3-size: 15px;
+  --trip-chat-markdown-h4-size: 14px;
+  --trip-chat-markdown-list-gap: 8px;
+  --trip-chat-markdown-list-indent: 20px;
+  --trip-chat-markdown-list-item-gap: 2px 0;
+  --trip-chat-markdown-blockquote-size: 13px;
+  --trip-chat-markdown-blockquote-padding: 4px 0 4px 12px;
+  --trip-chat-status-font-size: 14px;
+  --trip-chat-footer-padding: 10px 12px 12px;
+  --trip-chat-input-radius: 22px;
+  --trip-chat-input-padding: 6px 6px 6px 14px;
+  --trip-chat-input-gap: 8px;
+  --trip-chat-input-min-height: 28px;
+  --trip-chat-input-font-size: 14px;
+  --trip-chat-input-line-height: 1.45;
+  --trip-chat-textarea-padding: 6px 0;
+  --trip-chat-send-size: 32px;
 }
 
 /* ============================================
@@ -1783,29 +1825,49 @@ body.trip-on-cover .trip-ask-entry-label { display: inline; }
   color: var(--color-text-muted);
 }
 
-/* Compact markdown inside chat bubbles — scale down headings, tighten
-   spacing, drop body size to match the bubble's 14px text. */
-.chat-bubble-assistant .markdown-body { font-size: 14px; line-height: 1.55; color: var(--color-text-primary); }
-.chat-bubble-assistant .markdown-body p { margin: 0 0 8px; }
+/* Markdown inside assistant chat bubbles keeps an editorial reading rhythm:
+   generous line-height, calm Fraunces headings, and enough paragraph air
+   for travel-advice answers to scan like short notes rather than logs. */
+.chat-bubble-assistant .markdown-body {
+  max-width: 62ch;
+  font-size: var(--trip-chat-assistant-bubble-font-size, 14px);
+  line-height: var(--trip-chat-assistant-bubble-line-height, 1.55);
+  color: var(--color-text-primary);
+}
+.chat-bubble-assistant .markdown-body p { margin: 0 0 var(--trip-chat-markdown-paragraph-gap, 8px); }
 .chat-bubble-assistant .markdown-body p:last-child { margin-bottom: 0; }
 .chat-bubble-assistant .markdown-body h1,
 .chat-bubble-assistant .markdown-body h2,
 .chat-bubble-assistant .markdown-body h3,
-.chat-bubble-assistant .markdown-body h4 { margin: 12px 0 6px; }
-.chat-bubble-assistant .markdown-body h1 { font-size: 18px; }
-.chat-bubble-assistant .markdown-body h2 { font-size: 16px; }
-.chat-bubble-assistant .markdown-body h3 { font-size: 15px; }
-.chat-bubble-assistant .markdown-body h4 { font-size: 14px; }
+.chat-bubble-assistant .markdown-body h4 {
+  margin: var(--trip-chat-markdown-heading-margin, 12px 0 6px);
+  font-family: var(--font-serif);
+  font-optical-sizing: auto;
+  font-variation-settings: 'SOFT' 36;
+  font-weight: 420;
+  line-height: 1.18;
+  letter-spacing: 0;
+}
+.chat-bubble-assistant .markdown-body h1 { font-size: var(--trip-chat-markdown-h1-size, 18px); }
+.chat-bubble-assistant .markdown-body h2 { font-size: var(--trip-chat-markdown-h2-size, 16px); }
+.chat-bubble-assistant .markdown-body h3 { font-size: var(--trip-chat-markdown-h3-size, 15px); }
+.chat-bubble-assistant .markdown-body h4 { font-size: var(--trip-chat-markdown-h4-size, 14px); }
 .chat-bubble-assistant .markdown-body ul,
-.chat-bubble-assistant .markdown-body ol { margin: 0 0 8px; padding-left: 20px; }
-.chat-bubble-assistant .markdown-body li { margin: 2px 0; }
+.chat-bubble-assistant .markdown-body ol {
+  margin: 0 0 var(--trip-chat-markdown-list-gap, 8px);
+  padding-left: var(--trip-chat-markdown-list-indent, 20px);
+}
+.chat-bubble-assistant .markdown-body li { margin: var(--trip-chat-markdown-list-item-gap, 2px 0); }
 .chat-bubble-assistant .markdown-body code { font-size: 12px; padding: 1px 5px; }
 .chat-bubble-assistant .markdown-body pre { margin: 0 0 8px; padding: 10px 12px; font-size: 12px; }
 .chat-bubble-assistant .markdown-body table { font-size: 13px; margin: 0 0 8px; }
 .chat-bubble-assistant .markdown-body th,
 .chat-bubble-assistant .markdown-body td { padding: 6px 8px; }
 .chat-bubble-assistant .markdown-body hr { margin: 12px 0; }
-.chat-bubble-assistant .markdown-body blockquote { font-size: 13px; padding: 4px 0 4px 12px; }
+.chat-bubble-assistant .markdown-body blockquote {
+  font-size: var(--trip-chat-markdown-blockquote-size, 13px);
+  padding: var(--trip-chat-markdown-blockquote-padding, 4px 0 4px 12px);
+}
 
 /* Tappable */
 .tappable { cursor: pointer; transition: background 0.15s; border-radius: 4px; margin: 0 -8px; padding-left: 8px !important; padding-right: 8px !important; }
@@ -2260,6 +2322,49 @@ body.trip-on-cover .trip-ask-entry-label { display: inline; }
     --desktop-rail-width: 96px;
     --desktop-page-gutter: 48px;
     --radius-card: 6px;
+    --trip-chat-sheet-width: 624px;
+    --trip-chat-sheet-height: min(72dvh, 680px);
+    --trip-chat-sheet-max-height: min(78dvh, 720px);
+    --trip-chat-sheet-radius: 28px;
+    --trip-chat-header-padding: 8px 32px 22px;
+    --trip-chat-title-size: 24px;
+    --trip-chat-title-line-height: 1.12;
+    --trip-chat-messages-padding: 26px 32px 28px;
+    --trip-chat-message-gap: 18px;
+    --trip-chat-empty-padding: 20px 0;
+    --trip-chat-empty-font-size: 16px;
+    --trip-chat-empty-line-height: 1.65;
+    --trip-chat-assistant-bubble-max-width: min(100%, 640px);
+    --trip-chat-assistant-bubble-padding: 20px 24px;
+    --trip-chat-assistant-bubble-radius: 8px;
+    --trip-chat-assistant-bubble-font-size: 17px;
+    --trip-chat-assistant-bubble-line-height: 1.64;
+    --trip-chat-user-bubble-max-width: min(82%, 520px);
+    --trip-chat-user-bubble-padding: 13px 16px;
+    --trip-chat-user-bubble-radius: 18px;
+    --trip-chat-user-bubble-font-size: 16px;
+    --trip-chat-user-bubble-line-height: 1.5;
+    --trip-chat-markdown-paragraph-gap: 13px;
+    --trip-chat-markdown-heading-margin: 22px 0 10px;
+    --trip-chat-markdown-h1-size: 29px;
+    --trip-chat-markdown-h2-size: 24px;
+    --trip-chat-markdown-h3-size: 20px;
+    --trip-chat-markdown-h4-size: 18px;
+    --trip-chat-markdown-list-gap: 14px;
+    --trip-chat-markdown-list-indent: 24px;
+    --trip-chat-markdown-list-item-gap: 5px 0;
+    --trip-chat-markdown-blockquote-size: 16px;
+    --trip-chat-markdown-blockquote-padding: 6px 0 6px 16px;
+    --trip-chat-status-font-size: 15px;
+    --trip-chat-footer-padding: 14px 24px 20px;
+    --trip-chat-input-radius: 28px;
+    --trip-chat-input-padding: 8px 8px 8px 18px;
+    --trip-chat-input-gap: 10px;
+    --trip-chat-input-min-height: 36px;
+    --trip-chat-input-font-size: 16px;
+    --trip-chat-input-line-height: 1.5;
+    --trip-chat-textarea-padding: 7px 0;
+    --trip-chat-send-size: 40px;
   }
 
   .trip-desktop-bg {

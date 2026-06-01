@@ -55,7 +55,10 @@ import {
   buildStopHook,
   recordTurnUsage,
 } from '@/lib/trip-chat/hooks';
-import { FIXED_SDK_OPTIONS } from '@/lib/trip-chat/sdk-options';
+import {
+  FIXED_SDK_OPTIONS,
+  resolveTripChatModel,
+} from '@/lib/trip-chat/sdk-options';
 
 export const runtime = 'nodejs';        // Agent SDK spawns a subprocess; Node-only.
 export const maxDuration = 300;         // Vercel Pro ceiling — first agent turn after a cold spawn can be slow.
@@ -358,6 +361,8 @@ async function runAgentTurn(args: RunAgentTurnArgs): Promise<void> {
     permissionMode: FIXED_SDK_OPTIONS.permissionMode,
     systemPrompt,
     // ---- END LOCKED ----
+    // Cheap, fast default for trip edits; override with TRIP_CHAT_MODEL.
+    model: resolveTripChatModel(env),
     mcpServers: { trip_editor: mcpServer },
     allowedTools: ['AskUserQuestion', 'WebSearch', ...TRIP_EDITOR_TOOL_NAMES],
     hooks: {

@@ -16,12 +16,14 @@ import type { McpSdkServerConfigWithInstance } from '@anthropic-ai/claude-agent-
 import { z } from 'zod';
 import {
   addAccommodationCandidate,
-  buildInitialAccommodationReview,
-  mergeAccommodationReviewWithTripData,
   moveAccommodationCandidate,
   promoteCandidateToTrip,
   updateAccommodationCandidate,
 } from '@/lib/accommodation-review';
+import {
+  syncAccommodationReviewForTrip,
+  trySyncAccommodationReviewForTrip,
+} from '@/lib/accommodation-review-store';
 import type {
   Accommodation,
   AccommodationCandidate,
@@ -121,6 +123,11 @@ Use this for hotel-search workflow questions such as "what are we considering
 in Istanbul", "why did we reject that hotel", "what has been booked", or when
 the user is looking at the Accommodation Review surface. It returns the
 destination list, candidates grouped by Kanban lane, and recent reviewer events.
+
+The destination list is derived from the canonical itinerary in trips.data
+(days[].accommodation). If the user asks to remove, rename, merge, or
+consolidate a stay destination, update the canonical itinerary with get_trip
+and update_trip; do not only move private candidates around.
 
 No arguments. If the board does not exist yet, it is initialized from the
 current itinerary stays. The trip_id is pinned by the server.`;
@@ -540,34 +547,7 @@ async function loadOrCreateAccommodationReview(
   ctx: TripToolContext,
   tripData: TripData
 ): Promise<AccommodationReview> {
-  const { data: row, error } = await ctx.supabase
-    .from('trip_accommodation_reviews')
-    .select('data')
-    .eq('trip_id', ctx.tripId)
-    .maybeSingle();
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  if (row?.data) {
-    return mergeAccommodationReviewWithTripData(row.data, tripData);
-  }
-
-  const review = buildInitialAccommodationReview(tripData);
-  const { error: insertError } = await ctx.supabase
-    .from('trip_accommodation_reviews')
-    .upsert({
-      trip_id: ctx.tripId,
-      data: review,
-      updated_at: new Date().toISOString(),
-    });
-
-  if (insertError) {
-    throw new Error(insertError.message);
-  }
-
-  return review;
+  return syncAccommodationReviewForTrip(ctx.supabase, ctx.tripId, tripData);
 }
 
 async function saveAccommodationReview(
@@ -1347,6 +1327,12 @@ export function createTripEditorMcpServer(
         };
       }
 
+      const accommodationReviewSync = await trySyncAccommodationReviewForTrip(
+        ctx.supabase,
+        ctx.tripId,
+        after
+      );
+
       // 3. Notify the caller for diff logging / telemetry.
       if (ctx.onUpdateApplied) {
         try {
@@ -1366,7 +1352,7 @@ export function createTripEditorMcpServer(
         content: [
           {
             type: 'text' as const,
-            text: `Applied edit. Updated: ${touched.join(', ')}. Call get_trip if you need the new state.`,
+            text: `Applied edit. Updated: ${touched.join(', ')}. Accommodation review sync: ${accommodationReviewSync}. Call get_trip if you need the new state.`,
           },
         ],
       };
@@ -1417,6 +1403,12 @@ export function createTripEditorMcpServer(
         return textToolError(`Error writing trip: ${write.error.message}`);
       }
 
+      const accommodationReviewSync = await trySyncAccommodationReviewForTrip(
+        ctx.supabase,
+        ctx.tripId,
+        result.next
+      );
+
       if (ctx.onUpdateApplied) {
         try {
           await ctx.onUpdateApplied({
@@ -1440,6 +1432,7 @@ export function createTripEditorMcpServer(
         updated_count: result.updatedCount,
         accommodation_keys: Object.keys(parsed.data.accommodation_patch),
         markdown_source_updated: result.markdownSourceUpdated,
+        accommodation_review_sync: accommodationReviewSync,
       });
     }
   );
@@ -1487,6 +1480,12 @@ export function createTripEditorMcpServer(
         return textToolError(`Error writing trip: ${write.error.message}`);
       }
 
+      const accommodationReviewSync = await trySyncAccommodationReviewForTrip(
+        ctx.supabase,
+        ctx.tripId,
+        result.next
+      );
+
       if (ctx.onUpdateApplied) {
         try {
           await ctx.onUpdateApplied({
@@ -1507,6 +1506,7 @@ export function createTripEditorMcpServer(
         accommodation: result.name,
         detail_keys: Object.keys(parsed.data.detail_patch),
         markdown_source_updated: result.markdownSourceUpdated,
+        accommodation_review_sync: accommodationReviewSync,
       });
     }
   );
@@ -1653,6 +1653,9 @@ export function createTripEditorMcpServer(
           }
         }
         await saveAccommodationReview(ctx, nextReview);
+        const accommodationReviewSync = afterTrip
+          ? await trySyncAccommodationReviewForTrip(ctx.supabase, ctx.tripId, afterTrip)
+          : 'not_needed';
         if (ctx.onUpdateApplied) {
           try {
             await ctx.onUpdateApplied({
@@ -1670,6 +1673,7 @@ export function createTripEditorMcpServer(
           candidate_id: parsed.data.candidate_id,
           lane: parsed.data.lane,
           promoted_to_trip: parsed.data.lane === 'booked',
+          accommodation_review_sync: accommodationReviewSync,
           review: summarizeAccommodationReview(nextReview),
         });
       } catch (err) {
@@ -1717,6 +1721,11 @@ export function createTripEditorMcpServer(
           return textToolError(`Error writing trip: ${writeTrip.error.message}`);
         }
         await saveAccommodationReview(ctx, nextReview);
+        const accommodationReviewSync = await trySyncAccommodationReviewForTrip(
+          ctx.supabase,
+          ctx.tripId,
+          afterTrip
+        );
         if (ctx.onUpdateApplied) {
           try {
             await ctx.onUpdateApplied({
@@ -1733,6 +1742,7 @@ export function createTripEditorMcpServer(
           ok: true,
           candidate_id: parsed.data.candidate_id,
           promoted_to_trip: true,
+          accommodation_review_sync: accommodationReviewSync,
           review: summarizeAccommodationReview(nextReview),
         });
       } catch (err) {

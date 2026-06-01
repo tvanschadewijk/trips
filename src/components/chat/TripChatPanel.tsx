@@ -83,6 +83,15 @@ function userFacingChatError(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
+function notifyTripEditApplied(tripId: string) {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(
+    new CustomEvent('ourtrips:accommodation-review-updated', {
+      detail: { tripId },
+    })
+  );
+}
+
 async function fetchChatHistory(tripId: string): Promise<ChatMessage[]> {
   const res = await fetch(`/api/trips/${tripId}/chat?limit=${CHAT_HISTORY_LIMIT}`, {
     cache: 'no-store',
@@ -241,9 +250,10 @@ export default function TripChatPanel({ tripId, initialMessages }: Props) {
     });
 
     if ((assistant.tool_calls_json?.length ?? 0) > 0) {
+      notifyTripEditApplied(tripId);
       router.refresh();
     }
-  }, [router]);
+  }, [router, tripId]);
 
   async function send() {
     const trimmed = input.trim();
@@ -306,6 +316,7 @@ export default function TripChatPanel({ tripId, initialMessages }: Props) {
         return s;
       });
       if ((assistant.tool_calls_json?.length ?? 0) > 0) {
+        notifyTripEditApplied(tripId);
         router.refresh();
       }
     } catch (err) {
@@ -438,7 +449,7 @@ export default function TripChatPanel({ tripId, initialMessages }: Props) {
                 <div style={grabberStyle} />
               </div>
               <header style={headerStyle}>
-                <div style={{ fontFamily: '"Fraunces", Georgia, serif', fontSize: 17, fontWeight: 460, color: '#1A1410', letterSpacing: '-0.012em' }}>
+                <div style={chatTitleStyle}>
                   Ask your travel expert
                 </div>
               </header>
@@ -561,14 +572,24 @@ function MessageBubble({ m }: { m: ChatMessage }) {
       <div
         className={!isUser ? 'chat-bubble-assistant' : undefined}
         style={{
-          maxWidth: '88%',
-          padding: '10px 14px',
-          borderRadius: 14,
+          maxWidth: isUser
+            ? 'var(--trip-chat-user-bubble-max-width, 88%)'
+            : 'var(--trip-chat-assistant-bubble-max-width, 88%)',
+          padding: isUser
+            ? 'var(--trip-chat-user-bubble-padding, 10px 14px)'
+            : 'var(--trip-chat-assistant-bubble-padding, 10px 14px)',
+          borderRadius: isUser
+            ? 'var(--trip-chat-user-bubble-radius, 14px)'
+            : 'var(--trip-chat-assistant-bubble-radius, 14px)',
           background: isUser ? '#1A1410' : '#FFFFFF',
           color: isUser ? '#FBF7F1' : '#1A1410',
           border: isUser ? 'none' : '1px solid #E8E1D6',
-          fontSize: 14,
-          lineHeight: 1.5,
+          fontSize: isUser
+            ? 'var(--trip-chat-user-bubble-font-size, 14px)'
+            : 'var(--trip-chat-assistant-bubble-font-size, 14px)',
+          lineHeight: isUser
+            ? 'var(--trip-chat-user-bubble-line-height, 1.5)'
+            : 'var(--trip-chat-assistant-bubble-line-height, 1.5)',
           whiteSpace: isUser || m.pending ? 'pre-wrap' : 'normal',
           fontStyle: m.pending ? 'italic' : 'normal',
           opacity: m.pending ? 0.6 : 1,
@@ -656,12 +677,13 @@ const sheetStyle: React.CSSProperties = {
   bottom: 0,
   marginLeft: 'auto',
   marginRight: 'auto',
-  width: 'min(520px, 100vw)',
-  maxHeight: 'min(43vh, 360px)',
+  width: 'min(var(--trip-chat-sheet-width, 520px), 100vw)',
+  height: 'var(--trip-chat-sheet-height, auto)',
+  maxHeight: 'var(--trip-chat-sheet-max-height, min(43vh, 360px))',
   background: '#FBF7F1',
   border: '1px solid #E8E1D6',
-  borderTopLeftRadius: 22,
-  borderTopRightRadius: 22,
+  borderTopLeftRadius: 'var(--trip-chat-sheet-radius, 22px)',
+  borderTopRightRadius: 'var(--trip-chat-sheet-radius, 22px)',
   borderBottomLeftRadius: 0,
   borderBottomRightRadius: 0,
   boxShadow: 'rgba(26, 20, 16, 0.20) 0 -16px 48px -12px',
@@ -694,25 +716,36 @@ const headerStyle: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  padding: '4px 16px 10px',
+  padding: 'var(--trip-chat-header-padding, 4px 16px 10px)',
   borderBottom: '1px solid #E8E1D6',
   background: '#FBF7F1',
+};
+
+const chatTitleStyle: React.CSSProperties = {
+  fontFamily: '"Fraunces", "Iowan Old Style", "Palatino", Georgia, serif',
+  fontOpticalSizing: 'auto',
+  fontVariationSettings: "'SOFT' 42",
+  fontSize: 'var(--trip-chat-title-size, 17px)',
+  fontWeight: 420,
+  lineHeight: 'var(--trip-chat-title-line-height, 1.15)',
+  color: '#1A1410',
+  letterSpacing: 0,
 };
 
 const messagesStyle: React.CSSProperties = {
   flex: 1,
   overflowY: 'auto',
-  padding: '14px 16px',
+  padding: 'var(--trip-chat-messages-padding, 14px 16px)',
   display: 'flex',
   flexDirection: 'column',
-  gap: 12,
+  gap: 'var(--trip-chat-message-gap, 12px)',
   background: '#FBF7F1',
 };
 
 const emptyStyle: React.CSSProperties = {
-  padding: '16px 0',
-  fontSize: 14,
-  lineHeight: 1.55,
+  padding: 'var(--trip-chat-empty-padding, 16px 0)',
+  fontSize: 'var(--trip-chat-empty-font-size, 14px)',
+  lineHeight: 'var(--trip-chat-empty-line-height, 1.55)',
 };
 
 const statusRowStyle: React.CSSProperties = {
@@ -727,12 +760,14 @@ const statusRowStyle: React.CSSProperties = {
 };
 
 const statusTextStyle: React.CSSProperties = {
-  fontFamily: '"Fraunces", Georgia, serif',
+  fontFamily: '"Fraunces", "Iowan Old Style", "Palatino", Georgia, serif',
+  fontOpticalSizing: 'auto',
+  fontVariationSettings: "'SOFT' 36",
   fontStyle: 'italic',
-  fontSize: 14,
+  fontSize: 'var(--trip-chat-status-font-size, 14px)',
   fontWeight: 380,
   color: '#A03E1F',
-  letterSpacing: '-0.005em',
+  letterSpacing: 0,
 };
 
 const typingDotsStyle: React.CSSProperties = {
@@ -760,7 +795,7 @@ const errorStyle: React.CSSProperties = {
 };
 
 const footerStyle: React.CSSProperties = {
-  padding: '10px 12px 12px',
+  padding: 'var(--trip-chat-footer-padding, 10px 12px 12px)',
   borderTop: '1px solid #E8E1D6',
   background: '#FBF7F1',
 };
@@ -771,18 +806,18 @@ const inputWrapStyle: React.CSSProperties = {
   alignItems: 'flex-end',
   background: '#FFFFFF',
   border: '1px solid #E8E1D6',
-  borderRadius: 22,
-  padding: '6px 6px 6px 14px',
-  gap: 8,
+  borderRadius: 'var(--trip-chat-input-radius, 22px)',
+  padding: 'var(--trip-chat-input-padding, 6px 6px 6px 14px)',
+  gap: 'var(--trip-chat-input-gap, 8px)',
 };
 
 const textareaStyle: React.CSSProperties = {
   flex: 1,
-  minHeight: 28,
+  minHeight: 'var(--trip-chat-input-min-height, 28px)',
   maxHeight: 120,
-  padding: '6px 0',
-  fontSize: 14,
-  lineHeight: 1.45,
+  padding: 'var(--trip-chat-textarea-padding, 6px 0)',
+  fontSize: 'var(--trip-chat-input-font-size, 14px)',
+  lineHeight: 'var(--trip-chat-input-line-height, 1.45)',
   background: 'transparent',
   border: 'none',
   outline: 'none',
@@ -794,8 +829,8 @@ const textareaStyle: React.CSSProperties = {
 function sendIconButtonStyle(disabled: boolean): React.CSSProperties {
   return {
     flexShrink: 0,
-    width: 32,
-    height: 32,
+    width: 'var(--trip-chat-send-size, 32px)',
+    height: 'var(--trip-chat-send-size, 32px)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',

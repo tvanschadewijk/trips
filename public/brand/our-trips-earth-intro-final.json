@@ -1,0 +1,11 @@
+{
+  "created_at" : "2026-04-02T16:04:07Z",
+  "duration_seconds" : 10,
+  "frame_rate" : 30,
+  "notes" : "Visual-only composite built from xAI-generated Earth renders with locally composited pins and title. Audio was not added because the xAI video API returns silent video.",
+  "output_path" : "\/Users\/thijsvanschadewijk\/Documents\/Development\/Trips\/public\/brand\/our-trips-earth-intro-final.mp4",
+  "sources" : [
+    "our-trips-earth-intro-v2.mp4",
+    "our-trips-earth-intro.mp4"
+  ]
+}

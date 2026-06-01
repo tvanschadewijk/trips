@@ -1,0 +1,16 @@
+#!/bin/sh
+set -eu
+
+if ! git diff --quiet || ! git diff --cached --quiet; then
+  echo "pre-push: refusing to push with unstaged or staged local changes." >&2
+  echo "Commit, stash, or discard them first, then push again." >&2
+  exit 1
+fi
+
+untracked="$(git ls-files --others --exclude-standard)"
+if [ -n "$untracked" ]; then
+  echo "pre-push: refusing to push with untracked files:" >&2
+  echo "$untracked" >&2
+  echo "Commit, ignore, delete, or stash them first, then push again." >&2
+  exit 1
+fi

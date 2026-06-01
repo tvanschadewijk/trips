@@ -20,6 +20,12 @@ export const metadata: Metadata = {
     locale: 'en_US',
     type: 'website',
   },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Blog — OurTrips',
+    description:
+      'Guides, tips, and tutorials on AI-powered trip planning with Claude skills.',
+  },
 };
 
 export default function BlogIndex() {

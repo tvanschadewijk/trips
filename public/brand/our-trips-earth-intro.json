@@ -1,0 +1,23 @@
+{
+  "request_id": "ed008399-0242-98c7-b640-2c02b2056d9f",
+  "generated_at": "2026-04-02T15:49:25.831Z",
+  "output_path": "public/brand/our-trips-earth-intro.mp4",
+  "model": "grok-imagine-video",
+  "duration": 10,
+  "aspect_ratio": "16:9",
+  "resolution": "720p",
+  "prompt": "Create a cinematic, photorealistic CGI travel brand intro video. Show a breathtaking medium-wide view of Earth from low Earth orbit, centered and slightly below frame center, with the planet's curvature clearly visible and a deep-space star field in the background. The Earth should feel close enough to see lush green forests, rich blue oceans, golden deserts, and crisp white cloud cover, while still fully reading as a round globe. The globe rotates slowly counter-clockwise as the camera performs a gentle dolly push-in and drifts closer over time, creating a sense of discovery. As the planet rotates, glowing destination pins and location markers appear one by one across multiple continents with elegant warm white and golden light, each with a subtle pulse and soft light-burst reveal. Reveal the brand title \"OurTrips\" elegantly over the scene with a refined, premium travel-brand aesthetic. Style should feel like polished satellite imagery blended with high-end cinematic CGI, clean, aspirational, and premium. Keep motion smooth, graceful, and realistic, with no visible spacecraft, no UI overlays, no extra text beyond the title, and no cartoon styling.",
+  "result": {
+    "status": "done",
+    "video": {
+      "url": "https://vidgen.x.ai/xai-vidgen-bucket/xai-video-4d70e259-8471-461d-a98b-cd231d25cf0d.mp4",
+      "duration": 10,
+      "respect_moderation": true
+    },
+    "model": "grok-imagine-video",
+    "usage": {
+      "cost_in_usd_ticks": 7000000000
+    },
+    "progress": 100
+  }
+}

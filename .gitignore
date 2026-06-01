@@ -15,6 +15,7 @@
 
 # next.js
 /.next/
+/.next.backup-*/
 /out/
 
 # production
@@ -35,6 +36,17 @@ yarn-error.log*
 
 # vercel
 .vercel
+
+# local agent/editor artifacts
+/.claude/
+/trips/
+preview.html
+agent-sdk-for-ourtrips-brief.md
+claude-code-brief-ourtrips-chat.md
+supabase/.temp/
+**/* 2.ts
+**/* 2.tsx
+**/* 2.skill
 
 # typescript
 *.tsbuildinfo

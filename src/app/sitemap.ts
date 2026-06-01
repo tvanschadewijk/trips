@@ -1,5 +1,6 @@
 import type { MetadataRoute } from 'next';
 import { getAllPosts } from '@/lib/blog/posts';
+import { publicItineraries } from '@/lib/public-itineraries';
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const posts = getAllPosts();
@@ -9,6 +10,13 @@ export default function sitemap(): MetadataRoute.Sitemap {
     lastModified: new Date(post.date),
     changeFrequency: 'monthly',
     priority: 0.7,
+  }));
+
+  const itineraryEntries: MetadataRoute.Sitemap = publicItineraries.map((itinerary) => ({
+    url: itinerary.url,
+    lastModified: new Date('2026-05-18'),
+    changeFrequency: 'monthly' as const,
+    priority: 0.8,
   }));
 
   return [
@@ -42,6 +50,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: 'weekly',
       priority: 0.9,
     },
+    ...itineraryEntries,
     ...blogEntries,
   ];
 }

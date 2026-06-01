@@ -180,6 +180,83 @@ test('mergeAccommodationReviewWithTripData adds new trip stays without moving ex
   );
 });
 
+test('buildInitialAccommodationReview groups overlapping same-stop candidates into one destination', () => {
+  const trip: TripData = {
+    ...sampleTrip,
+    days: [
+      {
+        day_number: 24,
+        date: '2026-07-20',
+        title: 'Tekirdag Wine Coast -> Istanbul',
+        blocks: [{ time_label: 'Morning', content: 'Drive to Istanbul.', type: 'transport' }],
+        accommodation: {
+          name: 'Outer-Istanbul / Ecole St. Pierre fallback search',
+          status: 'pending',
+          nights: 3,
+        },
+      },
+      {
+        day_number: 25,
+        date: '2026-07-21',
+        title: 'Istanbul',
+        blocks: [{ time_label: 'Morning', content: 'Sultanahmet.', type: 'activity' }],
+        accommodation: {
+          name: 'The Stay Bosphorus',
+          nights: 3,
+        },
+      },
+      {
+        day_number: 26,
+        date: '2026-07-22',
+        title: 'Istanbul / Stan Flight',
+        blocks: [{ time_label: 'Morning', content: 'Ferry as activity.', type: 'activity' }],
+        accommodation: {
+          name: 'The Stay Bosphorus',
+          nights: 3,
+        },
+      },
+      {
+        day_number: 27,
+        date: '2026-07-23',
+        title: 'Istanbul -> Kavala',
+        blocks: [{ time_label: 'Morning', content: 'Drive to Kavala.', type: 'transport' }],
+        accommodation: {
+          name: 'Kavala border-recovery hotel',
+          status: 'pending',
+          nights: 2,
+        },
+      },
+    ],
+  };
+
+  const review = buildInitialAccommodationReview(trip);
+  const istanbulDestinations = review.destinations.filter(
+    (destination) => destination.title === 'Istanbul'
+  );
+  const istanbulCandidates = review.accommodations.filter(
+    (candidate) => candidate.stop === 'Istanbul'
+  );
+
+  assert.equal(istanbulDestinations.length, 1);
+  assert.deepEqual(istanbulDestinations[0].dayNumbers, [24, 25, 26]);
+  assert.equal(istanbulCandidates.length, 2);
+  assert.deepEqual(
+    istanbulCandidates.map((candidate) => candidate.destinationId),
+    [istanbulDestinations[0].id, istanbulDestinations[0].id]
+  );
+  assert.deepEqual(
+    istanbulCandidates.map((candidate) => candidate.dayNumbers),
+    [
+      [24, 25, 26],
+      [24, 25, 26],
+    ]
+  );
+  assert.deepEqual(
+    istanbulCandidates.map((candidate) => candidate.candidate).sort(),
+    ['Outer-Istanbul / Ecole St. Pierre fallback search', 'The Stay Bosphorus']
+  );
+});
+
 test('mergeAccommodationReviewWithTripData promotes itinerary-booked stays on existing cards', () => {
   const review = buildInitialAccommodationReview(sampleTrip);
   const staleCandidateId = review.accommodations[0].id;
