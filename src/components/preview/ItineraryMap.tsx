@@ -557,6 +557,7 @@ export default function ItineraryMap({
     const apiKey = GOOGLE_MAPS_API_KEY;
     if (!enabled || waitingForSearch || !apiKey || displayAtlas.points.length === 0 || !containerRef.current) return;
 
+    const googleMapsApiKey = apiKey;
     let cancelled = false;
     let resizeObserver: ResizeObserver | undefined;
     let fallbackTimer: number | undefined;
@@ -590,7 +591,7 @@ export default function ItineraryMap({
 
     async function loadMap() {
       try {
-        configureGoogleMaps(apiKey);
+        configureGoogleMaps(googleMapsApiKey);
         const [{ Map }, { AdvancedMarkerElement }] = await Promise.all([
           importLibrary('maps'),
           importLibrary('marker'),
