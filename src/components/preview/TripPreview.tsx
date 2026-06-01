@@ -7,8 +7,8 @@ import type { TripData, Day, Transport, Accommodation, Tip, Meal, Block, RichDet
 import { ICONS } from './icons';
 import SaveOfflineButton from './SaveOfflineButton';
 import TripRouteAtlas from './TripRouteAtlas';
-import MapboxItineraryMap from './MapboxItineraryMap';
-import type { MapboxPoiSearchTarget, MapboxPointDetail } from './MapboxItineraryMap';
+import ItineraryMap from './ItineraryMap';
+import type { ItineraryMapPoiSearchTarget, ItineraryMapPointDetail } from './ItineraryMap';
 import AccommodationReviewBoard from './AccommodationReviewBoard';
 import { renderTripMarkdown } from '@/lib/render-trip-markdown';
 import { buildDayRouteMapSearchText, buildTripRouteAtlas, routePlaceTextMatches } from '@/lib/trip-route';
@@ -143,7 +143,7 @@ function snippetsForPoint(day: Day, label: string): string[] {
     .slice(0, 2);
 }
 
-function mapPointDetailsForDay(atlas: TripRouteAtlasData | undefined, day: Day): Record<string, MapboxPointDetail> | undefined {
+function mapPointDetailsForDay(atlas: TripRouteAtlasData | undefined, day: Day): Record<string, ItineraryMapPointDetail> | undefined {
   if (!atlas) return undefined;
 
   return Object.fromEntries(atlas.points.map((point) => {
@@ -159,7 +159,7 @@ function mapPointDetailsForDay(atlas: TripRouteAtlasData | undefined, day: Day):
   }));
 }
 
-function mapPointDetailsForTrip(atlas: TripRouteAtlasData | undefined, days: Day[]): Record<string, MapboxPointDetail> | undefined {
+function mapPointDetailsForTrip(atlas: TripRouteAtlasData | undefined, days: Day[]): Record<string, ItineraryMapPointDetail> | undefined {
   if (!atlas) return undefined;
 
   return Object.fromEntries(atlas.points.map((point) => {
@@ -239,14 +239,14 @@ function splitPotentialPlaceLabels(value: string | undefined): string[] {
 }
 
 function addDayMapTarget(
-  targets: MapboxPoiSearchTarget[],
+  targets: ItineraryMapPoiSearchTarget[],
   seen: Set<string>,
   day: Day,
   atlas: TripRouteAtlasData | undefined,
   label: string | undefined,
-  kind: MapboxPoiSearchTarget['kind'],
-  role: MapboxPoiSearchTarget['role'],
-  detail: MapboxPointDetail,
+  kind: ItineraryMapPoiSearchTarget['kind'],
+  role: ItineraryMapPoiSearchTarget['role'],
+  detail: ItineraryMapPointDetail,
   queryPrefix?: string
 ) {
   if (!label) return;
@@ -277,8 +277,8 @@ function addDayMapTarget(
   });
 }
 
-function buildDayMapSearchTargets(day: Day, atlas: TripRouteAtlasData | undefined): MapboxPoiSearchTarget[] {
-  const targets: MapboxPoiSearchTarget[] = [];
+function buildDayMapSearchTargets(day: Day, atlas: TripRouteAtlasData | undefined): ItineraryMapPoiSearchTarget[] {
+  const targets: ItineraryMapPoiSearchTarget[] = [];
   const seen = new Set<string>();
 
   for (const transport of day.transport ?? []) {
@@ -522,10 +522,10 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     if (isDesktopPreview === false) setShowOverviewMap(false);
   }, [isDesktopPreview]);
 
-  const dayMapDataByNumber = useMemo<Record<number, { atlas?: TripRouteAtlasData; details?: Record<string, MapboxPointDetail>; searchTargets: MapboxPoiSearchTarget[] }>>(() => {
+  const dayMapDataByNumber = useMemo<Record<number, { atlas?: TripRouteAtlasData; details?: Record<string, ItineraryMapPointDetail>; searchTargets: ItineraryMapPoiSearchTarget[] }>>(() => {
     if (!routeAtlas) return {};
 
-    const mapData: Record<number, { atlas?: TripRouteAtlasData; details?: Record<string, MapboxPointDetail>; searchTargets: MapboxPoiSearchTarget[] }> = {};
+    const mapData: Record<number, { atlas?: TripRouteAtlasData; details?: Record<string, ItineraryMapPointDetail>; searchTargets: ItineraryMapPoiSearchTarget[] }> = {};
     for (const day of days) {
       const atlas = buildDayRouteAtlas(routeAtlas, day);
       mapData[day.day_number] = {
@@ -1425,7 +1425,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
           >
             {desktopOverviewMapVisible && routeAtlas ? (
               <div className="hero-map-stage">
-                <MapboxItineraryMap
+                <ItineraryMap
                   atlas={routeAtlas}
                   title={`${trip.name} itinerary map`}
                   variant="overview-card"
@@ -1485,7 +1485,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
                   <span className="hero-route-map-count">{routeStopCount} stop{routeStopCount === 1 ? '' : 's'}</span>
                 </div>
                 <div className="hero-route-map-frame">
-                  <MapboxItineraryMap
+                  <ItineraryMap
                     atlas={routeAtlas}
                     title={`${trip.name} itinerary map`}
                     variant="day"
@@ -1655,7 +1655,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
           </span>
         </div>
         <div className="day-map-frame">
-          <MapboxItineraryMap
+          <ItineraryMap
             atlas={dayRouteAtlas}
             title={`Day ${day.day_number} activity map`}
             variant="day"
