@@ -4,6 +4,7 @@ import { importLibrary, setOptions } from '@googlemaps/js-api-loader';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { TripRouteAtlas, TripRouteAtlasPoint } from '@/lib/trip-route';
+import type { ItineraryMapPoiSearchTarget, ItineraryMapPointDetail } from '@/lib/day-map';
 import '@/styles/itinerary-map.css';
 
 type MapVariant = 'overview-card' | 'day';
@@ -21,23 +22,6 @@ interface ItineraryMapProps {
   loadingLabel?: string;
   loadingHint?: string;
   searchTargets?: ItineraryMapPoiSearchTarget[];
-}
-
-export interface ItineraryMapPointDetail {
-  title?: string;
-  kicker?: string;
-  body?: string;
-}
-
-export interface ItineraryMapPoiSearchTarget {
-  id: string;
-  label: string;
-  query?: string;
-  kind?: 'place' | 'poi';
-  role?: TripRouteAtlasPoint['role'];
-  detail?: ItineraryMapPointDetail;
-  proximity?: [number, number];
-  bbox?: [number, number, number, number];
 }
 
 interface RouteSegment {
@@ -141,14 +125,18 @@ function atlasFromResolvedTargets(resolved: ResolvedSearchTarget[]): TripRouteAt
   };
 }
 
-function pointDataFor(atlas: TripRouteAtlas, pointDetails?: Record<string, ItineraryMapPointDetail>): PointDisplay[] {
+function pointDataFor(atlas: TripRouteAtlas, variant: MapVariant, pointDetails?: Record<string, ItineraryMapPointDetail>): PointDisplay[] {
   const hasHomeStart = atlas.points[0]?.role === 'home';
   return atlas.points.map((point) => {
     const detail = pointDetails?.[point.id] ?? {};
     return {
       id: point.id,
       label: point.label,
-      marker: point.role === 'home' ? '' : String(hasHomeStart ? point.index : point.index + 1),
+      marker: variant === 'day'
+        ? String(point.index + 1)
+        : point.role === 'home'
+          ? ''
+          : String(hasHomeStart ? point.index : point.index + 1),
       role: point.role ?? 'stop',
       position: toLatLng(point),
       detail: {
@@ -189,6 +177,7 @@ function boundsLiteralFor(bbox: [number, number, number, number]): google.maps.L
 }
 
 function locationBiasFor(target: ItineraryMapPoiSearchTarget): google.maps.places.SearchByTextRequest['locationBias'] | undefined {
+  if (target.kind === 'poi' && target.bbox) return undefined;
   if (target.bbox) return boundsLiteralFor(target.bbox);
   if (!target.proximity) return undefined;
 
@@ -196,6 +185,11 @@ function locationBiasFor(target: ItineraryMapPoiSearchTarget): google.maps.place
     center: { lat: target.proximity[1], lng: target.proximity[0] },
     radius: target.kind === 'place' ? 90000 : 35000,
   };
+}
+
+function locationRestrictionFor(target: ItineraryMapPoiSearchTarget): google.maps.places.SearchByTextRequest['locationRestriction'] | undefined {
+  if (target.kind !== 'poi' || !target.bbox) return undefined;
+  return boundsLiteralFor(target.bbox);
 }
 
 function placeCoordinates(place: google.maps.places.Place): google.maps.LatLngLiteral | undefined {
@@ -217,6 +211,7 @@ function pickSearchPlace(places: google.maps.places.Place[] | undefined, target:
   const candidates = (places ?? []).filter((place) => placeCoordinates(place));
   if (!candidates.length) return undefined;
   if (target.kind === 'place') return candidates[0];
+  if (target.placeType) return candidates.find((place) => !isAreaResult(place)) ?? candidates[0];
 
   const targetText = normalizeSearchText(target.label);
   return candidates.find((place) => {
@@ -226,6 +221,27 @@ function pickSearchPlace(places: google.maps.places.Place[] | undefined, target:
   }) ?? candidates.find((place) => !isAreaResult(place));
 }
 
+function resolvedTargetFromFallback(target: ItineraryMapPoiSearchTarget, index: number): ResolvedSearchTarget | null {
+  if (!target.fallbackPoint) return null;
+
+  return {
+    point: {
+      id: target.id,
+      index,
+      label: target.label,
+      lat: target.fallbackPoint.lat,
+      lng: target.fallbackPoint.lng,
+      role: target.role ?? 'stop',
+      source: target.fallbackPoint.source ?? 'derived',
+    },
+    detail: {
+      title: target.detail?.title ?? target.label,
+      kicker: target.detail?.kicker,
+      body: target.detail?.body,
+    },
+  };
+}
+
 async function resolveSearchTarget(target: ItineraryMapPoiSearchTarget, apiKey: string): Promise<ResolvedSearchTarget | null> {
   const cacheKey = JSON.stringify({
     label: target.label,
@@ -233,6 +249,7 @@ async function resolveSearchTarget(target: ItineraryMapPoiSearchTarget, apiKey: 
     proximity: target.proximity,
     bbox: target.bbox,
     kind: target.kind,
+    placeType: target.placeType,
   });
   if (SEARCH_CACHE.has(cacheKey)) return SEARCH_CACHE.get(cacheKey) ?? null;
 
@@ -247,12 +264,25 @@ async function resolveSearchTarget(target: ItineraryMapPoiSearchTarget, apiKey: 
 
   for (const query of searchQueriesFor(target)) {
     try {
-      const result = await Place.searchByText({
+      const locationRestriction = locationRestrictionFor(target);
+      const request: google.maps.places.SearchByTextRequest = {
         textQuery: query,
         fields: ['displayName', 'formattedAddress', 'location', 'primaryType', 'types'],
         language: 'en',
-        locationBias: locationBiasFor(target),
         maxResultCount: 5,
+      };
+      if (locationRestriction) {
+        request.locationRestriction = locationRestriction;
+      } else {
+        request.locationBias = locationBiasFor(target);
+      }
+      if (target.placeType) {
+        request.includedType = target.placeType;
+        request.useStrictTypeFiltering = target.placeType === 'lodging' || target.placeType === 'restaurant';
+      }
+
+      const result = await Place.searchByText({
+        ...request,
       });
       const place = pickSearchPlace(result.places, target);
       const position = place ? placeCoordinates(place) : undefined;
@@ -512,7 +542,7 @@ export default function ItineraryMap({
   );
   const displayPointDetails = resolvedSearchTargets.length && searchComplete ? resolvedSearchDetails : pointDetails;
   const routeSegments = useMemo(() => routeSegmentsFor(displayAtlas), [displayAtlas]);
-  const points = useMemo(() => pointDataFor(displayAtlas, displayPointDetails), [displayAtlas, displayPointDetails]);
+  const points = useMemo(() => pointDataFor(displayAtlas, variant, displayPointDetails), [displayAtlas, displayPointDetails, variant]);
   const waitingForSearch = enabled && Boolean(GOOGLE_MAPS_API_KEY) && searchTargets.length > 0 && !searchComplete;
   const showFallback = !GOOGLE_MAPS_API_KEY || (!waitingForSearch && displayAtlas.points.length === 0);
   const showDeferred = !enabled && !showFallback;
@@ -536,7 +566,9 @@ export default function ItineraryMap({
     async function loadSearchTargets() {
       const limitedTargets = searchTargets.slice(0, 10);
       const resolved = await Promise.all(
-        limitedTargets.map((target) => resolveSearchTarget(target, googleMapsApiKey))
+        limitedTargets.map(async (target, index) => (
+          await resolveSearchTarget(target, googleMapsApiKey)
+        ) ?? resolvedTargetFromFallback(target, index))
       );
       if (cancelled) return;
       setResolvedSearchTargets(resolved.filter((target): target is ResolvedSearchTarget => Boolean(target)));
@@ -555,7 +587,9 @@ export default function ItineraryMap({
     setFailed(false);
 
     const apiKey = GOOGLE_MAPS_API_KEY;
-    if (!enabled || waitingForSearch || !apiKey || displayAtlas.points.length === 0 || !containerRef.current) return;
+    const container = containerRef.current;
+    if (!enabled || waitingForSearch || !apiKey || displayAtlas.points.length === 0 || !container) return;
+    const mapContainer: HTMLDivElement = container;
 
     const googleMapsApiKey = apiKey;
     let cancelled = false;
@@ -584,7 +618,7 @@ export default function ItineraryMap({
       cancelled = true;
       if (fallbackTimer) window.clearTimeout(fallbackTimer);
       cleanupMapObjects();
-      if (containerRef.current) containerRef.current.replaceChildren();
+      mapContainer.replaceChildren();
       mapRef.current = null;
       setFailed(true);
     };
@@ -596,12 +630,12 @@ export default function ItineraryMap({
           importLibrary('maps'),
           importLibrary('marker'),
         ]);
-        if (cancelled || !containerRef.current) return;
+        if (cancelled || !mapContainer.isConnected) return;
 
-        const map = new Map(containerRef.current, {
+        const map = new Map(mapContainer, {
           backgroundColor: '#EFE5D8',
           center: centerFor(displayAtlas),
-          clickableIcons: false,
+          clickableIcons: interactive,
           disableDefaultUI: !interactive,
           fullscreenControl: interactive,
           gestureHandling: interactive ? 'auto' : 'none',
@@ -631,13 +665,13 @@ export default function ItineraryMap({
           setReady(true);
         }));
 
-        if (typeof ResizeObserver !== 'undefined' && containerRef.current) {
+        if (typeof ResizeObserver !== 'undefined') {
           resizeObserver = new ResizeObserver(() => {
             const center = map.getCenter();
             google.maps.event.trigger(map, 'resize');
             if (center) map.setCenter(center);
           });
-          resizeObserver.observe(containerRef.current);
+          resizeObserver.observe(mapContainer);
         }
       } catch {
         fail();
@@ -651,7 +685,7 @@ export default function ItineraryMap({
       if (fallbackTimer) window.clearTimeout(fallbackTimer);
       resizeObserver?.disconnect();
       cleanupMapObjects();
-      if (containerRef.current) containerRef.current.replaceChildren();
+      mapContainer.replaceChildren();
       mapRef.current = null;
     };
   }, [displayAtlas, enabled, interactive, points, routeSegments, showLines, variant, waitingForSearch]);

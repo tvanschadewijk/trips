@@ -5,6 +5,7 @@ import type { TripRouteAtlas as TripRouteAtlasData } from '@/lib/trip-route';
 interface TripRouteAtlasProps {
   atlas: TripRouteAtlasData;
   className?: string;
+  numberStart?: boolean;
 }
 
 const VIEWBOX = {
@@ -60,7 +61,7 @@ function labelFor(point: ReturnType<typeof projectPoint>) {
   };
 }
 
-export default function TripRouteAtlas({ atlas, className }: TripRouteAtlasProps) {
+export default function TripRouteAtlas({ atlas, className, numberStart = false }: TripRouteAtlasProps) {
   const points = atlas.points.map((point) => projectPoint(point, atlas));
   const hasHomeStart = atlas.points[0]?.role === 'home';
 
@@ -106,7 +107,11 @@ export default function TripRouteAtlas({ atlas, className }: TripRouteAtlasProps
 
         {points.map((point) => {
           const label = labelFor(point);
-          const marker = point.role === 'home' && hasHomeStart ? '' : String(hasHomeStart ? point.index : point.index + 1);
+          const marker = numberStart
+            ? String(point.index + 1)
+            : point.role === 'home' && hasHomeStart
+              ? ''
+              : String(hasHomeStart ? point.index : point.index + 1);
 
           return (
             <g key={point.id} className={`route-atlas-point route-atlas-point-${point.role ?? 'stop'}`}>

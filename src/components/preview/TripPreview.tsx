@@ -8,11 +8,14 @@ import { ICONS } from './icons';
 import SaveOfflineButton from './SaveOfflineButton';
 import TripRouteAtlas from './TripRouteAtlas';
 import ItineraryMap from './ItineraryMap';
-import type { ItineraryMapPoiSearchTarget, ItineraryMapPointDetail } from './ItineraryMap';
 import AccommodationReviewBoard from './AccommodationReviewBoard';
 import { renderTripMarkdown } from '@/lib/render-trip-markdown';
-import { buildDayRouteMapSearchText, buildTripRouteAtlas, routePlaceTextMatches } from '@/lib/trip-route';
-import type { TripRouteAtlas as TripRouteAtlasData, TripRouteAtlasLeg } from '@/lib/trip-route';
+import { buildTripRouteAtlas } from '@/lib/trip-route';
+import {
+  buildDayMapDataByNumber,
+  EMPTY_DAY_MAP_ATLAS,
+  mapPointDetailsForTrip,
+} from '@/lib/day-map';
 import { getTripOverviewImageUrl } from '@/lib/trip-images';
 import '@/styles/preview.css';
 
@@ -77,318 +80,6 @@ function renderRichDetail(detail?: RichDetail): string {
     renderMarkdownSection('Booking note', detail.booking_note),
     renderMarkdownSection('Dog note', detail.dog_note),
   ].join('');
-}
-
-function boundsForAtlasPoints(points: TripRouteAtlasData['points']): TripRouteAtlasData['bounds'] {
-  return {
-    minLat: Math.min(...points.map((point) => point.lat)),
-    maxLat: Math.max(...points.map((point) => point.lat)),
-    minLng: Math.min(...points.map((point) => point.lng)),
-    maxLng: Math.max(...points.map((point) => point.lng)),
-  };
-}
-
-function normalizeRouteSearchText(value: string | undefined): string {
-  return (value ?? '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .replace(/&/g, ' and ')
-    .replace(/[^a-z0-9]+/g, ' ')
-    .trim()
-    .replace(/\s+/g, ' ');
-}
-
-function routeTextMentionsPoint(dayText: string, label: string): boolean {
-  const normalizedLabel = normalizeRouteSearchText(label);
-  if (normalizedLabel.length < 4) return false;
-  if (routePlaceTextMatches(dayText, label)) return true;
-
-  return normalizedLabel
-    .split(' ')
-    .some((word) => word.length >= 5 && ` ${dayText} `.includes(` ${word} `));
-}
-
-function routeTextIncludesExactPoint(dayText: string, label: string): boolean {
-  return routePlaceTextMatches(dayText, label);
-}
-
-function truncateMapDetail(value: string | undefined): string {
-  const text = (value ?? '').replace(/\s+/g, ' ').trim();
-  if (text.length <= 150) return text;
-  return `${text.slice(0, 147).replace(/\s+\S*$/, '')}...`;
-}
-
-function snippetsForPoint(day: Day, label: string): string[] {
-  const candidates = [
-    ...(day.transport ?? []).flatMap((transport) => [
-      transport.label,
-      transport.from && transport.to ? `${transport.mode}: ${transport.from} to ${transport.to}` : undefined,
-      transport.detail?.route,
-    ]),
-    ...(day.blocks ?? []).flatMap((block) => [
-      block.detail?.title,
-      block.content,
-      block.detail?.body,
-      block.detail?.why,
-    ]),
-    ...(day.meals ?? []).flatMap((meal) => [meal.name, meal.note]),
-    ...(day.tips ?? []).flatMap((tip) => [tip.title, tip.content]),
-  ].filter((value): value is string => Boolean(value));
-
-  return candidates
-    .filter((value) => routeTextMentionsPoint(normalizeRouteSearchText(value), label))
-    .map(truncateMapDetail)
-    .filter(Boolean)
-    .slice(0, 2);
-}
-
-function mapPointDetailsForDay(atlas: TripRouteAtlasData | undefined, day: Day): Record<string, ItineraryMapPointDetail> | undefined {
-  if (!atlas) return undefined;
-
-  return Object.fromEntries(atlas.points.map((point) => {
-    const snippets = snippetsForPoint(day, point.label);
-    return [
-      point.id,
-      {
-        title: point.label,
-        kicker: `Day ${day.day_number}`,
-        body: snippets.join(' · ') || truncateMapDetail(day.subtitle || day.description || day.title),
-      },
-    ];
-  }));
-}
-
-function mapPointDetailsForTrip(atlas: TripRouteAtlasData | undefined, days: Day[]): Record<string, ItineraryMapPointDetail> | undefined {
-  if (!atlas) return undefined;
-
-  return Object.fromEntries(atlas.points.map((point) => {
-    const day = point.day ? days.find((candidate) => candidate.day_number === point.day) : undefined;
-    return [
-      point.id,
-      {
-        title: point.label,
-        kicker: day ? `Day ${day.day_number}` : point.role === 'home' ? 'Start / finish' : 'Trip stop',
-        body: day ? truncateMapDetail(day.title || day.subtitle || day.description) : '',
-      },
-    ];
-  }));
-}
-
-function dayMapSearchProximity(atlas: TripRouteAtlasData | undefined): [number, number] | undefined {
-  if (!atlas?.points.length) return undefined;
-  return [
-    (atlas.bounds.minLng + atlas.bounds.maxLng) / 2,
-    (atlas.bounds.minLat + atlas.bounds.maxLat) / 2,
-  ];
-}
-
-function dayMapSearchBbox(atlas: TripRouteAtlasData | undefined): [number, number, number, number] | undefined {
-  if (!atlas?.points.length) return undefined;
-  const lngSpan = Math.max(0.12, atlas.bounds.maxLng - atlas.bounds.minLng);
-  const latSpan = Math.max(0.10, atlas.bounds.maxLat - atlas.bounds.minLat);
-  const lngPad = Math.min(Math.max(lngSpan * 0.35, 0.08), 0.8);
-  const latPad = Math.min(Math.max(latSpan * 0.35, 0.06), 0.8);
-  return [
-    Math.max(-180, atlas.bounds.minLng - lngPad),
-    Math.max(-90, atlas.bounds.minLat - latPad),
-    Math.min(180, atlas.bounds.maxLng + lngPad),
-    Math.min(90, atlas.bounds.maxLat + latPad),
-  ];
-}
-
-function mapSearchContext(day: Day, atlas: TripRouteAtlasData | undefined): string {
-  const routeLabels = atlas?.points
-    .filter((point) => point.role !== 'home')
-    .map((point) => point.label)
-    .slice(0, 3) ?? [];
-  return [...routeLabels, day.title].join(' ');
-}
-
-function normalizeMapSearchLabel(value: string): string {
-  return normalizeRouteSearchText(value);
-}
-
-const NON_PLACE_STARTS = /^(?:drive|arrive|settle|keep|use|prepare|choose|pick|repeat|book|confirm|target|board|charge|optional|slow|early|easy|short|long)\b/i;
-const NON_PLACE_WORDS = /\b(?:wander|walk|time|choice|option|reset|arrival|positioning|recovery|buffer|shade|shaded|morning|afternoon|evening|night|day|route|drive|dinner|lunch|breakfast|old-town)\b/i;
-
-function looksLikePlaceLabel(value: string): boolean {
-  const label = value.trim().replace(/\.$/, '');
-  if (label.length < 3 || label.length > 72) return false;
-  if (NON_PLACE_STARTS.test(label)) return false;
-  if (!/[A-ZÀ-Þ]/.test(label)) return false;
-  const words = label.split(/\s+/).filter(Boolean);
-  if (words.length > 7) return false;
-  if (NON_PLACE_WORDS.test(label)) return false;
-  return true;
-}
-
-function splitPotentialPlaceLabels(value: string | undefined): string[] {
-  if (!value) return [];
-  const cleaned = value
-    .replace(/[–—]/g, ' - ')
-    .replace(/\s+(?:if|only if|rather than|depending on|as heat|as crowds|before over|after over)\b.*$/i, '')
-    .replace(/\s+with\s+.*$/i, '')
-    .replace(/\s+or\s+switch\b.*$/i, '')
-    .trim();
-
-  return cleaned
-    .split(/\s*(?:,|;|\/|\+|\band\b|\bor\b)\s*/i)
-    .map((part) => part.trim().replace(/\.$/, ''))
-    .filter(looksLikePlaceLabel);
-}
-
-function addDayMapTarget(
-  targets: ItineraryMapPoiSearchTarget[],
-  seen: Set<string>,
-  day: Day,
-  atlas: TripRouteAtlasData | undefined,
-  label: string | undefined,
-  kind: ItineraryMapPoiSearchTarget['kind'],
-  role: ItineraryMapPoiSearchTarget['role'],
-  detail: ItineraryMapPointDetail,
-  queryPrefix?: string
-) {
-  if (!label) return;
-  const trimmed = label.trim().replace(/\.$/, '');
-  if (!trimmed) return;
-  const normalized = normalizeMapSearchLabel(trimmed);
-  if (normalized.length < 3) return;
-  for (const existing of [...seen]) {
-    if (existing.includes(normalized)) return;
-    if (normalized.includes(existing)) {
-      seen.delete(existing);
-      const targetIndex = targets.findIndex((target) => normalizeMapSearchLabel(target.label) === existing);
-      if (targetIndex >= 0) targets.splice(targetIndex, 1);
-    }
-  }
-
-  seen.add(normalized);
-  const context = mapSearchContext(day, atlas);
-  targets.push({
-    id: `day-${day.day_number}-poi-${targets.length}-${normalized.replace(/\s+/g, '-')}`,
-    label: trimmed,
-    query: `${queryPrefix ? `${queryPrefix} ` : ''}${trimmed}, ${context}`.trim(),
-    kind,
-    role,
-    detail,
-    proximity: dayMapSearchProximity(atlas),
-    bbox: dayMapSearchBbox(atlas),
-  });
-}
-
-function buildDayMapSearchTargets(day: Day, atlas: TripRouteAtlasData | undefined): ItineraryMapPoiSearchTarget[] {
-  const targets: ItineraryMapPoiSearchTarget[] = [];
-  const seen = new Set<string>();
-
-  for (const transport of day.transport ?? []) {
-    addDayMapTarget(targets, seen, day, atlas, transport.from, 'place', 'stop', {
-      title: transport.from,
-      kicker: `Day ${day.day_number} · Route`,
-      body: truncateMapDetail(transport.label || transport.duration),
-    });
-    addDayMapTarget(targets, seen, day, atlas, transport.to, 'place', 'stop', {
-      title: transport.to,
-      kicker: `Day ${day.day_number} · Route`,
-      body: truncateMapDetail(transport.label || transport.duration),
-    });
-  }
-
-  if (day.accommodation?.name) {
-    addDayMapTarget(targets, seen, day, atlas, day.accommodation.name, 'poi', 'stay', {
-      title: day.accommodation.name,
-      kicker: `Day ${day.day_number} · Hotel`,
-      body: truncateMapDetail(day.accommodation.note || day.accommodation.detail?.why || day.accommodation.detail?.body),
-    }, 'Hotel');
-  }
-
-  for (const block of day.blocks ?? []) {
-    const contentLabels = splitPotentialPlaceLabels(block.content);
-    const labels = [
-      ...contentLabels,
-      ...(contentLabels.length ? [] : splitPotentialPlaceLabels(block.detail?.title)),
-    ];
-    for (const label of labels) {
-      addDayMapTarget(targets, seen, day, atlas, label, 'poi', 'excursion', {
-        title: label,
-        kicker: `Day ${day.day_number} · Sight`,
-        body: truncateMapDetail(block.detail?.why || block.detail?.body || block.content),
-      });
-    }
-  }
-
-  for (const meal of day.meals ?? []) {
-    addDayMapTarget(targets, seen, day, atlas, meal.name, 'poi', 'stop', {
-      title: meal.name,
-      kicker: `Day ${day.day_number} · ${meal.type}`,
-      body: truncateMapDetail(meal.note || meal.detail?.why || meal.detail?.body),
-    });
-  }
-
-  return targets.slice(0, 10);
-}
-
-function buildAtlasFromSelection(
-  atlas: TripRouteAtlasData,
-  selectedIndices: number[],
-  dayNumber: number
-): TripRouteAtlasData | undefined {
-  if (!selectedIndices.length) return undefined;
-
-  const oldToNew = new Map<number, number>();
-  const points = selectedIndices.map((oldIndex, newIndex) => {
-    const point = atlas.points[oldIndex];
-    oldToNew.set(oldIndex, newIndex);
-    return {
-      ...point,
-      id: `day-${dayNumber}-${newIndex}-${point.id}`,
-      index: newIndex,
-    };
-  });
-
-  let legs: TripRouteAtlasLeg[] = atlas.legs
-    .filter((leg) => oldToNew.has(leg.from) && oldToNew.has(leg.to))
-    .map((leg) => ({
-      ...leg,
-      from: oldToNew.get(leg.from)!,
-      to: oldToNew.get(leg.to)!,
-    }));
-
-  if (!legs.length && points.length > 1) {
-    legs = points.slice(1).map((point, index) => ({
-      from: index,
-      to: index + 1,
-      day: dayNumber,
-      label: point.label,
-      mode: point.modeFromPrevious ?? point.mode ?? 'route',
-    }));
-  }
-
-  return {
-    points,
-    legs,
-    modes: [...new Set(legs.map((leg) => leg.mode))],
-    bounds: boundsForAtlasPoints(points),
-  };
-}
-
-function buildDayRouteAtlas(atlas: TripRouteAtlasData | undefined, day: Day): TripRouteAtlasData | undefined {
-  if (!atlas) return undefined;
-
-  const dayNumber = day.day_number;
-  const selected = new Set<number>();
-  atlas.points.forEach((point, index) => {
-    if (point.day === dayNumber) selected.add(index);
-  });
-
-  if (!selected.size) {
-    const dayText = buildDayRouteMapSearchText(day);
-    atlas.points.forEach((point, index) => {
-      if (routeTextIncludesExactPoint(dayText, point.label)) selected.add(index);
-    });
-  }
-
-  return buildAtlasFromSelection(atlas, [...selected].sort((a, b) => a - b), dayNumber);
 }
 
 const MAX_VISIBLE_DOTS = 7;
@@ -489,7 +180,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
 
   const activeTripData = activeTripIndex !== null ? trips[activeTripIndex] : undefined;
   const trip = activeTripData?.trip ?? null;
-  const days = activeTripData?.days || [];
+  const days = useMemo(() => activeTripData?.days ?? [], [activeTripData]);
   const markdownSource = activeTripData?.markdown_source;
   const totalSlides = 1 + days.length;
   const routeAtlases = useMemo(
@@ -522,20 +213,10 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     if (isDesktopPreview === false) setShowOverviewMap(false);
   }, [isDesktopPreview]);
 
-  const dayMapDataByNumber = useMemo<Record<number, { atlas?: TripRouteAtlasData; details?: Record<string, ItineraryMapPointDetail>; searchTargets: ItineraryMapPoiSearchTarget[] }>>(() => {
-    if (!routeAtlas) return {};
-
-    const mapData: Record<number, { atlas?: TripRouteAtlasData; details?: Record<string, ItineraryMapPointDetail>; searchTargets: ItineraryMapPoiSearchTarget[] }> = {};
-    for (const day of days) {
-      const atlas = buildDayRouteAtlas(routeAtlas, day);
-      mapData[day.day_number] = {
-        atlas,
-        details: mapPointDetailsForDay(atlas, day),
-        searchTargets: buildDayMapSearchTargets(day, atlas),
-      };
-    }
-    return mapData;
-  }, [routeAtlas, days]);
+  const dayMapDataByNumber = useMemo(
+    () => buildDayMapDataByNumber(routeAtlas, days),
+    [routeAtlas, days]
+  );
 
   // Prewarm the trip JSON cache the SW maintains. Fire-and-forget; even
   // if we never click 'Save offline', the next slow/offline visit can
@@ -1580,13 +1261,15 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
   }
 
   // Render day slide
-  function renderDaySlide(day: Day) {
+  function renderDaySlide(day: Day, slideIndex: number) {
     const dateStr = formatDate(day.date, { weekday: 'short', day: 'numeric', month: 'short' });
     const dayMapData = dayMapDataByNumber[day.day_number];
     const dayRouteAtlas = dayMapData?.atlas;
+    const dayMapAtlas = dayRouteAtlas ?? EMPTY_DAY_MAP_ATLAS;
     const dayMapSearchTargets = dayMapData?.searchTargets ?? [];
-    const dayMapStopCount = dayRouteAtlas
-      ? dayMapSearchTargets.length || dayRouteAtlas.points.filter((point) => point.role !== 'home').length || dayRouteAtlas.points.length
+    const hasDayMapLocations = Boolean(dayRouteAtlas?.points.length || dayMapSearchTargets.length);
+    const dayMapStopCount = hasDayMapLocations
+      ? dayMapSearchTargets.length || dayRouteAtlas?.points.filter((point) => point.role !== 'home').length || dayRouteAtlas?.points.length || 0
       : 0;
 
     const statsChips = day.stats?.length ? (
@@ -1621,7 +1304,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
       </div>
     );
 
-    const dayMapSection = dayRouteAtlas ? (
+    const dayMapSection = hasDayMapLocations ? (
       <div className="day-map-card">
         <div className="day-map-header">
           <span className="text-section-title"><span className="section-icon"><Icon name="route" /></span>Day map</span>
@@ -1631,17 +1314,17 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
         </div>
         <div className="day-map-frame">
           <ItineraryMap
-            atlas={dayRouteAtlas}
+            atlas={dayMapAtlas}
             title={`Day ${day.day_number} activity map`}
             variant="day"
             interactive
             pointDetails={dayMapData?.details}
             searchTargets={dayMapSearchTargets}
             showLines={false}
-            enabled={currentSlide === day.day_number}
+            enabled={currentSlide === slideIndex}
             loadingLabel={dayMapSearchTargets.length ? 'Finding day places' : 'Loading day map'}
             loadingHint={dayMapSearchTargets.length ? 'Looking up hotels, restaurants and sights for this day.' : undefined}
-            fallback={<TripRouteAtlas atlas={dayRouteAtlas} />}
+            fallback={dayRouteAtlas ? <TripRouteAtlas atlas={dayRouteAtlas} numberStart /> : undefined}
           />
         </div>
       </div>
@@ -1840,7 +1523,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     ) : null;
 
     return (
-      <div key={day.day_number} className={`slide ${currentSlide === day.day_number ? 'active' : ''}`}>
+      <div key={day.day_number} className={`slide ${currentSlide === slideIndex ? 'active' : ''}`}>
         <div className="day-slide">
           {visualSection}
           {descSection}
@@ -1949,14 +1632,15 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
           {/* Date Strip */}
           <div className={`date-strip ${isHero ? 'hidden' : ''}`}>
             <div className="date-strip-inner" ref={dateStripRef}>
-              {days.map(day => {
+              {days.map((day, dayIndex) => {
                 const date = new Date(day.date + 'T12:00:00');
                 const wd = date.toLocaleDateString('en-GB', { weekday: 'short' }).toUpperCase();
                 const d = date.getDate();
+                const slideIndex = dayIndex + 1;
                 return (
-                  <button key={day.day_number} className={`date-btn ${currentSlide === day.day_number ? 'active' : ''}`}
-                    onClick={() => { if (!dateStripDragged.current) goTo(day.day_number); }}
-                    aria-selected={currentSlide === day.day_number}
+                  <button key={day.day_number} className={`date-btn ${currentSlide === slideIndex ? 'active' : ''}`}
+                    onClick={() => { if (!dateStripDragged.current) goTo(slideIndex); }}
+                    aria-current={currentSlide === slideIndex ? 'date' : undefined}
                     aria-label={`Day ${day.day_number}, ${date.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}`}>
                     <span className="date-btn-wd">{wd}</span>
                     <span className="date-btn-d">{d}</span>
@@ -1970,7 +1654,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
           <div className="swipe-viewport" ref={viewportRef}>
             <div className={`swipe-track motion-${slideMotionMode} direction-${slideDirection}`} ref={trackRef}>
               {renderHeroSlide()}
-              {days.map(day => renderDaySlide(day))}
+              {days.map((day, dayIndex) => renderDaySlide(day, dayIndex + 1))}
             </div>
           </div>
 
