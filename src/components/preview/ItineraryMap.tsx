@@ -547,6 +547,11 @@ export default function ItineraryMap({
   const showFallback = !GOOGLE_MAPS_API_KEY || (!waitingForSearch && displayAtlas.points.length === 0);
   const showDeferred = !enabled && !showFallback;
   const fallbackNode = fallback ? <div className="itinerary-map-fallback">{fallback}</div> : null;
+  const errorNode = (
+    <div className="itinerary-map-error">
+      <span>Map could not load</span>
+    </div>
+  );
   const effectiveLoadingLabel = waitingForSearch ? 'Finding day places' : loadingLabel;
   const effectiveLoadingHint = waitingForSearch ? 'Looking up hotels, restaurants and sights for this day.' : loadingHint;
 
@@ -706,11 +711,9 @@ export default function ItineraryMap({
       {showDeferred ? (
         <div className="itinerary-map-deferred" aria-hidden="true" />
       ) : showFallback ? (
-        fallbackNode
+        fallbackNode ?? errorNode
       ) : failed ? (
-        <div className="itinerary-map-error">
-          <span>Map could not load</span>
-        </div>
+        fallbackNode ?? errorNode
       ) : (
         <>
           <div ref={containerRef} className="itinerary-map-canvas" />

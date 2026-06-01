@@ -229,6 +229,22 @@ function matchingAtlasPoint(atlas: TripRouteAtlas | undefined, label: string): T
     ?? atlas.points.find((point) => routePlaceTextMatches(label, point.label) || routePlaceTextMatches(point.label, label));
 }
 
+function approximateAtlasPoint(atlas: TripRouteAtlas | undefined, index: number): ItineraryMapPoiSearchTarget['fallbackPoint'] {
+  if (!atlas?.points.length) return undefined;
+
+  const lat = (atlas.bounds.minLat + atlas.bounds.maxLat) / 2;
+  const lng = (atlas.bounds.minLng + atlas.bounds.maxLng) / 2;
+  const angle = (index * 137.508 * Math.PI) / 180;
+  const radius = 0.006 + Math.floor(index / 6) * 0.004;
+  const lngScale = Math.max(Math.cos((lat * Math.PI) / 180), 0.35);
+
+  return {
+    lat: lat + Math.sin(angle) * radius,
+    lng: lng + (Math.cos(angle) * radius) / lngScale,
+    source: 'derived',
+  };
+}
+
 function queryWithContext(label: string, context: string, address?: string, queryPrefix?: string): string {
   return [
     queryPrefix ? `${queryPrefix} ${label}` : label,
@@ -277,7 +293,8 @@ function addDayMapTarget(
 
   seen.add(normalized);
   const context = mapSearchContext(day, atlas);
-  const fallbackPoint = matchingAtlasPoint(atlas, trimmed);
+  const fallbackPoint = matchingAtlasPoint(atlas, [trimmed, options.address].filter(Boolean).join(' '))
+    ?? approximateAtlasPoint(atlas, targets.length);
   targets.push({
     id: `day-${day.day_number}-poi-${targets.length}-${normalized.replace(/\s+/g, '-')}`,
     label: trimmed,
@@ -373,6 +390,49 @@ export function buildDayMapSearchTargets(
   return targets.slice(0, 10);
 }
 
+function buildAtlasFromSearchTargets(
+  targets: ItineraryMapPoiSearchTarget[],
+  dayNumber: number
+): TripRouteAtlas | undefined {
+  const points = targets
+    .map((target, index): TripRouteAtlasPoint | undefined => {
+      if (!target.fallbackPoint) return undefined;
+      return {
+        id: target.id,
+        index,
+        label: target.label,
+        lat: target.fallbackPoint.lat,
+        lng: target.fallbackPoint.lng,
+        day: dayNumber,
+        role: target.role ?? 'stop',
+        source: target.fallbackPoint.source ?? 'derived',
+      };
+    })
+    .filter((point): point is TripRouteAtlasPoint => Boolean(point));
+
+  if (!points.length) return undefined;
+
+  return {
+    points,
+    legs: [],
+    modes: [],
+    bounds: boundsForAtlasPoints(points),
+  };
+}
+
+function mapPointDetailsForTargets(targets: ItineraryMapPoiSearchTarget[]): Record<string, ItineraryMapPointDetail> | undefined {
+  if (!targets.length) return undefined;
+
+  return Object.fromEntries(targets.map((target) => [
+    target.id,
+    {
+      title: target.detail?.title ?? target.label,
+      kicker: target.detail?.kicker,
+      body: target.detail?.body,
+    },
+  ]));
+}
+
 function buildAtlasFromSelection(
   atlas: TripRouteAtlas,
   selectedIndices: number[],
@@ -440,11 +500,14 @@ export function buildDayMapDataByNumber(routeAtlas: TripRouteAtlas | undefined, 
   const mapData: Record<number, DayMapData> = {};
 
   days.forEach((day, index) => {
-    const atlas = buildDayRouteAtlas(routeAtlas, day);
+    const dayRouteAtlas = buildDayRouteAtlas(routeAtlas, day);
+    const searchTargets = buildDayMapSearchTargets(day, dayRouteAtlas ?? routeAtlas, days[index - 1]);
+    const searchTargetAtlas = buildAtlasFromSearchTargets(searchTargets, day.day_number);
+    const atlas = searchTargetAtlas ?? dayRouteAtlas;
     mapData[day.day_number] = {
       atlas,
-      details: mapPointDetailsForDay(atlas, day),
-      searchTargets: buildDayMapSearchTargets(day, atlas, days[index - 1]),
+      details: searchTargetAtlas ? mapPointDetailsForTargets(searchTargets) : mapPointDetailsForDay(atlas, day),
+      searchTargets,
     };
   });
 

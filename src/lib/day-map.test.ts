@@ -68,6 +68,8 @@ test('day map targets preserve the day order and skip generic meal descriptions'
       'Trattoria da Maria',
     ]
   );
+  assert.deepEqual(dayMapData.atlas?.points.map((point) => point.label), targets.map((target) => target.label));
+  assert.equal(targets.every((target) => Boolean(target.fallbackPoint)), true);
   assert.equal(targets.find((target) => target.label === 'Peschici')?.fallbackPoint?.lat, 41.946);
   assert.equal(targets.find((target) => target.label === 'Vila SEJUDA Alberghetto')?.placeType, 'lodging');
   assert.equal(targets.find((target) => target.label === 'Trattoria da Maria')?.placeType, 'restaurant');

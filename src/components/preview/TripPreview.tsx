@@ -1264,12 +1264,12 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
   function renderDaySlide(day: Day, slideIndex: number) {
     const dateStr = formatDate(day.date, { weekday: 'short', day: 'numeric', month: 'short' });
     const dayMapData = dayMapDataByNumber[day.day_number];
-    const dayRouteAtlas = dayMapData?.atlas;
-    const dayMapAtlas = dayRouteAtlas ?? EMPTY_DAY_MAP_ATLAS;
+    const dayMapAtlas = dayMapData?.atlas;
+    const itineraryMapAtlas = dayMapAtlas ?? EMPTY_DAY_MAP_ATLAS;
     const dayMapSearchTargets = dayMapData?.searchTargets ?? [];
-    const hasDayMapLocations = Boolean(dayRouteAtlas?.points.length || dayMapSearchTargets.length);
+    const hasDayMapLocations = Boolean(dayMapAtlas?.points.length || dayMapSearchTargets.length);
     const dayMapStopCount = hasDayMapLocations
-      ? dayMapSearchTargets.length || dayRouteAtlas?.points.filter((point) => point.role !== 'home').length || dayRouteAtlas?.points.length || 0
+      ? dayMapSearchTargets.length || dayMapAtlas?.points.filter((point) => point.role !== 'home').length || dayMapAtlas?.points.length || 0
       : 0;
 
     const statsChips = day.stats?.length ? (
@@ -1314,7 +1314,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
         </div>
         <div className="day-map-frame">
           <ItineraryMap
-            atlas={dayMapAtlas}
+            atlas={itineraryMapAtlas}
             title={`Day ${day.day_number} activity map`}
             variant="day"
             interactive
@@ -1324,7 +1324,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
             enabled={currentSlide === slideIndex}
             loadingLabel={dayMapSearchTargets.length ? 'Finding day places' : 'Loading day map'}
             loadingHint={dayMapSearchTargets.length ? 'Looking up hotels, restaurants and sights for this day.' : undefined}
-            fallback={dayRouteAtlas ? <TripRouteAtlas atlas={dayRouteAtlas} numberStart /> : undefined}
+            fallback={dayMapAtlas ? <TripRouteAtlas atlas={dayMapAtlas} numberStart /> : undefined}
           />
         </div>
       </div>
