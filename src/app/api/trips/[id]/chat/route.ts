@@ -35,8 +35,6 @@ import { after, NextRequest, NextResponse } from 'next/server';
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import type { Options } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod';
-import { createRequire } from 'module';
-import path from 'path';
 
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -538,48 +536,28 @@ async function resolveClaudeExecutable(): Promise<{
   pathToClaudeCodeExecutable: string | undefined;
   resolveDiagnostic: string;
 }> {
-  // The SDK normally locates this on its own, but Next's bundling on Vercel
-  // can hide the optional platform package from its resolver — even when the
-  // file is on disk. Setting pathToClaudeCodeExecutable bypasses the lookup.
-  let pathToClaudeCodeExecutable: string | undefined;
-  let resolveDiagnostic = '';
-  try {
-    const req = createRequire(import.meta.url);
-    const platformPkg =
-      process.platform === 'darwin'
-        ? process.arch === 'arm64'
-          ? '@anthropic-ai/claude-agent-sdk-darwin-arm64'
-          : '@anthropic-ai/claude-agent-sdk-darwin-x64'
-        : process.arch === 'arm64'
-          ? '@anthropic-ai/claude-agent-sdk-linux-arm64'
-          : '@anthropic-ai/claude-agent-sdk-linux-x64';
-    const pkgJson = req.resolve(`${platformPkg}/package.json`);
-    pathToClaudeCodeExecutable = path.join(path.dirname(pkgJson), 'claude');
-    resolveDiagnostic = `resolved via require: ${pathToClaudeCodeExecutable}`;
-  } catch (resolveErr) {
-    resolveDiagnostic = `require.resolve failed: ${resolveErr instanceof Error ? resolveErr.message : String(resolveErr)}`;
-    const candidates = [
-      path.join(/*turbopackIgnore: true*/ process.cwd(), 'node_modules/@anthropic-ai/claude-agent-sdk-linux-x64/claude'),
-      '/var/task/node_modules/@anthropic-ai/claude-agent-sdk-linux-x64/claude',
-    ];
-    const fs = await import('fs');
-    for (const c of candidates) {
-      try {
-        if (fs.existsSync(c)) {
-          pathToClaudeCodeExecutable = c;
-          resolveDiagnostic += ` | fallback hit: ${c}`;
-          break;
-        }
-      } catch {
-        // ignore
-      }
-    }
-    if (!pathToClaudeCodeExecutable) {
-      resolveDiagnostic += ` | tried: ${candidates.join(', ')} (none existed)`;
-    }
+  // The SDK normally locates this on its own in local development. On Vercel,
+  // Next's bundling can hide the optional platform package from that resolver,
+  // so we pass the traced executable path directly without dynamic require/fs
+  // lookups that make Turbopack trace the whole project into this function.
+  if (process.env.CLAUDE_CODE_EXECUTABLE) {
+    return {
+      pathToClaudeCodeExecutable: process.env.CLAUDE_CODE_EXECUTABLE,
+      resolveDiagnostic: 'resolved via CLAUDE_CODE_EXECUTABLE',
+    };
   }
 
-  return { pathToClaudeCodeExecutable, resolveDiagnostic };
+  if (process.env.VERCEL === '1' || process.platform === 'linux') {
+    return {
+      pathToClaudeCodeExecutable: '/var/task/node_modules/@anthropic-ai/claude-agent-sdk-linux-x64/claude',
+      resolveDiagnostic: 'using traced Vercel linux-x64 executable',
+    };
+  }
+
+  return {
+    pathToClaudeCodeExecutable: undefined,
+    resolveDiagnostic: 'using SDK default executable resolution',
+  };
 }
 
 async function nextTurnIndex(
