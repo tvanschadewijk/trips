@@ -112,6 +112,30 @@ function snippetsForPoint(day: Day, label: string): string[] {
     .slice(0, 2);
 }
 
+function accommodationSearchText(day: Day): string {
+  const accommodation = day.accommodation;
+  if (!accommodation) return '';
+
+  return [
+    accommodation.name,
+    accommodation.note,
+    accommodation.detail?.title,
+    accommodation.detail?.address,
+    accommodation.detail?.body,
+    accommodation.detail?.why,
+  ].filter(Boolean).join(' ');
+}
+
+function nightsForRoutePoint(point: TripRouteAtlasPoint, days: Day[]): number {
+  if (point.role === 'home') return 0;
+
+  return days.reduce((total, day) => {
+    if (!day.accommodation) return total;
+    if (!routePlaceTextMatches(accommodationSearchText(day), point.label)) return total;
+    return total + Math.max(1, day.accommodation.nights ?? 1);
+  }, 0);
+}
+
 export function mapPointDetailsForDay(atlas: TripRouteAtlas | undefined, day: Day): Record<string, ItineraryMapPointDetail> | undefined {
   if (!atlas) return undefined;
 
@@ -133,11 +157,13 @@ export function mapPointDetailsForTrip(atlas: TripRouteAtlas | undefined, days: 
 
   return Object.fromEntries(atlas.points.map((point) => {
     const day = point.day ? days.find((candidate) => candidate.day_number === point.day) : undefined;
+    const nights = nightsForRoutePoint(point, days);
+    const nightLabel = nights === 1 ? '1 night' : nights > 1 ? `${nights} nights` : undefined;
     return [
       point.id,
       {
         title: point.label,
-        kicker: day ? `Day ${day.day_number}` : point.role === 'home' ? 'Start / finish' : 'Trip stop',
+        kicker: nightLabel ?? (day ? `Day ${day.day_number}` : point.role === 'home' ? 'Start / finish' : 'Route stop'),
         body: day ? truncateMapDetail(day.title || day.subtitle || day.description) : '',
       },
     ];
@@ -253,11 +279,11 @@ function queryWithContext(label: string, context: string, address?: string, quer
   ].filter(Boolean).join(', ');
 }
 
-function accommodationDetail(accommodation: Accommodation | undefined | null, dayNumber: number, startOfDay: boolean): ItineraryMapPointDetail | undefined {
+function accommodationDetail(accommodation: Accommodation | undefined | null, dayNumber: number): ItineraryMapPointDetail | undefined {
   if (!accommodation?.name) return undefined;
   return {
     title: accommodation.name,
-    kicker: `Day ${dayNumber} · ${startOfDay ? 'Start hotel' : 'Hotel'}`,
+    kicker: `Day ${dayNumber} · Hotel`,
     body: truncateMapDetail(accommodation.note || accommodation.detail?.why || accommodation.detail?.body || accommodation.detail?.address),
   };
 }
@@ -322,7 +348,7 @@ export function buildDayMapSearchTargets(
 ): ItineraryMapPoiSearchTarget[] {
   const targets: ItineraryMapPoiSearchTarget[] = [];
   const seen = new Set<string>();
-  const previousStayDetail = accommodationDetail(previousDay?.accommodation, day.day_number, true);
+  const previousStayDetail = accommodationDetail(previousDay?.accommodation, day.day_number);
 
   if (previousStayDetail) {
     addDayMapTarget(targets, seen, day, atlas, previousDay?.accommodation?.name, 'poi', 'stay', previousStayDetail, {
@@ -333,11 +359,6 @@ export function buildDayMapSearchTargets(
   }
 
   for (const transport of day.transport ?? []) {
-    addDayMapTarget(targets, seen, day, atlas, transport.from, 'place', 'stop', {
-      title: transport.from,
-      kicker: `Day ${day.day_number} · Route`,
-      body: truncateMapDetail(transport.label || transport.duration),
-    });
     addDayMapTarget(targets, seen, day, atlas, transport.to, 'place', 'stop', {
       title: transport.to,
       kicker: `Day ${day.day_number} · Route`,

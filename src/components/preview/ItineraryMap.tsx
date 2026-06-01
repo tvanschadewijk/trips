@@ -38,6 +38,10 @@ interface PointDisplay {
   detail: ItineraryMapPointDetail;
 }
 
+interface PopupOptions {
+  includeMapActions?: boolean;
+}
+
 type ResolvedSearchTarget = {
   point: TripRouteAtlasPoint;
   detail: ItineraryMapPointDetail;
@@ -340,7 +344,7 @@ function routeColorFor(mode: string): string {
 function fitMap(map: google.maps.Map, atlas: TripRouteAtlas, variant: MapVariant): google.maps.MapsEventListener | undefined {
   if (atlas.points.length === 1) {
     map.setCenter(toLatLng(atlas.points[0]));
-    map.setZoom(variant === 'overview-card' ? 9 : 12);
+    map.setZoom(variant === 'overview-card' ? 9 : 16);
     return undefined;
   }
 
@@ -356,14 +360,25 @@ function fitMap(map: google.maps.Map, atlas: TripRouteAtlas, variant: MapVariant
       : { top: 72, right: 64, bottom: 72, left: 64 }
   );
 
-  const maxZoom = variant === 'overview-card' ? 8.4 : 13;
+  if (variant !== 'overview-card') return undefined;
+
+  const maxZoom = 8.4;
   return google.maps.event.addListenerOnce(map, 'idle', () => {
     const zoom = map.getZoom();
     if (zoom && zoom > maxZoom) map.setZoom(maxZoom);
   });
 }
 
-function popupContentFor(point: PointDisplay): HTMLElement {
+function mapsLinkFor(provider: 'apple' | 'google', point: PointDisplay): string {
+  const lat = point.position.lat.toFixed(6);
+  const lng = point.position.lng.toFixed(6);
+  const label = encodeURIComponent(point.detail.title || point.label || 'Map location');
+
+  if (provider === 'apple') return `https://maps.apple.com/?ll=${lat},${lng}&q=${label}`;
+  return `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+}
+
+function popupContentFor(point: PointDisplay, options: PopupOptions = {}): HTMLElement {
   const popup = document.createElement('div');
   popup.className = 'itinerary-map-stop-popup';
 
@@ -384,6 +399,28 @@ function popupContentFor(point: PointDisplay): HTMLElement {
     body.className = 'itinerary-map-stop-popup-body';
     body.textContent = point.detail.body;
     popup.append(body);
+  }
+
+  if (options.includeMapActions) {
+    const actions = document.createElement('div');
+    actions.className = 'itinerary-map-stop-popup-actions';
+
+    const label = document.createElement('div');
+    label.className = 'itinerary-map-stop-popup-actions-label';
+    label.textContent = 'Open in Maps';
+    actions.append(label);
+
+    for (const provider of ['google', 'apple'] as const) {
+      const link = document.createElement('a');
+      link.className = 'itinerary-map-stop-popup-link';
+      link.href = mapsLinkFor(provider, point);
+      link.target = '_blank';
+      link.rel = 'noreferrer';
+      link.textContent = provider === 'google' ? 'Google Maps' : 'Apple Maps';
+      actions.append(link);
+    }
+
+    popup.append(actions);
   }
 
   return popup;
@@ -460,11 +497,15 @@ function addPointMarkers(
   const infoWindow = new google.maps.InfoWindow({
     disableAutoPan: variant === 'overview-card',
     headerDisabled: true,
-    maxWidth: variant === 'overview-card' ? 220 : 280,
-    pixelOffset: new google.maps.Size(0, -8),
+    maxWidth: variant === 'overview-card' ? 260 : 360,
+    pixelOffset: new google.maps.Size(0, variant === 'overview-card' ? -18 : -34),
   });
   const cleanupHandlers: (() => void)[] = [];
-  const mapClickListener = map.addListener('click', () => infoWindow.close());
+  let pinnedPointId: string | null = null;
+  const mapClickListener = map.addListener('click', () => {
+    pinnedPointId = null;
+    infoWindow.close();
+  });
   const markers = points.map((point, index) => {
     const content = markerElementFor(point, variant);
     const marker = new AdvancedMarkerElement({
@@ -477,27 +518,34 @@ function addPointMarkers(
       title: point.detail.title || point.label,
       zIndex: point.role === 'home' ? 20 : 30 + index,
     });
-    const showPopup = () => {
-      infoWindow.setContent(popupContentFor(point));
+
+    const showPopup = (includeMapActions = false, pinned = false) => {
+      if (!pinned && pinnedPointId) return;
+      if (pinned) pinnedPointId = point.id;
+      infoWindow.setContent(popupContentFor(point, { includeMapActions }));
       infoWindow.open({ anchor: marker, map, shouldFocus: false });
     };
-    const closePopup = () => infoWindow.close();
+    const showHoverPopup = () => showPopup(false, false);
+    const closeHoverPopup = () => {
+      if (!pinnedPointId) infoWindow.close();
+    };
     const stopAndShowPopup = (event: Event) => {
       event.stopPropagation();
-      showPopup();
+      showPopup(true, true);
     };
+    const showPinnedPopup = () => showPopup(true, true);
 
-    content.addEventListener('mouseenter', showPopup);
-    content.addEventListener('mousemove', showPopup);
-    content.addEventListener('mouseleave', closePopup);
+    content.addEventListener('mouseenter', showHoverPopup);
+    content.addEventListener('mousemove', showHoverPopup);
+    content.addEventListener('mouseleave', closeHoverPopup);
     content.addEventListener('click', stopAndShowPopup);
-    marker.addEventListener('gmp-click', showPopup);
+    marker.addEventListener('gmp-click', showPinnedPopup);
     cleanupHandlers.push(() => {
-      content.removeEventListener('mouseenter', showPopup);
-      content.removeEventListener('mousemove', showPopup);
-      content.removeEventListener('mouseleave', closePopup);
+      content.removeEventListener('mouseenter', showHoverPopup);
+      content.removeEventListener('mousemove', showHoverPopup);
+      content.removeEventListener('mouseleave', closeHoverPopup);
       content.removeEventListener('click', stopAndShowPopup);
-      marker.removeEventListener('gmp-click', showPopup);
+      marker.removeEventListener('gmp-click', showPinnedPopup);
     });
 
     return marker;

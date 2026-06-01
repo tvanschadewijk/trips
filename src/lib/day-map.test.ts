@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { buildTripRouteAtlas } from './trip-route';
-import { buildDayMapDataByNumber } from './day-map';
+import { buildDayMapDataByNumber, mapPointDetailsForTrip } from './day-map';
 import type { TripData } from './types';
 
 function baseTrip(days: TripData['days']): TripData {
@@ -70,9 +70,56 @@ test('day map targets preserve the day order and skip generic meal descriptions'
   );
   assert.deepEqual(dayMapData.atlas?.points.map((point) => point.label), targets.map((target) => target.label));
   assert.equal(targets.every((target) => Boolean(target.fallbackPoint)), true);
+  assert.equal(targets.some((target) => target.label === 'Ravenna'), false);
   assert.equal(targets.find((target) => target.label === 'Peschici')?.fallbackPoint?.lat, 41.946);
   assert.equal(targets.find((target) => target.label === 'Vila SEJUDA Alberghetto')?.placeType, 'lodging');
   assert.equal(targets.find((target) => target.label === 'Trattoria da Maria')?.placeType, 'restaurant');
+});
+
+test('trip map overview details prefer night counts for stored route stops', () => {
+  const trip = baseTrip([
+    {
+      day_number: 1,
+      date: '2026-06-30',
+      title: 'Rome',
+      blocks: [],
+      accommodation: {
+        name: 'Rome Apartment',
+        nights: 2,
+        detail: { address: 'Rome, Italy' },
+      },
+    },
+    {
+      day_number: 2,
+      date: '2026-07-01',
+      title: 'Gargano',
+      blocks: [],
+      accommodation: {
+        name: 'Baia San Nicola stay',
+        detail: { address: 'Peschici, Italy' },
+      },
+    },
+  ]);
+  trip.trip.route_points = [
+    { label: 'Amsterdam', lat: 52.3676, lng: 4.9041, role: 'home' },
+    { label: 'Rome', lat: 41.9028, lng: 12.4964 },
+    { label: 'Gargano', lat: 41.946, lng: 16.016 },
+  ];
+
+  const atlas = buildTripRouteAtlas(trip);
+  assert.ok(atlas);
+  const details = mapPointDetailsForTrip(atlas, trip.days);
+  assert.ok(details);
+
+  const home = atlas.points.find((point) => point.label === 'Amsterdam');
+  const rome = atlas.points.find((point) => point.label === 'Rome');
+  const gargano = atlas.points.find((point) => point.label === 'Gargano');
+  assert.ok(home);
+  assert.ok(rome);
+  assert.ok(gargano);
+  assert.equal(details[home.id].kicker, 'Start / finish');
+  assert.equal(details[rome.id].kicker, '2 nights');
+  assert.equal(details[gargano.id].kicker, '1 night');
 });
 
 test('day map targets can be built even when no route atlas exists', () => {

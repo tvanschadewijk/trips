@@ -1665,8 +1665,8 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
               <SwipeDots total={totalSlides} current={currentSlide} onDotClick={goTo} />
             )}
             {currentSlide === 0 && totalSlides > 1 && (
-              <button className="hero-hint" onClick={() => goTo(1)} aria-label="Explore day by day">
-                explore
+              <button className="hero-hint" onClick={() => goTo(1)} aria-label="Open day by day itinerary">
+                Day by Day
                 <Icon name="chevron" />
               </button>
             )}
