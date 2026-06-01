@@ -2528,7 +2528,7 @@ body.trip-on-cover .trip-ask-entry-label { display: inline; }
 
   .hero-map-toggle {
     position: absolute;
-    top: 18px;
+    top: calc(var(--nav-height) + env(safe-area-inset-top) + 14px);
     right: 18px;
     z-index: 4;
     display: inline-flex;
