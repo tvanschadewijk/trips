@@ -559,7 +559,7 @@ async function resolveClaudeExecutable(): Promise<{
   } catch (resolveErr) {
     resolveDiagnostic = `require.resolve failed: ${resolveErr instanceof Error ? resolveErr.message : String(resolveErr)}`;
     const candidates = [
-      path.join(process.cwd(), 'node_modules/@anthropic-ai/claude-agent-sdk-linux-x64/claude'),
+      path.join(/*turbopackIgnore: true*/ process.cwd(), 'node_modules/@anthropic-ai/claude-agent-sdk-linux-x64/claude'),
       '/var/task/node_modules/@anthropic-ai/claude-agent-sdk-linux-x64/claude',
     ];
     const fs = await import('fs');
