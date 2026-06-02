@@ -709,7 +709,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
   const openAccommodationReviewer = useCallback((day?: Day) => {
     if (!tripId || !activeTripData) return;
     showDetail({
-      title: 'Accommodation Reviewer',
+      title: 'Accommodations',
       html: '',
       node: (
         <AccommodationReviewBoard
@@ -1465,7 +1465,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
               const accommodationSection = tripId && activeTripData
                 ? {
                     icon: 'hotel',
-                    label: 'Accommodation Reviewer',
+                    label: 'Accommodations',
                     html: '',
                     hasData: true,
                     node: (
@@ -1769,7 +1769,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
               <div className="accom-icon-wrap"><Icon name="hotel" /></div>
               <div className="accom-info">
                 <div className="text-name">Hotel not confirmed yet</div>
-                <div className="text-small accom-note">Use accommodation reviewer to confirm</div>
+                <div className="text-small accom-note">Use Accommodations to confirm</div>
               </div>
               <span className={`text-status status-badge status-${accommodationStatusLabel(a)}`}>
                 {accommodationStatusLabel(a)}
@@ -1778,7 +1778,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
                 <button
                   type="button"
                   className="row-details-btn accom-reviewer-btn"
-                  aria-label="Use accommodation reviewer to confirm"
+                  aria-label="Use Accommodations to confirm"
                   onClick={() => openAccommodationReviewer(day)}
                 >
                   Review

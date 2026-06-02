@@ -247,7 +247,7 @@ function writeReviewContext(
       'trip-chat-context',
       JSON.stringify({
         slideKind: 'accommodation_review',
-        title: 'Accommodation Reviewer',
+        title: 'Accommodations',
         destination_id: destination?.id ?? null,
         destination_title: destination?.title ?? null,
         candidate_id: candidate?.id ?? null,
@@ -752,7 +752,7 @@ export default function AccommodationReviewBoard({
   if (error && !review) {
     return (
       <div className="accommodation-review-empty">
-        <div className="accommodation-review-empty-title">Accommodation Reviewer unavailable</div>
+        <div className="accommodation-review-empty-title">Accommodations unavailable</div>
         <p>{error}</p>
       </div>
     );
