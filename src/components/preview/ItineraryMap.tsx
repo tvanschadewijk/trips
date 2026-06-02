@@ -23,6 +23,7 @@ interface ItineraryMapProps {
   loadingHint?: string;
   searchTargets?: ItineraryMapPoiSearchTarget[];
   focusRequest?: ItineraryMapFocusRequest;
+  viewAllRequest?: ItineraryMapViewAllRequest;
 }
 
 interface RouteSegment {
@@ -49,10 +50,15 @@ export interface ItineraryMapFocusRequest {
   nonce: number;
 }
 
+export interface ItineraryMapViewAllRequest {
+  nonce: number;
+}
+
 interface MarkerController {
   markers: google.maps.marker.AdvancedMarkerElement[];
   cleanupHandlers: (() => void)[];
   focusPoint: (request: ItineraryMapFocusRequest) => boolean;
+  clearSelection: () => void;
 }
 
 type ResolvedSearchTarget = {
@@ -616,6 +622,10 @@ function addPointMarkers(
     pinnedPointId = null;
     closePopup();
   });
+  const clearSelection = () => {
+    pinnedPointId = null;
+    closePopup();
+  };
   const controllers: {
     point: PointDisplay;
     marker: google.maps.marker.AdvancedMarkerElement;
@@ -707,7 +717,7 @@ function addPointMarkers(
     return true;
   };
 
-  return { markers, cleanupHandlers, focusPoint };
+  return { markers, cleanupHandlers, focusPoint, clearSelection };
 }
 
 export default function ItineraryMap({
@@ -724,11 +734,13 @@ export default function ItineraryMap({
   loadingHint,
   searchTargets = [],
   focusRequest,
+  viewAllRequest,
 }: ItineraryMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
   const markerControllerRef = useRef<MarkerController | null>(null);
   const handledFocusNonceRef = useRef<number | null>(null);
+  const handledViewAllNonceRef = useRef<number | null>(null);
   const [ready, setReady] = useState(false);
   const [failed, setFailed] = useState(false);
   const [currentZoom, setCurrentZoom] = useState<number | null>(null);
@@ -926,6 +938,20 @@ export default function ItineraryMap({
       handledFocusNonceRef.current = focusRequest.nonce;
     }
   }, [focusRequest, points, ready]);
+
+  useEffect(() => {
+    if (!viewAllRequest || handledViewAllNonceRef.current === viewAllRequest.nonce || !ready) return;
+    const map = mapRef.current;
+    if (!map || displayAtlas.points.length === 0) return;
+
+    markerControllerRef.current?.clearSelection();
+    fitMap(map, displayAtlas, variant);
+    google.maps.event.addListenerOnce(map, 'idle', () => {
+      const zoom = map.getZoom();
+      setCurrentZoom(typeof zoom === 'number' ? zoom : null);
+    });
+    handledViewAllNonceRef.current = viewAllRequest.nonce;
+  }, [displayAtlas, ready, variant, viewAllRequest]);
 
   return (
     <div

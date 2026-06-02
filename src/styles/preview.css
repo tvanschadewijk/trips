@@ -768,7 +768,9 @@ body.trip-on-cover .trip-ask-entry-label { display: inline; }
 .day-visual-stack .day-header-plain { margin-bottom: 0; }
 .day-map-card { overflow: hidden; background: var(--color-card); border: 1px solid var(--color-border); border-radius: var(--radius-card); box-shadow: var(--shadow-card); }
 .day-map-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 13px 14px 10px; border-bottom: 1px solid var(--color-border); }
-.day-map-count { flex-shrink: 0; font-family: var(--font-sans); font-size: 11px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-accent); }
+.day-map-count { flex-shrink: 0; margin: -4px 0; padding: 4px 0 4px 8px; border: 0; border-radius: 8px; appearance: none; background: transparent; color: var(--color-accent); cursor: pointer; font-family: var(--font-sans); font-size: 11px; font-weight: 600; letter-spacing: 0.14em; line-height: 1; text-align: right; text-transform: uppercase; }
+.day-map-count:hover { color: var(--color-accent-deep); }
+.day-map-count:focus-visible { outline: 2px solid rgba(193, 79, 42, 0.46); outline-offset: 2px; }
 .day-map-frame { position: relative; height: 260px; background: var(--color-surface-deep); }
 /* Day description */
 .day-description {

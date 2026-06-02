@@ -7,7 +7,7 @@ import type { TripData, Day, Transport, Accommodation, Tip, Meal, Block, RichDet
 import { ICONS } from './icons';
 import SaveOfflineButton from './SaveOfflineButton';
 import TripRouteAtlas from './TripRouteAtlas';
-import ItineraryMap, { type ItineraryMapFocusRequest } from './ItineraryMap';
+import ItineraryMap, { type ItineraryMapFocusRequest, type ItineraryMapViewAllRequest } from './ItineraryMap';
 import AccommodationReviewBoard from './AccommodationReviewBoard';
 import { renderTripMarkdown } from '@/lib/render-trip-markdown';
 import { buildTripRouteAtlas } from '@/lib/trip-route';
@@ -97,6 +97,9 @@ type DetailContent = {
 type SlideMotionMode = 'programmatic' | 'swipe' | 'settled';
 type SlideDirection = 'forward' | 'backward' | 'none';
 type DayMapFocusRequest = ItineraryMapFocusRequest & {
+  dayNumber: number;
+};
+type DayMapViewAllRequest = ItineraryMapViewAllRequest & {
   dayNumber: number;
 };
 
@@ -249,6 +252,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'already_saved' | 'already_owned' | 'error'>('idle');
   const [brokenImages, setBrokenImages] = useState<Set<string>>(new Set());
   const [dayMapFocusRequest, setDayMapFocusRequest] = useState<DayMapFocusRequest | null>(null);
+  const [dayMapViewAllRequest, setDayMapViewAllRequest] = useState<DayMapViewAllRequest | null>(null);
   const onImgError = useCallback((src: string) => {
     setBrokenImages(prev => { const next = new Set(prev); next.add(src); return next; });
   }, []);
@@ -261,6 +265,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
   const detailCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const detailClosingRef = useRef(false);
   const dayMapFocusNonceRef = useRef(0);
+  const dayMapViewAllNonceRef = useRef(0);
 
   // Touch state
   const touchState = useRef({ startX: 0, startY: 0, startTime: 0, dx: 0, isDragging: false, isScrolling: null as boolean | null });
@@ -320,6 +325,12 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
         });
       });
     }
+  }, []);
+
+  const viewAllDayMapLocations = useCallback((dayNumber: number) => {
+    const nonce = ++dayMapViewAllNonceRef.current;
+    setDayMapFocusRequest(null);
+    setDayMapViewAllRequest({ dayNumber, nonce });
   }, []);
 
   // Prewarm the trip JSON cache the SW maintains. Fire-and-forget; even
@@ -1568,6 +1579,8 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     const dayMapStopCount = hasDayMapLocations
       ? dayMapSearchTargets.length || dayMapAtlas?.points.filter((point) => point.role !== 'home').length || dayMapAtlas?.points.length || 0
       : 0;
+    const dayMapCountNoun = dayMapSearchTargets.length ? 'location' : 'stop';
+    const dayMapCountLabel = `${dayMapStopCount} ${dayMapCountNoun}${dayMapStopCount === 1 ? '' : 's'}`;
 
     const statsChips = day.stats?.length ? (
       <div className="hero-stats-row">
@@ -1605,9 +1618,15 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
       <div className="day-map-card" data-day-map-card={day.day_number}>
         <div className="day-map-header">
           <span className="text-section-title"><span className="section-icon"><Icon name="route" /></span>Day map</span>
-          <span className="day-map-count">
-            {dayMapStopCount} {dayMapSearchTargets.length ? `location${dayMapStopCount === 1 ? '' : 's'}` : `stop${dayMapStopCount === 1 ? '' : 's'}`}
-          </span>
+          <button
+            type="button"
+            className="day-map-count"
+            onClick={() => viewAllDayMapLocations(day.day_number)}
+            aria-label={`Show all ${dayMapCountLabel} on the day map`}
+            title={`Show all ${dayMapCountLabel}`}
+          >
+            {dayMapCountLabel}
+          </button>
         </div>
         <div className="day-map-frame">
           <ItineraryMap
@@ -1618,6 +1637,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
             pointDetails={dayMapData?.details}
             searchTargets={dayMapSearchTargets}
             focusRequest={dayMapFocusRequest?.dayNumber === day.day_number ? dayMapFocusRequest : undefined}
+            viewAllRequest={dayMapViewAllRequest?.dayNumber === day.day_number ? dayMapViewAllRequest : undefined}
             showLines={false}
             enabled={currentSlide === slideIndex}
             loadingLabel={dayMapSearchTargets.length ? 'Finding day places' : 'Loading day map'}
