@@ -226,22 +226,22 @@
   padding: 0 !important;
   overflow: hidden;
   border: 1px solid rgba(212, 200, 180, 0.92);
-  border-radius: 22px;
+  border-radius: 8px;
   background: rgba(251, 247, 241, 0.98);
   box-shadow: 0 16px 32px -22px rgba(26, 20, 16, 0.62);
 }
 
 .itinerary-map-day .gm-style-iw-c {
-  min-width: min(300px, calc(100vw - 48px));
-  max-width: min(340px, calc(100vw - 48px)) !important;
-  border-radius: 22px;
+  min-width: min(240px, calc(100vw - 48px));
+  max-width: min(300px, calc(100vw - 48px)) !important;
+  border-radius: 8px;
   box-shadow: 0 22px 52px -28px rgba(26, 20, 16, 0.72);
 }
 
 .itinerary-map-overview-card .gm-style-iw-c {
   min-width: min(340px, calc(100vw - 64px));
   max-width: min(420px, calc(100vw - 64px)) !important;
-  border-radius: 22px;
+  border-radius: 8px;
   box-shadow: 0 28px 64px -34px rgba(26, 20, 16, 0.76);
 }
 
@@ -262,17 +262,17 @@
 }
 
 .itinerary-map-stop-popup {
-  padding: 18px 20px 19px;
+  padding: 14px 16px 15px;
   color: var(--color-text-primary, #1A1410);
   font-family: var(--font-sans, 'Inter', system-ui, sans-serif);
 }
 
 .itinerary-map-day .itinerary-map-stop-popup {
-  padding: 20px 22px 22px;
+  padding: 14px 16px 15px;
 }
 
 .itinerary-map-overview-card .itinerary-map-stop-popup {
-  padding: 24px 26px 25px;
+  padding: 18px 20px 19px;
 }
 
 .itinerary-map-stop-popup-kicker {
@@ -306,64 +306,49 @@
 }
 
 .itinerary-map-stop-popup-body {
-  margin-top: 8px;
+  margin-top: 6px;
   color: var(--color-text-secondary, #3D352E);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 450;
   letter-spacing: 0;
   line-height: 1.48;
 }
 
 .itinerary-map-stop-popup-actions {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  margin-top: 16px;
-  padding-top: 15px;
-  border-top: 1px solid rgba(212, 200, 180, 0.72);
-}
-
-.itinerary-map-stop-popup-actions-label {
-  grid-column: 1 / -1;
-  color: var(--color-text-muted, #6B6157);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.13em;
-  line-height: 1;
-  text-transform: uppercase;
+  display: flex;
+  margin-top: 9px;
 }
 
 .itinerary-map-stop-popup-link {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 38px;
-  padding: 0 14px;
-  border: 1px solid rgba(37, 99, 235, 0.30);
+  min-height: 23px;
+  padding: 2px 9px;
+  border: 1px solid rgba(193, 79, 42, 0.22);
   border-radius: 999px;
-  background: rgba(37, 99, 235, 0.08);
-  color: var(--map-marker-color-deep, #1D4ED8);
-  font-size: 13px;
-  font-weight: 620;
+  background: var(--color-accent-light, #F5E4DA);
+  color: var(--color-accent-deep, #A03E1F);
+  font-size: 11px;
+  font-weight: 600;
   letter-spacing: 0;
+  line-height: 1;
   text-decoration: none;
   white-space: nowrap;
 }
 
 .itinerary-map-stop-popup-link:hover {
-  border-color: var(--map-marker-color, #2563EB);
-  background: rgba(37, 99, 235, 0.13);
+  border-color: rgba(193, 79, 42, 0.34);
+  background: rgba(193, 79, 42, 0.16);
 }
 
 .itinerary-map-overview-card .itinerary-map-stop-popup-actions {
-  gap: 12px;
-  margin-top: 19px;
-  padding-top: 18px;
+  margin-top: 12px;
 }
 
 .itinerary-map-overview-card .itinerary-map-stop-popup-link {
-  min-height: 42px;
-  font-size: 14px;
+  min-height: 25px;
+  font-size: 12px;
 }
 
 .itinerary-map .gm-style-cc {

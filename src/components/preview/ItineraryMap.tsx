@@ -453,12 +453,9 @@ function fitMap(map: google.maps.Map, atlas: TripRouteAtlas, variant: MapVariant
   });
 }
 
-function mapsLinkFor(provider: 'apple' | 'google', point: PointDisplay): string {
+function googleMapsLinkFor(point: PointDisplay): string {
   const lat = point.position.lat.toFixed(6);
   const lng = point.position.lng.toFixed(6);
-  const label = encodeURIComponent(point.detail.title || point.label || 'Map location');
-
-  if (provider === 'apple') return `https://maps.apple.com/?ll=${lat},${lng}&q=${label}`;
   return `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
 }
 
@@ -471,28 +468,25 @@ function popupContentFor(point: PointDisplay, options: PopupOptions = {}): HTMLE
   title.textContent = point.detail.title || point.label || 'Stop';
   popup.append(title);
 
+  if (point.detail.body) {
+    const body = document.createElement('div');
+    body.className = 'itinerary-map-stop-popup-body';
+    body.textContent = point.detail.body;
+    popup.append(body);
+  }
+
   if (options.includeMapActions) {
     const actions = document.createElement('div');
     actions.className = 'itinerary-map-stop-popup-actions';
 
-    const label = document.createElement('div');
-    label.className = 'itinerary-map-stop-popup-actions-label';
-    label.textContent = 'Choose Maps app';
-    actions.append(label);
-
-    for (const provider of ['google', 'apple'] as const) {
-      const link = document.createElement('a');
-      link.className = 'itinerary-map-stop-popup-link';
-      link.href = mapsLinkFor(provider, point);
-      link.target = '_blank';
-      link.rel = 'noreferrer';
-      link.setAttribute(
-        'aria-label',
-        `Open ${point.detail.title || point.label || 'this location'} in ${provider === 'google' ? 'Google Maps' : 'Apple Maps'}`
-      );
-      link.textContent = provider === 'google' ? 'Google Maps' : 'Apple Maps';
-      actions.append(link);
-    }
+    const link = document.createElement('a');
+    link.className = 'itinerary-map-stop-popup-link';
+    link.href = googleMapsLinkFor(point);
+    link.target = '_blank';
+    link.rel = 'noreferrer';
+    link.setAttribute('aria-label', `Open ${point.detail.title || point.label || 'this location'} in Google Maps`);
+    link.textContent = 'Maps';
+    actions.append(link);
 
     popup.append(actions);
   }
