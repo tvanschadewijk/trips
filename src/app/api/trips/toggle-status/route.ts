@@ -9,12 +9,8 @@ import {
 } from '@/lib/trip-action-items';
 import type { TripData } from '@/lib/types';
 
-// POST /api/trips/[id]/toggle-status — Toggle an action item's status
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  // Session auth (browser cookie)
+// POST /api/trips/toggle-status — Toggle an action item by share id.
+export async function POST(request: NextRequest) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -22,14 +18,20 @@ export async function POST(
     return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
   }
 
-  const { id } = await params;
-  const admin = createAdminClient();
+  const { share_id, day_number, item_type, item_index, new_status } = await request.json();
+  const shareId = typeof share_id === 'string' ? share_id.trim() : '';
+  const itemType = normalizeActionItemType(item_type);
+  const statusValue = normalizeActionItemStatus(new_status);
 
-  // Fetch trip and verify ownership
+  if (!shareId || typeof day_number !== 'number' || !itemType || !statusValue) {
+    return NextResponse.json({ error: 'Invalid parameters' }, { status: 400 });
+  }
+
+  const admin = createAdminClient();
   const { data: trip, error: fetchError } = await admin
     .from('trips')
     .select('id, user_id, data')
-    .eq('id', id)
+    .eq('share_id', shareId)
     .single();
 
   if (fetchError || !trip) {
@@ -38,14 +40,6 @@ export async function POST(
 
   if (trip.user_id !== user.id) {
     return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
-  }
-
-  const { day_number, item_type, item_index, new_status } = await request.json();
-  const itemType = normalizeActionItemType(item_type);
-  const statusValue = normalizeActionItemStatus(new_status);
-
-  if (typeof day_number !== 'number' || !itemType || !statusValue) {
-    return NextResponse.json({ error: 'Invalid parameters' }, { status: 400 });
   }
 
   const data = trip.data as { trip: Record<string, unknown>; days: Array<Record<string, unknown>> };
@@ -62,15 +56,15 @@ export async function POST(
   const { error: updateError } = await admin
     .from('trips')
     .update({ data, updated_at: new Date().toISOString() })
-    .eq('id', id);
+    .eq('id', trip.id);
 
   if (updateError) {
     return NextResponse.json({ error: updateError.message }, { status: 500 });
   }
 
   if (itemType === 'accommodation') {
-    await trySyncAccommodationReviewForTrip(admin, id, data as unknown as TripData);
+    await trySyncAccommodationReviewForTrip(admin, trip.id, data as unknown as TripData);
   }
 
-  return NextResponse.json({ status: 'ok', new_status: statusValue });
+  return NextResponse.json({ status: 'ok', new_status: statusValue, trip_id: trip.id });
 }

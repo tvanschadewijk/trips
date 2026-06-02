@@ -860,54 +860,118 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     return () => window.removeEventListener('popstate', onPopState);
   }, [detailOpen, startCloseDetail]);
 
-  // Toggle owner action item status.
-  function handleToggleStatus(dayNumber: number, itemType: TodoItemType, itemIndex: number, newStatus: TodoItemStatus) {
-    if (!tripId || activeTripIndex === null) return;
+  function applyTodoStatusToLocalTrip(
+    dayNumber: number,
+    itemType: TodoItemType,
+    itemIndex: number,
+    status: TodoItemStatus
+  ) {
+    if (activeTripIndex === null) return;
+    setTrips(prev => {
+      const updated = [...prev];
+      const tripCopy = JSON.parse(JSON.stringify(updated[activeTripIndex])) as TripData;
+      const day = tripCopy.days.find(d => d.day_number === dayNumber);
+      if (!day) return prev;
 
-    // Optimistic update
-    flushSync(() => {
-      setTrips(prev => {
-        const updated = [...prev];
-        const tripCopy = JSON.parse(JSON.stringify(updated[activeTripIndex])) as TripData;
-        const day = tripCopy.days.find(d => d.day_number === dayNumber);
-        if (!day) return prev;
-
-        const statusVal = newStatus;
-
-        if (itemType === 'transport' && day.transport?.[itemIndex]) {
-          day.transport[itemIndex].status = statusVal;
-        } else if (itemType === 'accommodation' && day.accommodation) {
-          const accommodationName = trimDisplayText(day.accommodation.name);
-          for (const tripDay of tripCopy.days) {
-            if (!tripDay.accommodation) continue;
-            const sameStay = accommodationName
-              ? trimDisplayText(tripDay.accommodation.name) === accommodationName
-              : tripDay.day_number === dayNumber;
-            if (sameStay) {
-              tripDay.accommodation.status = statusVal;
-            }
+      if (itemType === 'transport' && day.transport?.[itemIndex]) {
+        day.transport[itemIndex].status = status;
+      } else if (itemType === 'accommodation' && day.accommodation) {
+        const accommodationName = trimDisplayText(day.accommodation.name);
+        for (const tripDay of tripCopy.days) {
+          if (!tripDay.accommodation) continue;
+          const sameStay = accommodationName
+            ? trimDisplayText(tripDay.accommodation.name) === accommodationName
+            : tripDay.day_number === dayNumber;
+          if (sameStay) {
+            tripDay.accommodation.status = status;
           }
         }
+      }
 
-        updated[activeTripIndex] = tripCopy;
-        return updated;
-      });
+      updated[activeTripIndex] = tripCopy;
+      return updated;
     });
+  }
 
-    // Persist to database
-    fetch(`/api/trips/${tripId}/toggle-status`, {
+  // Toggle owner action item status.
+  async function handleToggleStatus(
+    dayNumber: number,
+    itemType: TodoItemType,
+    itemIndex: number,
+    newStatus: TodoItemStatus
+  ): Promise<boolean> {
+    const endpoint = tripId
+      ? `/api/trips/${tripId}/toggle-status`
+      : shareId
+        ? '/api/trips/toggle-status'
+        : null;
+    if (!endpoint || activeTripIndex === null) return false;
+
+    const res = await fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ day_number: dayNumber, item_type: itemType, item_index: itemIndex, new_status: newStatus }),
-    }).catch(() => { /* silently fail — optimistic update stands */ });
+      body: JSON.stringify({
+        ...(tripId ? {} : { share_id: shareId }),
+        day_number: dayNumber,
+        item_type: itemType,
+        item_index: itemIndex,
+        new_status: newStatus,
+      }),
+    }).catch(() => null);
+
+    if (!res?.ok) return false;
+
+    const payload = await res.json().catch(() => null) as { new_status?: string } | null;
+    const persistedStatus = payload?.new_status === 'booked' ? 'booked' : 'open';
+    flushSync(() => {
+      applyTodoStatusToLocalTrip(dayNumber, itemType, itemIndex, persistedStatus);
+    });
+    return true;
   }
 
   // Event delegation for action item clicks
   useEffect(() => {
     const el = detailBodyRef.current;
-    if (!el || !tripId) return;
+    if (!el || (!tripId && !shareId)) return;
+
+    const updateTodoHeader = () => {
+      const allRows = el.querySelectorAll('.todo-item');
+      const allDone = Array.from(allRows).every(r => (r as HTMLElement).dataset.done === 'true');
+      const header = el.querySelector('.detail-info-section-title, .todo-ready');
+      if (!header) return;
+      if (allDone) {
+        header.outerHTML = '<div class="todo-ready"><span class="todo-ready-icon">&#10003;</span> Trip is ready to go</div>';
+      } else {
+        header.outerHTML = '<div class="detail-info-section-title"><span class="text-section-title">Action Items</span></div>';
+      }
+    };
+
+    const setTodoRowState = (row: HTMLElement, done: boolean) => {
+      const statusValue = todoStatusFromDone(done);
+      row.dataset.done = String(done);
+      row.dataset.status = statusValue;
+      row.setAttribute('aria-pressed', String(done));
+      const check = row.querySelector('.todo-check');
+      if (check) {
+        check.classList.toggle('done', done);
+        check.innerHTML = done ? '&#10003;' : '';
+      }
+      const value = row.querySelector('.detail-row-value') as HTMLElement | null;
+      if (value) {
+        value.style.textDecoration = done ? 'line-through' : 'none';
+        value.style.opacity = done ? '0.45' : '1';
+      }
+      const status = row.querySelector('.todo-status');
+      if (status) {
+        status.classList.remove('status-booked', 'status-open');
+        status.classList.add(`status-${statusValue}`);
+        status.textContent = statusValue;
+      }
+    };
 
     const toggleTodoRow = (row: HTMLElement) => {
+      if (row.dataset.pending === 'true') return;
+
       const dayNumber = Number(row.dataset.day);
       const itemType = row.dataset.type as TodoItemType | undefined;
       const itemIndex = Number(row.dataset.index);
@@ -917,40 +981,20 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
 
       if (itemType !== 'transport' && itemType !== 'accommodation') return;
 
-      // Update DOM directly to avoid stale closure
-      row.dataset.done = String(nowDone);
-      row.dataset.status = nextStatus;
-      row.setAttribute('aria-pressed', String(nowDone));
-      const check = row.querySelector('.todo-check');
-      if (check) {
-        check.classList.toggle('done', nowDone);
-        check.innerHTML = nowDone ? '&#10003;' : '';
-      }
-      const value = row.querySelector('.detail-row-value') as HTMLElement | null;
-      if (value) {
-        value.style.textDecoration = nowDone ? 'line-through' : 'none';
-        value.style.opacity = nowDone ? '0.45' : '1';
-      }
-      const status = row.querySelector('.todo-status');
-      if (status) {
-        status.classList.remove('status-booked', 'status-open');
-        status.classList.add(`status-${nextStatus}`);
-        status.textContent = nextStatus;
-      }
+      row.dataset.pending = 'true';
+      row.setAttribute('aria-disabled', 'true');
+      setTodoRowState(row, nowDone);
+      updateTodoHeader();
 
-      // Update header if all items are now done (or not)
-      const allRows = el.querySelectorAll('.todo-item');
-      const allDone = Array.from(allRows).every(r => (r as HTMLElement).dataset.done === 'true');
-      const header = el.querySelector('.detail-info-section-title, .todo-ready');
-      if (header) {
-        if (allDone) {
-          header.outerHTML = '<div class="todo-ready"><span class="todo-ready-icon">&#10003;</span> Trip is ready to go</div>';
-        } else {
-          header.outerHTML = '<div class="detail-info-section-title"><span class="text-section-title">Action Items</span></div>';
+      void handleToggleStatus(dayNumber, itemType, itemIndex, nextStatus).then((saved) => {
+        if (!saved) {
+          setTodoRowState(row, wasDone);
+          updateTodoHeader();
         }
-      }
-
-      handleToggleStatus(dayNumber, itemType, itemIndex, nextStatus);
+      }).finally(() => {
+        delete row.dataset.pending;
+        row.removeAttribute('aria-disabled');
+      });
     };
 
     const handler = (e: MouseEvent) => {
@@ -1262,9 +1306,10 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
 
     if (!todoItems.length) return { html: '', hasData: false, allDone: false };
 
-    const interactive = tripId ? ' todo-interactive' : '';
+    const canUpdateActionItems = Boolean(tripId || shareId);
+    const interactive = canUpdateActionItems ? ' todo-interactive' : '';
     const allDone = todoItems.every(t => t.done);
-    const interactiveAttrs = (done: boolean) => tripId
+    const interactiveAttrs = (done: boolean) => canUpdateActionItems
       ? ` role="button" tabindex="0" aria-pressed="${done}"`
       : '';
     const rows = todoItems.map(t =>
