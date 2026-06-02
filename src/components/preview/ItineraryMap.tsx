@@ -65,6 +65,8 @@ const GOOGLE_MAPS_MAP_ID = process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID;
 const MAP_POPOVER_Z_INDEX = 1_000_000;
 const HOVER_POPUP_CLOSE_DELAY_MS = 160;
 const POINT_FOCUS_ZOOM = 17;
+const MIN_MAP_ZOOM = 1;
+const MAX_MAP_ZOOM = 21;
 const OVERVIEW_MAP_FIT_PADDING = { top: 28, right: 24, bottom: 28, left: 24 } satisfies google.maps.Padding;
 const DAY_MAP_FIT_PADDING = { top: 24, right: 24, bottom: 24, left: 24 } satisfies google.maps.Padding;
 const DAY_MAP_REFIT_PADDING = { top: 40, right: 40, bottom: 40, left: 40 } satisfies google.maps.Padding;
@@ -729,6 +731,7 @@ export default function ItineraryMap({
   const handledFocusNonceRef = useRef<number | null>(null);
   const [ready, setReady] = useState(false);
   const [failed, setFailed] = useState(false);
+  const [currentZoom, setCurrentZoom] = useState<number | null>(null);
   const [searchComplete, setSearchComplete] = useState(searchTargets.length === 0);
   const [resolvedSearchTargets, setResolvedSearchTargets] = useState<ResolvedSearchTarget[]>([]);
   const searchTargetSignature = useMemo(() => JSON.stringify(searchTargets), [searchTargets]);
@@ -754,6 +757,18 @@ export default function ItineraryMap({
   );
   const effectiveLoadingLabel = waitingForSearch ? 'Finding day places' : loadingLabel;
   const effectiveLoadingHint = waitingForSearch ? 'Looking up hotels, restaurants and sights for this day.' : loadingHint;
+  const useCustomZoomControls = interactive && variant === 'day';
+  const showCustomZoomControls = useCustomZoomControls && ready && !showFallback && !showDeferred && !failed;
+
+  const zoomMap = (direction: 1 | -1) => {
+    const map = mapRef.current;
+    if (!map) return;
+    const fallbackZoom = displayAtlas.points.length === 1 ? 11 : 6;
+    const baseZoom = map.getZoom() ?? currentZoom ?? fallbackZoom;
+    const nextZoom = Math.max(MIN_MAP_ZOOM, Math.min(MAX_MAP_ZOOM, baseZoom + direction));
+    map.setZoom(nextZoom);
+    setCurrentZoom(nextZoom);
+  };
 
   useEffect(() => {
     const apiKey = GOOGLE_MAPS_API_KEY;
@@ -790,6 +805,7 @@ export default function ItineraryMap({
   useEffect(() => {
     setReady(false);
     setFailed(false);
+    setCurrentZoom(null);
 
     const apiKey = GOOGLE_MAPS_API_KEY;
     const container = containerRef.current;
@@ -850,11 +866,16 @@ export default function ItineraryMap({
           mapTypeControl: false,
           streetViewControl: false,
           zoom: displayAtlas.points.length === 1 ? 11 : 6,
-          zoomControl: interactive,
+          zoomControl: interactive && !useCustomZoomControls,
         });
 
         mapRef.current = map;
         fallbackTimer = window.setTimeout(fail, 15000);
+        const syncZoom = () => {
+          const zoom = map.getZoom();
+          setCurrentZoom(typeof zoom === 'number' ? zoom : null);
+        };
+        mapListeners.push(map.addListener('zoom_changed', syncZoom));
 
         if (showLines && routeSegments.length) {
           polylines = addRouteLines(map, routeSegments, variant);
@@ -869,6 +890,7 @@ export default function ItineraryMap({
         mapListeners.push(google.maps.event.addListenerOnce(map, 'idle', () => {
           if (cancelled) return;
           if (fallbackTimer) window.clearTimeout(fallbackTimer);
+          syncZoom();
           setReady(true);
         }));
 
@@ -894,8 +916,9 @@ export default function ItineraryMap({
       cleanupMapObjects();
       mapContainer.replaceChildren();
       mapRef.current = null;
+      setCurrentZoom(null);
     };
-  }, [displayAtlas, enabled, interactive, points, routeSegments, showLines, variant, waitingForSearch]);
+  }, [displayAtlas, enabled, interactive, points, routeSegments, showLines, useCustomZoomControls, variant, waitingForSearch]);
 
   useEffect(() => {
     if (!focusRequest || handledFocusNonceRef.current === focusRequest.nonce) return;
@@ -915,7 +938,7 @@ export default function ItineraryMap({
         className ?? '',
       ].filter(Boolean).join(' ')}
       aria-label={title}
-      role="img"
+      role={interactive ? 'group' : 'img'}
     >
       {showDeferred ? (
         <div className="itinerary-map-deferred" aria-hidden="true" />
@@ -926,6 +949,30 @@ export default function ItineraryMap({
       ) : (
         <>
           <div ref={containerRef} className="itinerary-map-canvas" />
+          {showCustomZoomControls ? (
+            <div className="itinerary-map-zoom-controls" aria-label="Map zoom controls">
+              <button
+                type="button"
+                className="itinerary-map-zoom-button"
+                aria-label="Zoom in"
+                title="Zoom in"
+                disabled={currentZoom !== null && currentZoom >= MAX_MAP_ZOOM}
+                onClick={() => zoomMap(1)}
+              >
+                +
+              </button>
+              <button
+                type="button"
+                className="itinerary-map-zoom-button"
+                aria-label="Zoom out"
+                title="Zoom out"
+                disabled={currentZoom !== null && currentZoom <= MIN_MAP_ZOOM}
+                onClick={() => zoomMap(-1)}
+              >
+                -
+              </button>
+            </div>
+          ) : null}
           {!ready && (
             <div className="itinerary-map-loading" role="status" aria-live="polite">
               <div className="itinerary-map-loading-panel">

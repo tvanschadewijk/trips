@@ -20,6 +20,66 @@
   z-index: 1;
 }
 
+.itinerary-map-zoom-controls {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 3;
+  display: grid;
+  overflow: hidden;
+  border: 1px solid rgba(212, 200, 180, 0.72);
+  border-radius: 8px;
+  background: rgba(251, 247, 241, 0.94);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.72) inset,
+    0 16px 32px -24px rgba(26, 20, 16, 0.68);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.itinerary-map-zoom-button {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  appearance: none;
+  background: transparent;
+  color: var(--color-text-primary, #1A1410);
+  cursor: pointer;
+  font-family: var(--font-sans, 'Inter', system-ui, sans-serif);
+  font-size: 22px;
+  font-weight: 520;
+  line-height: 1;
+  place-items: center;
+}
+
+.itinerary-map-zoom-button + .itinerary-map-zoom-button {
+  border-top: 1px solid rgba(212, 200, 180, 0.64);
+}
+
+.itinerary-map-zoom-button:hover {
+  background: rgba(193, 79, 42, 0.08);
+  color: var(--color-accent-deep, #A03E1F);
+}
+
+.itinerary-map-zoom-button:focus-visible {
+  outline: 2px solid rgba(193, 79, 42, 0.68);
+  outline-offset: -3px;
+}
+
+.itinerary-map-zoom-button:disabled {
+  color: var(--color-text-muted, #6B6157);
+  cursor: default;
+  opacity: 0.42;
+}
+
+.itinerary-map-zoom-button:disabled:hover {
+  background: transparent;
+  color: var(--color-text-muted, #6B6157);
+}
+
 .itinerary-map-loading {
   position: absolute;
   inset: 0;
