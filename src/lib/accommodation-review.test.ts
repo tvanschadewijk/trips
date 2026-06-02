@@ -105,6 +105,54 @@ test('buildInitialAccommodationReview groups consecutive stay nights into one ca
   assert.equal(review.accommodations[0].parking, 'Private lot listed.');
 });
 
+test('buildInitialAccommodationReview orders stay stops by date when days were inserted out of array order', () => {
+  const trip: TripData = {
+    ...sampleTrip,
+    days: [
+      {
+        day_number: 8,
+        date: '2026-07-20',
+        title: 'Istanbul',
+        blocks: [{ time_label: 'Afternoon', content: 'Arrive.', type: 'arrival' }],
+        accommodation: {
+          name: 'Istanbul Hotel',
+          status: 'pending',
+          nights: 1,
+        },
+      },
+      {
+        day_number: 3,
+        date: '2026-07-14',
+        title: 'Xanthi',
+        blocks: [{ time_label: 'Afternoon', content: 'Arrive.', type: 'arrival' }],
+        accommodation: {
+          name: 'Xanthi Guesthouse',
+          status: 'booked',
+          nights: 1,
+        },
+      },
+      {
+        day_number: 4,
+        date: '2026-07-15',
+        title: 'Edirne',
+        blocks: [{ time_label: 'Afternoon', content: 'Arrive.', type: 'arrival' }],
+        accommodation: {
+          name: 'Edirne Hotel',
+          status: 'booked',
+          nights: 1,
+        },
+      },
+    ],
+  };
+
+  const review = buildInitialAccommodationReview(trip);
+
+  assert.deepEqual(
+    review.destinations.map((destination) => destination.title),
+    ['Xanthi', 'Edirne', 'Istanbul']
+  );
+});
+
 test('moveAccommodationCandidate records a booked event', () => {
   const review = buildInitialAccommodationReview(sampleTrip);
   const candidateId = review.accommodations[0].id;
@@ -116,6 +164,26 @@ test('moveAccommodationCandidate records a booked event', () => {
   assert.equal(next.accommodations[0].lane, 'booked');
   assert.equal(next.accommodations[0].booking?.source, 'Direct');
   assert.equal(next.events?.at(-1)?.type, 'candidate_booked');
+});
+
+test('moveAccommodationCandidate clears booking metadata when moved back to proposals', () => {
+  const review = buildInitialAccommodationReview(sampleTrip);
+  const candidateId = review.accommodations[0].id;
+  const bookedReview = moveAccommodationCandidate(review, candidateId, 'booked', 'user', {
+    source: 'Direct',
+    confirmation: 'ABC123',
+  });
+  const proposedReview = moveAccommodationCandidate(
+    bookedReview,
+    candidateId,
+    'proposed',
+    'user'
+  );
+
+  assert.equal(proposedReview.accommodations[0].lane, 'proposed');
+  assert.equal(proposedReview.accommodations[0].status, 'proposed');
+  assert.equal(proposedReview.accommodations[0].booking, undefined);
+  assert.equal(proposedReview.events?.at(-1)?.type, 'candidate_moved');
 });
 
 test('moveAccommodationCandidate rejects a second booked stay for one destination', () => {
@@ -371,6 +439,75 @@ test('mergeAccommodationReviewWithTripData keeps booked imports on matching lega
   assert.equal(next.destinations.some((destination) => destination.id === '1-tekirdag'), false);
   assert.equal(candidate?.destinationId, 'legacy-tekirdag');
   assert.equal(candidate?.lane, 'booked');
+});
+
+test('mergeAccommodationReviewWithTripData repairs stale persisted destination order', () => {
+  const trip: TripData = {
+    ...sampleTrip,
+    days: [
+      {
+        day_number: 1,
+        date: '2026-07-12',
+        title: 'Tekirdag Wine Coast',
+        blocks: [{ time_label: 'Afternoon', content: 'Arrive.', type: 'arrival' }],
+        accommodation: {
+          name: 'Tekirdag Vineyard Hotel',
+          status: 'booked',
+          nights: 2,
+        },
+      },
+      {
+        day_number: 3,
+        date: '2026-07-14',
+        title: 'Xanthi',
+        blocks: [{ time_label: 'Afternoon', content: 'Arrive.', type: 'arrival' }],
+        accommodation: {
+          name: 'Xanthi Guesthouse',
+          status: 'booked',
+          nights: 1,
+        },
+      },
+      {
+        day_number: 4,
+        date: '2026-07-15',
+        title: 'Edirne',
+        blocks: [{ time_label: 'Afternoon', content: 'Arrive.', type: 'arrival' }],
+        accommodation: {
+          name: 'Edirne Hotel',
+          status: 'booked',
+          nights: 2,
+        },
+      },
+      {
+        day_number: 8,
+        date: '2026-07-20',
+        title: 'Istanbul',
+        blocks: [{ time_label: 'Afternoon', content: 'Arrive.', type: 'arrival' }],
+        accommodation: {
+          name: 'Istanbul Hotel',
+          status: 'pending',
+          nights: 3,
+        },
+      },
+    ],
+  };
+  const review = buildInitialAccommodationReview(trip);
+  const staleReview = {
+    ...review,
+    destinations: [
+      review.destinations[0],
+      review.destinations[3],
+      review.destinations[1],
+      review.destinations[2],
+    ],
+  };
+
+  const next = mergeAccommodationReviewWithTripData(staleReview, trip);
+
+  assert.deepEqual(
+    next.destinations.map((destination) => destination.title),
+    ['Tekirdag Wine Coast', 'Xanthi', 'Edirne', 'Istanbul']
+  );
 });
 
 test('mergeAccommodationReviewWithTripData updates a shifted imported stop instead of duplicating it', () => {

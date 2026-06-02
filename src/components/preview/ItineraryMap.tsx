@@ -22,6 +22,7 @@ interface ItineraryMapProps {
   loadingLabel?: string;
   loadingHint?: string;
   searchTargets?: ItineraryMapPoiSearchTarget[];
+  focusRequest?: ItineraryMapFocusRequest;
 }
 
 interface RouteSegment {
@@ -42,6 +43,18 @@ interface PopupOptions {
   includeMapActions?: boolean;
 }
 
+export interface ItineraryMapFocusRequest {
+  id?: string;
+  label?: string;
+  nonce: number;
+}
+
+interface MarkerController {
+  markers: google.maps.marker.AdvancedMarkerElement[];
+  cleanupHandlers: (() => void)[];
+  focusPoint: (request: ItineraryMapFocusRequest) => boolean;
+}
+
 type ResolvedSearchTarget = {
   point: TripRouteAtlasPoint;
   detail: ItineraryMapPointDetail;
@@ -49,6 +62,14 @@ type ResolvedSearchTarget = {
 
 const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 const GOOGLE_MAPS_MAP_ID = process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID;
+const MAP_POPOVER_Z_INDEX = 1_000_000;
+const HOVER_POPUP_CLOSE_DELAY_MS = 160;
+const POINT_FOCUS_ZOOM = 17;
+const OVERVIEW_MAP_FIT_PADDING = { top: 28, right: 24, bottom: 28, left: 24 } satisfies google.maps.Padding;
+const DAY_MAP_FIT_PADDING = { top: 24, right: 24, bottom: 24, left: 24 } satisfies google.maps.Padding;
+const DAY_MAP_REFIT_PADDING = { top: 40, right: 40, bottom: 40, left: 40 } satisfies google.maps.Padding;
+const PLACE_FALLBACK_MAX_DISTANCE_KM = 120;
+const POI_RESULT_BOUNDS_PAD_DEGREES = 0.04;
 const SEARCH_CACHE = new Map<string, ResolvedSearchTarget | null>();
 const PLACE_AREA_TYPES = new Set([
   'administrative_area_level_1',
@@ -180,6 +201,53 @@ function boundsLiteralFor(bbox: [number, number, number, number]): google.maps.L
   };
 }
 
+function pointInsideBbox(
+  position: google.maps.LatLngLiteral,
+  bbox: [number, number, number, number],
+  padDegrees = 0
+): boolean {
+  return (
+    position.lng >= bbox[0] - padDegrees &&
+    position.lng <= bbox[2] + padDegrees &&
+    position.lat >= bbox[1] - padDegrees &&
+    position.lat <= bbox[3] + padDegrees
+  );
+}
+
+function distanceKm(
+  left: google.maps.LatLngLiteral,
+  right: google.maps.LatLngLiteral
+): number {
+  const toRadians = (value: number) => (value * Math.PI) / 180;
+  const earthRadiusKm = 6371;
+  const latDelta = toRadians(right.lat - left.lat);
+  const lngDelta = toRadians(right.lng - left.lng);
+  const leftLat = toRadians(left.lat);
+  const rightLat = toRadians(right.lat);
+  const a =
+    Math.sin(latDelta / 2) ** 2 +
+    Math.cos(leftLat) * Math.cos(rightLat) * Math.sin(lngDelta / 2) ** 2;
+  return 2 * earthRadiusKm * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function searchResultFitsTarget(
+  target: ItineraryMapPoiSearchTarget,
+  position: google.maps.LatLngLiteral
+): boolean {
+  if (target.kind === 'poi' && target.bbox && !pointInsideBbox(position, target.bbox, POI_RESULT_BOUNDS_PAD_DEGREES)) {
+    return false;
+  }
+
+  if (target.kind === 'place' && target.fallbackPoint) {
+    return distanceKm(position, {
+      lat: target.fallbackPoint.lat,
+      lng: target.fallbackPoint.lng,
+    }) <= PLACE_FALLBACK_MAX_DISTANCE_KM;
+  }
+
+  return true;
+}
+
 function locationBiasFor(target: ItineraryMapPoiSearchTarget): google.maps.places.SearchByTextRequest['locationBias'] | undefined {
   if (target.kind === 'poi' && target.bbox) return undefined;
   if (target.bbox) return boundsLiteralFor(target.bbox);
@@ -254,8 +322,19 @@ async function resolveSearchTarget(target: ItineraryMapPoiSearchTarget, apiKey: 
     bbox: target.bbox,
     kind: target.kind,
     placeType: target.placeType,
+    fallbackPoint: target.fallbackPoint
+      ? [target.fallbackPoint.lat, target.fallbackPoint.lng]
+      : undefined,
   });
   if (SEARCH_CACHE.has(cacheKey)) return SEARCH_CACHE.get(cacheKey) ?? null;
+
+  // Route stops are already grounded by the trip atlas. Prefer that coordinate
+  // over global text search so ambiguous cities do not jump continents.
+  if (target.kind === 'place' && target.fallbackPoint) {
+    const resolved = resolvedTargetFromFallback(target, 0);
+    SEARCH_CACHE.set(cacheKey, resolved);
+    return resolved;
+  }
 
   let Place: typeof google.maps.places.Place;
   try {
@@ -291,6 +370,7 @@ async function resolveSearchTarget(target: ItineraryMapPoiSearchTarget, apiKey: 
       const place = pickSearchPlace(result.places, target);
       const position = place ? placeCoordinates(place) : undefined;
       if (!place || !position) continue;
+      if (!searchResultFitsTarget(target, position)) continue;
 
       const resolved: ResolvedSearchTarget = {
         point: {
@@ -341,10 +421,15 @@ function routeColorFor(mode: string): string {
   }
 }
 
+function mapContainsAllPoints(map: google.maps.Map, atlas: TripRouteAtlas): boolean {
+  const visibleBounds = map.getBounds();
+  return Boolean(visibleBounds && atlas.points.every((point) => visibleBounds.contains(toLatLng(point))));
+}
+
 function fitMap(map: google.maps.Map, atlas: TripRouteAtlas, variant: MapVariant): google.maps.MapsEventListener | undefined {
   if (atlas.points.length === 1) {
     map.setCenter(toLatLng(atlas.points[0]));
-    map.setZoom(variant === 'overview-card' ? 9 : 16);
+    map.setZoom(variant === 'overview-card' ? 9 : POINT_FOCUS_ZOOM);
     return undefined;
   }
 
@@ -353,14 +438,13 @@ function fitMap(map: google.maps.Map, atlas: TripRouteAtlas, variant: MapVariant
     { lat: atlas.bounds.maxLat, lng: atlas.bounds.maxLng }
   );
 
-  map.fitBounds(
-    bounds,
-    variant === 'overview-card'
-      ? { top: 28, right: 24, bottom: 28, left: 24 }
-      : { top: 72, right: 64, bottom: 72, left: 64 }
-  );
+  map.fitBounds(bounds, variant === 'overview-card' ? OVERVIEW_MAP_FIT_PADDING : DAY_MAP_FIT_PADDING);
 
-  if (variant !== 'overview-card') return undefined;
+  if (variant !== 'overview-card') {
+    return google.maps.event.addListenerOnce(map, 'idle', () => {
+      if (!mapContainsAllPoints(map, atlas)) map.fitBounds(bounds, DAY_MAP_REFIT_PADDING);
+    });
+  }
 
   const maxZoom = 8.4;
   return google.maps.event.addListenerOnce(map, 'idle', () => {
@@ -382,24 +466,10 @@ function popupContentFor(point: PointDisplay, options: PopupOptions = {}): HTMLE
   const popup = document.createElement('div');
   popup.className = 'itinerary-map-stop-popup';
 
-  if (point.detail.kicker) {
-    const kicker = document.createElement('div');
-    kicker.className = 'itinerary-map-stop-popup-kicker';
-    kicker.textContent = point.detail.kicker;
-    popup.append(kicker);
-  }
-
   const title = document.createElement('div');
   title.className = 'itinerary-map-stop-popup-title';
   title.textContent = point.detail.title || point.label || 'Stop';
   popup.append(title);
-
-  if (point.detail.body) {
-    const body = document.createElement('div');
-    body.className = 'itinerary-map-stop-popup-body';
-    body.textContent = point.detail.body;
-    popup.append(body);
-  }
 
   if (options.includeMapActions) {
     const actions = document.createElement('div');
@@ -407,7 +477,7 @@ function popupContentFor(point: PointDisplay, options: PopupOptions = {}): HTMLE
 
     const label = document.createElement('div');
     label.className = 'itinerary-map-stop-popup-actions-label';
-    label.textContent = 'Open in Maps';
+    label.textContent = 'Choose Maps app';
     actions.append(label);
 
     for (const provider of ['google', 'apple'] as const) {
@@ -416,6 +486,10 @@ function popupContentFor(point: PointDisplay, options: PopupOptions = {}): HTMLE
       link.href = mapsLinkFor(provider, point);
       link.target = '_blank';
       link.rel = 'noreferrer';
+      link.setAttribute(
+        'aria-label',
+        `Open ${point.detail.title || point.label || 'this location'} in ${provider === 'google' ? 'Google Maps' : 'Apple Maps'}`
+      );
       link.textContent = provider === 'google' ? 'Google Maps' : 'Apple Maps';
       actions.append(link);
     }
@@ -463,6 +537,8 @@ function markerElementFor(point: PointDisplay, variant: MapVariant): HTMLButtonE
 
 function addRouteLines(map: google.maps.Map, routeSegments: RouteSegment[], variant: MapVariant): google.maps.Polyline[] {
   return routeSegments.flatMap((segment) => {
+    const isOverview = variant === 'overview-card';
+    const routeColor = isOverview ? '#C14F2A' : routeColorFor(segment.mode);
     const baseOptions: google.maps.PolylineOptions = {
       clickable: false,
       geodesic: true,
@@ -472,15 +548,30 @@ function addRouteLines(map: google.maps.Map, routeSegments: RouteSegment[], vari
     const casing = new google.maps.Polyline({
       ...baseOptions,
       strokeColor: '#FBF7F1',
-      strokeOpacity: 0.92,
-      strokeWeight: variant === 'overview-card' ? 7 : 10,
+      strokeOpacity: isOverview ? 0.96 : 0.92,
+      strokeWeight: isOverview ? 8 : 10,
       zIndex: 1,
     });
     const line = new google.maps.Polyline({
       ...baseOptions,
-      strokeColor: routeColorFor(segment.mode),
-      strokeOpacity: 0.96,
-      strokeWeight: variant === 'overview-card' ? 4 : 6,
+      icons: isOverview
+        ? [{
+            icon: {
+              path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
+              fillColor: routeColor,
+              fillOpacity: 1,
+              scale: 2.4,
+              strokeColor: '#FBF7F1',
+              strokeOpacity: 0.95,
+              strokeWeight: 1.4,
+            },
+            offset: '100%',
+            repeat: '140px',
+          }]
+        : undefined,
+      strokeColor: routeColor,
+      strokeOpacity: isOverview ? 0.88 : 0.96,
+      strokeWeight: isOverview ? 4 : 6,
       zIndex: 2,
     });
 
@@ -493,19 +584,47 @@ function addPointMarkers(
   AdvancedMarkerElement: typeof google.maps.marker.AdvancedMarkerElement,
   points: PointDisplay[],
   variant: MapVariant
-) {
+): MarkerController {
   const infoWindow = new google.maps.InfoWindow({
     disableAutoPan: variant === 'overview-card',
     headerDisabled: true,
-    maxWidth: variant === 'overview-card' ? 260 : 360,
-    pixelOffset: new google.maps.Size(0, variant === 'overview-card' ? -18 : -34),
+    maxWidth: variant === 'overview-card' ? 420 : 360,
+    pixelOffset: new google.maps.Size(0, variant === 'overview-card' ? -26 : -34),
+    zIndex: MAP_POPOVER_Z_INDEX,
   });
   const cleanupHandlers: (() => void)[] = [];
+  let hoverCloseTimer: number | undefined;
   let pinnedPointId: string | null = null;
+  let activePopupKey: string | null = null;
+  let popupCleanup: (() => void) | undefined;
+  const clearHoverCloseTimer = () => {
+    if (!hoverCloseTimer) return;
+    window.clearTimeout(hoverCloseTimer);
+    hoverCloseTimer = undefined;
+  };
+  const closePopup = () => {
+    clearHoverCloseTimer();
+    popupCleanup?.();
+    popupCleanup = undefined;
+    activePopupKey = null;
+    infoWindow.close();
+  };
+  const scheduleHoverPopupClose = () => {
+    if (pinnedPointId) return;
+    clearHoverCloseTimer();
+    hoverCloseTimer = window.setTimeout(() => {
+      closePopup();
+    }, HOVER_POPUP_CLOSE_DELAY_MS);
+  };
   const mapClickListener = map.addListener('click', () => {
     pinnedPointId = null;
-    infoWindow.close();
+    closePopup();
   });
+  const controllers: {
+    point: PointDisplay;
+    marker: google.maps.marker.AdvancedMarkerElement;
+    showPinnedPopup: () => void;
+  }[] = [];
   const markers = points.map((point, index) => {
     const content = markerElementFor(point, variant);
     const marker = new AdvancedMarkerElement({
@@ -521,14 +640,31 @@ function addPointMarkers(
 
     const showPopup = (includeMapActions = false, pinned = false) => {
       if (!pinned && pinnedPointId) return;
+      clearHoverCloseTimer();
       if (pinned) pinnedPointId = point.id;
-      infoWindow.setContent(popupContentFor(point, { includeMapActions }));
+      const popupKey = `${point.id}:${includeMapActions ? 'actions' : 'title'}`;
+      if (activePopupKey === popupKey) {
+        infoWindow.setZIndex(MAP_POPOVER_Z_INDEX);
+        infoWindow.open({ anchor: marker, map, shouldFocus: false });
+        return;
+      }
+      popupCleanup?.();
+      const popup = popupContentFor(point, { includeMapActions });
+      const stopPopupClick = (event: Event) => event.stopPropagation();
+      popup.addEventListener('mouseenter', clearHoverCloseTimer);
+      popup.addEventListener('mouseleave', scheduleHoverPopupClose);
+      popup.addEventListener('click', stopPopupClick);
+      popupCleanup = () => {
+        popup.removeEventListener('mouseenter', clearHoverCloseTimer);
+        popup.removeEventListener('mouseleave', scheduleHoverPopupClose);
+        popup.removeEventListener('click', stopPopupClick);
+      };
+      activePopupKey = popupKey;
+      infoWindow.setContent(popup);
+      infoWindow.setZIndex(MAP_POPOVER_Z_INDEX);
       infoWindow.open({ anchor: marker, map, shouldFocus: false });
     };
-    const showHoverPopup = () => showPopup(false, false);
-    const closeHoverPopup = () => {
-      if (!pinnedPointId) infoWindow.close();
-    };
+    const showHoverPopup = () => showPopup(variant === 'day', false);
     const stopAndShowPopup = (event: Event) => {
       event.stopPropagation();
       showPopup(true, true);
@@ -537,26 +673,45 @@ function addPointMarkers(
 
     content.addEventListener('mouseenter', showHoverPopup);
     content.addEventListener('mousemove', showHoverPopup);
-    content.addEventListener('mouseleave', closeHoverPopup);
+    content.addEventListener('mouseleave', scheduleHoverPopupClose);
     content.addEventListener('click', stopAndShowPopup);
     marker.addEventListener('gmp-click', showPinnedPopup);
     cleanupHandlers.push(() => {
       content.removeEventListener('mouseenter', showHoverPopup);
       content.removeEventListener('mousemove', showHoverPopup);
-      content.removeEventListener('mouseleave', closeHoverPopup);
+      content.removeEventListener('mouseleave', scheduleHoverPopupClose);
       content.removeEventListener('click', stopAndShowPopup);
       marker.removeEventListener('gmp-click', showPinnedPopup);
     });
+    controllers.push({ point, marker, showPinnedPopup });
 
     return marker;
   });
 
   cleanupHandlers.push(() => {
     mapClickListener.remove();
-    infoWindow.close();
+    closePopup();
   });
 
-  return { markers, cleanupHandlers };
+  const focusPoint = (request: ItineraryMapFocusRequest) => {
+    const normalizedLabel = request.label ? normalizeSearchText(request.label) : '';
+    const controller = controllers.find(({ point }) => {
+      if (request.id && point.id === request.id) return true;
+      if (!normalizedLabel) return false;
+      return normalizeSearchText(point.label) === normalizedLabel
+        || normalizeSearchText(point.detail.title ?? '') === normalizedLabel;
+    });
+    if (!controller) return false;
+
+    pinnedPointId = controller.point.id;
+    map.panTo(controller.point.position);
+    const currentZoom = map.getZoom();
+    if (!currentZoom || currentZoom < POINT_FOCUS_ZOOM) map.setZoom(POINT_FOCUS_ZOOM);
+    controller.showPinnedPopup();
+    return true;
+  };
+
+  return { markers, cleanupHandlers, focusPoint };
 }
 
 export default function ItineraryMap({
@@ -572,9 +727,12 @@ export default function ItineraryMap({
   loadingLabel = 'Loading map',
   loadingHint,
   searchTargets = [],
+  focusRequest,
 }: ItineraryMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
+  const markerControllerRef = useRef<MarkerController | null>(null);
+  const handledFocusNonceRef = useRef<number | null>(null);
   const [ready, setReady] = useState(false);
   const [failed, setFailed] = useState(false);
   const [searchComplete, setSearchComplete] = useState(searchTargets.length === 0);
@@ -654,6 +812,7 @@ export default function ItineraryMap({
     let cleanupHandlers: (() => void)[] = [];
 
     const cleanupMapObjects = () => {
+      markerControllerRef.current = null;
       mapListeners.forEach((listener) => listener.remove());
       mapListeners = [];
       cleanupHandlers.forEach((cleanupHandler) => cleanupHandler());
@@ -709,6 +868,7 @@ export default function ItineraryMap({
         const markerResult = addPointMarkers(map, AdvancedMarkerElement, points, variant);
         markers = markerResult.markers;
         cleanupHandlers = markerResult.cleanupHandlers;
+        markerControllerRef.current = markerResult;
 
         const fitListener = fitMap(map, displayAtlas, variant);
         if (fitListener) mapListeners.push(fitListener);
@@ -742,6 +902,13 @@ export default function ItineraryMap({
       mapRef.current = null;
     };
   }, [displayAtlas, enabled, interactive, points, routeSegments, showLines, variant, waitingForSearch]);
+
+  useEffect(() => {
+    if (!focusRequest || handledFocusNonceRef.current === focusRequest.nonce) return;
+    if (markerControllerRef.current?.focusPoint(focusRequest)) {
+      handledFocusNonceRef.current = focusRequest.nonce;
+    }
+  }, [focusRequest, points, ready]);
 
   return (
     <div

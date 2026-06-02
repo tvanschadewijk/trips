@@ -13,7 +13,7 @@ export const ACCOMMODATION_REVIEW_LANES: {
   id: AccommodationReviewLane;
   label: string;
 }[] = [
-  { id: 'proposed', label: 'Agent proposes' },
+  { id: 'proposed', label: 'Travel Agent Proposals' },
   { id: 'considering', label: 'Under consideration' },
   { id: 'dismissed', label: 'Dismissed' },
   { id: 'booked', label: 'Booked' },
@@ -216,11 +216,71 @@ function candidateFromAccommodation(args: {
   } satisfies AccommodationCandidate);
 }
 
+function minDayNumber(dayNumbers?: number[]): number | null {
+  if (!dayNumbers?.length) return null;
+  const valid = dayNumbers.filter(Number.isFinite);
+  return valid.length ? Math.min(...valid) : null;
+}
+
+function compareAccommodationDays(
+  left: TripData['days'][number],
+  right: TripData['days'][number]
+): number {
+  const leftDate = dateValue(left.date);
+  const rightDate = dateValue(right.date);
+  if (leftDate !== null && rightDate !== null && leftDate !== rightDate) {
+    return leftDate - rightDate;
+  }
+  if (leftDate !== null && rightDate === null) return -1;
+  if (leftDate === null && rightDate !== null) return 1;
+  return left.day_number - right.day_number;
+}
+
+function compareDestinationsChronologically(
+  left: AccommodationReviewDestination,
+  right: AccommodationReviewDestination,
+  originalIndex: Map<string, number>
+): number {
+  const leftDate = dateValue(left.startDate);
+  const rightDate = dateValue(right.startDate);
+  if (leftDate !== null && rightDate !== null && leftDate !== rightDate) {
+    return leftDate - rightDate;
+  }
+  if (leftDate !== null && rightDate === null) return -1;
+  if (leftDate === null && rightDate !== null) return 1;
+
+  const leftDay = minDayNumber(left.dayNumbers);
+  const rightDay = minDayNumber(right.dayNumbers);
+  if (leftDay !== null && rightDay !== null && leftDay !== rightDay) {
+    return leftDay - rightDay;
+  }
+  if (leftDay !== null && rightDay === null) return -1;
+  if (leftDay === null && rightDay !== null) return 1;
+
+  return (originalIndex.get(left.id) ?? 0) - (originalIndex.get(right.id) ?? 0);
+}
+
+function sortDestinationsChronologically(review: AccommodationReview): boolean {
+  const originalIndex = new Map(
+    review.destinations.map((destination, index) => [destination.id, index])
+  );
+  const sorted = [...review.destinations].sort((left, right) =>
+    compareDestinationsChronologically(left, right, originalIndex)
+  );
+  const changed = sorted.some(
+    (destination, index) => destination.id !== review.destinations[index]?.id
+  );
+  if (changed) {
+    review.destinations = sorted;
+  }
+  return changed;
+}
+
 export function buildInitialAccommodationReview(tripData: TripData): AccommodationReview {
   const usedDestinationIds = new Set<string>();
   const destinations: AccommodationReviewDestination[] = [];
   const accommodations: AccommodationCandidate[] = [];
-  const days = tripData.days ?? [];
+  const days = [...(tripData.days ?? [])].sort(compareAccommodationDays);
 
   for (let index = 0; index < days.length; index += 1) {
     const day = days[index];
@@ -744,6 +804,7 @@ export function mergeAccommodationReviewWithTripData(
   const activeDestinationIds = new Set(destinationIdMap.values());
   changed = remapDuplicateDestinationCandidates(next, activeDestinationIds) || changed;
   changed = pruneStaleImportedItems(next, liveImportedCandidateIds) || changed;
+  changed = sortDestinationsChronologically(next) || changed;
 
   next.tripTitle = tripData.trip.name;
   next.tripSlug = imported.tripSlug;
@@ -796,6 +857,8 @@ export function moveAccommodationCandidate(
       ...(booking ?? {}),
       bookedAt: booking?.bookedAt ?? candidate.booking?.bookedAt ?? new Date().toISOString(),
     };
+  } else {
+    delete candidate.booking;
   }
 
   next.updatedAt = new Date().toISOString();

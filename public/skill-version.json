@@ -1,5 +1,5 @@
 {
-  "version": 14,
-  "changelog": "Accommodation options now sync into the in-trip Accommodation Kanban board when a trip is saved, and the skill tells users to continue review from the trip overview.",
+  "version": 15,
+  "changelog": "Route replacements now use full-overwrite guidance and post-push sync checks so itinerary.md, live Original Plan, and structured JSON stay aligned.",
   "download_url": "https://ourtrips.to/our-trips.skill"
 }

@@ -178,6 +178,7 @@
    SLIDE
    ============================================ */
 .slide { flex: 0 0 100cqi; width: 100cqi; height: 100%; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
+.slide-placeholder { overflow: hidden; -webkit-overflow-scrolling: auto; pointer-events: none; background: var(--color-surface); }
 
 /* ============================================
    HERO SLIDE
@@ -853,6 +854,31 @@ body.trip-on-cover .trip-ask-entry-label { display: inline; }
 .accom-info { flex: 1; min-width: 0; }
 .accom-meta { display: flex; align-items: center; gap: 6px; margin-top: 3px; flex-wrap: wrap; }
 .accom-note { margin-top: 4px; font-style: italic; }
+.map-focus-row { cursor: pointer; border-radius: 4px; transition: background 0.15s; }
+.map-focus-row:active { background: var(--color-surface-deep); }
+.row-details-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid rgba(193, 79, 42, 0.22);
+  border-radius: 999px;
+  background: var(--color-accent-light);
+  color: var(--color-accent);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0;
+  line-height: 1;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s, border-color 0.15s, transform 0.1s;
+}
+.row-details-btn span { display: inline-flex; }
+.row-details-btn svg { width: 13px; height: 13px; }
+.row-details-btn:active { transform: scale(0.97); background: rgba(193, 79, 42, 0.16); }
 
 .status-badge { display: inline-flex; padding: 2px 10px; border-radius: 999px; border: 1px solid; font-family: var(--font-sans); font-weight: 600; }
 .status-pending { background: rgba(155, 79, 46, 0.08); color: var(--color-warning); border-color: rgba(155, 79, 46, 0.22); }
@@ -1042,7 +1068,7 @@ body.trip-on-cover .trip-ask-entry-label { display: inline; }
 .detail-charging-meta { font-family: var(--font-sans); font-size: 13px; color: var(--color-text-muted); margin-top: 2px; }
 .detail-charging-note { font-family: var(--font-serif); font-optical-sizing: auto; font-size: 13px; color: var(--color-text-secondary); margin-top: 4px; font-style: italic; }
 
-/* Accommodation review Kanban */
+/* Accommodation review board */
 .detail-sheet-review {
   max-height: calc(100% - 18px);
 }
@@ -1068,6 +1094,8 @@ body.trip-on-cover .trip-ask-entry-label { display: inline; }
 .accommodation-review-nav-header {
   flex: none;
   min-height: var(--accommodation-review-header-height);
+  display: flex;
+  align-items: center;
   padding: 16px 10px 12px 14px;
   border-bottom: 1px solid var(--color-border);
   box-sizing: border-box;
@@ -1354,7 +1382,7 @@ body.trip-on-cover .trip-ask-entry-label { display: inline; }
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: repeat(4, minmax(178px, 1fr));
+  grid-template-columns: repeat(2, minmax(220px, 1fr));
   gap: 10px;
   padding: 12px 14px 18px;
   overflow-x: auto;
@@ -1363,7 +1391,7 @@ body.trip-on-cover .trip-ask-entry-label { display: inline; }
   -webkit-overflow-scrolling: touch;
 }
 .accommodation-review-lane {
-  min-width: 178px;
+  min-width: 220px;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
@@ -1378,8 +1406,6 @@ body.trip-on-cover .trip-ask-entry-label { display: inline; }
 .accommodation-review-lane-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
   padding: 10px 11px;
   border-bottom: 1px solid var(--color-border);
   font-family: var(--font-sans);
@@ -1388,6 +1414,9 @@ body.trip-on-cover .trip-ask-entry-label { display: inline; }
   letter-spacing: 0;
   text-transform: uppercase;
   color: var(--color-text-muted);
+}
+.lane-agent-proposals .accommodation-review-lane-header {
+  color: var(--color-accent-deep);
 }
 .lane-booked .accommodation-review-lane-header {
   color: var(--color-success);
@@ -2248,10 +2277,13 @@ body.trip-on-cover .trip-ask-entry-label { display: inline; }
   /* Clickable items get pointer cursor on desktop */
   .transport-row { cursor: pointer; border-radius: 4px; padding: 10px; margin: -10px 0; transition: background 0.15s; }
   .transport-row:hover { background: var(--color-surface-deep); }
-  .accom-card { cursor: pointer; border-radius: 4px; padding: 10px; margin: -10px 0; transition: background 0.15s; }
-  .accom-card:hover { background: var(--color-surface-deep); }
-  .meal-has-detail { cursor: pointer; border-radius: 4px; transition: background 0.15s; }
-  .meal-has-detail:hover { background: var(--color-surface-deep); }
+  .accom-card.map-focus-row,
+  .meal-row.map-focus-row { padding: 10px; margin: -10px 0; }
+  .map-focus-row:hover { background: var(--color-surface-deep); }
+  .row-details-btn:hover {
+    border-color: rgba(193, 79, 42, 0.34);
+    background: rgba(193, 79, 42, 0.16);
+  }
   .trip-ask-entry {
     left: calc(50% - (var(--app-max-width) / 2) + 20px);
     bottom: calc(30px + env(safe-area-inset-bottom));
@@ -3293,27 +3325,9 @@ body.trip-on-cover .trip-ask-entry-label { display: inline; }
     cursor: pointer;
   }
 
-  .accommodation-review-lane-tabs button span:last-child {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 18px;
-    height: 18px;
-    padding: 0 5px;
-    border-radius: 999px;
-    background: rgba(118, 94, 74, 0.1);
-    color: var(--color-text-muted);
-    font-size: 10px;
-  }
-
   .accommodation-review-lane-tabs button.active {
     border-color: rgba(193, 79, 42, 0.32);
     background: var(--color-accent-light);
-    color: var(--color-accent-deep);
-  }
-
-  .accommodation-review-lane-tabs button.active span:last-child {
-    background: rgba(193, 79, 42, 0.16);
     color: var(--color-accent-deep);
   }
 
@@ -3392,7 +3406,7 @@ body.trip-on-cover .trip-ask-entry-label { display: inline; }
   }
 
   .detail-sheet-review .accommodation-review-kanban {
-    grid-template-columns: repeat(4, minmax(220px, 1fr));
+    grid-template-columns: repeat(2, minmax(240px, 1fr));
     gap: 12px;
     padding: 14px 16px 18px;
   }
@@ -3423,7 +3437,7 @@ body.trip-on-cover .trip-ask-entry-label { display: inline; }
   }
 
   .detail-sheet-review .accommodation-review-kanban {
-    grid-template-columns: repeat(4, minmax(240px, 1fr));
+    grid-template-columns: repeat(2, minmax(280px, 1fr));
     gap: 14px;
     padding: 16px 18px 20px;
   }

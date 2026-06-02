@@ -117,12 +117,12 @@ checked_urls. Prefer official hotel pages when the returned source supports it.
 If confidence is low, write that uncertainty into the note instead of
 overstating the finding.`;
 
-const LIST_ACCOMMODATION_REVIEW_DESCRIPTION = `List the private accommodation-review Kanban board for this trip.
+const LIST_ACCOMMODATION_REVIEW_DESCRIPTION = `List the private Accommodations Reviewer board for this trip.
 
 Use this for hotel-search workflow questions such as "what are we considering
 in Istanbul", "why did we reject that hotel", "what has been booked", or when
-the user is looking at the Accommodation Review surface. It returns the
-destination list, candidates grouped by Kanban lane, and recent reviewer events.
+the user is looking at the Accommodations Reviewer surface. It returns the
+destination list, candidates grouped by review state, and recent reviewer events.
 
 The destination list is derived from the canonical itinerary in trips.data
 (days[].accommodation). If the user asks to remove, rename, merge, or
@@ -134,7 +134,7 @@ current itinerary stays. The trip_id is pinned by the server.`;
 
 const UPDATE_ACCOMMODATION_CANDIDATE_DESCRIPTION = `Patch one private accommodation-review candidate.
 
-Use this for changing candidate facts in the Kanban board: price, direct link,
+Use this for changing candidate facts in the Accommodations Reviewer: price, direct link,
 ratings, dog/parking/terms notes, blockers, action, feedbackLoop, or lane. This
 does not edit the public itinerary unless the candidate is moved to booked with
 move_accommodation_candidate or promote_accommodation_candidate.`;
@@ -142,18 +142,20 @@ move_accommodation_candidate or promote_accommodation_candidate.`;
 const CREATE_ACCOMMODATION_CANDIDATE_DESCRIPTION = `Create one private accommodation-review proposal card.
 
 Use this after researching or choosing a hotel/stay candidate that should enter
-the Kanban board. New candidates should usually start in proposed unless the
-user explicitly says they are already considering or booked. Include direct
+the review board. New candidates should usually start in proposed unless the
+user explicitly says they are already booked. Include direct
 site links, platform prices, ratings, terms, dog/parking notes, and blockers
 when known.`;
 
-const MOVE_ACCOMMODATION_CANDIDATE_DESCRIPTION = `Move one accommodation-review candidate between Kanban lanes.
+const MOVE_ACCOMMODATION_CANDIDATE_DESCRIPTION = `Move one accommodation-review candidate between review states.
 
-Lanes are:
-- proposed: what the agent proposes
+Primary states are:
+- proposed: Agent Proposals
+- booked: committed stay
+
+Legacy states are still accepted for older data:
 - considering: under consideration
 - dismissed: rejected but retained for memory
-- booked: committed stay
 
 When a candidate is moved to booked, this tool also promotes the clean stay
 into the trip's day accommodation cards and records a reviewer event, so future
@@ -163,7 +165,7 @@ const PROMOTE_ACCOMMODATION_CANDIDATE_DESCRIPTION = `Mark an accommodation-revie
 
 Use when the user says a hotel is booked, confirms a booking, or asks you to
 make a selected candidate the stay for that destination. This updates both the
-private Kanban board and the public trip accommodation cards for the matching
+private Accommodations Reviewer and the public trip accommodation cards for the matching
 destination days.`;
 
 const DetailPatchSchema = z

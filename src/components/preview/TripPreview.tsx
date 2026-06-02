@@ -7,7 +7,7 @@ import type { TripData, Day, Transport, Accommodation, Tip, Meal, Block, RichDet
 import { ICONS } from './icons';
 import SaveOfflineButton from './SaveOfflineButton';
 import TripRouteAtlas from './TripRouteAtlas';
-import ItineraryMap from './ItineraryMap';
+import ItineraryMap, { type ItineraryMapFocusRequest } from './ItineraryMap';
 import AccommodationReviewBoard from './AccommodationReviewBoard';
 import { renderTripMarkdown } from '@/lib/render-trip-markdown';
 import { buildTripRouteAtlas } from '@/lib/trip-route';
@@ -85,6 +85,7 @@ function renderRichDetail(detail?: RichDetail): string {
 const MAX_VISIBLE_DOTS = 7;
 const TRIP_HERO_TRANSITION_NAME = 'trip-hero';
 const DETAIL_CLOSE_MS = 420;
+const NEARBY_SLIDE_RENDER_RADIUS = 1;
 
 type DetailContent = {
   title: string;
@@ -94,6 +95,20 @@ type DetailContent = {
 };
 type SlideMotionMode = 'programmatic' | 'swipe' | 'settled';
 type SlideDirection = 'forward' | 'backward' | 'none';
+type DayMapFocusRequest = ItineraryMapFocusRequest & {
+  dayNumber: number;
+};
+
+function normalizeMapFocusLabel(value: string | undefined): string {
+  return (value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/&/g, ' and ')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+    .replace(/\s+/g, ' ');
+}
 
 function SwipeDots({ total, current, onDotClick }: { total: number; current: number; onDotClick: (i: number) => void }) {
   if (total <= MAX_VISIBLE_DOTS) {
@@ -153,6 +168,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
   const [detailContent, setDetailContent] = useState<DetailContent>({ title: '', html: '' });
   const [slideMotionMode, setSlideMotionMode] = useState<SlideMotionMode>('settled');
   const [slideDirection, setSlideDirection] = useState<SlideDirection>('none');
+  const [transitionAnchorSlide, setTransitionAnchorSlide] = useState<number | null>(null);
   const [overviewFaded, setOverviewFaded] = useState(autoOpen ? true : false);
   const [showOverviewMap, setShowOverviewMap] = useState(false);
   const [isDesktopPreview, setIsDesktopPreview] = useState<boolean | null>(null);
@@ -162,6 +178,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'already_saved' | 'already_owned' | 'error'>('idle');
   const [brokenImages, setBrokenImages] = useState<Set<string>>(new Set());
+  const [dayMapFocusRequest, setDayMapFocusRequest] = useState<DayMapFocusRequest | null>(null);
   const onImgError = useCallback((src: string) => {
     setBrokenImages(prev => { const next = new Set(prev); next.add(src); return next; });
   }, []);
@@ -173,6 +190,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
   const detailBodyRef = useRef<HTMLDivElement>(null);
   const detailCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const detailClosingRef = useRef(false);
+  const dayMapFocusNonceRef = useRef(0);
 
   // Touch state
   const touchState = useRef({ startX: 0, startY: 0, startTime: 0, dx: 0, isDragging: false, isScrolling: null as boolean | null });
@@ -195,6 +213,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
 
   useEffect(() => {
     setShowOverviewMap(false);
+    setTransitionAnchorSlide(null);
   }, [activeTripIndex]);
 
   useEffect(() => {
@@ -217,6 +236,21 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     () => buildDayMapDataByNumber(routeAtlas, days),
     [routeAtlas, days]
   );
+
+  const focusDayMapPoi = useCallback((dayNumber: number, target: { id?: string; label?: string }) => {
+    if (!target.id && !target.label) return;
+    const nonce = ++dayMapFocusNonceRef.current;
+    setDayMapFocusRequest({ dayNumber, ...target, nonce });
+
+    if (typeof window !== 'undefined' && !window.matchMedia('(min-width: 1024px)').matches) {
+      window.requestAnimationFrame(() => {
+        document.querySelector(`[data-day-map-card="${dayNumber}"]`)?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'center',
+        });
+      });
+    }
+  }, []);
 
   // Prewarm the trip JSON cache the SW maintains. Fire-and-forget; even
   // if we never click 'Save offline', the next slow/offline visit can
@@ -269,6 +303,16 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     };
   }, [trip, days]);
   const isHero = currentSlide === 0;
+  const shouldRenderSlideContent = useCallback(
+    (slideIndex: number) => (
+      Math.abs(currentSlide - slideIndex) <= NEARBY_SLIDE_RENDER_RADIUS
+      || (
+        transitionAnchorSlide !== null
+        && Math.abs(transitionAnchorSlide - slideIndex) <= NEARBY_SLIDE_RENDER_RADIUS
+      )
+    ),
+    [currentSlide, transitionAnchorSlide]
+  );
 
   const startViewTransition = useCallback((update: () => void) => {
     const vt = (document as Document & {
@@ -287,6 +331,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     const clamped = Math.max(0, Math.min(idx, totalSlides - 1));
     const direction: SlideDirection = clamped > currentSlide ? 'forward' : clamped < currentSlide ? 'backward' : 'none';
     const source = options?.source ?? 'programmatic';
+    setTransitionAnchorSlide(direction === 'none' ? null : currentSlide);
     setSlideDirection(direction);
     setSlideMotionMode(source);
     setCurrentSlide(clamped);
@@ -317,6 +362,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     window.setTimeout(() => {
       setSlideMotionMode('settled');
       setSlideDirection('none');
+      setTransitionAnchorSlide(null);
     }, 520);
   }, [currentSlide, totalSlides]);
 
@@ -1073,7 +1119,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     const desktopOverviewMapVisible = Boolean(showOverviewMap && routeAtlas && isDesktopPreview);
 
     return (
-      <div className={`slide ${currentSlide === 0 ? 'active' : ''}`}>
+      <div key="cover" className={`slide ${currentSlide === 0 ? 'active' : ''}`}>
         <div className="hero-slide">
           <div
             className={`hero-frame${desktopOverviewMapVisible ? ' is-map-visible' : ''}`}
@@ -1087,7 +1133,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
                   variant="overview-card"
                   interactive
                   pointDetails={routePointDetails}
-                  showLines={false}
+                  showLines
                   enabled={currentSlide === 0 && desktopOverviewMapVisible}
                   loadingLabel="Loading overview map"
                   loadingHint={routeStopCount >= 12 ? 'This might take a minute with this many stops.' : undefined}
@@ -1197,7 +1243,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
               const accommodationSection = tripId && activeTripData
                 ? {
                     icon: 'hotel',
-                    label: 'Accommodation',
+                    label: 'Accommodation Reviewer',
                     html: '',
                     hasData: true,
                     node: (
@@ -1260,6 +1306,18 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     );
   }
 
+  // Preserve slide indexes for the swipe track while avoiding hidden map/image work.
+  function renderPlaceholderSlide(slideIndex: number, key: string | number) {
+    const isActive = currentSlide === slideIndex;
+    return (
+      <div
+        key={key}
+        className={`slide slide-placeholder ${isActive ? 'active' : ''}`}
+        aria-hidden={!isActive}
+      />
+    );
+  }
+
   // Render day slide
   function renderDaySlide(day: Day, slideIndex: number) {
     const dateStr = formatDate(day.date, { weekday: 'short', day: 'numeric', month: 'short' });
@@ -1268,6 +1326,23 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     const itineraryMapAtlas = dayMapAtlas ?? EMPTY_DAY_MAP_ATLAS;
     const dayMapSearchTargets = dayMapData?.searchTargets ?? [];
     const hasDayMapLocations = Boolean(dayMapAtlas?.points.length || dayMapSearchTargets.length);
+    const findDayMapTarget = (label: string | undefined): { id?: string; label?: string } | undefined => {
+      const normalized = normalizeMapFocusLabel(label);
+      if (!normalized) return undefined;
+
+      const searchTarget = dayMapSearchTargets.find((target) => (
+        normalizeMapFocusLabel(target.label) === normalized
+        || normalizeMapFocusLabel(target.detail?.title) === normalized
+      ));
+      if (searchTarget) return { id: searchTarget.id, label: searchTarget.label };
+
+      const atlasPoint = dayMapAtlas?.points.find((point) => normalizeMapFocusLabel(point.label) === normalized);
+      return atlasPoint ? { id: atlasPoint.id, label: atlasPoint.label } : undefined;
+    };
+    const focusDayMapTarget = (target: { id?: string; label?: string } | undefined) => {
+      if (!target) return;
+      focusDayMapPoi(day.day_number, target);
+    };
     const dayMapStopCount = hasDayMapLocations
       ? dayMapSearchTargets.length || dayMapAtlas?.points.filter((point) => point.role !== 'home').length || dayMapAtlas?.points.length || 0
       : 0;
@@ -1305,7 +1380,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     );
 
     const dayMapSection = hasDayMapLocations ? (
-      <div className="day-map-card">
+      <div className="day-map-card" data-day-map-card={day.day_number}>
         <div className="day-map-header">
           <span className="text-section-title"><span className="section-icon"><Icon name="route" /></span>Day map</span>
           <span className="day-map-count">
@@ -1320,6 +1395,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
             interactive
             pointDetails={dayMapData?.details}
             searchTargets={dayMapSearchTargets}
+            focusRequest={dayMapFocusRequest?.dayNumber === day.day_number ? dayMapFocusRequest : undefined}
             showLines={false}
             enabled={currentSlide === slideIndex}
             loadingLabel={dayMapSearchTargets.length ? 'Finding day places' : 'Loading day map'}
@@ -1456,13 +1532,16 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
 
     const accomSection = day.accommodation ? (() => {
       const a = day.accommodation!;
+      const mapTarget = findDayMapTarget(a.name);
       return (
         <div className="day-section">
           <div className="day-section-title">
             <span className="text-section-title"><span className="section-icon"><Icon name="bed" /></span>Stay</span>
           </div>
-          <div className={`accom-card${a.detail ? ' tappable' : ''}`}
-            onClick={a.detail ? () => openDetail('accommodation', a) : undefined}>
+          <div
+            className={`accom-card${mapTarget ? ' map-focus-row' : ''}`}
+            onClick={mapTarget ? () => focusDayMapTarget(mapTarget) : undefined}
+          >
             <div className="accom-icon-wrap"><Icon name="hotel" /></div>
             <div className="accom-info">
               <div className="text-name">{a.name}</div>
@@ -1474,7 +1553,20 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
               {a.note && <div className="text-small accom-note">{a.note}</div>}
             </div>
             <span className={`text-status status-badge status-${a.status || 'pending'}`}>{a.status || 'pending'}</span>
-            {a.detail && <span className="tap-chevron"><Icon name="chevron" /></span>}
+            {a.detail && (
+              <button
+                type="button"
+                className="row-details-btn"
+                aria-label={`Open details for ${a.name || 'this stay'}`}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  openDetail('accommodation', a);
+                }}
+              >
+                Details
+                <Icon name="chevron" />
+              </button>
+            )}
           </div>
         </div>
       );
@@ -1485,18 +1577,37 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
         <div className="day-section-title">
           <span className="text-section-title"><span className="section-icon"><Icon name="fork" /></span>Eating</span>
         </div>
-        {day.meals.map((m, i) => (
-          <div key={i} className={`meal-row${m.detail ? ' meal-has-detail' : ''}`}
-            onClick={m.detail ? () => openDetail('meal', m) : undefined}>
-            <span className="meal-type-badge">{m.type}</span>
-            <div className="meal-detail">
-              <div className="text-name">{m.name}</div>
-              {m.note && <div className="text-small" style={{ marginTop: 1 }}>{m.note}</div>}
+        {day.meals.map((m, i) => {
+          const mapTarget = findDayMapTarget(m.name);
+          return (
+            <div
+              key={i}
+              className={`meal-row${mapTarget ? ' map-focus-row' : ''}`}
+              onClick={mapTarget ? () => focusDayMapTarget(mapTarget) : undefined}
+            >
+              <span className="meal-type-badge">{m.type}</span>
+              <div className="meal-detail">
+                <div className="text-name">{m.name}</div>
+                {m.note && <div className="text-small" style={{ marginTop: 1 }}>{m.note}</div>}
+              </div>
+              {m.status && <span className={`text-status status-badge status-${m.status}`} style={{ flexShrink: 0 }}>{m.status}</span>}
+              {m.detail && (
+                <button
+                  type="button"
+                  className="row-details-btn"
+                  aria-label={`Open details for ${m.name || 'this restaurant'}`}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    openDetail('meal', m);
+                  }}
+                >
+                  Details
+                  <Icon name="chevron" />
+                </button>
+              )}
             </div>
-            {m.status && <span className={`text-status status-badge status-${m.status}`} style={{ flexShrink: 0 }}>{m.status}</span>}
-            {m.detail && <div className="meal-chevron"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>}
-          </div>
-        ))}
+          );
+        })}
       </div>
     ) : null;
 
@@ -1653,8 +1764,13 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
           {/* Swipe viewport */}
           <div className="swipe-viewport" ref={viewportRef}>
             <div className={`swipe-track motion-${slideMotionMode} direction-${slideDirection}`} ref={trackRef}>
-              {renderHeroSlide()}
-              {days.map((day, dayIndex) => renderDaySlide(day, dayIndex + 1))}
+              {shouldRenderSlideContent(0) ? renderHeroSlide() : renderPlaceholderSlide(0, 'cover')}
+              {days.map((day, dayIndex) => {
+                const slideIndex = dayIndex + 1;
+                return shouldRenderSlideContent(slideIndex)
+                  ? renderDaySlide(day, slideIndex)
+                  : renderPlaceholderSlide(slideIndex, day.day_number);
+              })}
             </div>
           </div>
 

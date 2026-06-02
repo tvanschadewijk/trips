@@ -76,6 +76,26 @@ test('day map targets preserve the day order and skip generic meal descriptions'
   assert.equal(targets.find((target) => target.label === 'Trattoria da Maria')?.placeType, 'restaurant');
 });
 
+test('day map route places are anchored to known atlas coordinates before text search', () => {
+  const trip = baseTrip([
+    {
+      day_number: 1,
+      date: '2026-06-30',
+      title: 'Lake Como -> Ravenna',
+      blocks: [],
+      transport: [{ mode: 'car', label: 'Self-drive', from: 'Lake Como', to: 'Ravenna' }],
+    },
+  ]);
+
+  const atlas = buildTripRouteAtlas(trip);
+  const targets = buildDayMapDataByNumber(atlas, trip.days)[1].searchTargets;
+  const ravennaTarget = targets.find((target) => target.label === 'Ravenna');
+
+  assert.equal(ravennaTarget?.kind, 'place');
+  assert.equal(ravennaTarget?.fallbackPoint?.lat, 44.4184);
+  assert.equal(ravennaTarget?.fallbackPoint?.lng, 12.2035);
+});
+
 test('trip map overview details prefer night counts for stored route stops', () => {
   const trip = baseTrip([
     {

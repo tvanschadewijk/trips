@@ -23,16 +23,16 @@ type ReviewResponse = {
   trip_data?: TripData | null;
 };
 
-const MOBILE_LANE_PRIORITY: AccommodationReviewLane[] = [
-  'booked',
-  'considering',
-  'proposed',
-  'dismissed',
-];
+type VisibleReviewLane = 'agent-proposals' | 'booked';
 
-const MOBILE_REVIEW_LANES = MOBILE_LANE_PRIORITY.map((laneId) =>
-  ACCOMMODATION_REVIEW_LANES.find((lane) => lane.id === laneId)
-).filter((lane): lane is (typeof ACCOMMODATION_REVIEW_LANES)[number] => Boolean(lane));
+const VISIBLE_REVIEW_LANES: {
+  id: VisibleReviewLane;
+  label: string;
+  targetLane: AccommodationReviewLane;
+}[] = [
+  { id: 'agent-proposals', label: 'Travel Agent Proposals', targetLane: 'proposed' },
+  { id: 'booked', label: 'Booked', targetLane: 'booked' },
+];
 
 function domainFor(url: string): string {
   try {
@@ -43,22 +43,12 @@ function domainFor(url: string): string {
 }
 
 function laneLabel(lane: AccommodationReviewLane): string {
+  if (lane === 'proposed') return 'Travel Agent Proposals';
   return ACCOMMODATION_REVIEW_LANES.find((item) => item.id === lane)?.label ?? lane;
 }
 
-function laneActionLabel(lane: AccommodationReviewLane): string {
-  switch (lane) {
-    case 'proposed':
-      return 'Propose';
-    case 'considering':
-      return 'Consider';
-    case 'dismissed':
-      return 'Dismiss';
-    case 'booked':
-      return 'Book';
-    default:
-      return laneLabel(lane);
-  }
+function visibleLaneActionLabel(lane: VisibleReviewLane): string {
+  return lane === 'booked' ? 'Book' : 'Move to proposals';
 }
 
 function candidateLane(candidate: AccommodationCandidate): AccommodationReviewLane {
@@ -67,14 +57,16 @@ function candidateLane(candidate: AccommodationCandidate): AccommodationReviewLa
   return candidate.lane;
 }
 
+function visibleLaneForCandidate(candidate: AccommodationCandidate): VisibleReviewLane {
+  return candidateLane(candidate) === 'booked' ? 'booked' : 'agent-proposals';
+}
+
 function preferredLaneForCandidates(
   candidates: AccommodationCandidate[]
-): AccommodationReviewLane {
-  return (
-    MOBILE_LANE_PRIORITY.find((lane) =>
-      candidates.some((candidate) => candidateLane(candidate) === lane)
-    ) ?? 'booked'
-  );
+): VisibleReviewLane {
+  return candidates.some((candidate) => visibleLaneForCandidate(candidate) === 'agent-proposals')
+    ? 'agent-proposals'
+    : 'booked';
 }
 
 function destinationStatus(candidates: AccommodationCandidate[]): {
@@ -87,11 +79,9 @@ function destinationStatus(candidates: AccommodationCandidate[]): {
   if (bookedCount) return { label: 'Booked', tone: 'booked' };
 
   const activeCount = candidates.filter(
-    (candidate) =>
-      candidateLane(candidate) === 'proposed' ||
-      candidateLane(candidate) === 'considering'
+    (candidate) => visibleLaneForCandidate(candidate) === 'agent-proposals'
   ).length;
-  if (activeCount) return { label: 'Review', tone: 'needs-work' };
+  if (activeCount) return { label: 'Proposals', tone: 'needs-work' };
 
   if (candidates.length) return { label: 'Dismissed', tone: 'dismissed' };
 
@@ -119,7 +109,7 @@ function writeReviewContext(
       'trip-chat-context',
       JSON.stringify({
         slideKind: 'accommodation_review',
-        title: 'Accommodation review',
+        title: 'Accommodation Reviewer',
         destination_id: destination?.id ?? null,
         destination_title: destination?.title ?? null,
         candidate_id: candidate?.id ?? null,
@@ -138,7 +128,7 @@ export default function AccommodationReviewBoard({
   const [activeDestinationId, setActiveDestinationId] = useState<string | null>(null);
   const [mobileReviewMode, setMobileReviewMode] = useState<'overview' | 'edit'>('overview');
   const [activeMobileLane, setActiveMobileLane] =
-    useState<AccommodationReviewLane>('booked');
+    useState<VisibleReviewLane>('agent-proposals');
   const [draggingCandidateId, setDraggingCandidateId] = useState<string | null>(null);
   const [savingCandidateId, setSavingCandidateId] = useState<string | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
@@ -241,18 +231,6 @@ export default function AccommodationReviewBoard({
     );
   }, [destinations, review]);
 
-  const mobileLaneCounts = useMemo(() => {
-    return ACCOMMODATION_REVIEW_LANES.reduce(
-      (counts, lane) => {
-        counts[lane.id] = candidatesForDestination.filter(
-          (candidate) => candidateLane(candidate) === lane.id
-        ).length;
-        return counts;
-      },
-      {} as Record<AccommodationReviewLane, number>
-    );
-  }, [candidatesForDestination]);
-
   const preferredMobileLane = useMemo(
     () => preferredLaneForCandidates(candidatesForDestination),
     [candidatesForDestination]
@@ -304,7 +282,7 @@ export default function AccommodationReviewBoard({
             action: 'move_candidate',
             candidate_id: candidateId,
             lane,
-            message: `Moved to ${laneLabel(lane)} from the in-trip Kanban board.`,
+            message: `Moved to ${laneLabel(lane)} from the in-trip accommodations reviewer.`,
           }),
         });
         if (!response.ok) {
@@ -324,7 +302,7 @@ export default function AccommodationReviewBoard({
         }
         const json = (await response.json()) as ReviewResponse;
         setReview(json.review);
-        setActiveMobileLane(lane);
+        setActiveMobileLane(lane === 'booked' ? 'booked' : 'agent-proposals');
         if (json.trip_data) {
           onTripDataUpdated?.(json.trip_data);
         }
@@ -338,13 +316,15 @@ export default function AccommodationReviewBoard({
   );
 
   const handleCandidateDrop = useCallback(
-    (event: DragEvent<HTMLElement>, lane: AccommodationReviewLane) => {
+    (event: DragEvent<HTMLElement>, lane: VisibleReviewLane) => {
       event.preventDefault();
       event.stopPropagation();
       const droppedCandidateId =
         draggingCandidateId || event.dataTransfer.getData('text/plain');
       if (droppedCandidateId) {
-        moveCandidate(droppedCandidateId, lane);
+        const targetLane =
+          VISIBLE_REVIEW_LANES.find((item) => item.id === lane)?.targetLane ?? 'proposed';
+        moveCandidate(droppedCandidateId, targetLane);
       }
       setDraggingCandidateId(null);
     },
@@ -454,8 +434,8 @@ export default function AccommodationReviewBoard({
             className="accommodation-review-card-actions"
             aria-label={`Move ${candidate.candidate}`}
           >
-            {ACCOMMODATION_REVIEW_LANES.filter(
-              (targetLane) => targetLane.id !== candidateLane(candidate)
+            {VISIBLE_REVIEW_LANES.filter(
+              (targetLane) => targetLane.id !== visibleLaneForCandidate(candidate)
             ).map((targetLane) => (
               <button
                 key={`${candidate.id}-${targetLane.id}`}
@@ -464,10 +444,10 @@ export default function AccommodationReviewBoard({
                 onClick={(event) => {
                   event.stopPropagation();
                   writeReviewContext(cardDestination, candidate);
-                  moveCandidate(candidate.id, targetLane.id);
+                  moveCandidate(candidate.id, targetLane.targetLane);
                 }}
               >
-                {laneActionLabel(targetLane.id)}
+                {visibleLaneActionLabel(targetLane.id)}
               </button>
             ))}
           </div>
@@ -479,7 +459,7 @@ export default function AccommodationReviewBoard({
   if (error && !review) {
     return (
       <div className="accommodation-review-empty">
-        <div className="accommodation-review-empty-title">Accommodation review unavailable</div>
+        <div className="accommodation-review-empty-title">Accommodation Reviewer unavailable</div>
         <p>{error}</p>
       </div>
     );
@@ -540,12 +520,9 @@ export default function AccommodationReviewBoard({
         </section>
       )}
 
-      <nav className="accommodation-review-nav" aria-label="Stays">
+      <nav className="accommodation-review-nav" aria-label="Overnight Stays">
         <div className="accommodation-review-nav-header">
-          <div className="accommodation-review-nav-trip-title" title={tripData.trip.name}>
-            {tripData.trip.name}
-          </div>
-          <div className="accommodation-review-nav-heading">Stays</div>
+          <div className="accommodation-review-nav-heading">Overnight Stays</div>
         </div>
         <div className="accommodation-review-nav-list">
           {destinations.map((destination) => {
@@ -582,7 +559,6 @@ export default function AccommodationReviewBoard({
       <div className="accommodation-review-main">
         <div className="accommodation-review-destination">
           <div>
-            <div className="accommodation-review-kicker">Stay review</div>
             <h3>{activeDestination?.title}</h3>
           </div>
           <div className="accommodation-review-header-actions">
@@ -606,8 +582,8 @@ export default function AccommodationReviewBoard({
           </div>
         </div>
 
-        <div className="accommodation-review-lane-tabs" role="tablist" aria-label="Review lanes">
-          {MOBILE_REVIEW_LANES.map((lane) => (
+        <div className="accommodation-review-lane-tabs" role="tablist" aria-label="Accommodation columns">
+          {VISIBLE_REVIEW_LANES.map((lane) => (
             <button
               key={lane.id}
               type="button"
@@ -617,15 +593,14 @@ export default function AccommodationReviewBoard({
               onClick={() => setActiveMobileLane(lane.id)}
             >
               <span>{lane.label}</span>
-              <span>{mobileLaneCounts[lane.id]}</span>
             </button>
           ))}
         </div>
 
         <div className="accommodation-review-kanban">
-          {ACCOMMODATION_REVIEW_LANES.map((lane) => {
+          {VISIBLE_REVIEW_LANES.map((lane) => {
             const laneCandidates = candidatesForDestination.filter(
-              (candidate) => candidateLane(candidate) === lane.id
+              (candidate) => visibleLaneForCandidate(candidate) === lane.id
             );
             return (
               <section
@@ -639,7 +614,6 @@ export default function AccommodationReviewBoard({
               >
                 <div className="accommodation-review-lane-header">
                   <span>{lane.label}</span>
-                  <span>{laneCandidates.length}</span>
                 </div>
 
                 <div

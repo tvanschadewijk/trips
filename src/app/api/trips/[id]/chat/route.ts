@@ -527,7 +527,7 @@ function formatViewContextPrefix(ctx: ChatRequestBody['view_context']): string {
     const candidate = ctx.candidate_name
       ? ` Candidate in focus: "${ctx.candidate_name}".`
       : '';
-    return `[The user is currently viewing the private Accommodation Review Kanban for${destination}.${candidate} Use accommodation-review tools before answering hotel-candidate workflow questions.]\n\n`;
+    return `[The user is currently viewing the private Accommodations Reviewer for${destination}.${candidate} Use accommodation-review tools before answering hotel-candidate workflow questions.]\n\n`;
   }
   return '';
 }
