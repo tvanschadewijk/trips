@@ -63,7 +63,7 @@ const GAZETTEER: GazetteerEntry[] = [
   { label: 'Oban', lat: 56.4152, lng: -5.4718, aliases: ['oban'] },
   { label: 'Baden-Baden', lat: 48.7606, lng: 8.2398, aliases: ['baden-baden', 'baden baden', 'heidelberg'] },
   { label: 'Lake Maggiore', lat: 45.947, lng: 8.63, aliases: ['lake maggiore', 'lago maggiore', 'orta', 'orta san giulio', 'stresa'] },
-  { label: 'Lake Como', lat: 45.984, lng: 9.261, aliases: ['lake como', 'lago di como', 'como', 'varenna'] },
+  { label: 'Lake Como', lat: 45.984, lng: 9.261, aliases: ['lake como', 'lago di como', 'como'] },
   { label: 'Ravenna', lat: 44.4184, lng: 12.2035, aliases: ['ravenna'] },
   { label: 'Gargano', lat: 41.946, lng: 16.016, aliases: ['gargano', 'peschici', 'baia san nicola'] },
   { label: 'Brindisi', lat: 40.6327, lng: 17.9418, aliases: ['brindisi'] },

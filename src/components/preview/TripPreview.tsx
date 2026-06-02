@@ -17,6 +17,7 @@ import {
   mapPointDetailsForTrip,
 } from '@/lib/day-map';
 import { getTripOverviewImageUrl } from '@/lib/trip-images';
+import { isConfirmedAccommodation } from '@/lib/trip-status';
 import '@/styles/preview.css';
 
 /** Extract 3-letter IATA airport codes from a string like "Amsterdam (AMS) → New York (JFK)" */
@@ -108,6 +109,75 @@ function normalizeMapFocusLabel(value: string | undefined): string {
     .replace(/[^a-z0-9]+/g, ' ')
     .trim()
     .replace(/\s+/g, ' ');
+}
+
+function trimDisplayText(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function blockDisplayText(block: Block): string {
+  return (
+    trimDisplayText(block.content) ||
+    trimDisplayText(block.detail?.title) ||
+    trimDisplayText(block.detail?.body) ||
+    trimDisplayText(block.detail?.why) ||
+    trimDisplayText(block.detail?.practical)
+  );
+}
+
+function getDisplayableBlock(block: Block) {
+  const timeLabel = trimDisplayText(block.time_label);
+  const content = blockDisplayText(block);
+  const options = block.options?.filter((option) => trimDisplayText(option.label)) ?? [];
+
+  if (!content && !options.length) return null;
+
+  return { block, timeLabel, content, options };
+}
+
+function accommodationStatusLabel(accommodation: Accommodation): string {
+  return accommodation.status?.trim() || 'pending';
+}
+
+type TodoItemType = 'transport' | 'accommodation';
+type TodoItemStatus = 'booked' | 'open';
+
+function isTodoDoneStatus(status: string | undefined): boolean {
+  const normalized = status?.trim().toLowerCase();
+  return normalized === 'booked' || normalized === 'confirmed';
+}
+
+function todoStatusFromDone(done: boolean): TodoItemStatus {
+  return done ? 'booked' : 'open';
+}
+
+function isPlaceholderAccommodationName(value: string): boolean {
+  const normalized = value.trim().toLowerCase();
+  return (
+    normalized === '' ||
+    normalized === 'hotel not confirmed yet' ||
+    normalized === 'hotel pending' ||
+    normalized === 'accommodation pending' ||
+    normalized === 'to be confirmed' ||
+    normalized === 'tbc' ||
+    normalized === 'tbd'
+  );
+}
+
+function accommodationTodoLabel(day: Day, accommodation: Accommodation): string {
+  const name = trimDisplayText(accommodation.name);
+  if (name && !isPlaceholderAccommodationName(name)) return name;
+  return `Book hotel for ${trimDisplayText(day.title) || `Day ${day.day_number}`}`;
+}
+
+function accommodationTodoKey(day: Day, accommodation: Accommodation): string {
+  const name = trimDisplayText(accommodation.name);
+  if (name && !isPlaceholderAccommodationName(name)) {
+    const checkIn = trimDisplayText(accommodation.detail?.check_in);
+    const checkOut = trimDisplayText(accommodation.detail?.check_out);
+    return `hotel:${normalizeMapFocusLabel(name)}:${normalizeMapFocusLabel(checkIn)}:${normalizeMapFocusLabel(checkOut)}`;
+  }
+  return `day:${day.day_number}`;
 }
 
 function SwipeDots({ total, current, onDotClick }: { total: number; current: number; onDotClick: (i: number) => void }) {
@@ -615,6 +685,15 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     };
   }, []);
 
+  const handleTripDataUpdated = useCallback((nextTripData: TripData) => {
+    setTrips((prev) => {
+      if (activeTripIndex === null) return prev;
+      const updated = [...prev];
+      updated[activeTripIndex] = nextTripData;
+      return updated;
+    });
+  }, [activeTripIndex]);
+
   const showDetail = useCallback((content: DetailContent) => {
     if (detailCloseTimerRef.current) {
       clearTimeout(detailCloseTimerRef.current);
@@ -626,6 +705,23 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     setDetailOpen(true);
     window.history.pushState({ detail: true }, '');
   }, []);
+
+  const openAccommodationReviewer = useCallback((day?: Day) => {
+    if (!tripId || !activeTripData) return;
+    showDetail({
+      title: 'Accommodation Reviewer',
+      html: '',
+      node: (
+        <AccommodationReviewBoard
+          tripId={tripId}
+          tripData={activeTripData}
+          initialDayNumber={day?.day_number}
+          onTripDataUpdated={handleTripDataUpdated}
+        />
+      ),
+      sheetClassName: 'detail-sheet-review',
+    });
+  }, [activeTripData, handleTripDataUpdated, showDetail, tripId]);
 
   const startCloseDetail = useCallback(() => {
     if (!detailOpen || detailClosingRef.current) return;
@@ -645,11 +741,12 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     if (type === 'block') {
       const block = item as Block;
       if (!block.detail) return;
-      const title = block.detail.title || block.content;
+      const title = trimDisplayText(block.detail.title) || trimDisplayText(block.content) || 'Programme';
+      const fallbackBody = trimDisplayText(block.content) || title;
       const html = renderRichDetail(block.detail);
       showDetail({
         title,
-        html: html || `<div class="detail-tip-body"><p class="detail-tip-text">${escapeHtml(block.content)}</p></div>`,
+        html: html || `<div class="detail-tip-body"><p class="detail-tip-text">${escapeHtml(fallbackBody)}</p></div>`,
       });
       return;
     }
@@ -751,15 +848,6 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     }
   }
 
-  const handleTripDataUpdated = useCallback((nextTripData: TripData) => {
-    setTrips((prev) => {
-      if (activeTripIndex === null) return prev;
-      const updated = [...prev];
-      updated[activeTripIndex] = nextTripData;
-      return updated;
-    });
-  }, [activeTripIndex]);
-
   // Handle browser back to close detail sheet
   useEffect(() => {
     const onPopState = (e: PopStateEvent) => {
@@ -772,8 +860,8 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     return () => window.removeEventListener('popstate', onPopState);
   }, [detailOpen, startCloseDetail]);
 
-  // Toggle transport action item status (owner only)
-  function handleToggleStatus(dayNumber: number, itemType: string, itemIndex: number, newStatus: 'booked' | 'pending') {
+  // Toggle owner action item status.
+  function handleToggleStatus(dayNumber: number, itemType: TodoItemType, itemIndex: number, newStatus: TodoItemStatus) {
     if (!tripId || activeTripIndex === null) return;
 
     // Optimistic update
@@ -784,10 +872,21 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
         const day = tripCopy.days.find(d => d.day_number === dayNumber);
         if (!day) return prev;
 
-        const statusVal = newStatus === 'booked' ? 'booked' : 'pending';
+        const statusVal = newStatus;
 
         if (itemType === 'transport' && day.transport?.[itemIndex]) {
           day.transport[itemIndex].status = statusVal;
+        } else if (itemType === 'accommodation' && day.accommodation) {
+          const accommodationName = trimDisplayText(day.accommodation.name);
+          for (const tripDay of tripCopy.days) {
+            if (!tripDay.accommodation) continue;
+            const sameStay = accommodationName
+              ? trimDisplayText(tripDay.accommodation.name) === accommodationName
+              : tripDay.day_number === dayNumber;
+            if (sameStay) {
+              tripDay.accommodation.status = statusVal;
+            }
+          }
         }
 
         updated[activeTripIndex] = tripCopy;
@@ -808,18 +907,20 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     const el = detailBodyRef.current;
     if (!el || !tripId) return;
 
-    const handler = (e: MouseEvent) => {
-      const row = (e.target as HTMLElement).closest('.todo-item') as HTMLElement | null;
-      if (!row) return;
-
+    const toggleTodoRow = (row: HTMLElement) => {
       const dayNumber = Number(row.dataset.day);
-      const itemType = row.dataset.type!;
+      const itemType = row.dataset.type as TodoItemType | undefined;
       const itemIndex = Number(row.dataset.index);
       const wasDone = row.dataset.done === 'true';
       const nowDone = !wasDone;
+      const nextStatus = todoStatusFromDone(nowDone);
+
+      if (itemType !== 'transport' && itemType !== 'accommodation') return;
 
       // Update DOM directly to avoid stale closure
       row.dataset.done = String(nowDone);
+      row.dataset.status = nextStatus;
+      row.setAttribute('aria-pressed', String(nowDone));
       const check = row.querySelector('.todo-check');
       if (check) {
         check.classList.toggle('done', nowDone);
@@ -829,6 +930,12 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
       if (value) {
         value.style.textDecoration = nowDone ? 'line-through' : 'none';
         value.style.opacity = nowDone ? '0.45' : '1';
+      }
+      const status = row.querySelector('.todo-status');
+      if (status) {
+        status.classList.remove('status-booked', 'status-open');
+        status.classList.add(`status-${nextStatus}`);
+        status.textContent = nextStatus;
       }
 
       // Update header if all items are now done (or not)
@@ -843,11 +950,31 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
         }
       }
 
-      handleToggleStatus(dayNumber, itemType, itemIndex, nowDone ? 'booked' : 'pending');
+      handleToggleStatus(dayNumber, itemType, itemIndex, nextStatus);
+    };
+
+    const handler = (e: MouseEvent) => {
+      const target = e.target instanceof Element ? e.target : null;
+      const row = target?.closest('.todo-item.todo-interactive') as HTMLElement | null;
+      if (!row) return;
+      toggleTodoRow(row);
+    };
+
+    const keyHandler = (e: KeyboardEvent) => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      const target = e.target instanceof Element ? e.target : null;
+      const row = target?.closest('.todo-item.todo-interactive') as HTMLElement | null;
+      if (!row) return;
+      e.preventDefault();
+      toggleTodoRow(row);
     };
 
     el.addEventListener('click', handler);
-    return () => el.removeEventListener('click', handler);
+    el.addEventListener('keydown', keyHandler);
+    return () => {
+      el.removeEventListener('click', handler);
+      el.removeEventListener('keydown', keyHandler);
+    };
   });
 
   // Delete trip
@@ -959,7 +1086,11 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     const seen = new Set<string>();
     const accoms: { a: Accommodation; dayStart: number; dateStart: string }[] = [];
     for (const d of days) {
-      if (d.accommodation && !seen.has(d.accommodation.name)) {
+      if (
+        d.accommodation &&
+        isConfirmedAccommodation(d.accommodation) &&
+        !seen.has(d.accommodation.name)
+      ) {
         seen.add(d.accommodation.name);
         accoms.push({ a: d.accommodation, dayStart: d.day_number, dateStart: d.date });
       }
@@ -1044,7 +1175,11 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     const items: { category: string; label: string; amount: string }[] = [];
     const seenAccom = new Set<string>();
     for (const d of days) {
-      if (d.accommodation?.price && !seenAccom.has(d.accommodation.name)) {
+      if (
+        d.accommodation?.price &&
+        isConfirmedAccommodation(d.accommodation) &&
+        !seenAccom.has(d.accommodation.name)
+      ) {
         seenAccom.add(d.accommodation.name);
         items.push({ category: 'Accommodation', label: d.accommodation.name, amount: d.accommodation.price });
       }
@@ -1072,17 +1207,55 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
   }
 
   function buildThingsToDoHtml(): { html: string; hasData: boolean; allDone: boolean } {
-    const todoItems: { label: string; detail: string; done: boolean; dayNumber: number; itemType: string; itemIndex: number }[] = [];
+    const todoItems: {
+      label: string;
+      detail: string;
+      done: boolean;
+      status: TodoItemStatus;
+      dayNumber: number;
+      itemType: TodoItemType;
+      itemIndex: number;
+    }[] = [];
+    const seenAccommodationTodos = new Set<string>();
 
     for (const d of days) {
-      // Transport bookings only. Accommodation reviews have their own workflow,
-      // and restaurant reservations stay out of this checklist.
+      // Transport bookings and hotel bookings. Restaurant reservations stay out of this checklist.
       if (d.transport?.length) {
         for (let i = 0; i < d.transport.length; i++) {
           const t = d.transport[i];
           if (!t.status) continue;
-          const done = t.status === 'booked' || t.status === 'confirmed';
-          todoItems.push({ label: t.label || `${t.from} → ${t.to}`, detail: `Day ${d.day_number} · ${t.mode}`, done, dayNumber: d.day_number, itemType: 'transport', itemIndex: i });
+          const done = isTodoDoneStatus(t.status);
+          const routeLabel = [trimDisplayText(t.from), trimDisplayText(t.to)].filter(Boolean).join(' → ');
+          const mode = trimDisplayText(t.mode) || 'transport';
+          todoItems.push({
+            label: trimDisplayText(t.label) || routeLabel || 'Transport booking',
+            detail: `Day ${d.day_number} · ${mode}`,
+            done,
+            status: todoStatusFromDone(done),
+            dayNumber: d.day_number,
+            itemType: 'transport',
+            itemIndex: i,
+          });
+        }
+      }
+
+      if (d.accommodation) {
+        const key = accommodationTodoKey(d, d.accommodation);
+        if (!seenAccommodationTodos.has(key)) {
+          seenAccommodationTodos.add(key);
+          const done = isTodoDoneStatus(d.accommodation.status);
+          const nights = d.accommodation.nights
+            ? ` · ${d.accommodation.nights} ${d.accommodation.nights === 1 ? 'night' : 'nights'}`
+            : '';
+          todoItems.push({
+            label: accommodationTodoLabel(d, d.accommodation),
+            detail: `Day ${d.day_number} · hotel${nights}`,
+            done,
+            status: todoStatusFromDone(done),
+            dayNumber: d.day_number,
+            itemType: 'accommodation',
+            itemIndex: 0,
+          });
         }
       }
     }
@@ -1091,13 +1264,17 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
 
     const interactive = tripId ? ' todo-interactive' : '';
     const allDone = todoItems.every(t => t.done);
+    const interactiveAttrs = (done: boolean) => tripId
+      ? ` role="button" tabindex="0" aria-pressed="${done}"`
+      : '';
     const rows = todoItems.map(t =>
-      `<div class="detail-row todo-item${interactive}" data-day="${t.dayNumber}" data-type="${t.itemType}" data-index="${t.itemIndex}" data-done="${t.done}" style="gap:10px;align-items:center">
+      `<div class="detail-row todo-item${interactive}"${interactiveAttrs(t.done)} data-day="${t.dayNumber}" data-type="${t.itemType}" data-index="${t.itemIndex}" data-done="${t.done}" data-status="${t.status}" style="gap:10px;align-items:center">
         <span class="todo-check ${t.done ? 'done' : ''}">${t.done ? '&#10003;' : ''}</span>
         <span style="flex:1;min-width:0">
-          <span class="detail-row-value" style="text-align:left;font-size:14px;display:block${t.done ? ';text-decoration:line-through;opacity:0.45' : ''}">${t.label}</span>
-          <span class="detail-row-label" style="width:auto;font-size:12px">${t.detail}</span>
+          <span class="detail-row-value" style="text-align:left;font-size:14px;display:block${t.done ? ';text-decoration:line-through;opacity:0.45' : ''}">${escapeHtml(t.label)}</span>
+          <span class="detail-row-label" style="width:auto;font-size:12px">${escapeHtml(t.detail)}</span>
         </span>
+        <span class="text-status status-badge todo-status status-${t.status}">${t.status}</span>
       </div>`
     ).join('');
 
@@ -1417,34 +1594,38 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
       <p className="day-description">{day.description}</p>
     ) : null;
 
-    const progSection = day.blocks?.length ? (
+    const displayBlocks = (day.blocks ?? []).map(getDisplayableBlock).filter((block) => block !== null);
+
+    const progSection = displayBlocks.length ? (
       <div className="day-section">
         <div className="day-section-title">
           <span className="text-section-title"><span className="section-icon"><Icon name="calendar" /></span>Programme</span>
         </div>
         <div className="time-blocks">
-          {day.blocks.map((b, i) => (
+          {displayBlocks.map(({ block: b, timeLabel, content, options }, i) => (
             <div key={i} className={`time-block ${b.type === 'transport' ? 'is-transport' : ''} ${b.type === 'options' ? 'is-options' : ''} ${b.detail ? 'has-detail' : ''}`}>
-              <div className="time-block-heading">
-                <p className="text-label-dark" style={{ margin: 0 }}>{b.time_label}</p>
-                {b.detail && (
-                  <button
-                    type="button"
-                    className="time-block-detail-btn"
-                    aria-label={`More about ${b.detail.title || b.content}`}
-                    onClick={() => openDetail('block', b)}
-                  >
-                    <Icon name="info" />
-                  </button>
-                )}
-              </div>
-              <p className="text-body" style={{ margin: 0 }}>{b.content}</p>
-              {b.type === 'options' && b.options?.length ? (
+              {(timeLabel || b.detail) && (
+                <div className="time-block-heading">
+                  {timeLabel && <p className="text-label-dark" style={{ margin: 0 }}>{timeLabel}</p>}
+                  {b.detail && (
+                    <button
+                      type="button"
+                      className="time-block-detail-btn"
+                      aria-label={`More about ${trimDisplayText(b.detail.title) || content || 'this programme item'}`}
+                      onClick={() => openDetail('block', b)}
+                    >
+                      <Icon name="info" />
+                    </button>
+                  )}
+                </div>
+              )}
+              {content && <p className="text-body" style={{ margin: 0 }}>{content}</p>}
+              {b.type === 'options' && options.length ? (
                 <div className="options-list">
-                  {b.options.map((opt, oi) => (
+                  {options.map((opt, oi) => (
                     <div key={oi} className="option-card">
                       <div className="option-header">
-                        <span className="option-label">{opt.label}</span>
+                        <span className="option-label">{trimDisplayText(opt.label)}</span>
                         {opt.duration && <span className="option-duration">{opt.duration}</span>}
                       </div>
                       {opt.description && <p className="option-desc">{opt.description}</p>}
@@ -1532,6 +1713,38 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
 
     const accomSection = day.accommodation ? (() => {
       const a = day.accommodation!;
+      if (!isConfirmedAccommodation(a)) {
+        const canOpenReviewer = Boolean(tripId && activeTripData);
+        return (
+          <div className="day-section">
+            <div className="day-section-title">
+              <span className="text-section-title"><span className="section-icon"><Icon name="bed" /></span>Stay</span>
+            </div>
+            <div className="accom-card accom-placeholder">
+              <div className="accom-icon-wrap"><Icon name="hotel" /></div>
+              <div className="accom-info">
+                <div className="text-name">Hotel not confirmed yet</div>
+                <div className="text-small accom-note">Use accommodation reviewer to confirm</div>
+              </div>
+              <span className={`text-status status-badge status-${accommodationStatusLabel(a)}`}>
+                {accommodationStatusLabel(a)}
+              </span>
+              {canOpenReviewer && (
+                <button
+                  type="button"
+                  className="row-details-btn accom-reviewer-btn"
+                  aria-label="Use accommodation reviewer to confirm"
+                  onClick={() => openAccommodationReviewer(day)}
+                >
+                  Review
+                  <Icon name="chevron" />
+                </button>
+              )}
+            </div>
+          </div>
+        );
+      }
+
       const mapTarget = findDayMapTarget(a.name);
       return (
         <div className="day-section">
@@ -1637,13 +1850,15 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
       <div key={day.day_number} className={`slide ${currentSlide === slideIndex ? 'active' : ''}`}>
         <div className="day-slide">
           {visualSection}
-          {descSection}
-          {progSection}
-          {transSection}
-          {servicesSection}
-          {accomSection}
-          {mealsSection}
-          {tipsSection}
+          <div className="day-content-stack">
+            {descSection}
+            {progSection}
+            {transSection}
+            {servicesSection}
+            {accomSection}
+            {mealsSection}
+            {tipsSection}
+          </div>
         </div>
       </div>
     );

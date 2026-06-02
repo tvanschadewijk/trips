@@ -41,7 +41,11 @@ export async function POST(
     return NextResponse.json({ error: 'Invalid parameters' }, { status: 400 });
   }
 
-  const statusValue = new_status === 'booked' ? 'booked' : 'pending';
+  const normalizedNewStatus = typeof new_status === 'string' ? new_status.trim().toLowerCase() : '';
+  if (!['booked', 'open', 'pending'].includes(normalizedNewStatus)) {
+    return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
+  }
+  const statusValue = normalizedNewStatus === 'booked' ? 'booked' : 'open';
 
   const data = trip.data as { trip: Record<string, unknown>; days: Array<Record<string, unknown>> };
 
@@ -51,10 +55,13 @@ export async function POST(
     if (!targetDay?.accommodation) {
       return NextResponse.json({ error: 'Accommodation not found' }, { status: 404 });
     }
-    const accomName = (targetDay.accommodation as Record<string, unknown>).name;
+    const accomNameValue = (targetDay.accommodation as Record<string, unknown>).name;
+    const accomName = typeof accomNameValue === 'string' ? accomNameValue.trim() : '';
     for (const d of data.days) {
       const acc = d.accommodation as Record<string, unknown> | undefined;
-      if (acc && acc.name === accomName) {
+      const accName = typeof acc?.name === 'string' ? acc.name.trim() : '';
+      const sameStay = accomName ? accName === accomName : d.day_number === day_number;
+      if (acc && sameStay) {
         acc.status = statusValue;
       }
     }
@@ -88,5 +95,5 @@ export async function POST(
     await trySyncAccommodationReviewForTrip(admin, id, data as unknown as TripData);
   }
 
-  return NextResponse.json({ status: 'ok', new_status: new_status === 'booked' ? 'booked' : 'pending' });
+  return NextResponse.json({ status: 'ok', new_status: statusValue });
 }

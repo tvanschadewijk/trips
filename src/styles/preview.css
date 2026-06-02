@@ -743,6 +743,7 @@ body.trip-on-cover .trip-ask-entry-label { display: inline; }
 .todo-check.done { border-color: var(--color-success); background: var(--color-success); color: #FBF7F1; }
 .todo-item.todo-interactive { cursor: pointer; -webkit-tap-highlight-color: transparent; user-select: none; padding: 10px 12px; margin: 0 -12px; border-radius: 4px; transition: background 0.15s; border-bottom: none; }
 .todo-item.todo-interactive:active { background: var(--color-surface-deep); }
+.todo-status { flex-shrink: 0; font-size: 11px; text-transform: lowercase; }
 @media (hover: hover) { .todo-item.todo-interactive:hover { background: var(--color-surface-deep); } }
 .todo-ready { display: flex; align-items: center; gap: 8px; padding: 14px 0; font-family: var(--font-serif); font-optical-sizing: auto; font-size: 17px; font-weight: 420; color: var(--color-success); }
 .todo-ready-icon { display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: var(--color-success); color: #FBF7F1; font-size: 14px; flex-shrink: 0; }
@@ -761,7 +762,8 @@ body.trip-on-cover .trip-ask-entry-label { display: inline; }
 .day-header-plain .text-card-title { color: var(--color-text-primary); }
 .day-slide > .text-body-italic { color: var(--color-text-muted); }
 .day-visual-stack { display: grid; gap: 12px; margin-bottom: 16px; }
-.day-content-stack { display: block; min-width: 0; }
+.day-content-stack { display: grid; gap: 14px; align-content: start; align-items: start; min-width: 0; }
+.day-content-stack > * { min-width: 0; margin-bottom: 0; }
 .day-visual-stack .day-hero,
 .day-visual-stack .day-header-plain { margin-bottom: 0; }
 .day-map-card { overflow: hidden; background: var(--color-card); border: 1px solid var(--color-border); border-radius: var(--radius-card); box-shadow: var(--shadow-card); }
@@ -898,6 +900,7 @@ body.trip-on-cover .trip-ask-entry-label { display: inline; }
 
 .status-badge { display: inline-flex; padding: 2px 10px; border-radius: 999px; border: 1px solid; font-family: var(--font-sans); font-weight: 600; }
 .status-pending { background: rgba(155, 79, 46, 0.08); color: var(--color-warning); border-color: rgba(155, 79, 46, 0.22); }
+.status-open { background: rgba(155, 79, 46, 0.08); color: var(--color-warning); border-color: rgba(155, 79, 46, 0.22); }
 .status-booked { background: rgba(47, 107, 74, 0.08); color: var(--color-success); border-color: rgba(47, 107, 74, 0.22); }
 .status-reserved { background: rgba(47, 107, 74, 0.08); color: var(--color-success); border-color: rgba(47, 107, 74, 0.22); }
 
@@ -3128,12 +3131,25 @@ body.trip-on-cover .trip-ask-entry-label { display: inline; }
   .day-content-stack {
     grid-column: 2;
     grid-row: 1;
+    display: grid;
+    gap: 16px;
+    align-content: start;
+    align-items: start;
+    align-self: start;
     min-width: 0;
     margin-top: calc(var(--nav-height) + 36px);
   }
 
-  .day-content-stack > :last-child {
+  .day-content-stack > * {
+    min-width: 0;
     margin-bottom: 0;
+  }
+
+  .day-slide > .day-section,
+  .day-slide > .day-description {
+    grid-column: 2;
+    align-self: start;
+    margin-top: 0;
   }
 
   .day-hero {

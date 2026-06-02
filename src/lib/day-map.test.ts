@@ -28,6 +28,7 @@ test('day map targets preserve the day order and skip generic meal descriptions'
       transport: [{ mode: 'car', label: 'Self-drive', from: 'Amsterdam', to: 'Ravenna' }],
       accommodation: {
         name: 'Palazzo Ravenna',
+        status: 'booked',
         detail: { address: 'Ravenna, Italy' },
       },
     },
@@ -45,6 +46,7 @@ test('day map targets preserve the day order and skip generic meal descriptions'
       transport: [{ mode: 'car', label: 'Self-drive - Ravenna -> Peschici', from: 'Ravenna', to: 'Peschici' }],
       accommodation: {
         name: 'Vila SEJUDA Alberghetto',
+        status: 'booked',
         detail: { address: 'Peschici, Italy' },
       },
       meals: [
@@ -96,6 +98,30 @@ test('day map route places are anchored to known atlas coordinates before text s
   assert.equal(ravennaTarget?.fallbackPoint?.lng, 12.2035);
 });
 
+test('day map includes first-day route origin and does not invent stale Como stops', () => {
+  const trip = baseTrip([
+    {
+      day_number: 1,
+      date: '2026-06-30',
+      title: 'Amsterdam -> Lake Como',
+      blocks: [],
+      transport: [{ mode: 'car', label: 'Self-drive', from: 'Amsterdam', to: 'Lake Como' }],
+      accommodation: {
+        name: 'Como listed hotel',
+        status: 'booked',
+        detail: { address: 'Como, Italy' },
+      },
+    },
+  ]);
+
+  const atlas = buildTripRouteAtlas(trip);
+  const dayMapData = buildDayMapDataByNumber(atlas, trip.days)[1];
+  const labels = dayMapData.searchTargets.map((target) => target.label);
+
+  assert.deepEqual(labels, ['Amsterdam', 'Lake Como', 'Como listed hotel']);
+  assert.equal(dayMapData.searchTargets.find((target) => target.label === 'Amsterdam')?.fallbackPoint?.lat, 52.3676);
+});
+
 test('trip map overview details prefer night counts for stored route stops', () => {
   const trip = baseTrip([
     {
@@ -105,6 +131,7 @@ test('trip map overview details prefer night counts for stored route stops', () 
       blocks: [],
       accommodation: {
         name: 'Rome Apartment',
+        status: 'booked',
         nights: 2,
         detail: { address: 'Rome, Italy' },
       },
@@ -116,6 +143,7 @@ test('trip map overview details prefer night counts for stored route stops', () 
       blocks: [],
       accommodation: {
         name: 'Baia San Nicola stay',
+        status: 'booked',
         detail: { address: 'Peschici, Italy' },
       },
     },
@@ -151,6 +179,7 @@ test('day map targets can be built even when no route atlas exists', () => {
       blocks: [],
       accommodation: {
         name: 'Hotel Example',
+        status: 'booked',
         detail: { address: '10 Example Street, Lisbon' },
       },
       meals: [
@@ -167,4 +196,32 @@ test('day map targets can be built even when no route atlas exists', () => {
 
   assert.equal(dayMapData.atlas, undefined);
   assert.deepEqual(dayMapData.searchTargets.map((target) => target.label), ['Hotel Example', 'Osteria Example']);
+});
+
+test('day map targets skip unconfirmed accommodation searches', () => {
+  const trip = baseTrip([
+    {
+      day_number: 1,
+      date: '2026-07-01',
+      title: 'Naples deep cut',
+      blocks: [],
+      accommodation: {
+        name: 'Naples boutique search (Chiaia / Centro Storico)',
+        status: 'pending',
+        nights: 3,
+        note: 'Hotel Locarno / Palazzo Dama / Villa Agrippina shortlist.',
+      },
+      meals: [
+        {
+          type: 'dinner',
+          name: "All'Antico Vinaio",
+          detail: { address: 'Naples, Italy' },
+        },
+      ],
+    },
+  ]);
+
+  const dayMapData = buildDayMapDataByNumber(undefined, trip.days)[1];
+
+  assert.deepEqual(dayMapData.searchTargets.map((target) => target.label), ["All'Antico Vinaio"]);
 });

@@ -1,4 +1,5 @@
 import type { Accommodation, Day, Meal } from './types';
+import { isConfirmedAccommodation } from './trip-status';
 import {
   buildDayRouteMapSearchText,
   routePlaceTextMatches,
@@ -114,7 +115,7 @@ function snippetsForPoint(day: Day, label: string): string[] {
 
 function accommodationSearchText(day: Day): string {
   const accommodation = day.accommodation;
-  if (!accommodation) return '';
+  if (!isConfirmedAccommodation(accommodation)) return '';
 
   return [
     accommodation.name,
@@ -130,7 +131,7 @@ function nightsForRoutePoint(point: TripRouteAtlasPoint, days: Day[]): number {
   if (point.role === 'home') return 0;
 
   return days.reduce((total, day) => {
-    if (!day.accommodation) return total;
+    if (!isConfirmedAccommodation(day.accommodation)) return total;
     if (!routePlaceTextMatches(accommodationSearchText(day), point.label)) return total;
     return total + Math.max(1, day.accommodation.nights ?? 1);
   }, 0);
@@ -280,7 +281,7 @@ function queryWithContext(label: string, context: string, address?: string, quer
 }
 
 function accommodationDetail(accommodation: Accommodation | undefined | null, dayNumber: number): ItineraryMapPointDetail | undefined {
-  if (!accommodation?.name) return undefined;
+  if (!isConfirmedAccommodation(accommodation) || !accommodation?.name) return undefined;
   return {
     title: accommodation.name,
     kicker: `Day ${dayNumber} · Hotel`,
@@ -358,7 +359,14 @@ export function buildDayMapSearchTargets(
     });
   }
 
-  for (const transport of day.transport ?? []) {
+  for (const [index, transport] of (day.transport ?? []).entries()) {
+    if (index === 0 && !previousStayDetail) {
+      addDayMapTarget(targets, seen, day, atlas, transport.from, 'place', 'home', {
+        title: transport.from,
+        kicker: `Day ${day.day_number} · Route`,
+        body: truncateMapDetail(transport.label || transport.duration),
+      });
+    }
     addDayMapTarget(targets, seen, day, atlas, transport.to, 'place', 'stop', {
       title: transport.to,
       kicker: `Day ${day.day_number} · Route`,
@@ -366,7 +374,7 @@ export function buildDayMapSearchTargets(
     });
   }
 
-  if (day.accommodation?.name) {
+  if (isConfirmedAccommodation(day.accommodation) && day.accommodation?.name) {
     addDayMapTarget(targets, seen, day, atlas, day.accommodation.name, 'poi', 'stay', {
       title: day.accommodation.name,
       kicker: `Day ${day.day_number} · Hotel`,

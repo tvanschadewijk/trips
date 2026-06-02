@@ -132,10 +132,10 @@ test('day route map search ignores explanatory prose from other route days', () 
   const day: TripData['days'][number] = {
     day_number: 3,
     date: '2026-06-29',
-    title: 'Lake Como / Brunate -> Ravenna',
+    title: 'Lake Como -> Ravenna',
     subtitle: 'Into mosaics and the Adriatic line',
     transport: [
-      { mode: 'car', label: 'Self-drive - Varenna -> Ravenna', from: 'Varenna', to: 'Ravenna' },
+      { mode: 'car', label: 'Self-drive - Lake Como -> Ravenna', from: 'Lake Como', to: 'Ravenna' },
     ],
     blocks: [
       {
