@@ -299,6 +299,14 @@ export interface AccommodationCandidate {
   checkInDate?: string;
   checkOutDate?: string;
   address?: string;
+  roomType?: string;
+  checkIn?: string;
+  checkOut?: string;
+  phone?: string;
+  wifi?: string;
+  policySource?: AccommodationCandidateLink;
+  policyConfidence?: AccommodationDetail['policy_confidence'];
+  hotelNote?: string;
   booking?: AccommodationCandidateBooking;
   createdBy?: 'agent' | 'user' | 'import' | 'system';
   updatedAt?: string;
