@@ -164,6 +164,69 @@ function linkFromAccommodation(accommodation: Accommodation) {
   return { label: 'Booking link', url: platform };
 }
 
+function policySourceFromAccommodation(accommodation: Accommodation) {
+  const { policy_source_url: url, policy_source_label: label } = accommodation.detail ?? {};
+  if (!url || !/^https?:\/\//i.test(url)) return undefined;
+  return { label: label || 'Policy source', url };
+}
+
+function mergeCandidateLinks(
+  current?: AccommodationCandidate['links'],
+  incoming?: AccommodationCandidate['links']
+): AccommodationCandidate['links'] | undefined {
+  const links: AccommodationCandidate['links'] = [];
+  const seen = new Set<string>();
+
+  for (const link of [...(current ?? []), ...(incoming ?? [])]) {
+    if (!link?.url) continue;
+    const key = link.url.trim();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    links.push(link);
+  }
+
+  return links.length ? links : undefined;
+}
+
+function mergeCandidateRatings(
+  current?: AccommodationCandidate['ratings'],
+  incoming?: AccommodationCandidate['ratings'],
+  replaceExisting = false
+): AccommodationCandidate['ratings'] | undefined {
+  if (!current?.length) return incoming?.length ? incoming : undefined;
+  if (!incoming?.length) return current;
+
+  const next = current.map((rating) => ({ ...rating }));
+  for (const incomingRating of incoming) {
+    const match =
+      next.find(
+        (rating) =>
+          rating.name &&
+          incomingRating.name &&
+          slugify(rating.name) === slugify(incomingRating.name)
+      ) ?? next[0];
+
+    if (match) {
+      for (const key of [
+        'checkedAt',
+        'hotelsCom',
+        'tripadvisor',
+        'bookingCom',
+        'google',
+        'note',
+      ] as const) {
+        if (incomingRating[key] && (replaceExisting || !match[key])) {
+          match[key] = incomingRating[key];
+        }
+      }
+    } else {
+      next.push({ ...incomingRating });
+    }
+  }
+
+  return next;
+}
+
 function bookingFromAccommodation(
   accommodation: Accommodation
 ): AccommodationCandidateBooking | undefined {
@@ -185,6 +248,7 @@ function candidateFromAccommodation(args: {
   const { accommodation, destination, index } = args;
   const detail = accommodation.detail;
   const link = linkFromAccommodation(accommodation);
+  const policySource = policySourceFromAccommodation(accommodation);
 
   return compactObject({
     id: `${destination.id}-${slugify(accommodation.name)}-${index + 1}`,
@@ -202,7 +266,7 @@ function candidateFromAccommodation(args: {
     why: detail?.why ?? detail?.body,
     blockers: detail?.practical,
     action: accommodation.note ?? detail?.booking_note,
-    links: link ? [link] : undefined,
+    links: mergeCandidateLinks(link ? [link] : undefined, policySource ? [policySource] : undefined),
     ratings: accommodation.rating
       ? [{ name: accommodation.name, google: accommodation.rating }]
       : undefined,
@@ -210,6 +274,14 @@ function candidateFromAccommodation(args: {
     checkInDate: destination.startDate,
     checkOutDate: destination.endDate,
     address: detail?.address,
+    roomType: detail?.room_type,
+    checkIn: detail?.check_in,
+    checkOut: detail?.check_out,
+    phone: detail?.phone,
+    wifi: detail?.wifi,
+    policySource,
+    policyConfidence: detail?.policy_confidence,
+    hotelNote: detail?.note,
     booking: bookingFromAccommodation(accommodation),
     createdBy: 'import',
     updatedAt: new Date().toISOString(),
@@ -584,6 +656,77 @@ function syncCandidateScheduleFromImported(
   return changed;
 }
 
+function hasCandidateValue(value: unknown): boolean {
+  if (value === undefined || value === null) return false;
+  if (typeof value === 'string') return value.trim().length > 0;
+  if (Array.isArray(value)) return value.length > 0;
+  if (typeof value === 'object') return Object.keys(value).length > 0;
+  return true;
+}
+
+function syncCandidateField<K extends keyof AccommodationCandidate>(
+  candidate: AccommodationCandidate,
+  imported: AccommodationCandidate,
+  key: K,
+  replaceExisting: boolean
+): boolean {
+  const value = imported[key];
+  if (!hasCandidateValue(value)) return false;
+  if (!replaceExisting && hasCandidateValue(candidate[key])) return false;
+  if (JSON.stringify(candidate[key]) === JSON.stringify(value)) return false;
+
+  candidate[key] = value as AccommodationCandidate[K];
+  return true;
+}
+
+function syncCandidateEvidenceFromImported(
+  candidate: AccommodationCandidate,
+  imported: AccommodationCandidate
+): boolean {
+  const replaceExisting = isImportedCandidate(candidate);
+  let changed = false;
+
+  for (const key of [
+    'price',
+    'dog',
+    'parking',
+    'terms',
+    'why',
+    'blockers',
+    'action',
+    'alternatives',
+    'address',
+    'roomType',
+    'checkIn',
+    'checkOut',
+    'phone',
+    'wifi',
+    'policySource',
+    'policyConfidence',
+    'hotelNote',
+  ] as const) {
+    changed = syncCandidateField(candidate, imported, key, replaceExisting) || changed;
+  }
+
+  const links = mergeCandidateLinks(candidate.links, imported.links);
+  if (JSON.stringify(candidate.links) !== JSON.stringify(links)) {
+    candidate.links = links;
+    changed = true;
+  }
+
+  const ratings = mergeCandidateRatings(
+    candidate.ratings,
+    imported.ratings,
+    replaceExisting
+  );
+  if (JSON.stringify(candidate.ratings) !== JSON.stringify(ratings)) {
+    candidate.ratings = ratings;
+    changed = true;
+  }
+
+  return changed;
+}
+
 function findMatchingImportedCandidate(
   candidates: AccommodationCandidate[],
   imported: AccommodationCandidate
@@ -672,6 +815,7 @@ function syncCandidateFromImportedStay(
   allCandidates: AccommodationCandidate[]
 ): boolean {
   let changed = syncCandidateScheduleFromImported(candidate, imported);
+  changed = syncCandidateEvidenceFromImported(candidate, imported) || changed;
   if (normalizeLane(imported.lane, imported.status, Boolean(imported.booking)) === 'booked') {
     changed = demoteOtherBookedCandidates(allCandidates, candidate) || changed;
     if (normalizeLane(candidate.lane, candidate.status, Boolean(candidate.booking)) !== 'booked') {
@@ -877,6 +1021,74 @@ export function moveAccommodationCandidate(
   return next;
 }
 
+export function replaceBookedAccommodationCandidate(
+  review: AccommodationReview,
+  candidateId: string,
+  actor: 'agent' | 'user' | 'system',
+  booking?: AccommodationCandidateBooking,
+  message?: string
+): AccommodationReview {
+  const next = cloneReview(review);
+  const candidate = next.accommodations.find((item) => item.id === candidateId);
+  if (!candidate) {
+    throw new Error(`Accommodation candidate not found: ${candidateId}`);
+  }
+
+  const now = new Date().toISOString();
+  const events: AccommodationReviewEvent[] = [];
+
+  for (const item of next.accommodations) {
+    if (
+      item.id !== candidateId &&
+      item.destinationId === candidate.destinationId &&
+      normalizeLane(item.lane, item.status, Boolean(item.booking)) === 'booked'
+    ) {
+      const fromLane = normalizeLane(item.lane, item.status, Boolean(item.booking));
+      item.lane = 'proposed';
+      item.status = 'proposed';
+      item.updatedAt = now;
+      delete item.booking;
+      events.push(
+        eventFor({
+          type: 'candidate_moved',
+          candidateId: item.id,
+          destinationId: item.destinationId,
+          actor,
+          fromLane,
+          toLane: 'proposed',
+          message,
+        })
+      );
+    }
+  }
+
+  const fromLane = normalizeLane(candidate.lane, candidate.status, Boolean(candidate.booking));
+  candidate.lane = 'booked';
+  candidate.status = 'booked';
+  candidate.updatedAt = now;
+  candidate.booking = {
+    ...(candidate.booking ?? {}),
+    ...(booking ?? {}),
+    bookedAt: booking?.bookedAt ?? candidate.booking?.bookedAt ?? now,
+  };
+
+  events.push(
+    eventFor({
+      type: 'candidate_booked',
+      candidateId,
+      destinationId: candidate.destinationId,
+      actor,
+      fromLane,
+      toLane: 'booked',
+      message,
+    })
+  );
+
+  next.updatedAt = now;
+  next.events = [...(next.events ?? []), ...events].slice(-80);
+  return next;
+}
+
 export function updateAccommodationCandidate(
   review: AccommodationReview,
   candidateId: string,
@@ -1002,18 +1214,24 @@ export function promoteCandidateToTrip(
       nights,
       note: dayNote,
       detail: compactObject({
-        check_in: candidate.checkInDate,
-        check_out: candidate.checkOutDate,
+        check_in: candidate.checkIn ?? candidate.checkInDate,
+        check_out: candidate.checkOut ?? candidate.checkOutDate,
+        room_type: candidate.roomType,
         address: candidate.address,
+        phone: candidate.phone,
         confirmation,
         booking_platform: source,
         cancellation_deadline: candidate.terms,
+        wifi: candidate.wifi,
         parking: candidate.parking,
+        policy_source_url: candidate.policySource?.url,
+        policy_source_label: candidate.policySource?.label,
+        policy_confidence: candidate.policyConfidence,
         dog_note: candidate.dog,
         why: candidate.why,
         practical: candidate.blockers,
         booking_note: candidate.action,
-        note,
+        note: candidate.hotelNote ?? note,
       }),
     }) as Accommodation;
   }

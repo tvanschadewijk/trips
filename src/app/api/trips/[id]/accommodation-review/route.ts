@@ -5,6 +5,7 @@ import {
   AccommodationReviewConflictError,
   moveAccommodationCandidate,
   promoteCandidateToTrip,
+  replaceBookedAccommodationCandidate,
   updateAccommodationCandidate,
 } from '@/lib/accommodation-review';
 import { syncAccommodationReviewForTrip } from '@/lib/accommodation-review-store';
@@ -52,6 +53,14 @@ const CandidatePatchSchema = z.object({
   checkInDate: z.string().optional(),
   checkOutDate: z.string().optional(),
   address: z.string().optional(),
+  roomType: z.string().optional(),
+  checkIn: z.string().optional(),
+  checkOut: z.string().optional(),
+  phone: z.string().optional(),
+  wifi: z.string().optional(),
+  policySource: z.object({ label: z.string(), url: z.string() }).optional(),
+  policyConfidence: z.enum(['high', 'medium', 'low']).optional(),
+  hotelNote: z.string().optional(),
   booking: BookingSchema.optional(),
   createdBy: z.enum(['agent', 'user', 'import', 'system']).optional(),
 }).strict();
@@ -61,6 +70,12 @@ const PatchSchema = z.discriminatedUnion('action', [
     action: z.literal('move_candidate'),
     candidate_id: z.string().min(1),
     lane: LaneSchema,
+    booking: BookingSchema.optional(),
+    message: z.string().optional(),
+  }).strict(),
+  z.object({
+    action: z.literal('replace_booked_candidate'),
+    candidate_id: z.string().min(1),
     booking: BookingSchema.optional(),
     message: z.string().optional(),
   }).strict(),
@@ -228,6 +243,31 @@ export async function PATCH(
         if (tripError) {
           throw new Error(tripError.message);
         }
+      }
+    } else if (body.action === 'replace_booked_candidate') {
+      nextReview = replaceBookedAccommodationCandidate(
+        review,
+        body.candidate_id,
+        'user',
+        body.booking as AccommodationCandidateBooking | undefined,
+        body.message
+      );
+      nextTripData = promoteCandidateToTrip(
+        access.tripData,
+        nextReview,
+        body.candidate_id,
+        body.booking as AccommodationCandidateBooking | undefined
+      );
+      const { error: tripError } = await access.admin
+        .from('trips')
+        .update({
+          data: nextTripData,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', access.tripId);
+
+      if (tripError) {
+        throw new Error(tripError.message);
       }
     } else {
       nextReview = updateAccommodationCandidate(

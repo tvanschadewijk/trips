@@ -1,11 +1,12 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { DragEvent } from 'react';
 
 import { ACCOMMODATION_REVIEW_LANES } from '@/lib/accommodation-review';
 import type {
   AccommodationCandidate,
+  AccommodationCandidateLink,
+  AccommodationCandidateRating,
   AccommodationReview,
   AccommodationReviewDestination,
   AccommodationReviewLane,
@@ -15,6 +16,7 @@ import type {
 interface Props {
   tripId: string;
   tripData: TripData;
+  initialDayNumber?: number;
   onTripDataUpdated?: (tripData: TripData) => void;
 }
 
@@ -23,16 +25,8 @@ type ReviewResponse = {
   trip_data?: TripData | null;
 };
 
-type VisibleReviewLane = 'agent-proposals' | 'booked';
-
-const VISIBLE_REVIEW_LANES: {
-  id: VisibleReviewLane;
-  label: string;
-  targetLane: AccommodationReviewLane;
-}[] = [
-  { id: 'agent-proposals', label: 'Travel Agent Proposals', targetLane: 'proposed' },
-  { id: 'booked', label: 'Booked', targetLane: 'booked' },
-];
+type DestinationDisplayMode = 'hotel' | 'proposals';
+type CandidateStatusValue = 'proposal' | 'booked';
 
 function domainFor(url: string): string {
   try {
@@ -47,8 +41,10 @@ function laneLabel(lane: AccommodationReviewLane): string {
   return ACCOMMODATION_REVIEW_LANES.find((item) => item.id === lane)?.label ?? lane;
 }
 
-function visibleLaneActionLabel(lane: VisibleReviewLane): string {
-  return lane === 'booked' ? 'Book' : 'Move to proposals';
+function cleanText(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
 }
 
 function candidateLane(candidate: AccommodationCandidate): AccommodationReviewLane {
@@ -57,16 +53,36 @@ function candidateLane(candidate: AccommodationCandidate): AccommodationReviewLa
   return candidate.lane;
 }
 
-function visibleLaneForCandidate(candidate: AccommodationCandidate): VisibleReviewLane {
-  return candidateLane(candidate) === 'booked' ? 'booked' : 'agent-proposals';
+function candidateStatusValue(candidate: AccommodationCandidate): CandidateStatusValue {
+  return candidateLane(candidate) === 'booked' ? 'booked' : 'proposal';
 }
 
-function preferredLaneForCandidates(
-  candidates: AccommodationCandidate[]
-): VisibleReviewLane {
-  return candidates.some((candidate) => visibleLaneForCandidate(candidate) === 'agent-proposals')
-    ? 'agent-proposals'
-    : 'booked';
+function displayModeForDestination(
+  candidates: AccommodationCandidate[],
+  isEditing: boolean
+): DestinationDisplayMode {
+  return candidates.some((candidate) => candidateLane(candidate) === 'booked') && !isEditing
+    ? 'hotel'
+    : 'proposals';
+}
+
+function displayCandidatesForDestination(
+  candidates: AccommodationCandidate[],
+  mode: DestinationDisplayMode
+): AccommodationCandidate[] {
+  if (mode === 'proposals') return candidates;
+  const bookedCandidate = candidates.find((candidate) => candidateLane(candidate) === 'booked');
+  return bookedCandidate ? [bookedCandidate] : candidates;
+}
+
+function destinationIdForDay(
+  review: AccommodationReview,
+  dayNumber: number | undefined
+): string | undefined {
+  if (!dayNumber) return undefined;
+  return review.destinations.find((destination) =>
+    destination.dayNumbers?.includes(dayNumber)
+  )?.id;
 }
 
 function destinationStatus(candidates: AccommodationCandidate[]): {
@@ -79,7 +95,7 @@ function destinationStatus(candidates: AccommodationCandidate[]): {
   if (bookedCount) return { label: 'Booked', tone: 'booked' };
 
   const activeCount = candidates.filter(
-    (candidate) => visibleLaneForCandidate(candidate) === 'agent-proposals'
+    (candidate) => candidateLane(candidate) !== 'booked'
   ).length;
   if (activeCount) return { label: 'Proposals', tone: 'needs-work' };
 
@@ -88,15 +104,137 @@ function destinationStatus(candidates: AccommodationCandidate[]): {
   return { label: 'Empty', tone: 'needs-work' };
 }
 
+type CardDetailItem = {
+  label: string;
+  value: string;
+};
+
+const RATING_PLATFORMS: {
+  key: keyof Pick<
+    AccommodationCandidateRating,
+    'hotelsCom' | 'tripadvisor' | 'bookingCom' | 'google'
+  >;
+  label: string;
+  shortLabel: string;
+}[] = [
+  { key: 'bookingCom', label: 'Booking.com', shortLabel: 'Booking' },
+  { key: 'google', label: 'Google', shortLabel: 'Google' },
+  { key: 'tripadvisor', label: 'TripAdvisor', shortLabel: 'TripAdvisor' },
+  { key: 'hotelsCom', label: 'Hotels.com', shortLabel: 'Hotels.com' },
+];
+
 function ratingText(candidate: AccommodationCandidate): string | null {
-  const rating = candidate.ratings?.[0];
+  const rating = candidate.ratings?.find((item) =>
+    RATING_PLATFORMS.some((platform) => cleanText(item[platform.key]))
+  );
   if (!rating) return null;
-  return [
-    rating.hotelsCom ? `Hotels.com ${rating.hotelsCom}` : null,
-    rating.tripadvisor ? `Tripadvisor ${rating.tripadvisor}` : null,
-    rating.bookingCom ? `Booking ${rating.bookingCom}` : null,
-    rating.google ? `Google ${rating.google}` : null,
-  ].filter(Boolean).join(' · ') || rating.note || null;
+  return RATING_PLATFORMS.map((platform) => {
+    const value = cleanText(rating[platform.key]);
+    return value ? `${platform.shortLabel} ${value}` : null;
+  }).filter(Boolean).join(' · ') || cleanText(rating.note);
+}
+
+function cardDetailItems(
+  items: Array<[label: string, value: unknown]>
+): CardDetailItem[] {
+  return items
+    .map(([label, value]) => {
+      const text = cleanText(value);
+      return text ? { label, value: text } : null;
+    })
+    .filter((item): item is CardDetailItem => Boolean(item));
+}
+
+function ratingRows(candidate: AccommodationCandidate): AccommodationCandidateRating[] {
+  return (candidate.ratings ?? []).filter((rating) =>
+    Boolean(
+      cleanText(rating.name) ||
+        cleanText(rating.checkedAt) ||
+        cleanText(rating.note) ||
+        RATING_PLATFORMS.some((platform) => cleanText(rating[platform.key]))
+    )
+  );
+}
+
+function stayDetailItems(candidate: AccommodationCandidate): CardDetailItem[] {
+  return cardDetailItems([
+    ['Dates', candidate.dates],
+    ['Nights', candidate.nights ? `${candidate.nights} nt` : undefined],
+    ['Address', candidate.address],
+    ['Room', candidate.roomType],
+    ['Check-in', candidate.checkIn],
+    ['Check-out', candidate.checkOut],
+    ['Phone', candidate.phone],
+    ['Wi-Fi', candidate.wifi],
+    ['Dog', candidate.dog],
+    ['Parking', candidate.parking],
+    ['Terms', candidate.terms],
+    ['Policy', candidate.policyConfidence ? `${candidate.policyConfidence} confidence` : undefined],
+  ]);
+}
+
+function rateDetailItems(candidate: AccommodationCandidate): CardDetailItem[] {
+  const rateCheck = candidate.rateCheck;
+  if (!rateCheck) return [];
+  return cardDetailItems([
+    ['Best', rateCheck.best],
+    ['Direct', rateCheck.direct],
+    ['OTA', rateCheck.ota],
+    ['Status', rateCheck.status],
+    ['Checked', rateCheck.checkedAt],
+    ['Note', rateCheck.note],
+  ]);
+}
+
+function noteDetailItems(candidate: AccommodationCandidate): CardDetailItem[] {
+  return cardDetailItems([
+    ['Watch-out', candidate.blockers],
+    ['Action', candidate.action],
+    ['Alternative', candidate.alternatives],
+    ['Hotel note', candidate.hotelNote],
+  ]);
+}
+
+function bookingDetailItems(candidate: AccommodationCandidate): CardDetailItem[] {
+  const booking = candidate.booking;
+  if (!booking) return [];
+  return cardDetailItems([
+    ['Source', booking.source],
+    ['Confirmation', booking.confirmation],
+    ['Price', booking.price],
+    ['Booked', booking.bookedAt],
+    ['Note', booking.note],
+  ]);
+}
+
+function feedbackDetailItems(candidate: AccommodationCandidate): CardDetailItem[] {
+  const feedbackLoop = candidate.feedbackLoop;
+  if (!feedbackLoop) return [];
+  return cardDetailItems([
+    ['Feedback', feedbackLoop.userFeedback],
+    ['Codex', feedbackLoop.codexResponse],
+    ['Next', feedbackLoop.nextStep],
+    ['Updated', feedbackLoop.updatedAt],
+  ]);
+}
+
+function candidateLinks(candidate: AccommodationCandidate): AccommodationCandidateLink[] {
+  const links: AccommodationCandidateLink[] = [];
+  const seen = new Set<string>();
+
+  for (const link of [
+    ...(candidate.links ?? []),
+    ...(candidate.rateCheck?.sources ?? []),
+    candidate.policySource,
+  ]) {
+    if (!link?.url) continue;
+    const key = link.url.trim();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    links.push(link);
+  }
+
+  return links;
 }
 
 function writeReviewContext(
@@ -122,14 +260,15 @@ function writeReviewContext(
 export default function AccommodationReviewBoard({
   tripId,
   tripData,
+  initialDayNumber,
   onTripDataUpdated,
 }: Props) {
   const [review, setReview] = useState<AccommodationReview | null>(null);
   const [activeDestinationId, setActiveDestinationId] = useState<string | null>(null);
   const [mobileReviewMode, setMobileReviewMode] = useState<'overview' | 'edit'>('overview');
-  const [activeMobileLane, setActiveMobileLane] =
-    useState<VisibleReviewLane>('agent-proposals');
-  const [draggingCandidateId, setDraggingCandidateId] = useState<string | null>(null);
+  const [editingDestinationIds, setEditingDestinationIds] = useState<Set<string>>(
+    () => new Set()
+  );
   const [savingCandidateId, setSavingCandidateId] = useState<string | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
   const [bookingPrompt, setBookingPrompt] = useState<{
@@ -170,11 +309,15 @@ export default function AccommodationReviewBoard({
         const json = (await response.json()) as ReviewResponse;
         if (cancelled) return;
         setReview(json.review);
-        setActiveDestinationId((current) =>
-          current && json.review.destinations.some((destination) => destination.id === current)
-            ? current
-            : json.review.destinations[0]?.id ?? null
-        );
+        setActiveDestinationId((current) => {
+          const currentIsValid = current && json.review.destinations.some(
+            (destination) => destination.id === current
+          );
+          if (currentIsValid) return current;
+          return destinationIdForDay(json.review, initialDayNumber)
+            ?? json.review.destinations[0]?.id
+            ?? null;
+        });
       } catch (err) {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : String(err));
@@ -185,7 +328,7 @@ export default function AccommodationReviewBoard({
     return () => {
       cancelled = true;
     };
-  }, [tripId, tripData, reloadToken]);
+  }, [initialDayNumber, tripId, tripData, reloadToken]);
 
   const destinations = review?.destinations ?? [];
   const activeDestination = useMemo(() => {
@@ -206,6 +349,40 @@ export default function AccommodationReviewBoard({
       (candidate) => candidate.destinationId === activeDestination.id
     );
   }, [activeDestination, review]);
+
+  useEffect(() => {
+    if (!destinations.length) return;
+    const destinationIds = new Set(destinations.map((destination) => destination.id));
+    setEditingDestinationIds((current) => {
+      let changed = false;
+      const next = new Set<string>();
+      for (const id of current) {
+        if (destinationIds.has(id)) {
+          next.add(id);
+        } else {
+          changed = true;
+        }
+      }
+      return changed ? next : current;
+    });
+  }, [destinations]);
+
+  const activeDestinationEditing = Boolean(
+    activeDestination && editingDestinationIds.has(activeDestination.id)
+  );
+  const activeDestinationMode = displayModeForDestination(
+    candidatesForDestination,
+    activeDestinationEditing
+  );
+  const visibleCandidatesForDestination = displayCandidatesForDestination(
+    candidatesForDestination,
+    activeDestinationMode
+  );
+  const activeDestinationHasBooked = candidatesForDestination.some(
+    (candidate) => candidateLane(candidate) === 'booked'
+  );
+  const activeLaneLabel =
+    activeDestinationMode === 'hotel' ? 'Hotel' : 'Travel Agent Proposals';
 
   const allDestinationsBooked = useMemo(() => {
     if (!review || !destinations.length) return false;
@@ -231,11 +408,6 @@ export default function AccommodationReviewBoard({
     );
   }, [destinations, review]);
 
-  const preferredMobileLane = useMemo(
-    () => preferredLaneForCandidates(candidatesForDestination),
-    [candidatesForDestination]
-  );
-
   useEffect(() => {
     if (!review) return;
     if (!allDestinationsBooked) {
@@ -243,15 +415,25 @@ export default function AccommodationReviewBoard({
     }
   }, [allDestinationsBooked, review]);
 
-  useEffect(() => {
-    setActiveMobileLane(preferredMobileLane);
-  }, [activeDestination?.id, preferredMobileLane]);
+  const setDestinationEditing = useCallback((destinationId: string, isEditing: boolean) => {
+    setEditingDestinationIds((current) => {
+      const next = new Set(current);
+      if (isEditing) {
+        next.add(destinationId);
+      } else {
+        next.delete(destinationId);
+      }
+      return next;
+    });
+  }, []);
 
   const moveCandidate = useCallback(
     async (candidateId: string, lane: AccommodationReviewLane, confirmed = false) => {
       if (!review) return;
       const candidate = review.accommodations.find((item) => item.id === candidateId);
-      if (!candidate || candidate.lane === lane) return;
+      if (!candidate) return;
+      const currentLane = candidateLane(candidate);
+      if (lane === 'booked' ? currentLane === 'booked' : currentLane !== 'booked') return;
 
       if (lane === 'booked' && !confirmed) {
         const destination = review.destinations.find(
@@ -261,7 +443,7 @@ export default function AccommodationReviewBoard({
           (item) =>
             item.id !== candidateId &&
             item.destinationId === candidate.destinationId &&
-            item.lane === 'booked'
+            candidateLane(item) === 'booked'
         );
         writeReviewContext(destination, candidate);
         setBookingPrompt({
@@ -302,7 +484,7 @@ export default function AccommodationReviewBoard({
         }
         const json = (await response.json()) as ReviewResponse;
         setReview(json.review);
-        setActiveMobileLane(lane === 'booked' ? 'booked' : 'agent-proposals');
+        setDestinationEditing(candidate.destinationId, lane !== 'booked');
         if (json.trip_data) {
           onTripDataUpdated?.(json.trip_data);
         }
@@ -312,23 +494,44 @@ export default function AccommodationReviewBoard({
         setSavingCandidateId(null);
       }
     },
-    [onTripDataUpdated, review, tripId]
+    [onTripDataUpdated, review, setDestinationEditing, tripId]
   );
 
-  const handleCandidateDrop = useCallback(
-    (event: DragEvent<HTMLElement>, lane: VisibleReviewLane) => {
-      event.preventDefault();
-      event.stopPropagation();
-      const droppedCandidateId =
-        draggingCandidateId || event.dataTransfer.getData('text/plain');
-      if (droppedCandidateId) {
-        const targetLane =
-          VISIBLE_REVIEW_LANES.find((item) => item.id === lane)?.targetLane ?? 'proposed';
-        moveCandidate(droppedCandidateId, targetLane);
+  const replaceBookedCandidate = useCallback(
+    async (candidateId: string) => {
+      if (!review) return;
+      const candidate = review.accommodations.find((item) => item.id === candidateId);
+      if (!candidate || candidateLane(candidate) === 'booked') return;
+
+      setSavingCandidateId(candidateId);
+      setError(null);
+      try {
+        const response = await fetch(`/api/trips/${tripId}/accommodation-review`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'replace_booked_candidate',
+            candidate_id: candidateId,
+            message: `Changed hotel to ${candidate.candidate} from the in-trip accommodations reviewer.`,
+          }),
+        });
+        if (!response.ok) {
+          const body = await response.json().catch(() => ({}));
+          throw new Error(body.error ?? `HTTP ${response.status}`);
+        }
+        const json = (await response.json()) as ReviewResponse;
+        setReview(json.review);
+        setDestinationEditing(candidate.destinationId, false);
+        if (json.trip_data) {
+          onTripDataUpdated?.(json.trip_data);
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err));
+      } finally {
+        setSavingCandidateId(null);
       }
-      setDraggingCandidateId(null);
     },
-    [draggingCandidateId, moveCandidate]
+    [onTripDataUpdated, review, setDestinationEditing, tripId]
   );
 
   const bookingCandidate = useMemo(() => {
@@ -353,27 +556,22 @@ export default function AccommodationReviewBoard({
   ) => {
     const cardDestination = options.destination ?? activeDestination;
     const showActions = options.showActions ?? true;
-    const enableDrag = showActions && savingCandidateId !== candidate.id;
+    const stayDetails = stayDetailItems(candidate);
+    const rateDetails = rateDetailItems(candidate);
+    const notes = noteDetailItems(candidate);
+    const bookings = bookingDetailItems(candidate);
+    const feedback = feedbackDetailItems(candidate);
+    const ratings = ratingRows(candidate);
+    const links = candidateLinks(candidate);
+    const isBooked = candidateLane(candidate) === 'booked';
 
     return (
       <article
         key={candidate.id}
-        className={`accommodation-review-card${savingCandidateId === candidate.id ? ' saving' : ''}${showActions ? '' : ' overview-card'}`}
-        draggable={enableDrag}
+        className={`accommodation-review-card${savingCandidateId === candidate.id ? ' saving' : ''}${showActions ? '' : ' overview-card'}${isBooked ? ' is-booked' : ''}`}
         tabIndex={0}
         onClick={() => writeReviewContext(cardDestination, candidate)}
         onFocus={() => writeReviewContext(cardDestination, candidate)}
-        onDragStart={
-          showActions
-            ? (event) => {
-                setDraggingCandidateId(candidate.id);
-                event.dataTransfer.effectAllowed = 'move';
-                event.dataTransfer.setData('text/plain', candidate.id);
-                writeReviewContext(cardDestination, candidate);
-              }
-            : undefined
-        }
-        onDragEnd={showActions ? () => setDraggingCandidateId(null) : undefined}
       >
         {options.showDestination && cardDestination && (
           <div className="accommodation-review-card-destination">
@@ -383,73 +581,168 @@ export default function AccommodationReviewBoard({
         )}
 
         <div className="accommodation-review-card-topline">
-          <h4>{candidate.candidate}</h4>
-          {candidate.price && <span>{candidate.price}</span>}
+          <div className="accommodation-review-card-title">
+            <h4>{candidate.candidate}</h4>
+            {isBooked && <span className="accommodation-review-card-badge">Booked</span>}
+          </div>
+          {candidate.price && <span className="accommodation-review-card-price">{candidate.price}</span>}
         </div>
 
         {candidate.why && (
           <p className="accommodation-review-card-copy">{candidate.why}</p>
         )}
 
-        <div className="accommodation-review-card-facts">
-          {candidate.rateCheck?.best && <span>Best {candidate.rateCheck.best}</span>}
-          {candidate.parking && <span>Parking {candidate.parking}</span>}
-          {candidate.dog && <span>Dog {candidate.dog}</span>}
-        </div>
+        {stayDetails.length ? (
+          <dl className="accommodation-review-card-detail-grid">
+            {stayDetails.map((item) => (
+              <div key={`${candidate.id}-stay-${item.label}`} className="accommodation-review-card-detail">
+                <dt>{item.label}</dt>
+                <dd>{item.value}</dd>
+              </div>
+            ))}
+          </dl>
+        ) : null}
 
-        {ratingText(candidate) && (
+        {ratings.length ? (
+          <section className="accommodation-review-card-section accommodation-review-card-ratings">
+            <h5>Ratings</h5>
+            {ratings.map((rating, ratingIndex) => (
+              <div
+                key={`${candidate.id}-rating-${rating.name ?? ratingIndex}`}
+                className="accommodation-review-rating-row"
+              >
+                {(rating.name || rating.checkedAt) && (
+                  <div className="accommodation-review-rating-meta">
+                    {rating.name && <span>{rating.name}</span>}
+                    {rating.checkedAt && <span>Checked {rating.checkedAt}</span>}
+                  </div>
+                )}
+                <div className="accommodation-review-rating-platforms">
+                  {RATING_PLATFORMS.map((platform) => {
+                    const value = cleanText(rating[platform.key]);
+                    return (
+                      <span
+                        key={`${candidate.id}-rating-${ratingIndex}-${platform.key}`}
+                        className={`accommodation-review-rating-platform${value ? '' : ' is-missing'}`}
+                      >
+                        <b>{platform.label}</b>
+                        <span>{value ?? 'Not found'}</span>
+                      </span>
+                    );
+                  })}
+                </div>
+                {rating.note && <p>{rating.note}</p>}
+              </div>
+            ))}
+          </section>
+        ) : ratingText(candidate) ? (
           <div className="accommodation-review-card-rating">
             <span className="accommodation-review-card-rating-label">Ratings</span>
             <span>{ratingText(candidate)}</span>
           </div>
-        )}
+        ) : null}
 
-        {candidate.links?.length ? (
+        {rateDetails.length ? (
+          <section className="accommodation-review-card-section">
+            <h5>Rates</h5>
+            <dl>
+              {rateDetails.map((item) => (
+                <div key={`${candidate.id}-rate-${item.label}`}>
+                  <dt>{item.label}</dt>
+                  <dd>{item.value}</dd>
+                </div>
+              ))}
+            </dl>
+          </section>
+        ) : null}
+
+        {links.length ? (
           <div className="accommodation-review-links">
-            {candidate.links.slice(0, 2).map((link) => (
+            {links.map((link) => (
               <a
                 key={`${candidate.id}-${link.url}`}
                 href={link.url}
                 target="_blank"
                 rel="noreferrer"
-                title={domainFor(link.url)}
+                title={link.url}
                 onClick={(event) => event.stopPropagation()}
               >
                 <span>{link.label}</span>
+                <small>{domainFor(link.url)}</small>
               </a>
             ))}
           </div>
         ) : null}
 
-        {(candidate.blockers || candidate.action || candidate.terms) && (
-          <div className="accommodation-review-card-notes">
-            {candidate.blockers && <span>{candidate.blockers}</span>}
-            {candidate.action && <span>{candidate.action}</span>}
-            {candidate.terms && <span>{candidate.terms}</span>}
-          </div>
-        )}
+        {notes.length ? (
+          <section className="accommodation-review-card-section accommodation-review-card-notes">
+            <h5>Decision notes</h5>
+            <dl>
+              {notes.map((item) => (
+                <div key={`${candidate.id}-note-${item.label}`}>
+                  <dt>{item.label}</dt>
+                  <dd>{item.value}</dd>
+                </div>
+              ))}
+            </dl>
+          </section>
+        ) : null}
+
+        {bookings.length ? (
+          <section className="accommodation-review-card-section">
+            <h5>Booking</h5>
+            <dl>
+              {bookings.map((item) => (
+                <div key={`${candidate.id}-booking-${item.label}`}>
+                  <dt>{item.label}</dt>
+                  <dd>{item.value}</dd>
+                </div>
+              ))}
+            </dl>
+          </section>
+        ) : null}
+
+        {feedback.length ? (
+          <section className="accommodation-review-card-section accommodation-review-card-feedback">
+            <h5>Feedback tracker</h5>
+            <dl>
+              {feedback.map((item) => (
+                <div key={`${candidate.id}-feedback-${item.label}`}>
+                  <dt>{item.label}</dt>
+                  <dd>{item.value}</dd>
+                </div>
+              ))}
+            </dl>
+          </section>
+        ) : null}
 
         {showActions && (
           <div
             className="accommodation-review-card-actions"
-            aria-label={`Move ${candidate.candidate}`}
+            aria-label={`Set status for ${candidate.candidate}`}
           >
-            {VISIBLE_REVIEW_LANES.filter(
-              (targetLane) => targetLane.id !== visibleLaneForCandidate(candidate)
-            ).map((targetLane) => (
-              <button
-                key={`${candidate.id}-${targetLane.id}`}
-                type="button"
-                disabled={savingCandidateId === candidate.id}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  writeReviewContext(cardDestination, candidate);
-                  moveCandidate(candidate.id, targetLane.targetLane);
-                }}
-              >
-                {visibleLaneActionLabel(targetLane.id)}
-              </button>
-            ))}
+            {isBooked ? (
+              <span className="accommodation-review-status-badge">Current hotel</span>
+            ) : (
+              <label className="accommodation-review-status-control">
+                <span>Status</span>
+                <select
+                  value={candidateStatusValue(candidate)}
+                  disabled={savingCandidateId === candidate.id}
+                  onClick={(event) => event.stopPropagation()}
+                  onChange={(event) => {
+                    event.stopPropagation();
+                    writeReviewContext(cardDestination, candidate);
+                    if (event.currentTarget.value === 'booked') {
+                      moveCandidate(candidate.id, 'booked');
+                    }
+                  }}
+                >
+                  <option value="proposal">Proposal</option>
+                  <option value="booked">Booked</option>
+                </select>
+              </label>
+            )}
           </div>
         )}
       </article>
@@ -563,76 +856,40 @@ export default function AccommodationReviewBoard({
           </div>
           <div className="accommodation-review-header-actions">
             {allDestinationsBooked && (
-              <>
-                <span className="accommodation-review-complete-pill">All booked</span>
-                <button
-                  type="button"
-                  className="accommodation-review-mode-button"
-                  onClick={() =>
-                    setMobileReviewMode((mode) =>
-                      mode === 'edit' ? 'overview' : 'edit'
-                    )
-                  }
-                >
-                  {mobileReviewMode === 'edit' ? 'Overview' : 'Edit'}
-                </button>
-              </>
+              <span className="accommodation-review-complete-pill">All booked</span>
+            )}
+            {activeDestination && activeDestinationHasBooked && (
+              <button
+                type="button"
+                className="accommodation-review-mode-button accommodation-review-edit-button"
+                onClick={() => {
+                  setDestinationEditing(activeDestination.id, !activeDestinationEditing);
+                  if (mobileReviewMode === 'overview') setMobileReviewMode('edit');
+                }}
+              >
+                {activeDestinationEditing ? 'Show hotel' : 'Change hotel'}
+              </button>
             )}
             {error && <div className="accommodation-review-error">{error}</div>}
           </div>
         </div>
 
-        <div className="accommodation-review-lane-tabs" role="tablist" aria-label="Accommodation columns">
-          {VISIBLE_REVIEW_LANES.map((lane) => (
-            <button
-              key={lane.id}
-              type="button"
-              role="tab"
-              aria-selected={activeMobileLane === lane.id}
-              className={activeMobileLane === lane.id ? 'active' : undefined}
-              onClick={() => setActiveMobileLane(lane.id)}
-            >
-              <span>{lane.label}</span>
-            </button>
-          ))}
-        </div>
-
         <div className="accommodation-review-kanban">
-          {VISIBLE_REVIEW_LANES.map((lane) => {
-            const laneCandidates = candidatesForDestination.filter(
-              (candidate) => visibleLaneForCandidate(candidate) === lane.id
-            );
-            return (
-              <section
-                key={lane.id}
-                className={`accommodation-review-lane lane-${lane.id}${activeMobileLane === lane.id ? ' mobile-active' : ''}${draggingCandidateId ? ' drag-active' : ''}`}
-                onDragOver={(event) => {
-                  event.preventDefault();
-                  event.dataTransfer.dropEffect = 'move';
-                }}
-                onDrop={(event) => handleCandidateDrop(event, lane.id)}
-              >
-                <div className="accommodation-review-lane-header">
-                  <span>{lane.label}</span>
-                </div>
+          <section
+            className={`accommodation-review-lane lane-${activeDestinationMode}`}
+          >
+            <div className="accommodation-review-lane-header">
+              <span>{activeLaneLabel}</span>
+            </div>
 
-                <div
-                  className="accommodation-review-card-stack"
-                  onDragOver={(event) => {
-                    event.preventDefault();
-                    event.dataTransfer.dropEffect = 'move';
-                  }}
-                  onDrop={(event) => handleCandidateDrop(event, lane.id)}
-                >
-                  {laneCandidates.map((candidate) => renderCandidateCard(candidate))}
+            <div className="accommodation-review-card-stack">
+              {visibleCandidatesForDestination.map((candidate) => renderCandidateCard(candidate))}
 
-                  {laneCandidates.length === 0 && (
-                    <div className="accommodation-review-lane-empty" />
-                  )}
-                </div>
-              </section>
-            );
-          })}
+              {visibleCandidatesForDestination.length === 0 && (
+                <div className="accommodation-review-lane-empty" />
+              )}
+            </div>
+          </section>
         </div>
       </div>
 
@@ -645,34 +902,43 @@ export default function AccommodationReviewBoard({
         >
           <div className="accommodation-review-booking-dialog">
             <div className="accommodation-review-booking-kicker">
-              {bookingPrompt.conflictCandidateId ? 'Already booked' : 'Confirm booking'}
+              {bookingPrompt.conflictCandidateId ? 'Change hotel' : 'Confirm booking'}
             </div>
-            <h3 id="accommodation-review-booking-title">
-              {bookingPrompt.conflictCandidateId
-                ? bookingCandidate.stop
-                : bookingCandidate.candidate}
-            </h3>
+            <h3 id="accommodation-review-booking-title">{bookingCandidate.candidate}</h3>
             {bookingPrompt.conflictCandidateId ? (
               <p>
-                {conflictingBookedCandidate?.candidate ?? 'Another stay'} is already marked as
-                booked for this destination. Move it out of Booked before booking{' '}
-                {bookingCandidate.candidate}.
+                {conflictingBookedCandidate?.candidate ?? 'Another stay'} is currently marked as
+                the hotel for {bookingCandidate.stop}. Change the booking to{' '}
+                {bookingCandidate.candidate}?
               </p>
             ) : (
               <p>
-                Move this stay to Booked and add it to the trip plan for{' '}
+                Mark this stay as booked and add it to the trip plan for{' '}
                 {bookingCandidate.stop}.
               </p>
             )}
             <div className="accommodation-review-booking-actions">
               {bookingPrompt.conflictCandidateId ? (
-                <button
-                  type="button"
-                  className="accommodation-review-booking-primary"
-                  onClick={() => setBookingPrompt(null)}
-                >
-                  Got it
-                </button>
+                <>
+                  <button
+                    type="button"
+                    className="accommodation-review-booking-secondary"
+                    onClick={() => setBookingPrompt(null)}
+                  >
+                    Keep current
+                  </button>
+                  <button
+                    type="button"
+                    className="accommodation-review-booking-primary"
+                    onClick={() => {
+                      const prompt = bookingPrompt;
+                      setBookingPrompt(null);
+                      replaceBookedCandidate(prompt.candidateId);
+                    }}
+                  >
+                    Change booking
+                  </button>
+                </>
               ) : (
                 <>
                   <button

@@ -761,6 +761,7 @@ body.trip-on-cover .trip-ask-entry-label { display: inline; }
 .day-header-plain .text-card-title { color: var(--color-text-primary); }
 .day-slide > .text-body-italic { color: var(--color-text-muted); }
 .day-visual-stack { display: grid; gap: 12px; margin-bottom: 16px; }
+.day-content-stack { display: block; min-width: 0; }
 .day-visual-stack .day-hero,
 .day-visual-stack .day-header-plain { margin-bottom: 0; }
 .day-map-card { overflow: hidden; background: var(--color-card); border: 1px solid var(--color-border); border-radius: var(--radius-card); box-shadow: var(--shadow-card); }
@@ -820,6 +821,7 @@ body.trip-on-cover .trip-ask-entry-label { display: inline; }
 .time-block-detail-btn {
   width: 26px;
   height: 26px;
+  margin-left: auto;
   border: 1px solid rgba(193, 79, 42, 0.22);
   border-radius: 999px;
   background: var(--color-accent-light);
@@ -854,6 +856,20 @@ body.trip-on-cover .trip-ask-entry-label { display: inline; }
 .accom-info { flex: 1; min-width: 0; }
 .accom-meta { display: flex; align-items: center; gap: 6px; margin-top: 3px; flex-wrap: wrap; }
 .accom-note { margin-top: 4px; font-style: italic; }
+.accom-placeholder {
+  align-items: center;
+  padding: 12px;
+  border: 1px solid rgba(155, 79, 46, 0.18);
+  border-radius: 4px;
+  background: rgba(155, 79, 46, 0.06);
+}
+.accom-placeholder .accom-icon-wrap {
+  background: rgba(155, 79, 46, 0.10);
+  color: var(--color-warning);
+}
+.accom-reviewer-btn {
+  background: var(--color-card);
+}
 .map-focus-row { cursor: pointer; border-radius: 4px; transition: background 0.15s; }
 .map-focus-row:active { background: var(--color-surface-deep); }
 .row-details-btn {
@@ -890,7 +906,24 @@ body.trip-on-cover .trip-ask-entry-label { display: inline; }
 .meal-row + .meal-row { border-top: 1px solid var(--color-border); }
 .meal-has-detail { cursor: pointer; border-radius: 4px; transition: background 0.15s; }
 .meal-chevron { flex-shrink: 0; color: var(--color-text-tertiary); display: flex; align-items: center; margin-top: 2px; }
-.meal-type-badge { font-family: var(--font-sans); font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.14em; color: var(--color-accent); background: var(--color-accent-light); padding: 3px 9px; border-radius: 999px; flex-shrink: 0; margin-top: 2px; }
+.meal-type-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 76px;
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  text-align: center;
+  color: var(--color-accent);
+  background: var(--color-accent-light);
+  padding: 3px 9px;
+  border-radius: 999px;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
 .meal-detail { flex: 1; min-width: 0; }
 
 /* Stats */
@@ -1374,7 +1407,11 @@ body.trip-on-cover .trip-ask-entry-label { display: inline; }
   font-weight: 650;
   cursor: pointer;
 }
-.accommodation-review-lane-tabs,
+.accommodation-review-mode-button.accommodation-review-edit-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
 .accommodation-review-booked-overview {
   display: none;
 }
@@ -1382,16 +1419,15 @@ body.trip-on-cover .trip-ask-entry-label { display: inline; }
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: repeat(2, minmax(220px, 1fr));
-  gap: 10px;
+  grid-template-columns: minmax(0, 1fr);
   padding: 12px 14px 18px;
-  overflow-x: auto;
-  overflow-y: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
   background: var(--color-surface);
   -webkit-overflow-scrolling: touch;
 }
 .accommodation-review-lane {
-  min-width: 220px;
+  min-width: 0;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
@@ -1415,10 +1451,10 @@ body.trip-on-cover .trip-ask-entry-label { display: inline; }
   text-transform: uppercase;
   color: var(--color-text-muted);
 }
-.lane-agent-proposals .accommodation-review-lane-header {
+.lane-proposals .accommodation-review-lane-header {
   color: var(--color-accent-deep);
 }
-.lane-booked .accommodation-review-lane-header {
+.lane-hotel .accommodation-review-lane-header {
   color: var(--color-success);
 }
 .lane-dismissed .accommodation-review-lane-header {
@@ -1448,10 +1484,11 @@ body.trip-on-cover .trip-ask-entry-label { display: inline; }
   border-radius: 6px;
   background: var(--color-card);
   box-shadow: var(--shadow-card);
-  cursor: grab;
+  cursor: default;
 }
-.accommodation-review-card:active {
-  cursor: grabbing;
+.accommodation-review-card.is-booked {
+  border-color: rgba(47, 107, 74, 0.24);
+  box-shadow: 0 1px 0 rgba(47, 107, 74, 0.04), 0 8px 22px -12px rgba(47, 107, 74, 0.22);
 }
 .accommodation-review-card:focus-visible {
   outline: 2px solid rgba(193,79,42,0.28);
@@ -1489,6 +1526,13 @@ body.trip-on-cover .trip-ask-entry-label { display: inline; }
   gap: 8px;
   min-width: 0;
 }
+.accommodation-review-card-title {
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
 .accommodation-review-card h4 {
   min-width: 0;
   margin: 0;
@@ -1501,7 +1545,22 @@ body.trip-on-cover .trip-ask-entry-label { display: inline; }
   color: var(--color-text-primary);
   overflow-wrap: anywhere;
 }
-.accommodation-review-card-topline span {
+.accommodation-review-card-badge {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  min-height: 20px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: rgba(47, 107, 74, 0.1);
+  color: var(--color-success);
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: 650;
+  line-height: 1;
+  text-transform: uppercase;
+}
+.accommodation-review-card-price {
   flex: none;
   max-width: 72px;
   font-family: var(--font-mono);
@@ -1518,6 +1577,41 @@ body.trip-on-cover .trip-ask-entry-label { display: inline; }
   font-size: 13px;
   line-height: 1.45;
   color: var(--color-text-secondary);
+  overflow-wrap: anywhere;
+}
+.accommodation-review-card-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  min-width: 0;
+  margin: 0;
+}
+.accommodation-review-card-detail {
+  min-width: 0;
+  padding: 7px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-surface);
+}
+.accommodation-review-card-detail dt,
+.accommodation-review-card-section dt {
+  margin: 0 0 3px;
+  font-family: var(--font-sans);
+  font-size: 9px;
+  font-weight: 650;
+  line-height: 1;
+  text-transform: uppercase;
+  letter-spacing: 0;
+  color: var(--color-text-muted);
+}
+.accommodation-review-card-detail dd,
+.accommodation-review-card-section dd {
+  min-width: 0;
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--color-text-primary);
   overflow-wrap: anywhere;
 }
 .accommodation-review-card-facts,
@@ -1558,20 +1652,139 @@ body.trip-on-cover .trip-ask-entry-label { display: inline; }
   line-height: 1.35;
   color: var(--color-text-primary);
 }
+.accommodation-review-card-section {
+  min-width: 0;
+  padding: 9px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: rgba(255,255,255,0.64);
+}
+.accommodation-review-card-section h5 {
+  margin: 0 0 8px;
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: 650;
+  line-height: 1;
+  text-transform: uppercase;
+  letter-spacing: 0;
+  color: var(--color-accent);
+}
+.accommodation-review-card-section dl {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-width: 0;
+  margin: 0;
+}
+.accommodation-review-card-section dl > div {
+  min-width: 0;
+}
+.accommodation-review-card-section p {
+  min-width: 0;
+  margin: 7px 0 0;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--color-text-muted);
+  overflow-wrap: anywhere;
+}
+.accommodation-review-card-ratings {
+  border-color: rgba(174, 87, 62, 0.22);
+  background: rgba(174, 87, 62, 0.07);
+}
+.accommodation-review-rating-row {
+  min-width: 0;
+}
+.accommodation-review-rating-row + .accommodation-review-rating-row {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(174, 87, 62, 0.16);
+}
+.accommodation-review-rating-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px 8px;
+  margin-bottom: 7px;
+  font-family: var(--font-sans);
+  font-size: 11px;
+  line-height: 1.2;
+  color: var(--color-text-muted);
+}
+.accommodation-review-rating-meta span:first-child {
+  color: var(--color-text-primary);
+  font-weight: 580;
+}
+.accommodation-review-rating-platforms {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+.accommodation-review-rating-platform {
+  min-width: 0;
+  padding: 7px;
+  border: 1px solid rgba(174, 87, 62, 0.18);
+  border-radius: 5px;
+  background: rgba(255,255,255,0.66);
+}
+.accommodation-review-rating-platform b {
+  display: block;
+  margin-bottom: 3px;
+  font-family: var(--font-sans);
+  font-size: 9px;
+  font-weight: 650;
+  line-height: 1;
+  text-transform: uppercase;
+  letter-spacing: 0;
+  color: var(--color-accent-deep);
+}
+.accommodation-review-rating-platform span {
+  display: block;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.3;
+  color: var(--color-text-primary);
+  overflow-wrap: anywhere;
+}
+.accommodation-review-rating-platform.is-missing span {
+  font-family: var(--font-sans);
+  color: var(--color-text-muted);
+}
 .accommodation-review-card-notes {
   padding-top: 8px;
   border-top: 1px solid var(--color-border);
 }
+.accommodation-review-card-section.accommodation-review-card-notes {
+  padding-top: 9px;
+}
+.accommodation-review-card-feedback {
+  background: var(--color-surface);
+}
 .accommodation-review-card-actions {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 6px;
   padding-top: 8px;
   border-top: 1px solid var(--color-border);
 }
-.accommodation-review-card-actions button {
+.accommodation-review-status-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+.accommodation-review-status-control > span {
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: 650;
+  line-height: 1;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+.accommodation-review-status-control select {
   min-height: 30px;
-  padding: 0 9px;
+  padding: 0 8px;
   border: 1px solid var(--color-border);
   border-radius: 999px;
   background: var(--color-surface);
@@ -1581,17 +1794,29 @@ body.trip-on-cover .trip-ask-entry-label { display: inline; }
   font-weight: 600;
   cursor: pointer;
 }
-.accommodation-review-card-actions button:disabled {
+.accommodation-review-status-control select:disabled {
   cursor: wait;
   opacity: 0.5;
 }
-.accommodation-review-card-actions button:last-child {
-  border-color: rgba(193, 79, 42, 0.28);
-  background: var(--color-accent-light);
-  color: var(--color-accent-deep);
+.accommodation-review-status-control select:focus-visible {
+  outline: 2px solid rgba(193,79,42,0.26);
+  outline-offset: 2px;
+}
+.accommodation-review-status-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid rgba(47, 107, 74, 0.22);
+  border-radius: 999px;
+  background: rgba(47, 107, 74, 0.08);
+  color: var(--color-success);
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 650;
 }
 @media (hover: hover) {
-  .accommodation-review-card-actions button:not(:disabled):hover {
+  .accommodation-review-status-control select:not(:disabled):hover {
     border-color: var(--color-border-strong);
     color: var(--color-text-primary);
   }
@@ -1602,9 +1827,8 @@ body.trip-on-cover .trip-ask-entry-label { display: inline; }
   gap: 6px;
 }
 .accommodation-review-links a {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 8px;
   padding: 7px 8px;
   border: 1px solid var(--color-border);
@@ -1615,6 +1839,9 @@ body.trip-on-cover .trip-ask-entry-label { display: inline; }
 }
 .accommodation-review-links a::after {
   content: ">";
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: center;
   flex: none;
   font-family: var(--font-sans);
   font-size: 13px;
@@ -1626,6 +1853,16 @@ body.trip-on-cover .trip-ask-entry-label { display: inline; }
   font-family: var(--font-sans);
   font-size: 12px;
   font-weight: 580;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.accommodation-review-links small {
+  min-width: 0;
+  font-family: var(--font-sans);
+  font-size: 10px;
+  line-height: 1.2;
+  color: var(--color-text-muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2803,13 +3040,14 @@ body.trip-on-cover .trip-ask-entry-label { display: inline; }
   .day-slide > .day-header-plain,
   .day-slide > .day-visual-stack {
     grid-column: 1;
-    grid-row: 1 / span 40;
+    grid-row: 1;
     position: sticky;
     top: calc(var(--nav-height) + 36px);
     margin: 0;
     min-height: 560px;
     height: calc(100dvh - var(--nav-height) - 92px);
     border-radius: 6px;
+    align-self: start;
   }
 
   .day-slide > .day-visual-stack {
@@ -2860,12 +3098,15 @@ body.trip-on-cover .trip-ask-entry-label { display: inline; }
     min-height: 0;
   }
 
-  .day-slide > :not(.day-hero):not(.day-header-plain):not(.day-visual-stack) {
+  .day-content-stack {
     grid-column: 2;
+    grid-row: 1;
+    min-width: 0;
+    margin-top: calc(var(--nav-height) + 36px);
   }
 
-  .day-slide > :not(.day-hero):not(.day-header-plain):not(.day-visual-stack):nth-child(2) {
-    margin-top: calc(var(--nav-height) + 36px);
+  .day-content-stack > :last-child {
+    margin-bottom: 0;
   }
 
   .day-hero {
@@ -3293,44 +3534,6 @@ body.trip-on-cover .trip-ask-entry-label { display: inline; }
     justify-content: center;
   }
 
-  .accommodation-review-lane-tabs {
-    flex: none;
-    display: flex;
-    gap: 7px;
-    padding: 10px 14px;
-    border-bottom: 1px solid var(--color-border);
-    background: var(--color-card);
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  .accommodation-review-lane-tabs::-webkit-scrollbar {
-    display: none;
-  }
-
-  .accommodation-review-lane-tabs button {
-    flex: 0 0 auto;
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    min-height: 32px;
-    padding: 0 10px;
-    border: 1px solid var(--color-border);
-    border-radius: 999px;
-    background: var(--color-surface);
-    color: var(--color-text-muted);
-    font-family: var(--font-sans);
-    font-size: 11px;
-    font-weight: 650;
-    cursor: pointer;
-  }
-
-  .accommodation-review-lane-tabs button.active {
-    border-color: rgba(193, 79, 42, 0.32);
-    background: var(--color-accent-light);
-    color: var(--color-accent-deep);
-  }
-
   .accommodation-review-kanban {
     display: block;
     padding: 12px 14px calc(18px + env(safe-area-inset-bottom));
@@ -3341,16 +3544,12 @@ body.trip-on-cover .trip-ask-entry-label { display: inline; }
   }
 
   .accommodation-review-lane {
-    display: none;
+    display: flex;
     width: 100%;
     min-width: 0;
     max-width: 100%;
     min-height: 100%;
     scroll-snap-align: none;
-  }
-
-  .accommodation-review-lane.mobile-active {
-    display: flex;
   }
 
   .accommodation-review-card {
@@ -3360,7 +3559,13 @@ body.trip-on-cover .trip-ask-entry-label { display: inline; }
   .accommodation-review-card-copy,
   .accommodation-review-card-facts span,
   .accommodation-review-card-notes span,
-  .accommodation-review-card-rating span:last-child {
+  .accommodation-review-card-rating span:last-child,
+  .accommodation-review-card-detail dd,
+  .accommodation-review-card-section dd,
+  .accommodation-review-card-section p,
+  .accommodation-review-rating-platform span,
+  .accommodation-review-links span,
+  .accommodation-review-links small {
     max-width: calc(100vw - 92px);
   }
 
@@ -3368,7 +3573,7 @@ body.trip-on-cover .trip-ask-entry-label { display: inline; }
     flex-direction: column;
   }
 
-  .accommodation-review-card-topline span {
+  .accommodation-review-card-price {
     max-width: 100%;
     text-align: left;
   }
@@ -3406,8 +3611,6 @@ body.trip-on-cover .trip-ask-entry-label { display: inline; }
   }
 
   .detail-sheet-review .accommodation-review-kanban {
-    grid-template-columns: repeat(2, minmax(240px, 1fr));
-    gap: 12px;
     padding: 14px 16px 18px;
   }
 

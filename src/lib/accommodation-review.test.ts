@@ -8,6 +8,7 @@ import {
   moveAccommodationCandidate,
   normalizeAccommodationReview,
   promoteCandidateToTrip,
+  replaceBookedAccommodationCandidate,
 } from './accommodation-review';
 import type { TripData } from './types';
 
@@ -217,6 +218,44 @@ test('moveAccommodationCandidate rejects a second booked stay for one destinatio
   );
 });
 
+test('replaceBookedAccommodationCandidate swaps the destination hotel in one action', () => {
+  const review = buildInitialAccommodationReview(sampleTrip);
+  const bookedCandidateId = review.accommodations[0].id;
+  const bookedReview = moveAccommodationCandidate(review, bookedCandidateId, 'booked', 'user', {
+    source: 'Direct',
+    confirmation: 'ABC123',
+  });
+  const secondCandidate = {
+    ...bookedReview.accommodations[0],
+    id: 'tekirdag-second-option',
+    candidate: 'Second Tekirdag Hotel',
+    lane: 'proposed' as const,
+    status: 'proposed',
+    booking: undefined,
+  };
+  const reviewWithSecondOption = {
+    ...bookedReview,
+    accommodations: [...bookedReview.accommodations, secondCandidate],
+  };
+
+  const next = replaceBookedAccommodationCandidate(
+    reviewWithSecondOption,
+    secondCandidate.id,
+    'user',
+    { source: 'Booking.com' }
+  );
+  const previous = next.accommodations.find((candidate) => candidate.id === bookedCandidateId);
+  const replacement = next.accommodations.find((candidate) => candidate.id === secondCandidate.id);
+
+  assert.equal(previous?.lane, 'proposed');
+  assert.equal(previous?.status, 'proposed');
+  assert.equal(previous?.booking, undefined);
+  assert.equal(replacement?.lane, 'booked');
+  assert.equal(replacement?.booking?.source, 'Booking.com');
+  assert.equal(next.events?.at(-2)?.type, 'candidate_moved');
+  assert.equal(next.events?.at(-1)?.type, 'candidate_booked');
+});
+
 test('mergeAccommodationReviewWithTripData adds new trip stays without moving existing cards', () => {
   const review = buildInitialAccommodationReview(sampleTrip);
   const candidateId = review.accommodations[0].id;
@@ -357,6 +396,63 @@ test('mergeAccommodationReviewWithTripData promotes itinerary-booked stays on ex
   assert.equal(syncedCandidate?.status, 'booked');
   assert.equal(syncedCandidate?.booking?.confirmation, 'DIRECT-42');
   assert.equal(syncedCandidate?.booking?.source, 'Direct');
+});
+
+test('mergeAccommodationReviewWithTripData refreshes existing cards with richer stay evidence', () => {
+  const baseTrip = singleStayTrip({
+    dayNumber: 6,
+    date: '2026-07-12',
+    title: 'Kavala',
+    accommodationName: 'Kavala City Hotel',
+    nights: 2,
+  });
+  const review = buildInitialAccommodationReview(baseTrip);
+  const candidateId = review.accommodations[0].id;
+  const richTrip: TripData = {
+    ...baseTrip,
+    days: baseTrip.days.map((day) => ({
+      ...day,
+      accommodation: day.accommodation
+        ? {
+            ...day.accommodation,
+            price: 'EUR 240',
+            rating: 'Google 4.7/5',
+            note: 'Ask for the quieter courtyard room.',
+            detail: {
+              address: 'Harbour Street 1',
+              room_type: 'Double room with balcony',
+              check_in: 'After 15:00',
+              check_out: 'By 11:00',
+              phone: '+30 123 456 789',
+              wifi: 'Included',
+              parking: 'Garage nearby.',
+              dog_note: 'Dogs accepted with advance notice.',
+              cancellation_deadline: 'Refundable until 7 days before arrival.',
+              policy_source_url: 'https://hotel.example/pets',
+              policy_source_label: 'Hotel pet policy',
+              policy_confidence: 'high',
+              why: 'Central without being on the loudest waterfront block.',
+              practical: 'Small rooms; balcony category matters.',
+              note: 'Near the ferry.',
+            },
+          }
+        : day.accommodation,
+    })),
+  };
+
+  const next = mergeAccommodationReviewWithTripData(review, richTrip);
+  const candidate = next.accommodations.find((item) => item.id === candidateId);
+
+  assert.equal(candidate?.price, 'EUR 240');
+  assert.equal(candidate?.ratings?.[0]?.google, 'Google 4.7/5');
+  assert.equal(candidate?.roomType, 'Double room with balcony');
+  assert.equal(candidate?.checkIn, 'After 15:00');
+  assert.equal(candidate?.phone, '+30 123 456 789');
+  assert.equal(candidate?.wifi, 'Included');
+  assert.equal(candidate?.terms, 'Refundable until 7 days before arrival.');
+  assert.equal(candidate?.policySource?.url, 'https://hotel.example/pets');
+  assert.equal(candidate?.links?.some((link) => link.url === 'https://hotel.example/pets'), true);
+  assert.equal(candidate?.hotelNote, 'Near the ferry.');
 });
 
 test('normalizeAccommodationReview treats booked status as the booked lane', () => {
@@ -592,6 +688,20 @@ test('mergeAccommodationReviewWithTripData prunes stale imported duplicates but 
 test('promoteCandidateToTrip writes booked stay to matching itinerary days', () => {
   const review = buildInitialAccommodationReview(sampleTrip);
   const candidateId = review.accommodations[0].id;
+  review.accommodations[0] = {
+    ...review.accommodations[0],
+    roomType: 'Vineyard suite',
+    checkIn: 'After 15:00',
+    checkOut: 'By 11:00',
+    phone: '+90 123 456 789',
+    wifi: 'Included',
+    policySource: {
+      label: 'Hotel policy',
+      url: 'https://hotel.example/policy',
+    },
+    policyConfidence: 'medium',
+    hotelNote: 'Quiet garden side preferred.',
+  };
   const bookedReview = moveAccommodationCandidate(review, candidateId, 'booked', 'user', {
     source: 'Direct',
     confirmation: 'ABC123',
@@ -604,4 +714,13 @@ test('promoteCandidateToTrip writes booked stay to matching itinerary days', () 
   assert.equal(nextTrip.days[0].accommodation?.detail?.confirmation, 'ABC123');
   assert.equal(nextTrip.days[1].accommodation?.name, 'Tekirdag Vineyard Hotel');
   assert.equal(nextTrip.days[2].accommodation, undefined);
+  assert.equal(nextTrip.days[0].accommodation?.detail?.room_type, 'Vineyard suite');
+  assert.equal(nextTrip.days[0].accommodation?.detail?.check_in, 'After 15:00');
+  assert.equal(nextTrip.days[0].accommodation?.detail?.phone, '+90 123 456 789');
+  assert.equal(nextTrip.days[0].accommodation?.detail?.wifi, 'Included');
+  assert.equal(
+    nextTrip.days[0].accommodation?.detail?.policy_source_url,
+    'https://hotel.example/policy'
+  );
+  assert.equal(nextTrip.days[0].accommodation?.detail?.note, 'Quiet garden side preferred.');
 });
