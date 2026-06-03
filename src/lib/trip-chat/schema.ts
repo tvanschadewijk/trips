@@ -192,6 +192,8 @@ const AccommodationDetailSchema = z
     room_type: z.string().optional(),
     address: z.string().optional(),
     phone: z.string().optional(),
+    direct_website_url: z.string().optional(),
+    direct_website_label: z.string().optional(),
     confirmation: z.string().optional(),
     booking_platform: z.string().optional(),
     cancellation_deadline: z.string().optional(),

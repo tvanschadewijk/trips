@@ -164,6 +164,13 @@ function linkFromAccommodation(accommodation: Accommodation) {
   return { label: 'Booking link', url: platform };
 }
 
+function directWebsiteFromAccommodation(accommodation: Accommodation) {
+  const { direct_website_url: url, direct_website_label: label } =
+    accommodation.detail ?? {};
+  if (!url || !/^https?:\/\//i.test(url)) return undefined;
+  return { label: label || 'Official website', url };
+}
+
 function policySourceFromAccommodation(accommodation: Accommodation) {
   const { policy_source_url: url, policy_source_label: label } = accommodation.detail ?? {};
   if (!url || !/^https?:\/\//i.test(url)) return undefined;
@@ -248,6 +255,7 @@ function candidateFromAccommodation(args: {
   const { accommodation, destination, index } = args;
   const detail = accommodation.detail;
   const link = linkFromAccommodation(accommodation);
+  const directWebsite = directWebsiteFromAccommodation(accommodation);
   const policySource = policySourceFromAccommodation(accommodation);
 
   return compactObject({
@@ -266,6 +274,7 @@ function candidateFromAccommodation(args: {
     why: detail?.why ?? detail?.body,
     blockers: detail?.practical,
     action: accommodation.note ?? detail?.booking_note,
+    directWebsite,
     links: mergeCandidateLinks(link ? [link] : undefined, policySource ? [policySource] : undefined),
     ratings: accommodation.rating
       ? [{ name: accommodation.name, google: accommodation.rating }]
@@ -695,6 +704,7 @@ function syncCandidateEvidenceFromImported(
     'blockers',
     'action',
     'alternatives',
+    'directWebsite',
     'address',
     'roomType',
     'checkIn',
@@ -1219,6 +1229,8 @@ export function promoteCandidateToTrip(
         room_type: candidate.roomType,
         address: candidate.address,
         phone: candidate.phone,
+        direct_website_url: candidate.directWebsite?.url,
+        direct_website_label: candidate.directWebsite?.label,
         confirmation,
         booking_platform: source,
         cancellation_deadline: candidate.terms,

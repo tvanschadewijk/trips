@@ -202,6 +202,8 @@ export interface AccommodationDetail extends RichDetail {
   room_type?: string;
   address?: string;
   phone?: string;
+  direct_website_url?: string;
+  direct_website_label?: string;
   confirmation?: string;
   booking_platform?: string;
   cancellation_deadline?: string;
@@ -291,6 +293,7 @@ export interface AccommodationCandidate {
   blockers?: string;
   action?: string;
   alternatives?: string;
+  directWebsite?: AccommodationCandidateLink;
   links?: AccommodationCandidateLink[];
   ratings?: AccommodationCandidateRating[];
   rateCheck?: AccommodationCandidateRateCheck;

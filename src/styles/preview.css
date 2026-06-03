@@ -1527,9 +1527,6 @@ button.day-brief-place:active {
 .detail-charging-note { font-family: var(--font-serif); font-optical-sizing: auto; font-size: 13px; color: var(--color-text-secondary); margin-top: 4px; font-style: italic; }
 
 /* Accommodation review board */
-.detail-sheet-review {
-  max-height: calc(100% - 18px);
-}
 .detail-body-react {
   padding: 0;
   overflow: hidden;
@@ -2145,7 +2142,7 @@ button.day-brief-place:active {
 }
 .accommodation-review-rating-platforms {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
   gap: 7px;
 }
 .accommodation-review-rating-platform {
@@ -4060,52 +4057,6 @@ button.day-brief-place:active {
   }
 }
 
-/* Accommodation review opens as a dedicated workspace instead of a narrow detail sheet. */
-.detail-sheet.detail-sheet-review {
-  top: 0;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  width: 100%;
-  max-width: none;
-  max-height: none;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  border-radius: 0;
-  overflow: hidden;
-  opacity: 0;
-  transform: translateY(100%);
-}
-.detail-overlay.open .detail-sheet.detail-sheet-review {
-  opacity: 1;
-  transform: translateY(0);
-}
-.detail-overlay.open.closing .detail-sheet.detail-sheet-review {
-  opacity: 0;
-  transform: translateY(100%);
-}
-.detail-sheet-review .detail-header {
-  flex: none;
-  min-height: calc(62px + env(safe-area-inset-top));
-  padding: calc(14px + env(safe-area-inset-top)) 16px 12px;
-}
-.detail-sheet-review .detail-header .text-nav-title {
-  font-size: 24px;
-  letter-spacing: 0;
-}
-.detail-sheet-review .detail-body {
-  flex: 1;
-  min-height: 0;
-  padding: 0;
-}
-.detail-sheet-review .detail-body-react {
-  overflow: hidden;
-}
-.detail-sheet-review .accommodation-review-board {
-  height: 100%;
-  min-height: 0;
-}
 .accommodation-review-card-stack {
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
@@ -4319,72 +4270,6 @@ button.day-brief-place:active {
   }
 }
 
-@media (min-width: 768px) {
-  .detail-sheet.detail-sheet-review {
-    top: 14px;
-    right: 14px;
-    bottom: 14px;
-    left: 14px;
-    width: auto;
-    height: auto;
-    border: 1px solid var(--color-border);
-    border-radius: 8px;
-    box-shadow: 0 24px 70px rgba(26, 20, 16, 0.18);
-    transform: translateY(18px) scale(0.985);
-  }
-
-  .detail-overlay.open .detail-sheet.detail-sheet-review {
-    transform: translateY(0) scale(1);
-  }
-
-  .detail-overlay.open.closing .detail-sheet.detail-sheet-review {
-    transform: translateY(18px) scale(0.985);
-  }
-
-  .detail-sheet-review .detail-header {
-    min-height: 72px;
-    padding: 18px 24px 14px;
-  }
-
-  .detail-sheet-review .accommodation-review-board {
-    grid-template-columns: minmax(190px, 230px) minmax(0, 1fr);
-  }
-
-  .detail-sheet-review .accommodation-review-kanban {
-    padding: 20px 24px 24px;
-  }
-
-  .detail-sheet-review .accommodation-review-lane {
-    min-width: 0;
-  }
-}
-
-@media (min-width: 1200px) {
-  .detail-sheet.detail-sheet-review {
-    top: 22px;
-    right: 22px;
-    bottom: 22px;
-    left: 22px;
-  }
-
-  .detail-sheet-review .detail-header {
-    padding: 20px 28px 14px;
-  }
-
-  .detail-sheet-review .detail-header .text-nav-title {
-    font-size: 28px;
-  }
-
-  .detail-sheet-review .accommodation-review-board {
-    grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
-  }
-
-  .detail-sheet-review .accommodation-review-kanban {
-    grid-template-columns: minmax(0, 1fr);
-    padding: 22px 28px 26px;
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .trip-app *,
   .trip-app *::before,
@@ -4413,13 +4298,6 @@ button.day-brief-place:active {
   .detail-overlay:not(.open) .detail-sheet {
     transform: translateY(100%);
   }
-  .detail-sheet.detail-sheet-review,
-  .detail-overlay.open.closing .detail-sheet.detail-sheet-review {
-    transform: translateY(0);
-  }
-  .detail-overlay:not(.open) .detail-sheet.detail-sheet-review {
-    transform: translateY(100%);
-  }
   @media (min-width: 1024px) {
     .detail-sheet,
     .detail-overlay.open.closing .detail-sheet {
@@ -4427,13 +4305,6 @@ button.day-brief-place:active {
     }
     .detail-overlay:not(.open) .detail-sheet {
       transform: translateX(100%);
-    }
-    .detail-sheet.detail-sheet-review,
-    .detail-overlay.open.closing .detail-sheet.detail-sheet-review {
-      transform: translateY(0) scale(1);
-    }
-    .detail-overlay:not(.open) .detail-sheet.detail-sheet-review {
-      transform: translateY(18px) scale(0.985);
     }
   }
 }

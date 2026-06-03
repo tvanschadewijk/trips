@@ -124,7 +124,6 @@ type DetailContent = {
   title: string;
   html: string;
   node?: ReactNode;
-  sheetClassName?: string;
 };
 type SlideMotionMode = 'programmatic' | 'swipe' | 'settled';
 type SlideDirection = 'forward' | 'backward' | 'none';
@@ -766,7 +765,6 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
           onTripDataUpdated={handleTripDataUpdated}
         />
       ),
-      sheetClassName: 'detail-sheet-review',
     });
   }, [activeTripData, handleTripDataUpdated, showDetail, tripId]);
 
@@ -875,11 +873,18 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
         ['Room type', d.room_type], ['Check-in', d.check_in], ['Check-out', d.check_out],
         ['Nights', a.nights ? a.nights + (a.nights > 1 ? ' nights' : ' night') : undefined],
         ['Price', a.price], ['Address', d.address],
-        ['Phone', d.phone], ['Confirmation', d.confirmation], ['Booked via', d.booking_platform],
+        ['Phone', d.phone], ['Website', d.direct_website_url],
+        ['Confirmation', d.confirmation], ['Booked via', d.booking_platform],
         ['Cancel by', d.cancellation_deadline], ['WiFi', d.wifi], ['Parking', d.parking], ['Note', d.note],
       ];
       const rows = fields.filter(([, v]) => v).map(([l, v]) =>
-        `<div class="detail-row"><span class="detail-row-label">${l}</span><span class="detail-row-value${l === 'Phone' ? ' mono' : ''}">${l === 'Phone' ? `<a href="tel:${escapeHtml(v!)}">${escapeHtml(v!)}</a>` : escapeHtml(v!)}</span></div>`
+        `<div class="detail-row"><span class="detail-row-label">${l}</span><span class="detail-row-value${l === 'Phone' ? ' mono' : ''}">${
+          l === 'Phone'
+            ? `<a href="tel:${escapeHtml(v!)}">${escapeHtml(v!)}</a>`
+            : l === 'Website' && /^https?:\/\//i.test(v!)
+              ? `<a href="${escapeHtml(v!)}" target="_blank" rel="noreferrer">${escapeHtml(d.direct_website_label || 'Official website')}</a>`
+              : escapeHtml(v!)
+        }</span></div>`
       ).join('');
       showDetail({
         title: a.name || 'Accommodation',
@@ -1522,7 +1527,6 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
                         onTripDataUpdated={handleTripDataUpdated}
                       />
                     ),
-                    sheetClassName: 'detail-sheet-review',
                   }
                 : { icon: 'bed', label: 'Accommodation', ...accommodation };
               const sections: {
@@ -1531,7 +1535,6 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
                 html: string;
                 hasData: boolean;
                 node?: ReactNode;
-                sheetClassName?: string;
               }[] = [
                 { icon: 'route', label: 'Logistics', ...logistics },
                 accommodationSection,
@@ -1558,7 +1561,6 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
                         title: s.label,
                         html: s.html,
                         node: s.node,
-                        sheetClassName: s.sheetClassName,
                       });
                     }}>
                       <span className="hero-note-icon"><Icon name={s.icon} /></span>
@@ -2246,7 +2248,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
       {/* Detail sheet */}
       <div className={`detail-overlay ${detailOpen ? 'open' : ''} ${detailClosing ? 'closing' : ''}`} role="dialog" aria-modal="true" aria-label={detailContent.title}>
         <div className="detail-backdrop" onClick={closeDetail} />
-        <div className={`detail-sheet ${detailContent.sheetClassName ?? ''}`}>
+        <div className="detail-sheet">
           <div className="detail-header">
             <div className="text-nav-title" style={{ flex: 1, minWidth: 0, color: 'var(--color-text-primary)' }}>
               {detailContent.title}

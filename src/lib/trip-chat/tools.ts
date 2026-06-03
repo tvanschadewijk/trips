@@ -99,6 +99,13 @@ set match to "same_current_name" so the same patch applies to every day whose
 current accommodation name matches the path's accommodation name. This avoids
 the large update_trip days-array replacement that can exceed context limits.
 
+Visible accommodation cards should represent one booked or confirmed hotel.
+Pending accommodation entries may exist only as single destination markers for
+the "Hotel not confirmed yet" placeholder. Do not use this tool to write hotel
+searches or slash-separated hotel shortlists into the public itinerary; put
+those in the private Accommodations Reviewer as one candidate card per hotel
+and promote one candidate when booked.
+
 If the trip has markdown_source, this tool also maintains the deterministic
 "OurTrips agent notes" section in that markdown so external agents can see
 hotel/stay-card changes without forcing a full itinerary rewrite.`;
@@ -134,8 +141,10 @@ current itinerary stays. The trip_id is pinned by the server.`;
 
 const UPDATE_ACCOMMODATION_CANDIDATE_DESCRIPTION = `Patch one private accommodation-review candidate.
 
-Use this for changing candidate facts in the Accommodations Reviewer: price, direct link,
-ratings, dog/parking/terms notes, blockers, action, feedbackLoop, or lane. This
+Use this for changing candidate facts in the Accommodations Reviewer: price,
+directWebsite (the official hotel website), links, customer-review ratings,
+address/room/contact/check-in details, dog/parking/terms notes, blockers,
+action, feedbackLoop, or lane. This
 does not edit the public itinerary unless the candidate is moved to booked with
 move_accommodation_candidate or promote_accommodation_candidate.`;
 
@@ -143,9 +152,15 @@ const CREATE_ACCOMMODATION_CANDIDATE_DESCRIPTION = `Create one private accommoda
 
 Use this after researching or choosing a hotel/stay candidate that should enter
 the review board. New candidates should usually start in proposed unless the
-user explicitly says they are already booked. Include direct
-site links, platform prices, ratings, terms, dog/parking notes, and blockers
-when known.`;
+user explicitly says they are already booked. A proposal is incomplete unless it
+includes directWebsite for the official hotel site and ratings with Booking.com
+(\`bookingCom\`), Tripadvisor (\`tripadvisor\`), and Google Reviews
+(\`google\`) values or a clear "not found" note for any source you could not
+verify. Also include platform prices, address/room/contact/check-in details,
+terms, dog/parking notes, and blockers when known.
+
+Create exactly one card per hotel. Do not combine multiple hotel names into one
+candidate with slashes or shortlist prose.`;
 
 const MOVE_ACCOMMODATION_CANDIDATE_DESCRIPTION = `Move one accommodation-review candidate between review states.
 
@@ -186,6 +201,8 @@ const DetailPatchSchema = z
     room_type: z.string().optional(),
     address: z.string().optional(),
     phone: z.string().optional(),
+    direct_website_url: z.string().url().optional(),
+    direct_website_label: z.string().optional(),
     confirmation: z.string().optional(),
     booking_platform: z.string().optional(),
     cancellation_deadline: z.string().optional(),
@@ -256,6 +273,25 @@ const AccommodationReviewLaneSchema = z.enum([
   'booked',
 ]);
 
+const AccommodationCandidateLinkSchema = z
+  .object({
+    label: z.string().min(1),
+    url: z.string().url(),
+  })
+  .strict();
+
+const AccommodationCandidateRatingSchema = z
+  .object({
+    name: z.string().optional(),
+    checkedAt: z.string().optional(),
+    bookingCom: z.string().optional(),
+    tripadvisor: z.string().optional(),
+    google: z.string().optional(),
+    hotelsCom: z.string().optional(),
+    note: z.string().optional(),
+  })
+  .strict();
+
 const AccommodationCandidateBookingSchema = z
   .object({
     bookedAt: z.string().optional(),
@@ -283,14 +319,27 @@ const AccommodationCandidatePatchSchema = z
     blockers: z.string().optional(),
     action: z.string().optional(),
     alternatives: z.string().optional(),
-    links: z.array(z.object({ label: z.string(), url: z.string() })).optional(),
-    ratings: z.array(z.record(z.string(), z.string().optional())).optional(),
+    directWebsite: AccommodationCandidateLinkSchema.describe(
+      'Official/direct hotel website. Do not use Booking.com, Tripadvisor, Google, or an OTA/search-result URL here.'
+    ).optional(),
+    links: z.array(AccommodationCandidateLinkSchema).optional(),
+    ratings: z.array(AccommodationCandidateRatingSchema).describe(
+      'Customer-review ratings. For hotel proposals include bookingCom, tripadvisor, and google values or "Not found" for each missing source.'
+    ).optional(),
     rateCheck: z.record(z.string(), z.unknown()).optional(),
     feedbackLoop: z.record(z.string(), z.unknown()).optional(),
     dayNumbers: z.array(z.number()).optional(),
     checkInDate: z.string().optional(),
     checkOutDate: z.string().optional(),
     address: z.string().optional(),
+    roomType: z.string().optional(),
+    checkIn: z.string().optional(),
+    checkOut: z.string().optional(),
+    phone: z.string().optional(),
+    wifi: z.string().optional(),
+    policySource: z.object({ label: z.string(), url: z.string() }).optional(),
+    policyConfidence: z.enum(['high', 'medium', 'low']).optional(),
+    hotelNote: z.string().optional(),
     booking: AccommodationCandidateBookingSchema.optional(),
     createdBy: z.enum(['agent', 'user', 'import', 'system']).optional(),
   })
@@ -329,14 +378,27 @@ const CreateAccommodationCandidateInputShape = {
       blockers: z.string().optional(),
       action: z.string().optional(),
       alternatives: z.string().optional(),
-      links: z.array(z.object({ label: z.string(), url: z.string() })).optional(),
-      ratings: z.array(z.record(z.string(), z.string().optional())).optional(),
+      directWebsite: AccommodationCandidateLinkSchema.describe(
+        'Official/direct hotel website. Do not use Booking.com, Tripadvisor, Google, or an OTA/search-result URL here.'
+      ).optional(),
+      links: z.array(AccommodationCandidateLinkSchema).optional(),
+      ratings: z.array(AccommodationCandidateRatingSchema).describe(
+        'Customer-review ratings. Include bookingCom, tripadvisor, and google values or "Not found" for each missing source.'
+      ).optional(),
       rateCheck: z.record(z.string(), z.unknown()).optional(),
       feedbackLoop: z.record(z.string(), z.unknown()).optional(),
       dayNumbers: z.array(z.number()).optional(),
       checkInDate: z.string().optional(),
       checkOutDate: z.string().optional(),
       address: z.string().optional(),
+      roomType: z.string().optional(),
+      checkIn: z.string().optional(),
+      checkOut: z.string().optional(),
+      phone: z.string().optional(),
+      wifi: z.string().optional(),
+      policySource: z.object({ label: z.string(), url: z.string() }).optional(),
+      policyConfidence: z.enum(['high', 'medium', 'low']).optional(),
+      hotelNote: z.string().optional(),
       booking: AccommodationCandidateBookingSchema.optional(),
       createdBy: z.enum(['agent', 'user', 'import', 'system']).optional(),
     })
@@ -427,6 +489,13 @@ not send an empty object.
   - Free-form fields like \`time_label\` on a block accept "Morning",
     "14:00 – 16:30", "Late afternoon" — stay consistent with what's already
     in the trip.
+  - Public itinerary entries are single-choice. Do not put multiple hotels or
+    multiple restaurants into one \`accommodation\`, \`meal\`, or programme
+    block with slashes or shortlist prose. Hotel search options belong in the
+    Accommodations Reviewer as one candidate per hotel; a pending accommodation
+    in \`days[]\` should be only a destination marker for the "Hotel not
+    confirmed yet" placeholder. For meals, choose one restaurant for the
+    suggestion or ask the user when the choice is truly ambiguous.
 
 ## Editorial tone (this product is OurTrips — editorial travel, not a booking system)
 
@@ -628,6 +697,17 @@ function summarizeAccommodationDetailPatch(
   add('Check-out', detailPatch.check_out);
   add('Room', detailPatch.room_type);
   add('Phone', detailPatch.phone);
+  const directWebsiteUrl = oneLineMarkdown(detailPatch.direct_website_url);
+  const directWebsiteLabel = oneLineMarkdown(detailPatch.direct_website_label);
+  if (directWebsiteUrl) {
+    parts.push(
+      `Official website: ${
+        directWebsiteLabel
+          ? markdownLink(directWebsiteLabel, directWebsiteUrl)
+          : directWebsiteUrl
+      }`
+    );
+  }
   add('Booking note', detailPatch.booking_note);
   add('Note', detailPatch.note);
 
@@ -759,6 +839,8 @@ export function collectAccommodations(trip: TripData) {
         location_hint: detail?.address ?? inferLocationFromDayTitle(day.title) ?? null,
         address: detail?.address ?? null,
         phone: detail?.phone ?? null,
+        direct_website_url: detail?.direct_website_url ?? null,
+        direct_website_label: detail?.direct_website_label ?? null,
         booking_platform: detail?.booking_platform ?? null,
         existing_dog_note: detail?.dog_note ?? null,
         existing_policy_source_url:

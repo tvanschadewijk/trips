@@ -424,6 +424,8 @@ test('mergeAccommodationReviewWithTripData refreshes existing cards with richer 
               check_in: 'After 15:00',
               check_out: 'By 11:00',
               phone: '+30 123 456 789',
+              direct_website_url: 'https://kavala.example',
+              direct_website_label: 'Official hotel site',
               wifi: 'Included',
               parking: 'Garage nearby.',
               dog_note: 'Dogs accepted with advance notice.',
@@ -448,6 +450,10 @@ test('mergeAccommodationReviewWithTripData refreshes existing cards with richer 
   assert.equal(candidate?.roomType, 'Double room with balcony');
   assert.equal(candidate?.checkIn, 'After 15:00');
   assert.equal(candidate?.phone, '+30 123 456 789');
+  assert.deepEqual(candidate?.directWebsite, {
+    label: 'Official hotel site',
+    url: 'https://kavala.example',
+  });
   assert.equal(candidate?.wifi, 'Included');
   assert.equal(candidate?.terms, 'Refundable until 7 days before arrival.');
   assert.equal(candidate?.policySource?.url, 'https://hotel.example/pets');
@@ -699,6 +705,10 @@ test('promoteCandidateToTrip writes booked stay to matching itinerary days', () 
       label: 'Hotel policy',
       url: 'https://hotel.example/policy',
     },
+    directWebsite: {
+      label: 'Official hotel site',
+      url: 'https://hotel.example',
+    },
     policyConfidence: 'medium',
     hotelNote: 'Quiet garden side preferred.',
   };
@@ -717,6 +727,14 @@ test('promoteCandidateToTrip writes booked stay to matching itinerary days', () 
   assert.equal(nextTrip.days[0].accommodation?.detail?.room_type, 'Vineyard suite');
   assert.equal(nextTrip.days[0].accommodation?.detail?.check_in, 'After 15:00');
   assert.equal(nextTrip.days[0].accommodation?.detail?.phone, '+90 123 456 789');
+  assert.equal(
+    nextTrip.days[0].accommodation?.detail?.direct_website_url,
+    'https://hotel.example'
+  );
+  assert.equal(
+    nextTrip.days[0].accommodation?.detail?.direct_website_label,
+    'Official hotel site'
+  );
   assert.equal(nextTrip.days[0].accommodation?.detail?.wifi, 'Included');
   assert.equal(
     nextTrip.days[0].accommodation?.detail?.policy_source_url,

@@ -21,6 +21,21 @@ import type {
 
 const LaneSchema = z.enum(['proposed', 'considering', 'dismissed', 'booked']);
 
+const CandidateLinkSchema = z.object({
+  label: z.string().min(1),
+  url: z.string().url(),
+}).strict();
+
+const CandidateRatingSchema = z.object({
+  name: z.string().optional(),
+  checkedAt: z.string().optional(),
+  bookingCom: z.string().optional(),
+  tripadvisor: z.string().optional(),
+  google: z.string().optional(),
+  hotelsCom: z.string().optional(),
+  note: z.string().optional(),
+}).strict();
+
 const BookingSchema = z.object({
   bookedAt: z.string().optional(),
   source: z.string().optional(),
@@ -45,8 +60,9 @@ const CandidatePatchSchema = z.object({
   blockers: z.string().optional(),
   action: z.string().optional(),
   alternatives: z.string().optional(),
-  links: z.array(z.object({ label: z.string(), url: z.string() })).optional(),
-  ratings: z.array(z.record(z.string(), z.string().optional())).optional(),
+  directWebsite: CandidateLinkSchema.optional(),
+  links: z.array(CandidateLinkSchema).optional(),
+  ratings: z.array(CandidateRatingSchema).optional(),
   rateCheck: z.record(z.string(), z.unknown()).optional(),
   feedbackLoop: z.record(z.string(), z.unknown()).optional(),
   dayNumbers: z.array(z.number()).optional(),

@@ -112,15 +112,14 @@ type CardDetailItem = {
 const RATING_PLATFORMS: {
   key: keyof Pick<
     AccommodationCandidateRating,
-    'hotelsCom' | 'tripadvisor' | 'bookingCom' | 'google'
+    'tripadvisor' | 'bookingCom' | 'google'
   >;
   label: string;
   shortLabel: string;
 }[] = [
   { key: 'bookingCom', label: 'Booking.com', shortLabel: 'Booking' },
-  { key: 'google', label: 'Google', shortLabel: 'Google' },
-  { key: 'tripadvisor', label: 'TripAdvisor', shortLabel: 'TripAdvisor' },
-  { key: 'hotelsCom', label: 'Hotels.com', shortLabel: 'Hotels.com' },
+  { key: 'tripadvisor', label: 'Tripadvisor', shortLabel: 'Tripadvisor' },
+  { key: 'google', label: 'Google Reviews', shortLabel: 'Google' },
 ];
 
 function ratingText(candidate: AccommodationCandidate): string | null {
@@ -154,6 +153,23 @@ function ratingRows(candidate: AccommodationCandidate): AccommodationCandidateRa
         RATING_PLATFORMS.some((platform) => cleanText(rating[platform.key]))
     )
   );
+}
+
+function customerReviewRows(
+  candidate: AccommodationCandidate,
+  includePlaceholder: boolean
+): AccommodationCandidateRating[] {
+  const rows = ratingRows(candidate);
+  if (rows.length || !includePlaceholder) return rows;
+  return [{ name: candidate.candidate }];
+}
+
+function missingRatingText(rating: AccommodationCandidateRating): string {
+  const hasEvidence =
+    cleanText(rating.checkedAt) ||
+    cleanText(rating.note) ||
+    RATING_PLATFORMS.some((platform) => cleanText(rating[platform.key]));
+  return hasEvidence ? 'Not found' : 'Not checked';
 }
 
 function stayDetailItems(candidate: AccommodationCandidate): CardDetailItem[] {
@@ -223,6 +239,7 @@ function candidateLinks(candidate: AccommodationCandidate): AccommodationCandida
   const seen = new Set<string>();
 
   for (const link of [
+    candidate.directWebsite,
     ...(candidate.links ?? []),
     ...(candidate.rateCheck?.sources ?? []),
     candidate.policySource,
@@ -561,9 +578,9 @@ export default function AccommodationReviewBoard({
     const notes = noteDetailItems(candidate);
     const bookings = bookingDetailItems(candidate);
     const feedback = feedbackDetailItems(candidate);
-    const ratings = ratingRows(candidate);
-    const links = candidateLinks(candidate);
     const isBooked = candidateLane(candidate) === 'booked';
+    const ratings = customerReviewRows(candidate, !isBooked);
+    const links = candidateLinks(candidate);
 
     return (
       <article
@@ -605,7 +622,7 @@ export default function AccommodationReviewBoard({
 
         {ratings.length ? (
           <section className="accommodation-review-card-section accommodation-review-card-ratings">
-            <h5>Ratings</h5>
+            <h5>Customer reviews</h5>
             {ratings.map((rating, ratingIndex) => (
               <div
                 key={`${candidate.id}-rating-${rating.name ?? ratingIndex}`}
@@ -626,7 +643,7 @@ export default function AccommodationReviewBoard({
                         className={`accommodation-review-rating-platform${value ? '' : ' is-missing'}`}
                       >
                         <b>{platform.label}</b>
-                        <span>{value ?? 'Not found'}</span>
+                        <span>{value ?? missingRatingText(rating)}</span>
                       </span>
                     );
                   })}
