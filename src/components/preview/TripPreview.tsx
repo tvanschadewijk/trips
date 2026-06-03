@@ -1617,6 +1617,11 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
       : 0;
     const dayMapCountNoun = dayMapSearchTargets.length ? 'location' : 'stop';
     const dayMapCountLabel = `${dayMapStopCount} ${dayMapCountNoun}${dayMapStopCount === 1 ? '' : 's'}`;
+    const stayNights = normalizedNightCount(day.accommodation?.nights);
+    const nightLabel = formatNightLabel(stayNights);
+    const dateRangeLabel = formatBriefDateRange(day.date, stayNights);
+    const stayDateLabel = nightLabel ? `${nightLabel} (${dateRangeLabel})` : dateRangeLabel;
+    const heroMeta = [nightLabel ? stayDateLabel : null, day.subtitle].filter(Boolean).join(' · ');
 
     const statsChips = day.stats?.length ? (
       <div className="hero-stats-row">
@@ -1637,7 +1642,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
         <div className="day-hero-text">
           <p className="text-label" style={{ margin: '0 0 4px' }}>Day {day.day_number} &middot; {dateStr}</p>
           <h2 className="text-card-title-light" style={{ margin: 0 }}>{day.title}</h2>
-          {day.subtitle && <p className="text-hero-subtitle" style={{ margin: '5px 0 0', fontSize: 14 }}>{day.subtitle}</p>}
+          {heroMeta && <p className="text-hero-subtitle" style={{ margin: '5px 0 0', fontSize: 14 }}>{heroMeta}</p>}
           {statsChips}
         </div>
       </div>
@@ -1653,7 +1658,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     const dayMapSection = hasDayMapLocations ? (
       <div className="day-map-card" data-day-map-card={day.day_number}>
         <div className="day-map-header">
-          <span className="text-section-title"><span className="section-icon"><Icon name="route" /></span>Day map</span>
+          <span className="text-section-title"><span className="section-icon"><Icon name="map" /></span>Day map</span>
           <button
             type="button"
             className="day-map-count"
@@ -1692,10 +1697,6 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     ) : heroSection;
 
     const displayBlocks = (day.blocks ?? []).map(getDisplayableBlock).filter((block) => block !== null);
-    const stayNights = normalizedNightCount(day.accommodation?.nights);
-    const nightLabel = formatNightLabel(stayNights);
-    const dateRangeLabel = formatBriefDateRange(day.date, stayNights);
-    const stayDateLabel = nightLabel ? `${nightLabel} (${dateRangeLabel})` : dateRangeLabel;
 
     const renderBriefDetailButton = (label: string, onClick: () => void) => (
       <button
@@ -1796,7 +1797,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     const seeAndDoBlock = displayBlocks.length ? (
       <div className="day-brief-see-card">
         <div className="day-brief-card-kicker">
-          <span className="day-brief-card-icon"><Icon name="mountain" /></span>
+          <span className="day-brief-card-icon"><Icon name="binoculars" /></span>
           <span>See &amp; do</span>
         </div>
         <div className="day-brief-programme-list">
@@ -1961,7 +1962,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     const transSection = day.transport?.length ? (
       <div className="day-section">
         <div className="day-section-title">
-          <span className="text-section-title"><span className="section-icon"><Icon name="route" /></span>Transport</span>
+          <span className="text-section-title"><span className="section-icon"><Icon name={trimDisplayText(day.transport[0]?.mode) || 'route'} /></span>Transport</span>
         </div>
         {day.transport.map((t, i) => (
           <div key={i} className={`transport-row${t.detail ? ' tappable' : ''}`}
@@ -2149,7 +2150,10 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
             </button>
             <div className="nav-title-text">
               {!isHero && trip && (
-                <div className="text-nav-title">{trip.name} — {trip.subtitle}</div>
+                <div className="text-nav-title">
+                  <span className="nav-trip-name">{trip.name}</span>
+                  {trip.subtitle && <span className="nav-trip-subtitle">{trip.subtitle}</span>}
+                </div>
               )}
             </div>
             {shareId && trip && (
