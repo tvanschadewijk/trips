@@ -471,6 +471,13 @@ function popupContentFor(point: PointDisplay, options: PopupOptions = {}): HTMLE
   const popup = document.createElement('div');
   popup.className = 'itinerary-map-stop-popup';
 
+  if (point.detail.kicker) {
+    const kicker = document.createElement('div');
+    kicker.className = 'itinerary-map-stop-popup-kicker';
+    kicker.textContent = point.detail.kicker;
+    popup.append(kicker);
+  }
+
   const title = document.createElement('div');
   title.className = 'itinerary-map-stop-popup-title';
   title.textContent = point.detail.title || point.label || 'Stop';

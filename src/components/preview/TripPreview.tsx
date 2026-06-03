@@ -150,6 +150,10 @@ function trimDisplayText(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
 }
 
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 function blockDisplayText(block: Block): string {
   return (
     trimDisplayText(block.content) ||
@@ -1705,6 +1709,18 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
       </button>
     );
 
+    const renderBriefCardAction = (label: string, onClick: () => void, icon: string = 'chevron') => (
+      <button
+        type="button"
+        className="day-brief-card-action"
+        aria-label={label}
+        onClick={onClick}
+      >
+        <span>{label}</span>
+        <Icon name={icon} />
+      </button>
+    );
+
     const renderBriefPlace = (label: string, mapLabel?: string, className?: string) => {
       const mapTarget = findDayMapTarget(mapLabel || label);
       const classes = ['day-brief-place', className].filter(Boolean).join(' ');
@@ -1720,17 +1736,76 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
       );
     };
 
-    const seeAndDoLine = displayBlocks.length ? (
-      <li className="day-brief-item">
-        <span className="day-brief-bullet" aria-hidden="true" />
-        <p className="day-brief-copy">
-          <span className="day-brief-label">See &amp; do:</span>{' '}
+    const renderBriefActivityText = (value: string): ReactNode => {
+      const text = trimDisplayText(value);
+      if (!text) return null;
+
+      const candidates = dayMapSearchTargets
+        .filter((target) => target.role === 'excursion')
+        .map((target) => ({
+          label: trimDisplayText(target.detail?.title) || trimDisplayText(target.label),
+          target: { id: target.id, label: target.label },
+        }))
+        .filter(({ label }) => label.length >= 3)
+        .sort((a, b) => b.label.length - a.label.length);
+
+      const matches: {
+        start: number;
+        end: number;
+        label: string;
+        target: { id?: string; label?: string };
+      }[] = [];
+
+      for (const candidate of candidates) {
+        const match = new RegExp(escapeRegExp(candidate.label), 'iu').exec(text);
+        if (!match) continue;
+
+        const start = match.index;
+        const end = start + match[0].length;
+        const overlaps = matches.some((existing) => start < existing.end && end > existing.start);
+        if (overlaps) continue;
+
+        matches.push({ start, end, label: match[0], target: candidate.target });
+      }
+
+      if (!matches.length) return text;
+
+      matches.sort((a, b) => a.start - b.start);
+      const parts: ReactNode[] = [];
+      let cursor = 0;
+
+      for (const [index, match] of matches.entries()) {
+        if (cursor < match.start) parts.push(text.slice(cursor, match.start));
+        parts.push(
+          <button
+            key={`${match.label}-${index}`}
+            type="button"
+            className="day-brief-place day-brief-site-link"
+            onClick={() => focusDayMapTarget(match.target)}
+          >
+            {match.label}
+          </button>
+        );
+        cursor = match.end;
+      }
+
+      if (cursor < text.length) parts.push(text.slice(cursor));
+      return parts;
+    };
+
+    const seeAndDoBlock = displayBlocks.length ? (
+      <div className="day-brief-see-card">
+        <div className="day-brief-card-kicker">
+          <span className="day-brief-card-icon"><Icon name="mountain" /></span>
+          <span>See &amp; do</span>
+        </div>
+        <p className="day-brief-copy day-brief-see-copy">
           {displayBlocks.map(({ block: b, timeLabel, content, options }, i) => {
             const detailTitle = trimDisplayText(b.detail?.title) || content || 'this programme item';
             return (
               <span key={i} className="day-brief-segment">
                 {timeLabel && <span className="day-brief-time">{timeLabel}: </span>}
-                {content && <span>{content}</span>}
+                {content && <span>{renderBriefActivityText(content)}</span>}
                 {b.detail && renderBriefDetailButton(`More about ${detailTitle}`, () => openDetail('block', b))}
                 {options.length ? (
                   <span className="day-brief-options">
@@ -1751,108 +1826,139 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
             );
           })}
         </p>
-      </li>
+      </div>
     ) : null;
 
-    const stayLine = day.accommodation ? (() => {
+    const stayCard = day.accommodation ? (() => {
       const a = day.accommodation!;
       const statusLabel = accommodationStatusLabel(a);
       const canOpenReviewer = Boolean(tripId && activeTripData);
       if (!isConfirmedAccommodation(a)) {
         return (
-          <li className="day-brief-item">
-            <span className="day-brief-bullet" aria-hidden="true" />
-            <p className="day-brief-copy">
-              <span className="day-brief-label">Stay:</span>{' '}
-              <span className="day-brief-emphasis">Hotel not confirmed yet</span>
-              <span className="day-brief-muted-inline"> - Use Accommodations to confirm</span>
+          <article className="day-brief-detail-card day-brief-detail-card-warning">
+            <div className="day-brief-card-topline">
+              <div className="day-brief-card-kicker">
+                <span className="day-brief-card-icon"><Icon name="hotel" /></span>
+                <span>Accommodation</span>
+              </div>
               <span className={`text-status status-badge day-brief-status status-${statusLabel}`}>
                 {statusLabel}
               </span>
-              {canOpenReviewer && (
-                <button
-                  type="button"
-                  className="day-brief-review-btn"
-                  aria-label="Use Accommodations to confirm"
-                  onClick={() => openAccommodationReviewer(day)}
-                >
-                  Review
-                  <Icon name="chevron" />
-                </button>
-              )}
-            </p>
-          </li>
+            </div>
+            <h4 className="day-brief-card-title">Hotel not confirmed yet</h4>
+            <p className="day-brief-card-copy">Use Accommodations to confirm the stay for this stop.</p>
+            {canOpenReviewer && (
+              <div className="day-brief-card-actions">
+                {renderBriefCardAction('Review accommodation', () => openAccommodationReviewer(day))}
+              </div>
+            )}
+          </article>
         );
       }
 
       const stayMeta = [
+        stayDateLabel,
         a.price,
-        formatNightLabel(a.nights),
         a.rating,
-      ].filter(Boolean).join(' · ');
+      ].filter(Boolean);
 
       return (
-        <li className="day-brief-item">
-          <span className="day-brief-bullet" aria-hidden="true" />
-          <p className="day-brief-copy">
-            <span className="day-brief-label">Stay:</span>{' '}
-            {renderBriefPlace(trimDisplayText(a.name) || 'Accommodation', a.name, 'day-brief-emphasis')}
-            {stayMeta && <span className="day-brief-muted-inline"> - {stayMeta}</span>}
-            {a.note && <span> - {a.note}</span>}
+        <article className="day-brief-detail-card">
+          <div className="day-brief-card-topline">
+            <div className="day-brief-card-kicker">
+              <span className="day-brief-card-icon"><Icon name="hotel" /></span>
+              <span>Accommodation</span>
+            </div>
             <span className={`text-status status-badge day-brief-status status-${a.status || 'pending'}`}>
               {a.status || 'pending'}
             </span>
-            {a.detail && renderBriefDetailButton(`Open details for ${a.name || 'this stay'}`, () => openDetail('accommodation', a))}
-          </p>
-        </li>
+          </div>
+          <h4 className="day-brief-card-title">
+            {renderBriefPlace(trimDisplayText(a.name) || 'Accommodation', a.name, 'day-brief-card-place')}
+          </h4>
+          {stayMeta.length ? (
+            <div className="day-brief-card-meta">
+              {stayMeta.map((meta, i) => (
+                <span key={i}>{meta}</span>
+              ))}
+            </div>
+          ) : null}
+          {a.note && <p className="day-brief-card-copy">{a.note}</p>}
+          {a.detail && (
+            <div className="day-brief-card-actions">
+              {renderBriefCardAction('Stay details', () => openDetail('accommodation', a))}
+            </div>
+          )}
+        </article>
       );
     })() : null;
 
-    const eatLine = day.meals?.length ? (
-      <li className="day-brief-item">
-        <span className="day-brief-bullet" aria-hidden="true" />
-        <p className="day-brief-copy">
-          <span className="day-brief-label">Eat:</span>{' '}
-          {day.meals.map((m, i) => (
-            <span key={i} className="day-brief-segment">
-              {m.type && <span className="day-brief-time">{m.type}: </span>}
-              {renderBriefPlace(trimDisplayText(m.name) || 'Restaurant', m.name, 'day-brief-emphasis')}
-              {m.note && <span> - {m.note}</span>}
-              {m.status && (
-                <span className={`text-status status-badge day-brief-status status-${m.status}`}>
-                  {m.status}
-                </span>
-              )}
-              {m.detail && renderBriefDetailButton(`Open details for ${m.name || 'this restaurant'}`, () => openDetail('meal', m))}
-              {i < day.meals!.length - 1 ? <span className="day-brief-separator">; </span> : null}
-            </span>
-          ))}
-        </p>
-      </li>
-    ) : null;
+    const mealCard = day.meals?.length ? (() => {
+      const mealLabel = day.meals.length === 1
+        ? trimDisplayText(day.meals[0].type).replace(/^\w/, (char) => char.toUpperCase()) || 'Dinner'
+        : 'Dining';
+      return (
+        <article className="day-brief-detail-card">
+          <div className="day-brief-card-topline">
+            <div className="day-brief-card-kicker">
+              <span className="day-brief-card-icon"><Icon name="fork" /></span>
+              <span>{mealLabel}</span>
+            </div>
+            {day.meals.length === 1 && day.meals[0].status ? (
+              <span className={`text-status status-badge day-brief-status status-${day.meals[0].status}`}>
+                {day.meals[0].status}
+              </span>
+            ) : null}
+          </div>
+          <div className="day-brief-meal-list">
+            {day.meals.map((m, i) => (
+              <div key={i} className="day-brief-meal-entry">
+                {day.meals!.length > 1 && m.type ? (
+                  <div className="day-brief-meal-type">{m.type}</div>
+                ) : null}
+                <h4 className="day-brief-card-title">
+                  {renderBriefPlace(trimDisplayText(m.name) || 'Restaurant', m.name, 'day-brief-card-place')}
+                </h4>
+                {m.note && <p className="day-brief-card-copy">{m.note}</p>}
+                <div className="day-brief-card-actions">
+                  {day.meals!.length > 1 && m.status ? (
+                    <span className={`text-status status-badge day-brief-status status-${m.status}`}>
+                      {m.status}
+                    </span>
+                  ) : null}
+                  {m.detail && renderBriefCardAction('Meal details', () => openDetail('meal', m))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </article>
+      );
+    })() : null;
 
-    const hasBriefItems = Boolean(seeAndDoLine || stayLine || eatLine);
+    const hasBriefItems = Boolean(seeAndDoBlock || stayCard || mealCard);
     const briefSection = (
       <section className="day-brief" aria-labelledby={`day-brief-title-${day.day_number}`}>
-        <h3 className="day-brief-heading" id={`day-brief-title-${day.day_number}`}>
-          <span>{day.day_number}</span>
-          <span className="day-brief-heading-dot" aria-hidden="true">&middot;</span>
-          <span>{day.title}</span>
-          <span className="day-brief-heading-meta">{'\u2014'} {stayDateLabel}</span>
-          {day.subtitle && (
-            <>
-              <span className="day-brief-heading-dot" aria-hidden="true">&middot;</span>
-              <em>{day.subtitle}</em>
-            </>
-          )}
-        </h3>
+        <div className="day-brief-header">
+          <p className="day-brief-overline">Day {day.day_number} &middot; {dateStr}</p>
+          <h3 className="day-brief-heading" id={`day-brief-title-${day.day_number}`}>
+            <span>{day.title}</span>
+          </h3>
+          <div className="day-brief-meta-row">
+            <span>{stayDateLabel}</span>
+            {day.subtitle && <em>{day.subtitle}</em>}
+          </div>
+        </div>
         {day.description && <p className="day-brief-lead">{day.description}</p>}
         {hasBriefItems && (
-          <ul className="day-brief-list">
-            {seeAndDoLine}
-            {stayLine}
-            {eatLine}
-          </ul>
+          <div className="day-brief-body">
+            {seeAndDoBlock}
+            {(stayCard || mealCard) && (
+              <div className="day-brief-card-grid">
+                {stayCard}
+                {mealCard}
+              </div>
+            )}
+          </div>
         )}
       </section>
     );
