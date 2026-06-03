@@ -566,11 +566,7 @@
 
 /* Ask-your-travel-expert entry pill. Secondary style next to Explore:
    white sheet, hair-thin warm border, ink content + terracotta icon
-   accent. Two layouts keyed off body.trip-on-cover:
-   - Day slides: compact 36x36 icon-only round button so the swipe dots
-     keep the centre.
-   - Cover: full pill matching Explore's exact box (11px 18px padding,
-     same line-height) on the opposite side. */
+   accent. The same pill is used on the cover and day slides. */
 .trip-ask-entry {
   position: fixed;
   left: max(20px, env(safe-area-inset-left));
@@ -578,9 +574,9 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
-  padding: 0;
+  width: auto;
+  height: auto;
+  padding: 11px 18px;
   background: var(--color-card);
   color: var(--color-text-primary);
   border: 1px solid var(--color-border);
@@ -597,13 +593,13 @@
   .trip-ask-entry:hover { background: var(--color-surface-deep); border-color: var(--color-border-strong); }
 }
 .trip-ask-entry-icon {
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   flex-shrink: 0;
   color: var(--color-accent);
 }
 .trip-ask-entry-label {
-  display: none;
+  display: inline;
   font-family: var(--font-sans);
   font-size: 12px;
   font-weight: 600;
@@ -612,16 +608,6 @@
   margin-left: 6px;
   color: var(--color-text-primary);
 }
-body.trip-on-cover .trip-ask-entry {
-  width: auto;
-  height: auto;
-  padding: 11px 18px;
-}
-body.trip-on-cover .trip-ask-entry-icon {
-  width: 14px;
-  height: 14px;
-}
-body.trip-on-cover .trip-ask-entry-label { display: inline; }
 
 /* Explore CTA inside the bottom drawer — primary terracotta pill */
 .hero-hint {

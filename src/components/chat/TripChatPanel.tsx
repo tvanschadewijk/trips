@@ -620,9 +620,8 @@ function MessageBubble({ m }: { m: ChatMessage }) {
 
 // ---------- styles ----------
 
-// Entry CTA styling lives in a real stylesheet now (preview.css)
-// because it switches between two layouts (icon-only on day slides,
-// full pill on the cover) keyed off body.trip-on-cover.
+// Entry CTA styling lives in preview.css so the button can align with
+// TripPreview chrome without prop drilling.
 
 const minimizedPillStyle: React.CSSProperties = {
   position: 'fixed',
