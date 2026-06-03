@@ -1860,7 +1860,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
         stayDateLabel,
         a.price,
         a.rating,
-      ].filter(Boolean);
+      ].filter(Boolean).join(' · ');
 
       return (
         <article className="day-brief-detail-card">
@@ -1876,13 +1876,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
           <h4 className="day-brief-card-title">
             {renderBriefPlace(trimDisplayText(a.name) || 'Accommodation', a.name, 'day-brief-card-place')}
           </h4>
-          {stayMeta.length ? (
-            <div className="day-brief-card-meta">
-              {stayMeta.map((meta, i) => (
-                <span key={i}>{meta}</span>
-              ))}
-            </div>
-          ) : null}
+          {stayMeta && <p className="day-brief-card-meta">{stayMeta}</p>}
           {a.note && <p className="day-brief-card-copy">{a.note}</p>}
           {a.detail && (
             <div className="day-brief-card-actions">
@@ -1953,7 +1947,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
           <div className="day-brief-body">
             {seeAndDoBlock}
             {(stayCard || mealCard) && (
-              <div className="day-brief-card-grid">
+              <div className="day-brief-card-list">
                 {stayCard}
                 {mealCard}
               </div>

@@ -788,16 +788,17 @@ body.trip-on-cover .trip-ask-entry-label { display: inline; }
 
 /* Editorial day brief */
 .day-brief {
-  background: var(--color-card);
-  border: 1px solid rgba(26, 20, 16, 0.06);
-  border-radius: 16px;
-  padding: 20px;
-  box-shadow: var(--shadow-card);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  box-shadow: none;
   margin-bottom: 14px;
 }
 .day-brief-header {
   display: grid;
-  gap: 8px;
+  gap: 10px;
+  padding: 0 2px;
 }
 .day-brief-overline {
   font-family: var(--font-sans);
@@ -823,7 +824,7 @@ body.trip-on-cover .trip-ask-entry-label { display: inline; }
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: 10px 16px;
   font-family: var(--font-sans);
   font-size: 13px;
   font-weight: 520;
@@ -834,14 +835,19 @@ body.trip-on-cover .trip-ask-entry-label { display: inline; }
 .day-brief-meta-row > em {
   display: inline-flex;
   align-items: center;
-  min-height: 26px;
-  padding: 4px 10px;
-  border-radius: 999px;
-  background: var(--color-surface-deep);
+  min-height: auto;
+  padding: 0 0 4px;
+  border-radius: 0;
+  background: transparent;
+}
+.day-brief-meta-row > span {
+  border-bottom: 1px solid rgba(193, 79, 42, 0.34);
+  color: var(--color-text-secondary);
+  font-weight: 580;
 }
 .day-brief-meta-row em {
   font-family: var(--font-serif);
-  font-size: 14px;
+  font-size: 15px;
   font-style: italic;
   font-weight: 360;
   color: var(--color-text-secondary);
@@ -858,33 +864,38 @@ body.trip-on-cover .trip-ask-entry-label { display: inline; }
 }
 .day-brief-body {
   display: grid;
-  gap: 12px;
+  gap: 14px;
   margin-top: 18px;
 }
 .day-brief-see-card,
 .day-brief-detail-card {
   min-width: 0;
-  border-radius: 14px;
-  background: var(--color-surface-deep);
+  border: 1px solid rgba(26, 20, 16, 0.06);
+  border-radius: 16px;
+  background: rgba(255, 253, 249, 0.94);
+  box-shadow:
+    rgba(26, 20, 16, 0.04) 0 1px 0 0,
+    rgba(26, 20, 16, 0.08) 0 12px 30px -18px;
 }
 .day-brief-see-card {
   display: grid;
   gap: 11px;
-  padding: 16px;
+  padding: 18px;
 }
-.day-brief-card-grid {
+.day-brief-card-list {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 12px;
+  grid-template-columns: 1fr;
+  gap: 14px;
 }
 .day-brief-detail-card {
   display: flex;
   flex-direction: column;
   gap: 11px;
-  padding: 16px;
+  padding: 18px;
 }
 .day-brief-detail-card-warning {
-  background: rgba(155, 79, 46, 0.08);
+  border-color: rgba(155, 79, 46, 0.16);
+  background: rgba(255, 250, 246, 0.96);
 }
 .day-brief-card-topline {
   display: flex;
@@ -895,7 +906,7 @@ body.trip-on-cover .trip-ask-entry-label { display: inline; }
 .day-brief-card-kicker {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 7px;
   min-width: 0;
   font-family: var(--font-sans);
   font-size: 11px;
@@ -909,17 +920,17 @@ body.trip-on-cover .trip-ask-entry-label { display: inline; }
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
-  border-radius: 999px;
-  background: var(--color-card);
+  width: 16px;
+  height: 16px;
+  border-radius: 0;
+  background: transparent;
   color: var(--color-accent);
-  box-shadow: rgba(26, 20, 16, 0.04) 0 1px 0 0;
+  box-shadow: none;
   flex-shrink: 0;
 }
 .day-brief-card-icon svg {
-  width: 13px;
-  height: 13px;
+  width: 15px;
+  height: 15px;
 }
 .day-brief-card-title {
   margin: 0;
@@ -966,22 +977,12 @@ body.trip-on-cover .trip-ask-entry-label { display: inline; }
   color: var(--color-text-muted);
 }
 .day-brief-card-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-.day-brief-card-meta span {
-  display: inline-flex;
-  align-items: center;
-  min-height: 24px;
-  padding: 3px 9px;
-  border-radius: 999px;
-  background: var(--color-card);
-  color: var(--color-text-muted);
+  margin: -2px 0 0;
   font-family: var(--font-sans);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 520;
-  line-height: 1.25;
+  line-height: 1.45;
+  color: var(--color-text-muted);
 }
 .day-brief-card-copy {
   margin: 0;
@@ -3539,8 +3540,8 @@ button.day-brief-place:active {
 
   .day-brief {
     margin-bottom: 16px;
-    padding: 28px;
-    border-radius: 16px;
+    padding: 0;
+    border-radius: 0;
     box-shadow: none;
   }
 
@@ -3574,7 +3575,7 @@ button.day-brief-place:active {
     padding: 18px;
   }
 
-  .day-brief-card-grid {
+  .day-brief-card-list {
     gap: 14px;
   }
 
