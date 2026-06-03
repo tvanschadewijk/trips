@@ -3300,8 +3300,8 @@ button.day-brief-place:active {
 
   .hero-map-toggle {
     position: absolute;
-    top: calc(var(--nav-height) + env(safe-area-inset-top) + 14px);
     right: 18px;
+    bottom: 18px;
     z-index: 4;
     display: inline-flex;
     align-items: center;
