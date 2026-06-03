@@ -1624,6 +1624,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     const dateRangeLabel = formatBriefDateRange(day.date, stayNights);
     const stayDateLabel = nightLabel ? `${nightLabel} (${dateRangeLabel})` : dateRangeLabel;
     const heroMeta = [nightLabel ? stayDateLabel : null, day.subtitle].filter(Boolean).join(' · ');
+    const dayIntro = trimDisplayText(day.description);
 
     const statsChips = day.stats?.length ? (
       <div className="hero-stats-row">
@@ -1643,8 +1644,9 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
         <div className="day-hero-gradient" />
         <div className="day-hero-text">
           <p className="text-label" style={{ margin: '0 0 4px' }}>Day {day.day_number} &middot; {dateStr}</p>
-          <h2 className="text-card-title-light" style={{ margin: 0 }}>{day.title}</h2>
-          {heroMeta && <p className="text-hero-subtitle" style={{ margin: '5px 0 0', fontSize: 14 }}>{heroMeta}</p>}
+          <h2 className="text-card-title-light day-hero-title" style={{ margin: 0 }}>{day.title}</h2>
+          {dayIntro && <p className="day-hero-intro">{dayIntro}</p>}
+          {heroMeta && <p className="text-hero-subtitle day-hero-meta" style={{ margin: '5px 0 0' }}>{heroMeta}</p>}
           {statsChips}
         </div>
       </div>
@@ -1652,6 +1654,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
       <div className="day-header-plain">
         <p className="text-label-dark">Day {day.day_number} &middot; {dateStr}</p>
         <h2 className="text-card-title" style={{ marginTop: 4 }}>{day.title}</h2>
+        {dayIntro && <p className="day-header-plain-intro">{dayIntro}</p>}
         {day.subtitle && <p className="text-body-italic" style={{ marginTop: 4 }}>{day.subtitle}</p>}
         {statsChips}
       </div>
@@ -1946,7 +1949,6 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
             {day.subtitle && <em>{day.subtitle}</em>}
           </div>
         </div>
-        {day.description && <p className="day-brief-lead">{day.description}</p>}
         {hasBriefItems && (
           <div className="day-brief-body">
             {seeAndDoBlock}

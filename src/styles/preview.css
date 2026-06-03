@@ -742,13 +742,53 @@
    DAY SLIDE
    ============================================ */
 .day-slide { padding: calc(var(--nav-height) + var(--date-strip-height) + env(safe-area-inset-top) + 12px) 16px calc(32px + env(safe-area-inset-bottom)); padding-left: max(16px, env(safe-area-inset-left)); padding-right: max(16px, env(safe-area-inset-right)); overflow-x: hidden; background: var(--color-surface); }
-.day-hero { position: relative; height: 220px; border-radius: var(--radius-card); overflow: hidden; margin-bottom: 16px; background: linear-gradient(135deg, #2A1F18 0%, #1A1410 100%); box-shadow: var(--shadow-float); }
+.day-hero { position: relative; height: 280px; border-radius: var(--radius-card); overflow: hidden; margin-bottom: 16px; background: linear-gradient(135deg, #2A1F18 0%, #1A1410 100%); box-shadow: var(--shadow-float); }
 .day-hero img { width: 100%; height: 100%; object-fit: cover; }
-.day-hero-gradient { position: absolute; inset: 0; background: linear-gradient(to top, rgba(26,20,16,0.78) 0%, rgba(26,20,16,0.5) 45%, rgba(26,20,16,0.18) 70%, transparent 85%); }
-.day-hero-text { position: absolute; bottom: 14px; left: 16px; right: 16px; text-shadow: 0 1px 4px rgba(0,0,0,0.4); }
+.day-hero-gradient { position: absolute; inset: 0; background: linear-gradient(to top, rgba(26,20,16,0.72) 0%, rgba(26,20,16,0.38) 42%, rgba(26,20,16,0.12) 72%, transparent 100%); }
+.day-hero-text {
+  position: absolute;
+  bottom: 12px;
+  left: 12px;
+  right: 12px;
+  padding: 13px 14px 14px;
+  border: 1px solid rgba(251, 247, 241, 0.16);
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(26,20,16,0.62), rgba(26,20,16,0.42));
+  box-shadow: rgba(0, 0, 0, 0.18) 0 18px 36px -22px;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.45);
+  backdrop-filter: blur(14px) saturate(120%);
+  -webkit-backdrop-filter: blur(14px) saturate(120%);
+}
+.day-hero-title { font-size: 22px; line-height: 1.08; letter-spacing: 0; }
+.day-hero-intro {
+  margin: 8px 0 0;
+  max-width: 42ch;
+  font-family: var(--font-serif);
+  font-optical-sizing: auto;
+  font-size: 17px;
+  font-weight: 380;
+  line-height: 1.36;
+  letter-spacing: 0;
+  color: rgba(251,247,241,0.96);
+}
+.day-hero-meta {
+  font-size: 13px;
+  line-height: 1.4;
+  color: rgba(251,247,241,0.82);
+}
 .day-header-plain { margin-bottom: 20px; }
 .day-header-plain .text-label-dark { color: var(--color-accent); }
 .day-header-plain .text-card-title { color: var(--color-text-primary); }
+.day-header-plain-intro {
+  margin: 10px 0 0;
+  font-family: var(--font-serif);
+  font-optical-sizing: auto;
+  font-size: 19px;
+  font-weight: 380;
+  line-height: 1.42;
+  letter-spacing: 0;
+  color: var(--color-text-secondary);
+}
 .day-slide > .text-body-italic { color: var(--color-text-muted); }
 .day-visual-stack { display: grid; gap: 12px; margin-bottom: 16px; }
 .day-content-stack { display: grid; gap: 14px; align-content: start; align-items: start; min-width: 0; }
@@ -2925,11 +2965,12 @@ button.day-brief-place:active {
   }
   .text-hero-title { font-size: 50px; }
   .text-hero-subtitle { font-size: 18px; }
+  .day-hero-meta { font-size: 13px; }
   .text-hero-summary { font-size: 15px; }
   .detail-sheet { border-radius: 12px 12px 0 0; }
   .detail-body { padding: 24px 20px calc(40px + env(safe-area-inset-bottom)); }
   .detail-header { padding: 18px 20px 14px; }
-  .day-hero { height: 260px; }
+  .day-hero { height: 300px; }
   .day-section { transition: box-shadow 0.2s ease, transform 0.2s ease; }
   .day-section:hover { box-shadow: var(--shadow-card-hover); transform: translateY(-1px); }
   .hero-body { padding-bottom: 48px; }
@@ -2944,6 +2985,8 @@ button.day-brief-place:active {
   .text-body-secondary { font-size: 15px; line-height: 1.6; }
   .text-card-title { font-size: 26px; }
   .text-card-title-light { font-size: 26px; }
+  .day-hero-title { font-size: 24px; }
+  .day-hero-intro { font-size: 18px; line-height: 1.38; }
   .time-block { padding: 4px 0 4px 14px; }
   .time-block-detail-btn:hover { background: rgba(193, 79, 42, 0.16); }
   /* Clickable items get pointer cursor on desktop */
@@ -2986,8 +3029,11 @@ button.day-brief-place:active {
   }
   .text-hero-title { font-size: 50px; }
   .text-hero-subtitle { font-size: 18px; }
-  .day-hero { height: 280px; }
-  .day-hero-text { bottom: 18px; left: 20px; right: 20px; }
+  .day-hero-meta { font-size: 13px; }
+  .day-hero { height: 320px; }
+  .day-hero-text { bottom: 18px; left: 20px; right: 20px; padding: 16px 18px 18px; }
+  .day-hero-title { font-size: 25px; }
+  .day-hero-intro { font-size: 19px; max-width: 44ch; }
   .hero-body { padding: 0 28px 52px; }
   .hero-divider { width: 32px; }
   .detail-header { padding: 20px 24px 14px; }
@@ -3007,7 +3053,7 @@ button.day-brief-place:active {
     margin-bottom: 40px;
   }
   .text-hero-title { font-size: 56px; }
-  .day-hero { height: 300px; }
+  .day-hero { height: 340px; }
   .day-section { padding: 24px; }
   .trip-ask-entry {
     bottom: calc(50px + env(safe-area-inset-bottom));
@@ -3636,6 +3682,8 @@ button.day-brief-place:active {
     left: 40px;
     right: 40px;
     max-width: 620px;
+    padding: 22px 24px 24px;
+    border-radius: 16px;
   }
 
   .day-hero .text-label {
@@ -3643,7 +3691,7 @@ button.day-brief-place:active {
     align-items: center;
     min-height: 40px;
     width: fit-content;
-    margin: 0 0 16px !important;
+    margin: 0 0 14px !important;
     padding: 0 16px;
     border-radius: 12px;
     background: var(--color-accent);
@@ -3653,14 +3701,22 @@ button.day-brief-place:active {
   }
 
   .day-hero .text-card-title-light {
-    font-size: 52px;
-    line-height: 1.0;
+    font-size: 44px;
+    line-height: 1.02;
     letter-spacing: 0;
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.26), 0 14px 34px rgba(0, 0, 0, 0.26);
   }
 
+  .day-hero .day-hero-intro {
+    margin-top: 12px;
+    max-width: 34ch;
+    font-size: 24px;
+    line-height: 1.34;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.26);
+  }
+
   .day-hero .text-hero-subtitle {
-    font-size: 18px;
+    font-size: 14px;
     line-height: 1.45;
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.26);
   }
@@ -4019,7 +4075,7 @@ button.day-brief-place:active {
   }
 
   .day-hero .text-card-title-light {
-    font-size: 58px;
+    font-size: 48px;
   }
 
   .trip-bottom-drawer.on-hero {
