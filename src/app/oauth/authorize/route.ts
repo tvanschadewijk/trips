@@ -19,7 +19,6 @@ type AuthorizeRequest = {
   codeChallenge: string;
   scopes: string[];
   resource?: string;
-  clientName: string;
 };
 
 function htmlEscape(value: string): string {
@@ -78,7 +77,6 @@ async function validateAuthorizeParams(
     codeChallenge,
     scopes,
     resource: normalizeResource(origin, params.get('resource')),
-    clientName: client.client_name || 'OurTrips MCP client',
   };
 }
 
@@ -105,7 +103,7 @@ function consentHtml(input: AuthorizeRequest): Response {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Connect OurTrips</title>
+  <title>Connect your AI agent</title>
   <style>
     :root {
       color-scheme: light;
@@ -180,7 +178,7 @@ function consentHtml(input: AuthorizeRequest): Response {
 <body>
   <main>
     <p class="eyebrow">OurTrips connection</p>
-    <h1>Connect ${htmlEscape(input.clientName)}</h1>
+    <h1>Connect your AI agent</h1>
     <p>This lets the connected agent save, list, read, and update trips in your OurTrips account.</p>
     <div class="scope">Scope: ${htmlEscape(input.scopes.join(' '))}</div>
     <form method="post" action="/oauth/authorize">
