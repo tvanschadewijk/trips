@@ -717,6 +717,14 @@
   transition: color 0.15s, border-color 0.15s;
 }
 .dash-onboard-step-note a:hover { color: #C14F2A; border-color: #A03E1F; }
+.dash-onboard-step-note code {
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: #F4EDE2;
+  color: #3D352E;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 12px;
+}
 
 /* Compatibility note */
 .dash-onboard-compat {

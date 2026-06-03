@@ -38,7 +38,7 @@ export default function DashboardPage() {
     return null;
   });
   const [copied, setCopied] = useState<string | null>(null);
-  const [skillCopied, setSkillCopied] = useState(false);
+  const [connectionCopied, setConnectionCopied] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [cardMenuOpen, setCardMenuOpen] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
@@ -320,7 +320,7 @@ export default function DashboardPage() {
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M9 6.75V15m6-6v8.25m.503 3.498 4.875-2.437c.381-.19.622-.58.622-1.006V4.82c0-.836-.88-1.38-1.628-1.006l-3.869 1.934c-.317.159-.69.159-1.006 0L9.503 3.252a1.125 1.125 0 0 0-1.006 0L3.622 5.689C3.24 5.88 3 6.27 3 6.695V19.18c0 .836.88 1.38 1.628 1.006l3.869-1.934c.317-.159.69-.159 1.006 0l4.994 2.497c.317.158.69.158 1.006 0Z" /></svg>
               </div>
               <h3>Create your first trip</h3>
-              <p>Turn any conversation with Claude into a beautiful, pocket-friendly itinerary. Here&apos;s how:</p>
+              <p>Turn any conversation with Claude or Codex into a beautiful, pocket-friendly itinerary. Here&apos;s how:</p>
             </div>
 
             <div className="dash-onboard-steps">
@@ -328,37 +328,37 @@ export default function DashboardPage() {
                 <div className="dash-onboard-step-main">
                   <div className="dash-onboard-step-num">1</div>
                   <div className="dash-onboard-step-body">
-                    <div className="dash-onboard-step-title">Open Claude on your computer</div>
+                    <div className="dash-onboard-step-title">Open Claude or Codex</div>
                     <p className="dash-onboard-step-desc">
-                      Download <a href="https://claude.ai/download" target="_blank" rel="noopener noreferrer">Claude for Mac or Windows</a> if you haven&apos;t already.
+                      Use Claude CoWork, Claude Desktop, Codex CLI, or the Codex desktop app.
                     </p>
                   </div>
                 </div>
                 <div className="dash-onboard-compat">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
-                  <p>Also works with other agents that support skills, like <strong>Codex</strong> from OpenAI, <strong>Clawdbot</strong>, and more.</p>
+                  <p>The remote connector uses OAuth, so you do not need to paste an API key into your chat.</p>
                 </div>
               </div>
 
               <div className="dash-onboard-step">
                 <div className="dash-onboard-step-num">2</div>
                 <div className="dash-onboard-step-body">
-                  <div className="dash-onboard-step-title">Install the OurTrips skill</div>
+                  <div className="dash-onboard-step-title">Connect OurTrips</div>
                   <p className="dash-onboard-step-desc">
-                    Start a CoWork session, then paste this into the chat:
+                    Add this remote MCP server as a custom connector, then sign in:
                   </p>
                   <div className="dash-onboard-code">
-                    <code>Fetch https://ourtrips.to/our-trips.skill and add it to my skills.</code>
+                    <code>https://ourtrips.to/mcp</code>
                     <button
-                      className={`dash-onboard-copy-btn ${skillCopied ? 'copied' : ''}`}
+                      className={`dash-onboard-copy-btn ${connectionCopied ? 'copied' : ''}`}
                       onClick={() => {
-                        navigator.clipboard.writeText('Fetch https://ourtrips.to/our-trips.skill and add it to my skills.');
-                        setSkillCopied(true);
-                        setTimeout(() => setSkillCopied(false), 2000);
+                        navigator.clipboard.writeText('https://ourtrips.to/mcp');
+                        setConnectionCopied(true);
+                        setTimeout(() => setConnectionCopied(false), 2000);
                       }}
                       title="Copy to clipboard"
                     >
-                      {skillCopied ? (
+                      {connectionCopied ? (
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="20 6 9 17 4 12" /></svg>
                       ) : (
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
@@ -366,7 +366,7 @@ export default function DashboardPage() {
                     </button>
                   </div>
                   <p className="dash-onboard-step-note">
-                    Or <a href="/our-trips.skill" download>download the skill file</a> and add it manually. <Link href="/guide">Full guide</Link>
+                    Codex users can run <code>codex mcp add ourtrips --url https://ourtrips.to/mcp</code>. <Link href="/guide">Full guide</Link>
                   </p>
                 </div>
               </div>
@@ -376,7 +376,7 @@ export default function DashboardPage() {
                 <div className="dash-onboard-step-body">
                   <div className="dash-onboard-step-title">Plan your trip with Claude</div>
                   <p className="dash-onboard-step-desc">
-                    Talk about where you&apos;re going, what you want to do, where you&apos;re staying &mdash; anything. Claude will help you shape a full itinerary.
+                    Talk about where you&apos;re going, what you want to do, where you&apos;re staying &mdash; anything. Your agent will help you shape a full itinerary.
                   </p>
                 </div>
               </div>
