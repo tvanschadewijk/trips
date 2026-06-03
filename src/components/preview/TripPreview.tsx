@@ -1799,33 +1799,34 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
           <span className="day-brief-card-icon"><Icon name="mountain" /></span>
           <span>See &amp; do</span>
         </div>
-        <p className="day-brief-copy day-brief-see-copy">
+        <div className="day-brief-programme-list">
           {displayBlocks.map(({ block: b, timeLabel, content, options }, i) => {
             const detailTitle = trimDisplayText(b.detail?.title) || content || 'this programme item';
             return (
-              <span key={i} className="day-brief-segment">
+              <div key={i} className={`day-brief-programme-row ${timeLabel ? '' : 'no-time'}`}>
                 {timeLabel && <span className="day-brief-time">{timeLabel}: </span>}
-                {content && <span>{renderBriefActivityText(content)}</span>}
-                {b.detail && renderBriefDetailButton(`More about ${detailTitle}`, () => openDetail('block', b))}
-                {options.length ? (
-                  <span className="day-brief-options">
-                    {content ? ' ' : ''}
-                    <span className="day-brief-time">Options: </span>
-                    {options.map((opt, oi) => (
-                      <span key={oi}>
-                        <span className="day-brief-emphasis">{trimDisplayText(opt.label)}</span>
-                        {opt.duration && <span className="day-brief-muted-inline"> ({opt.duration})</span>}
-                        {opt.description && <span className="day-brief-muted-inline"> - {opt.description}</span>}
-                        {oi < options.length - 1 ? ', ' : ''}
-                      </span>
-                    ))}
-                  </span>
-                ) : null}
-                {i < displayBlocks.length - 1 ? <span className="day-brief-separator">; </span> : null}
-              </span>
+                <span className="day-brief-programme-copy">
+                  {content && <span>{renderBriefActivityText(content)}</span>}
+                  {b.detail && renderBriefDetailButton(`More about ${detailTitle}`, () => openDetail('block', b))}
+                  {options.length ? (
+                    <span className="day-brief-options">
+                      {content ? ' ' : ''}
+                      <span className="day-brief-time">Options: </span>
+                      {options.map((opt, oi) => (
+                        <span key={oi}>
+                          <span className="day-brief-emphasis">{trimDisplayText(opt.label)}</span>
+                          {opt.duration && <span className="day-brief-muted-inline"> ({opt.duration})</span>}
+                          {opt.description && <span className="day-brief-muted-inline"> - {opt.description}</span>}
+                          {oi < options.length - 1 ? ', ' : ''}
+                        </span>
+                      ))}
+                    </span>
+                  ) : null}
+                </span>
+              </div>
             );
           })}
-        </p>
+        </div>
       </div>
     ) : null;
 

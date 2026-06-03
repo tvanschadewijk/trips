@@ -400,12 +400,12 @@
   align-items: center;
   justify-content: center;
   gap: 5px;
-  min-height: 28px;
-  padding: 0 11px 0 12px;
-  border: 1px solid rgba(47, 107, 74, 0.22);
+  min-height: 30px;
+  padding: 0 12px;
+  border: 1px solid rgba(193, 79, 42, 0.22);
   border-radius: 999px;
-  background: rgba(47, 107, 74, 0.08);
-  color: var(--color-success, #2F6B4A);
+  background: var(--color-card, #FFFFFF);
+  color: var(--color-accent-deep, #A03E1F);
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 0;
@@ -430,21 +430,21 @@
 }
 
 .itinerary-map-stop-popup-link:hover {
-  border-color: rgba(47, 107, 74, 0.34);
-  background: rgba(47, 107, 74, 0.14);
-  box-shadow: 0 0 0 3px rgba(47, 107, 74, 0.08);
+  border-color: rgba(193, 79, 42, 0.34);
+  background: rgba(193, 79, 42, 0.12);
+  box-shadow: none;
   transform: translateY(-1px);
 }
 
 .itinerary-map-stop-popup-link:focus-visible {
-  outline: 2px solid rgba(47, 107, 74, 0.42);
+  outline: 2px solid rgba(193, 79, 42, 0.42);
   outline-offset: 3px;
 }
 
 .itinerary-map-stop-popup-link:active {
-  border-color: rgba(47, 107, 74, 0.38);
-  background: rgba(47, 107, 74, 0.18);
-  box-shadow: 0 0 0 3px rgba(47, 107, 74, 0.10);
+  border-color: rgba(193, 79, 42, 0.32);
+  background: rgba(193, 79, 42, 0.14);
+  box-shadow: none;
   transform: translateY(1px);
 }
 

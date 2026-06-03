@@ -957,12 +957,32 @@ body.trip-on-cover .trip-ask-entry-label { display: inline; }
   letter-spacing: 0;
   color: var(--color-text-primary);
 }
-.day-brief-see-copy {
-  max-width: 56ch;
-}
 .day-brief-label,
 .day-brief-emphasis {
   font-weight: 620;
+  color: var(--color-text-primary);
+}
+.day-brief-programme-list {
+  display: grid;
+  gap: 12px;
+}
+.day-brief-programme-row {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 8px;
+  align-items: baseline;
+}
+.day-brief-programme-row.no-time {
+  grid-template-columns: 1fr;
+}
+.day-brief-programme-copy {
+  min-width: 0;
+  font-family: var(--font-serif);
+  font-optical-sizing: auto;
+  font-size: 16px;
+  font-weight: 390;
+  line-height: 1.55;
+  letter-spacing: 0;
   color: var(--color-text-primary);
 }
 .day-brief-time {
@@ -3580,6 +3600,19 @@ button.day-brief-place:active {
   }
 
   .day-brief-copy {
+    font-size: 18px;
+    line-height: 1.5;
+  }
+
+  .day-brief-programme-list {
+    gap: 14px;
+  }
+
+  .day-brief-programme-row {
+    gap: 10px;
+  }
+
+  .day-brief-programme-copy {
     font-size: 18px;
     line-height: 1.5;
   }
