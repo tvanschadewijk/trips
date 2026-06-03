@@ -127,14 +127,74 @@ function accommodationSearchText(day: Day): string {
   ].filter(Boolean).join(' ');
 }
 
+function accommodationIdentity(day: Day): string {
+  const accommodation = day.accommodation;
+  if (!accommodation) return `day-${day.day_number}`;
+
+  return normalizeRouteSearchText([
+    accommodation.name,
+    accommodation.detail?.title,
+    accommodation.detail?.address,
+  ].filter(Boolean).join(' ')) || `day-${day.day_number}`;
+}
+
+function daySortTime(day: Day): number {
+  const parsed = Date.parse(`${day.date}T12:00:00`);
+  return Number.isFinite(parsed) ? parsed : day.day_number;
+}
+
+function isConsecutiveStayDay(previous: Day, next: Day): boolean {
+  if (next.day_number === previous.day_number + 1) return true;
+
+  const previousTime = daySortTime(previous);
+  const nextTime = daySortTime(next);
+  return Math.round((nextTime - previousTime) / 86400000) === 1;
+}
+
+function positiveNightCount(nights: number | undefined): number | undefined {
+  if (typeof nights !== 'number' || !Number.isFinite(nights) || nights <= 0) return undefined;
+  return Math.round(nights);
+}
+
+function nightCountForStayGroup(group: Day[]): number {
+  const declaredCounts = group
+    .map((day) => positiveNightCount(day.accommodation?.nights))
+    .filter((count): count is number => count !== undefined);
+
+  const largestDeclaredCount = declaredCounts.length ? Math.max(...declaredCounts) : 0;
+  if (largestDeclaredCount > 1) return largestDeclaredCount;
+
+  return Math.max(1, group.length);
+}
+
 function nightsForRoutePoint(point: TripRouteAtlasPoint, days: Day[]): number {
   if (point.role === 'home') return 0;
 
-  return days.reduce((total, day) => {
-    if (!isConfirmedAccommodation(day.accommodation)) return total;
-    if (!routePlaceTextMatches(accommodationSearchText(day), point.label)) return total;
-    return total + Math.max(1, day.accommodation.nights ?? 1);
-  }, 0);
+  const matchingDays = days
+    .filter((day) => (
+      isConfirmedAccommodation(day.accommodation)
+      && routePlaceTextMatches(accommodationSearchText(day), point.label)
+    ))
+    .sort((a, b) => daySortTime(a) - daySortTime(b));
+
+  let total = 0;
+  let currentGroup: Day[] = [];
+
+  for (const day of matchingDays) {
+    const previous = currentGroup[currentGroup.length - 1];
+    const sameStay = previous && accommodationIdentity(previous) === accommodationIdentity(day);
+
+    if (!previous || (sameStay && isConsecutiveStayDay(previous, day))) {
+      currentGroup.push(day);
+      continue;
+    }
+
+    total += nightCountForStayGroup(currentGroup);
+    currentGroup = [day];
+  }
+
+  if (currentGroup.length) total += nightCountForStayGroup(currentGroup);
+  return total;
 }
 
 export function mapPointDetailsForDay(atlas: TripRouteAtlas | undefined, day: Day): Record<string, ItineraryMapPointDetail> | undefined {

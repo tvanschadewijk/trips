@@ -170,6 +170,100 @@ test('trip map overview details prefer night counts for stored route stops', () 
   assert.equal(details[gargano.id].kicker, '1 night');
 });
 
+test('trip map overview details do not multiply repeated stay-card night counts', () => {
+  const trip = baseTrip([
+    {
+      day_number: 1,
+      date: '2026-07-02',
+      title: 'Gargano arrival',
+      blocks: [],
+      accommodation: {
+        name: 'Vila Sir Judah',
+        status: 'booked',
+        nights: 2,
+        detail: { address: 'Peschici, Gargano, Italy' },
+      },
+    },
+    {
+      day_number: 2,
+      date: '2026-07-03',
+      title: 'Gargano coast',
+      blocks: [],
+      accommodation: {
+        name: 'Vila Sir Judah',
+        status: 'booked',
+        nights: 2,
+        detail: { address: 'Peschici, Gargano, Italy' },
+      },
+    },
+    {
+      day_number: 3,
+      date: '2026-07-04',
+      title: 'Gargano checkout',
+      blocks: [],
+      accommodation: {
+        name: 'Vila Sir Judah',
+        status: 'booked',
+        nights: 2,
+        detail: { address: 'Peschici, Gargano, Italy' },
+      },
+    },
+  ]);
+  trip.trip.route_points = [
+    { label: 'Amsterdam', lat: 52.3676, lng: 4.9041, role: 'home' },
+    { label: 'Gargano', lat: 41.946, lng: 16.016 },
+  ];
+
+  const atlas = buildTripRouteAtlas(trip);
+  assert.ok(atlas);
+  const details = mapPointDetailsForTrip(atlas, trip.days);
+  assert.ok(details);
+
+  const gargano = atlas.points.find((point) => point.label === 'Gargano');
+  assert.ok(gargano);
+  assert.equal(details[gargano.id].kicker, '2 nights');
+});
+
+test('trip map overview details infer consecutive stay length when nights are absent', () => {
+  const trip = baseTrip([
+    {
+      day_number: 1,
+      date: '2026-07-02',
+      title: 'Lake Como arrival',
+      blocks: [],
+      accommodation: {
+        name: 'Locanda Milano 1873',
+        status: 'booked',
+        detail: { address: 'Brunate, Lake Como, Italy' },
+      },
+    },
+    {
+      day_number: 2,
+      date: '2026-07-03',
+      title: 'Lake Como recovery',
+      blocks: [],
+      accommodation: {
+        name: 'Locanda Milano 1873',
+        status: 'booked',
+        detail: { address: 'Brunate, Lake Como, Italy' },
+      },
+    },
+  ]);
+  trip.trip.route_points = [
+    { label: 'Amsterdam', lat: 52.3676, lng: 4.9041, role: 'home' },
+    { label: 'Lake Como', lat: 45.984, lng: 9.261 },
+  ];
+
+  const atlas = buildTripRouteAtlas(trip);
+  assert.ok(atlas);
+  const details = mapPointDetailsForTrip(atlas, trip.days);
+  assert.ok(details);
+
+  const como = atlas.points.find((point) => point.label === 'Lake Como');
+  assert.ok(como);
+  assert.equal(details[como.id].kicker, '2 nights');
+});
+
 test('day map targets can be built even when no route atlas exists', () => {
   const trip = baseTrip([
     {
