@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { ArrowLeft, ArrowRight } from 'lucide-react';
 import GuideCopyButton from '@/components/ui/GuideCopyButton';
 import LogoSuffix from '@/components/ui/LogoSuffix';
 import '@/styles/guide.css';
@@ -34,7 +35,6 @@ export default function GuidePage() {
 codex mcp login ourtrips`;
   const codexToml = `[mcp_servers.ourtrips]
 url = "${mcpServerUrl}"`;
-  const skillInstallPrompt = 'Fetch https://ourtrips.to/our-trips.skill and add it to my skills. After installing it, remind me to set network access to All domains before I send trips to OurTrips.';
 
   return (
     <div className="guide">
@@ -48,7 +48,7 @@ url = "${mcpServerUrl}"`;
       <main className="guide-main">
         <div className="guide-content">
           <Link href="/" className="guide-back">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+            <ArrowLeft size={16} strokeWidth={2.5} aria-hidden="true" />
             Back
           </Link>
 
@@ -76,8 +76,8 @@ url = "${mcpServerUrl}"`;
               <GuideCopyButton value={mcpServerUrl} />
             </div>
             <p className="guide-section-note">
-              The connector exposes save_trip, list_trips, get_trip, and patch_trip. It uses OAuth,
-              so you do not need to paste API keys into chats.
+              The connector exposes trip save/edit tools, schema templates, Unsplash image search,
+              and generated cover assets. It uses OAuth, so you do not need to paste API keys into chats.
             </p>
 
             <div className="guide-network-grid">
@@ -122,72 +122,14 @@ url = "${mcpServerUrl}"`;
             </div>
             <h2 className="guide-section-title">The connector keeps API calls on OurTrips</h2>
             <p className="guide-section-desc">
-              The old skill asks the agent sandbox to call the OurTrips API directly. Some agent
-              sandboxes block that network path, even after users adjust allowed domains. With the
-              remote MCP connector, Claude or Codex talks to <code>{mcpServerUrl}</code>, and the
-              OurTrips server saves the itinerary internally for the signed-in user.
+              The remote MCP connector gives Claude or Codex a signed-in OurTrips tool surface.
+              The server handles saving, patching, image search, and generated image assets for the
+              signed-in user, so the setup does not depend on separate skill instructions.
             </p>
             <p className="guide-section-note">
               That means the user setup is just: add connector, sign in, ask the agent to send the
               trip to OurTrips.
             </p>
-          </section>
-
-          <div className="guide-divider" />
-
-          <section className="guide-section">
-            <div className="guide-section-header">
-              <span className="guide-section-badge">Fallback</span>
-              <span className="guide-section-tag">Legacy skill</span>
-            </div>
-            <h2 className="guide-section-title">Use the skill only when MCP is unavailable</h2>
-            <p className="guide-section-desc">
-              If your agent does not support remote MCP yet, the OurTrips skill is still available.
-              This path can still depend on sandbox network access, so use the connector above
-              whenever you can.
-            </p>
-            <div className="guide-code-block">
-              <code>{skillInstallPrompt}</code>
-              <GuideCopyButton value={skillInstallPrompt} />
-            </div>
-
-            <div className="guide-steps">
-              <div className="guide-step">
-                <div className="guide-step-num">1</div>
-                <div className="guide-step-body">
-                  <div className="guide-step-title">Download the skill file</div>
-                  <p className="guide-step-desc">
-                    Click the button below to save <strong>our-trips.skill</strong> to your computer.
-                  </p>
-                  <a href="/our-trips.skill" download className="guide-download-btn">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
-                    Download our-trips.skill
-                  </a>
-                </div>
-              </div>
-
-              <div className="guide-step">
-                <div className="guide-step-num">2</div>
-                <div className="guide-step-body">
-                  <div className="guide-step-title">Add the skill file</div>
-                  <p className="guide-step-desc">
-                    Open your agent customization settings, find <strong>Skills</strong>, click
-                    <strong> Add skill</strong>, and select the downloaded file.
-                  </p>
-                </div>
-              </div>
-
-              <div className="guide-step">
-                <div className="guide-step-num">3</div>
-                <div className="guide-step-body">
-                  <div className="guide-step-title">Allow network access</div>
-                  <p className="guide-step-desc">
-                    If the skill reports sandbox network errors, allow <strong>All domains</strong>
-                    or at least <strong>ourtrips.to</strong>, then start a fresh agent session.
-                  </p>
-                </div>
-              </div>
-            </div>
           </section>
 
           <div className="guide-divider" />
@@ -205,7 +147,7 @@ url = "${mcpServerUrl}"`;
           <div className="guide-cta">
             <Link href="/itineraries" className="guide-cta-link">
               See what a finished trip looks like
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+              <ArrowRight size={16} aria-hidden="true" />
             </Link>
           </div>
         </div>

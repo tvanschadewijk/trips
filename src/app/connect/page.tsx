@@ -2,6 +2,7 @@
 
 import { Suspense, useState, useEffect } from 'react';
 import Link from 'next/link';
+import { Check, CircleX, KeyRound, Mail } from 'lucide-react';
 import LogoSuffix from '@/components/ui/LogoSuffix';
 import { useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
@@ -26,14 +27,13 @@ function ConnectInner() {
   const searchParams = useSearchParams();
   const code = searchParams.get('code') || '';
 
-  const [step, setStep] = useState<Step>('loading');
+  const [step, setStep] = useState<Step>(() => code ? 'loading' : 'invalid');
   const [email, setEmail] = useState('');
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [magicLinkSent, setMagicLinkSent] = useState(false);
 
   useEffect(() => {
     if (!code) {
-      setStep('invalid');
       return;
     }
 
@@ -127,7 +127,7 @@ function ConnectInner() {
         {step === 'invalid' && (
           <div className="connect-center">
             <div className="connect-icon connect-icon-error">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" /></svg>
+              <CircleX aria-hidden="true" />
             </div>
             <h2 className="connect-title">Invalid or expired link</h2>
             <p className="connect-desc">This authorization link is no longer valid. Go back to Claude and try again.</p>
@@ -137,7 +137,7 @@ function ConnectInner() {
         {step === 'login' && !magicLinkSent && (
           <>
             <div className="connect-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1 1 21.75 8.25Z" /></svg>
+              <KeyRound aria-hidden="true" />
             </div>
             <h2 className="connect-title">Connect to OurTrips</h2>
             <p className="connect-desc">Sign in to link your Claude skill to your account.</p>
@@ -159,7 +159,7 @@ function ConnectInner() {
         {step === 'login' && magicLinkSent && (
           <div className="connect-center">
             <div className="connect-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M21.75 6.75v10.5a2.25 2.25 0 0 1-2.25 2.25h-15a2.25 2.25 0 0 1-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25m19.5 0-8.953 5.932a2.25 2.25 0 0 1-2.594 0L2.25 6.75" /></svg>
+              <Mail aria-hidden="true" />
             </div>
             <h2 className="connect-title">Check your email</h2>
             <p className="connect-desc">
@@ -171,7 +171,7 @@ function ConnectInner() {
         {step === 'authorize' && (
           <div className="connect-center">
             <div className="connect-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1 1 21.75 8.25Z" /></svg>
+              <KeyRound aria-hidden="true" />
             </div>
             <h2 className="connect-title">Connect your skill</h2>
             <p className="connect-desc">
@@ -191,7 +191,7 @@ function ConnectInner() {
         {step === 'done' && (
           <div className="connect-center">
             <div className="connect-icon connect-icon-success">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="20 6 9 17 4 12" /></svg>
+              <Check aria-hidden="true" />
             </div>
             <h2 className="connect-title">Connected!</h2>
             <p className="connect-desc">Your Claude skill is now linked to your account. You can close this window and go back to Claude.</p>
@@ -201,7 +201,7 @@ function ConnectInner() {
         {step === 'error' && (
           <div className="connect-center">
             <div className="connect-icon connect-icon-error">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" /></svg>
+              <CircleX aria-hidden="true" />
             </div>
             <h2 className="connect-title">Something went wrong</h2>
             <p className="connect-desc">Please go back to Claude and try again.</p>

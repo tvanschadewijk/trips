@@ -161,7 +161,6 @@
       text-transform: uppercase;
       color: var(--ink-50);
     }
-    a.trip .chev { flex-shrink: 0; color: var(--ink-35); }
     .empty {
       padding: 24px;
       background: var(--paper-deep);
@@ -211,10 +210,6 @@
 
     <button type="button" class="retry" onclick="location.reload()">
       Try again
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <path d="M3 12a9 9 0 1 0 9-9"/>
-        <polyline points="3 4 3 12 11 12"/>
-      </svg>
     </button>
   </main>
 
@@ -257,7 +252,7 @@
 
         if (trips.length === 0) {
           listEl.innerHTML = '<div class="empty">' +
-            'No trips saved on this device yet. Open a trip while connected and tap the download icon to keep it offline.' +
+            'No trips saved on this device yet. Open a trip while connected and save it for offline access.' +
             '</div>';
           return;
         }
@@ -279,7 +274,6 @@
                 '<div class="name">' + escape(trip.name || 'Untitled trip') + '</div>' +
                 (dateLine ? '<div class="dates">' + escape(dateLine) + '</div>' : '') +
               '</div>' +
-              '<svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>' +
             '</a>';
           ul.appendChild(li);
         });

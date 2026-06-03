@@ -420,15 +420,6 @@
     transform 160ms var(--ease-standard, ease);
 }
 
-.itinerary-map-stop-popup-link::after {
-  content: '›';
-  display: inline-block;
-  margin-top: -1px;
-  font-size: 15px;
-  font-weight: 620;
-  line-height: 1;
-}
-
 .itinerary-map-stop-popup-link:hover {
   border-color: rgba(193, 79, 42, 0.34);
   background: rgba(193, 79, 42, 0.12);

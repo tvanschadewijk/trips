@@ -17,6 +17,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { AnimatePresence, motion, useDragControls } from 'motion/react';
+import { MessageCircle, SendHorizontal } from 'lucide-react';
 import type { ToolCallSummary } from '@/lib/trip-chat/prompt';
 import {
   DEFAULT_CHAT_STATUS_PHASES,
@@ -364,9 +365,7 @@ export default function TripChatPanel({ tripId, initialMessages }: Props) {
             transition={overlaySpring}
             whileTap={{ scale: 0.96 }}
           >
-            <svg className="trip-ask-entry-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-            </svg>
+            <MessageCircle className="trip-ask-entry-icon" aria-hidden="true" />
             <span className="trip-ask-entry-label">Ask</span>
           </motion.button>
         )}
@@ -515,7 +514,7 @@ export default function TripChatPanel({ tripId, initialMessages }: Props) {
                     {loading ? (
                       <TypingDots />
                     ) : (
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><line x1="12" y1="19" x2="12" y2="5" /><polyline points="5 12 12 5 19 12" /></svg>
+                      <SendHorizontal size={16} strokeWidth={2.4} aria-hidden="true" />
                     )}
                   </button>
                 </div>

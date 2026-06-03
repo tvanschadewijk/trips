@@ -3,6 +3,20 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import {
+  ArrowRight,
+  ChartLine,
+  Check,
+  Copy,
+  Ellipsis,
+  Info,
+  Link as LinkIcon,
+  LogOut,
+  Map as MapIcon,
+  Settings,
+  Trash2,
+  WifiOff,
+} from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import type { TripData } from '@/lib/types';
 import { getTripOverviewImageUrl } from '@/lib/trip-images';
@@ -147,7 +161,11 @@ export default function DashboardPage() {
     setLoading(false);
   }, [router]);
 
-  useEffect(() => { loadTrips(); }, [loadTrips]);
+  useEffect(() => {
+    queueMicrotask(() => {
+      void loadTrips();
+    });
+  }, [loadTrips]);
 
   // Clear view-transition marker after the transition captures the new state
   useEffect(() => {
@@ -223,14 +241,11 @@ export default function DashboardPage() {
     });
   }
 
-  function timeAgo(dateStr: string) {
-    const diff = Date.now() - new Date(dateStr).getTime();
-    const mins = Math.floor(diff / 60000);
-    if (mins < 60) return `${mins}m ago`;
-    const hrs = Math.floor(mins / 60);
-    if (hrs < 24) return `${hrs}h ago`;
-    const days = Math.floor(hrs / 24);
-    return `${days}d ago`;
+  function formatUpdatedDate(dateStr: string) {
+    return new Date(dateStr).toLocaleDateString('en-GB', {
+      day: 'numeric',
+      month: 'short',
+    });
   }
 
   function wasUpdated(trip: DashTrip) {
@@ -254,7 +269,7 @@ export default function DashboardPage() {
           <Link href="/" className="dash-logo">OurTrips<span className="logo-to">.To</span> <span className="logo-suffix">{personalTrips.length > 0 ? `${personalTrips[0].name}${personalTrips.length > 1 ? ` and ${personalTrips.length - 1} more` : ''}` : '?'}</span></Link>
           <div className="dash-nav-right">
             <button className="dash-settings-btn" onClick={() => setSettingsOpen(!settingsOpen)} aria-label="Settings">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+              <Settings size={20} aria-hidden="true" />
             </button>
             {settingsOpen && (
               <>
@@ -264,7 +279,7 @@ export default function DashboardPage() {
                   <div className="dash-settings-divider" />
                   {isAdmin && online && (
                     <Link href="/admin" className="dash-settings-item" onClick={() => setSettingsOpen(false)}>
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+                      <ChartLine size={16} aria-hidden="true" />
                       Analytics
                     </Link>
                   )}
@@ -274,7 +289,7 @@ export default function DashboardPage() {
                     disabled={!online}
                     title={online ? undefined : 'Available when online'}
                   >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                    <LogOut size={16} aria-hidden="true" />
                     Sign out
                   </button>
                   {appVersion && (
@@ -293,7 +308,7 @@ export default function DashboardPage() {
       <main className="dash-main">
         {!online && (
           <div className="dash-offline-banner" role="status" aria-live="polite">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><line x1="1" y1="1" x2="23" y2="23"/><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/><path d="M10.71 5.05A16 16 0 0 1 22.58 9"/><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>
+            <WifiOff size={14} aria-hidden="true" />
             <span><strong>You&rsquo;re offline.</strong> Showing trips you&rsquo;ve saved.</span>
           </div>
         )}
@@ -314,10 +329,10 @@ export default function DashboardPage() {
             <p>Open a trip while connected and tap the download icon to keep it on this device.</p>
           </div>
         ) : trips.length === 0 ? (
-          <div className="dash-onboard">
+            <div className="dash-onboard">
             <div className="dash-onboard-header">
               <div className="dash-onboard-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M9 6.75V15m6-6v8.25m.503 3.498 4.875-2.437c.381-.19.622-.58.622-1.006V4.82c0-.836-.88-1.38-1.628-1.006l-3.869 1.934c-.317.159-.69.159-1.006 0L9.503 3.252a1.125 1.125 0 0 0-1.006 0L3.622 5.689C3.24 5.88 3 6.27 3 6.695V19.18c0 .836.88 1.38 1.628 1.006l3.869-1.934c.317-.159.69-.159 1.006 0l4.994 2.497c.317.158.69.158 1.006 0Z" /></svg>
+                <MapIcon aria-hidden="true" />
               </div>
               <h3>Create your first trip</h3>
               <p>Turn any conversation with Claude or Codex into a beautiful, pocket-friendly itinerary. Here&apos;s how:</p>
@@ -335,7 +350,7 @@ export default function DashboardPage() {
                   </div>
                 </div>
                 <div className="dash-onboard-compat">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+                  <Info size={14} aria-hidden="true" />
                   <p>The remote connector uses OAuth, so you do not need to paste an API key into your chat.</p>
                 </div>
               </div>
@@ -359,9 +374,9 @@ export default function DashboardPage() {
                       title="Copy to clipboard"
                     >
                       {connectionCopied ? (
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="20 6 9 17 4 12" /></svg>
+                        <Check size={14} aria-hidden="true" />
                       ) : (
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                        <Copy size={14} aria-hidden="true" />
                       )}
                     </button>
                   </div>
@@ -395,7 +410,7 @@ export default function DashboardPage() {
             <div className="dash-onboard-footer">
               <Link href="/itineraries" className="dash-onboard-demo-link">
                 See what a finished trip looks like
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                <ArrowRight size={14} aria-hidden="true" />
               </Link>
             </div>
           </div>
@@ -463,7 +478,7 @@ export default function DashboardPage() {
                       onClick={(e) => { e.stopPropagation(); setCardMenuOpen(cardMenuOpen === trip.id ? null : trip.id); }}
                       aria-label="Trip options"
                     >
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
+                      <Ellipsis size={16} aria-hidden="true" />
                     </button>
                     {cardMenuOpen === trip.id && (
                       <>
@@ -478,7 +493,7 @@ export default function DashboardPage() {
                               title={shareModeHint(mode)}
                             >
                               <span className="dash-card-menu-check" aria-hidden="true">
-                                {trip.share_mode === mode ? '✓' : ''}
+                                {trip.share_mode === mode ? <Check size={14} /> : null}
                               </span>
                               <span className="dash-card-menu-label">
                                 <span className="dash-card-menu-label-name">{shareModeLabel(mode)}</span>
@@ -488,7 +503,7 @@ export default function DashboardPage() {
                           ))}
                           <div className="dash-card-menu-divider" />
                           <button className="dash-card-menu-item dash-card-menu-item-danger" onClick={() => { setCardMenuOpen(null); setDeleteConfirm(trip.id); }}>
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                            <Trash2 size={14} aria-hidden="true" />
                             Delete trip
                           </button>
                         </div>
@@ -503,11 +518,11 @@ export default function DashboardPage() {
                     <div className="dash-card-footer">
                       {savedOfflineIds.has(trip.share_id) && (
                         <span className="dash-card-saved" title="Available offline">
-                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+                          <Check size={11} strokeWidth={2.4} aria-hidden="true" />
                           Offline
                         </span>
                       )}
-                      {wasUpdated(trip) && <span className="dash-card-updated">Updated {timeAgo(trip.updated_at)}</span>}
+                      {wasUpdated(trip) && <span className="dash-card-updated">Updated {formatUpdatedDate(trip.updated_at)}</span>}
                       <button
                         className={`dash-card-btn ${copied === trip.share_id ? 'copied' : ''}`}
                         onClick={() => copyLink(trip.share_id)}
@@ -515,12 +530,12 @@ export default function DashboardPage() {
                       >
                         {copied === trip.share_id ? (
                           <>
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="20 6 9 17 4 12" /></svg>
+                            <Check aria-hidden="true" />
                             Copied
                           </>
                         ) : (
                           <>
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg>
+                            <LinkIcon aria-hidden="true" />
                             Share
                           </>
                         )}

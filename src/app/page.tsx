@@ -3,6 +3,7 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
+import { ArrowRight, Download } from 'lucide-react';
 import LogoSuffix from '@/components/ui/LogoSuffix';
 import { publicItineraries } from '@/lib/public-itineraries';
 import '@/styles/landing.css';
@@ -130,7 +131,6 @@ export default async function Home() {
 
           <figure className="landing-hero-figure">
             <div className="landing-hero-image-wrap">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src="https://images.unsplash.com/photo-1528127269322-539801943592?w=1400&h=1750&fit=crop&crop=center&q=85"
                 alt="Limestone karsts rising from the water in Hạ Long Bay"
@@ -162,7 +162,7 @@ export default async function Home() {
             </p>
             <Link href="/itineraries" className="landing-tell-more">
               Browse all itineraries
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+              <ArrowRight size={14} strokeWidth={1.6} aria-hidden="true" />
             </Link>
           </div>
         </div>
@@ -182,7 +182,7 @@ export default async function Home() {
                 <p>{itinerary.subtitle}</p>
                 <Link href={itinerary.canonicalPath} className="landing-itinerary-link">
                   Open itinerary
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                  <ArrowRight size={14} strokeWidth={1.7} aria-hidden="true" />
                 </Link>
               </div>
             </article>
@@ -211,7 +211,7 @@ export default async function Home() {
               A small file that teaches Claude about OurTrips. Drop it into your project — thirty seconds.
             </p>
             <a href="/our-trips.skill" download className="landing-btn-primary landing-btn-sm" style={{ gap: '8px' }}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
+              <Download size={14} aria-hidden="true" />
               Download skill
             </a>
           </div>
@@ -234,7 +234,7 @@ export default async function Home() {
         <div className="landing-tell-more-wrap">
           <Link href="/guide" className="landing-tell-more">
             Read the full guide
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+            <ArrowRight size={14} strokeWidth={1.6} aria-hidden="true" />
           </Link>
         </div>
       </section>

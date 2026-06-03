@@ -140,6 +140,11 @@ Photography leads. Long-form horizontal images, wide cinematic ratios, sparse ca
 **Number Marker**
 - Circle or square mark, 32px × 32px, border `1px solid #1A1410`, no fill, Fraunces 500 17px centered. For enumerated steps.
 
+### Icons
+
+- Use Lucide icons from `lucide-react` for all UI iconography: buttons, links, status marks, section labels, menus, and inline controls. Do not add hand-written SVG icons or character-glyph chevrons/checkmarks for UI.
+- Keep official third-party brand marks as brand assets when needed, such as the Google logo in the sign-in button.
+
 ### Navigation
 
 - Sticky top bar, background `rgba(251, 247, 241, 0.85)` with `backdrop-filter: blur(14px) saturate(140%)`, bottom rule `1px solid #E8E1D6`.

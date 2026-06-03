@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { ArrowLeft, Ban } from 'lucide-react';
 import {
   AreaChart,
   Area,
@@ -185,7 +186,7 @@ export default function AdminPage() {
       <div className="admin">
         <div className="admin-forbidden">
           <div className="admin-forbidden-icon">
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+            <Ban size={32} strokeWidth={1.5} aria-hidden="true" />
           </div>
           <h2>Access denied</h2>
           <p>You don&apos;t have permission to view this page.</p>
@@ -214,7 +215,7 @@ export default function AdminPage() {
         <div className="admin-nav-inner">
           <div className="admin-nav-left">
             <Link href="/dashboard" className="admin-nav-back" title="Back to dashboard">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+              <ArrowLeft size={18} aria-hidden="true" />
             </Link>
             <span className="admin-nav-title">Analytics</span>
             <span className="admin-nav-badge">Admin</span>

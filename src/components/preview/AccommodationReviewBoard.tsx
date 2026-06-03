@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { ChevronRight } from 'lucide-react';
 
 import { ACCOMMODATION_REVIEW_LANES } from '@/lib/accommodation-review';
 import type {
@@ -686,6 +687,7 @@ export default function AccommodationReviewBoard({
               >
                 <span>{link.label}</span>
                 <small>{domainFor(link.url)}</small>
+                <ChevronRight className="accommodation-review-link-icon" size={18} aria-hidden="true" />
               </a>
             ))}
           </div>

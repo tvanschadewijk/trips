@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
+import { ArrowRight } from 'lucide-react';
 import LogoSuffix from '@/components/ui/LogoSuffix';
 import { getAllPosts } from '@/lib/blog/posts';
 import '@/styles/blog.css';
@@ -72,7 +73,7 @@ export default function BlogIndex() {
                 <p className="blog-post-excerpt">{post.excerpt}</p>
                 <span className="blog-post-read">
                   Read article
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                  <ArrowRight size={14} aria-hidden="true" />
                 </span>
               </Link>
             ))}

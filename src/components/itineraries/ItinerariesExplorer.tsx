@@ -5,6 +5,7 @@
 import { useMemo, useState, type MouseEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { ArrowRight } from 'lucide-react';
 import {
   itineraryCategories,
   type PublicItinerary,
@@ -166,10 +167,7 @@ export default function ItinerariesExplorer({ itineraries }: ItinerariesExplorer
               </div>
               <Link className="itinerary-card-link" href={itinerary.canonicalPath} onClick={(event) => openItinerary(event, itinerary)}>
                 Open itinerary
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="M5 12h14" />
-                  <path d="m12 5 7 7-7 7" />
-                </svg>
+                <ArrowRight size={14} strokeWidth={1.7} aria-hidden="true" />
               </Link>
             </div>
           </article>

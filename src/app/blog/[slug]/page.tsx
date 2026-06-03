@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
+import { ArrowLeft, ArrowRight } from 'lucide-react';
 import LogoSuffix from '@/components/ui/LogoSuffix';
 import CopyCodeBlocks from '@/components/blog/CopyCodeBlocks';
 import { getPost, getAllPosts } from '@/lib/blog/posts';
@@ -134,7 +135,7 @@ export default async function BlogPostPage({ params }: Props) {
       <main className="blog-main">
         <div className="blog-content">
           <Link href="/blog" className="blog-back">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+            <ArrowLeft size={16} strokeWidth={2.5} aria-hidden="true" />
             All posts
           </Link>
 
@@ -194,7 +195,7 @@ export default async function BlogPostPage({ params }: Props) {
             </p>
             <Link href="/guide" className="blog-article-cta-btn">
               Get started
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+              <ArrowRight size={16} aria-hidden="true" />
             </Link>
           </div>
         </div>

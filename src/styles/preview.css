@@ -1001,8 +1001,23 @@
   gap: 8px;
   align-items: baseline;
 }
+.day-brief-programme-row.has-detail {
+  grid-template-columns: max-content minmax(0, 1fr) 26px;
+  align-items: start;
+}
 .day-brief-programme-row.no-time {
   grid-template-columns: 1fr;
+}
+.day-brief-programme-row.no-time.has-detail {
+  grid-template-columns: minmax(0, 1fr) 26px;
+}
+.day-brief-programme-action {
+  display: flex;
+  grid-column: 3;
+  justify-self: end;
+}
+.day-brief-programme-row.no-time .day-brief-programme-action {
+  grid-column: 2;
 }
 .day-brief-programme-copy {
   min-width: 0;
@@ -1157,8 +1172,8 @@ button.day-brief-place:active {
   justify-content: center;
   width: 22px;
   height: 22px;
-  margin: 0 2px 0 6px;
-  vertical-align: -4px;
+  margin: 0;
+  vertical-align: 0;
   border: 1px solid rgba(193, 79, 42, 0.22);
   border-radius: 999px;
   appearance: none;
@@ -2304,15 +2319,11 @@ button.day-brief-place:active {
   background: var(--color-surface-deep);
   transition: background-color var(--motion-fast) var(--ease-standard), border-color var(--motion-fast) var(--ease-standard);
 }
-.accommodation-review-links a::after {
-  content: "\203A";
+.accommodation-review-link-icon {
   grid-column: 2;
   grid-row: 1 / span 2;
   align-self: center;
   flex: none;
-  font-family: var(--font-sans);
-  font-size: 18px;
-  font-weight: 500;
   color: var(--color-accent);
 }
 .accommodation-review-links span {
@@ -3839,6 +3850,10 @@ button.day-brief-place:active {
     border-bottom: 1px solid rgba(232, 225, 214, 0.84);
   }
 
+  .day-brief-programme-row.has-detail {
+    grid-template-columns: minmax(132px, 0.34fr) minmax(0, 1fr) 28px;
+  }
+
   .day-brief-programme-row + .day-brief-programme-row {
     padding-top: 18px;
   }
@@ -3850,6 +3865,10 @@ button.day-brief-place:active {
 
   .day-brief-programme-row.no-time {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .day-brief-programme-row.no-time.has-detail {
+    grid-template-columns: minmax(0, 1fr) 28px;
   }
 
   .day-brief-programme-copy {

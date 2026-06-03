@@ -4,7 +4,7 @@ import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import type { ReactNode } from 'react';
 import { flushSync } from 'react-dom';
 import type { TripData, Day, Transport, Accommodation, Tip, Meal, Block, RichDetail } from '@/lib/types';
-import { ICONS } from './icons';
+import { TripIcon as Icon } from './icons';
 import SaveOfflineButton from './SaveOfflineButton';
 import TripRouteAtlas from './TripRouteAtlas';
 import ItineraryMap, { type ItineraryMapFocusRequest, type ItineraryMapViewAllRequest } from './ItineraryMap';
@@ -37,10 +37,6 @@ interface TripPreviewProps {
    *  "Add to my trips" (companion) or "Remix this trip" (remix). */
   shareMode?: 'companion' | 'remix';
   tripId?: string;
-}
-
-function Icon({ name }: { name: string }) {
-  return <span dangerouslySetInnerHTML={{ __html: ICONS[name] || '' }} />;
 }
 
 function formatDate(dateStr: string, opts: Intl.DateTimeFormatOptions) {
@@ -1019,7 +1015,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
       const header = el.querySelector('.detail-info-section-title, .todo-ready');
       if (!header) return;
       if (allDone) {
-        header.outerHTML = '<div class="todo-ready"><span class="todo-ready-icon">&#10003;</span> Trip is ready to go</div>';
+        header.outerHTML = '<div class="todo-ready"><span class="todo-ready-icon"></span> Trip is ready to go</div>';
       } else {
         header.outerHTML = '<div class="detail-info-section-title"><span class="text-section-title">Action Items</span></div>';
       }
@@ -1033,7 +1029,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
       const check = row.querySelector('.todo-check');
       if (check) {
         check.classList.toggle('done', done);
-        check.innerHTML = done ? '&#10003;' : '';
+        check.innerHTML = '';
       }
       const value = row.querySelector('.detail-row-value') as HTMLElement | null;
       if (value) {
@@ -1146,7 +1142,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
         </div>
         <div className="trip-card-badge">{statusLabel}</div>
         {onDelete && <button className="trip-card-delete" onClick={(e) => { e.stopPropagation(); setDeleteConfirm(origIdx); }} aria-label={`Delete ${t.name}`}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+          <Icon name="trash" />
         </button>}
         <div className="trip-card-body">
           <div className="trip-card-dates">{startStr} — {endStr}</div>
@@ -1154,22 +1150,22 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
           <div className="trip-card-subtitle">{t.subtitle}</div>
           <div className="trip-card-stats">
             <div className="trip-card-stat">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" /></svg>
+              <Icon name="moon" />
               {nights} nights
             </div>
             {dayCount > 0 ? (
               <div className="trip-card-stat">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4" /><path d="M8 2v4" /><path d="M3 10h18" /></svg>
+                <Icon name="calendar" />
                 {dayCount} days
               </div>
             ) : (
               <div className="trip-card-stat">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" /></svg>
+                <Icon name="clock" />
                 Coming soon
               </div>
             )}
             <div className="trip-card-stat">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
+              <Icon name="users" />
               {t.travelers.length}
             </div>
           </div>
@@ -1393,7 +1389,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
       : '';
     const rows = todoItems.map(t =>
       `<div class="detail-row todo-item${interactive}"${interactiveAttrs(t.done)} data-day="${t.dayNumber}" data-type="${t.itemType}" data-index="${t.itemIndex}" data-done="${t.done}" data-status="${t.status}" style="gap:10px;align-items:center">
-        <span class="todo-check ${t.done ? 'done' : ''}">${t.done ? '&#10003;' : ''}</span>
+        <span class="todo-check ${t.done ? 'done' : ''}"></span>
         <span style="flex:1;min-width:0">
           <span class="detail-row-value" style="text-align:left;font-size:14px;display:block${t.done ? ';text-decoration:line-through;opacity:0.45' : ''}">${escapeHtml(t.label)}</span>
           <span class="detail-row-label" style="width:auto;font-size:12px">${escapeHtml(t.detail)}</span>
@@ -1403,7 +1399,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     ).join('');
 
     const header = allDone
-      ? `<div class="todo-ready"><span class="todo-ready-icon">&#10003;</span> Trip is ready to go</div>`
+      ? `<div class="todo-ready"><span class="todo-ready-icon"></span> Trip is ready to go</div>`
       : `<div class="detail-info-section-title"><span class="text-section-title">Action Items</span></div>`;
 
     return { html: `<div class="detail-info-section">${header}${rows}</div>`, hasData: true, allDone };
@@ -1514,7 +1510,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
                   Continue to Day {todayInfo.dayNumber}
                   <span className="hero-today-cta-date"> · {todayInfo.dateLabel}</span>
                 </span>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                <Icon name="arrow-right" />
               </button>
             )}
             {trip.notes?.length ? (
@@ -1652,6 +1648,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     const stayDateLabel = nightLabel ? `${nightLabel} (${dateRangeLabel})` : dateRangeLabel;
     const heroMeta = [nightLabel ? stayDateLabel : null, day.subtitle].filter(Boolean).join(' · ');
     const dayIntro = trimDisplayText(day.description);
+    const dayTitleId = `day-title-${day.day_number}`;
 
     const statsChips = day.stats?.length ? (
       <div className="hero-stats-row">
@@ -1671,7 +1668,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
         <div className="day-hero-gradient" />
         <div className="day-hero-text">
           <p className="text-label" style={{ margin: '0 0 4px' }}>Day {day.day_number} &middot; {dateStr}</p>
-          <h2 className="text-card-title-light day-hero-title" style={{ margin: 0 }}>{day.title}</h2>
+          <h2 className="text-card-title-light day-hero-title" id={dayTitleId} style={{ margin: 0 }}>{day.title}</h2>
           {dayIntro && <p className="day-hero-intro">{dayIntro}</p>}
           {heroMeta && <p className="text-hero-subtitle day-hero-meta" style={{ margin: '5px 0 0' }}>{heroMeta}</p>}
           {statsChips}
@@ -1680,7 +1677,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     ) : (
       <div className="day-header-plain">
         <p className="text-label-dark">Day {day.day_number} &middot; {dateStr}</p>
-        <h2 className="text-card-title" style={{ marginTop: 4 }}>{day.title}</h2>
+        <h2 className="text-card-title" id={dayTitleId} style={{ marginTop: 4 }}>{day.title}</h2>
         {dayIntro && <p className="day-header-plain-intro">{dayIntro}</p>}
         {day.subtitle && <p className="text-body-italic" style={{ marginTop: 4 }}>{day.subtitle}</p>}
         {statsChips}
@@ -1836,11 +1833,21 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
           {displayBlocks.map(({ block: b, timeLabel, content, options }, i) => {
             const detailTitle = trimDisplayText(b.detail?.title) || content || 'this programme item';
             return (
-              <div key={i} className={`day-brief-programme-row ${timeLabel ? '' : 'no-time'}`}>
+              <div
+                key={i}
+                className={[
+                  'day-brief-programme-row',
+                  timeLabel ? '' : 'no-time',
+                  b.detail ? 'has-detail' : '',
+                ].filter(Boolean).join(' ')}
+              >
                 {timeLabel && <span className="day-brief-time">{timeLabel}: </span>}
-                <span className="day-brief-programme-copy">
-                  {content && <span>{renderBriefActivityText(content)}</span>}
-                  {b.detail && renderBriefDetailButton(`More about ${detailTitle}`, () => openDetail('block', b))}
+                <div className="day-brief-programme-copy">
+                  {content && (
+                    <h3 className="day-card-title day-brief-programme-title">
+                      {renderBriefActivityText(content)}
+                    </h3>
+                  )}
                   {options.length ? (
                     <span className="day-brief-options">
                       {content ? ' ' : ''}
@@ -1855,7 +1862,12 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
                       ))}
                     </span>
                   ) : null}
-                </span>
+                </div>
+                {b.detail && (
+                  <span className="day-brief-programme-action">
+                    {renderBriefDetailButton(`More about ${detailTitle}`, () => openDetail('block', b))}
+                  </span>
+                )}
               </div>
             );
           })}
@@ -1879,7 +1891,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
                 {statusLabel}
               </span>
             </div>
-            <h4 className="day-brief-card-title">Hotel not confirmed yet</h4>
+            <h3 className="day-brief-card-title">Hotel not confirmed yet</h3>
             <p className="day-brief-card-copy">Use Accommodations to confirm the stay for this stop.</p>
             {canOpenReviewer && (
               <div className="day-brief-card-actions">
@@ -1907,9 +1919,9 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
               {a.status || 'pending'}
             </span>
           </div>
-          <h4 className="day-brief-card-title">
+          <h3 className="day-brief-card-title">
             {renderBriefPlace(trimDisplayText(a.name) || 'Accommodation', a.name, 'day-brief-card-place')}
-          </h4>
+          </h3>
           {stayMeta && <p className="day-brief-card-meta">{stayMeta}</p>}
           {a.note && <p className="day-brief-card-copy">{a.note}</p>}
           {a.detail && (
@@ -1944,9 +1956,9 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
                 {day.meals!.length > 1 && m.type ? (
                   <div className="day-brief-meal-type">{m.type}</div>
                 ) : null}
-                <h4 className="day-brief-card-title">
+                <h3 className="day-brief-card-title">
                   {renderBriefPlace(trimDisplayText(m.name) || 'Restaurant', m.name, 'day-brief-card-place')}
-                </h4>
+                </h3>
                 {m.note && <p className="day-brief-card-copy">{m.note}</p>}
                 <div className="day-brief-card-actions">
                   {day.meals!.length > 1 && m.status ? (
@@ -1965,12 +1977,12 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
 
     const hasBriefItems = Boolean(seeAndDoBlock || stayCard || mealCard);
     const briefSection = (
-      <section className="day-brief" aria-labelledby={`day-brief-title-${day.day_number}`}>
+      <section className="day-brief" aria-labelledby={dayTitleId}>
         <div className="day-brief-header">
           <p className="day-brief-overline">Day {day.day_number} &middot; {dateStr}</p>
-          <h3 className="day-brief-heading" id={`day-brief-title-${day.day_number}`}>
+          <p className="day-brief-heading" aria-hidden="true">
             <span>{day.title}</span>
-          </h3>
+          </p>
           <div className="day-brief-meta-row">
             <span>{stayDateLabel}</span>
             {day.subtitle && <em>{day.subtitle}</em>}
@@ -1995,19 +2007,22 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
         <div className="day-section-title">
           <span className="text-section-title"><span className="section-icon"><Icon name={trimDisplayText(day.transport[0]?.mode) || 'route'} /></span>Transport</span>
         </div>
-        {day.transport.map((t, i) => (
-          <div key={i} className={`transport-row${t.detail ? ' tappable' : ''}`}
-            onClick={t.detail ? () => openDetail('transport', t) : undefined}>
-            <div className="transport-icon-wrap"><Icon name={t.mode || 'train'} /></div>
-            <div className="transport-detail">
-              <div className="text-name-accent">{t.label}</div>
-              <div className="transport-route">{t.from || ''} \u2192 {t.to || ''} {t.duration ? `\u00b7 ${t.duration}` : ''}{t.distance ? ` \u00b7 ${t.distance}` : ''}</div>
+        {day.transport.map((t, i) => {
+          const route = [trimDisplayText(t.from), trimDisplayText(t.to)].filter(Boolean).join(' \u2192 ');
+          const title = trimDisplayText(t.label) || route || 'Transport';
+          return (
+            <div key={i} className={`transport-row${t.detail ? ' tappable' : ''}`}
+              onClick={t.detail ? () => openDetail('transport', t) : undefined}>
+              <div className="transport-detail">
+                <h3 className="day-card-title transport-title">{title}</h3>
+                <div className="transport-route">{route} {t.duration ? `\u00b7 ${t.duration}` : ''}{t.distance ? ` \u00b7 ${t.distance}` : ''}</div>
+              </div>
+              {t.depart && <div className="text-mono">{t.depart}</div>}
+              <span className={`text-status status-badge status-${t.status || 'pending'}`}>{t.status || 'pending'}</span>
+              {t.detail && <span className="tap-chevron"><Icon name="chevron" /></span>}
             </div>
-            {t.depart && <div className="text-mono">{t.depart}</div>}
-            <span className={`text-status status-badge status-${t.status || 'pending'}`}>{t.status || 'pending'}</span>
-            {t.detail && <span className="tap-chevron"><Icon name="chevron" /></span>}
-          </div>
-        ))}
+          );
+        })}
       </div>
     ) : null;
 
@@ -2047,7 +2062,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
                 <div key={li} className="transport-row">
                   <div className="transport-icon-wrap"><Icon name={svc.icon} /></div>
                   <div className="transport-detail">
-                    <div className="text-name-accent">{svc.provider}</div>
+                    <h3 className="day-card-title transport-title">{svc.provider}</h3>
                     <div className="transport-route">{leg.route}</div>
                     {(svc.ref || svc.price) && <div className="text-small" style={{ marginTop: 2 }}>{svc.ref ? svc.ref + ' · ' : ''}{svc.price || ''}</div>}
                   </div>
@@ -2073,10 +2088,10 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
               <Icon name={tip.icon || 'info'} />
             </div>
             <div className="tip-content">
-              <div className="text-name">{tip.title}</div>
+              <h3 className="day-card-title tip-title">{tip.title}</h3>
             </div>
             <div className="tip-chevron">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+              <Icon name="chevron" />
             </div>
           </div>
         ))}
@@ -2108,7 +2123,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
           {showArchive ? (
             <>
               <button className="overview-back" onClick={() => setShowArchive(false)} aria-label="Back to OurTrips">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+                <Icon name="back" />
               </button>
               <h1 className="overview-title">Archive</h1>
             </>
@@ -2117,18 +2132,18 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
               <h1 className="overview-title">OurTrips</h1>
               <div className="overview-menu-wrap">
                 <button className="overview-menu-btn" onClick={() => setMenuOpen(!menuOpen)} aria-label="Settings menu">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+                  <Icon name="more" />
                 </button>
                 {menuOpen && (
                   <>
                     <div className="overview-menu-backdrop" onClick={() => setMenuOpen(false)} />
                     <div className="overview-menu">
                       <button className="overview-menu-item" onClick={() => { setMenuOpen(false); setShowArchive(true); }}>
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="5" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/></svg>
+                        <Icon name="archive" />
                         Archive{archiveTrips.length > 0 ? ` (${archiveTrips.length})` : ''}
                       </button>
                       <button className="overview-menu-item overview-menu-item-danger" onClick={() => { setMenuOpen(false); window.location.href = '/'; }}>
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                        <Icon name="logout" />
                         Log out
                       </button>
                     </div>
@@ -2252,19 +2267,19 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
                   'Saving...'
                 ) : saveStatus === 'saved' || saveStatus === 'already_saved' ? (
                   <>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    <Icon name="check" />
                     {saveStatus === 'already_saved' ? 'Already saved — View trips' : 'Saved — View trips'}
                   </>
                 ) : saveStatus === 'error' ? (
                   'Failed — Try again'
                 ) : shareMode === 'remix' ? (
                   <>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg>
+                    <Icon name="shuffle" />
                     Remix this trip
                   </>
                 ) : (
                   <>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    <Icon name="plus" />
                     Add to my trips
                   </>
                 )}
@@ -2283,7 +2298,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
               {detailContent.title}
             </div>
             <button className="detail-close" onClick={closeDetail} aria-label="Close details">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>
+              <Icon name="x" />
             </button>
           </div>
           <div ref={detailBodyRef} className={`detail-body ${detailContent.node ? 'detail-body-react' : ''}`}>

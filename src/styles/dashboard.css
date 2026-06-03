@@ -439,8 +439,12 @@
 }
 .dash-card-menu-item.is-active { background: #FBF7F1; }
 .dash-card-menu-check {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
   width: 14px;
+  height: 14px;
   text-align: center;
   color: #C14F2A;
   font-size: 13px;

@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { createPortal } from 'react-dom';
+import { Check, Download, LoaderCircle } from 'lucide-react';
 import { useOfflineTrip } from '@/lib/offline';
 import { getTripOverviewImageUrl } from '@/lib/trip-images';
 import type { TripData } from '@/lib/types';
@@ -26,9 +27,6 @@ export default function SaveOfflineButton({ shareId, data }: Props) {
   });
   const [confirmingRemove, setConfirmingRemove] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => { setMounted(true); }, []);
 
   const handleClick = async () => {
     if (state.status === 'saving' || state.status === 'removing') return;
@@ -65,17 +63,17 @@ export default function SaveOfflineButton({ shareId, data }: Props) {
         title={label}
       >
         {state.status === 'saving' || state.status === 'removing' ? (
-          <SpinnerIcon />
+          <LoaderCircle size={18} className="save-offline-spinner" aria-hidden="true" />
         ) : isSaved ? (
-          <CheckIcon />
+          <Check size={18} strokeWidth={2.4} aria-hidden="true" />
         ) : (
-          <DownloadIcon />
+          <Download size={18} aria-hidden="true" />
         )}
       </button>
 
       {toast && <div className="save-offline-toast">{toast}</div>}
 
-      {confirmingRemove && mounted && createPortal(
+      {confirmingRemove && createPortal(
         <div className="save-offline-confirm">
           <div className="save-offline-confirm-backdrop" onClick={() => setConfirmingRemove(false)} />
           <div className="save-offline-confirm-dialog" role="dialog" aria-modal="true" aria-label="Remove offline copy?">
@@ -96,31 +94,5 @@ export default function SaveOfflineButton({ shareId, data }: Props) {
         document.body
       )}
     </>
-  );
-}
-
-function DownloadIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-      <polyline points="7 10 12 15 17 10" />
-      <line x1="12" y1="15" x2="12" y2="3" />
-    </svg>
-  );
-}
-
-function CheckIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <polyline points="20 6 9 17 4 12" />
-    </svg>
-  );
-}
-
-function SpinnerIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true" className="save-offline-spinner">
-      <path d="M21 12a9 9 0 1 1-6.22-8.56" />
-    </svg>
   );
 }
