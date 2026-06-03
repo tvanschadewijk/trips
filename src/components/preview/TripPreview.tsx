@@ -149,6 +149,14 @@ function trimDisplayText(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
 }
 
+function isEditableKeyboardTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof Element)) return false;
+  const editable = target.closest('input, textarea, select, [contenteditable], [role="textbox"]');
+  if (!editable) return false;
+  if (editable instanceof HTMLElement && editable.isContentEditable) return true;
+  return editable.matches('input, textarea, select, [role="textbox"]');
+}
+
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
@@ -690,17 +698,36 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (activeTripIndex === null) return;
+      if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey || isEditableKeyboardTarget(e.target)) return;
       if (detailOpen) {
         if (e.key === 'Escape') closeDetail();
         return;
       }
-      if (e.key === 'ArrowRight') goTo(currentSlide + 1);
-      if (e.key === 'ArrowLeft') goTo(currentSlide - 1);
+      if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        goTo(currentSlide + 1);
+        return;
+      }
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        goTo(currentSlide - 1);
+        return;
+      }
+      if (e.key === 'ArrowDown' && currentSlide > 0 && currentSlide < totalSlides - 1) {
+        e.preventDefault();
+        goTo(currentSlide + 1);
+        return;
+      }
+      if (e.key === 'ArrowUp' && currentSlide > 1) {
+        e.preventDefault();
+        goTo(currentSlide - 1);
+        return;
+      }
       if (e.key === 'Escape') { if (currentSlide === 0) closeTrip(); else goTo(0); }
     };
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
-  }, [activeTripIndex, currentSlide, detailOpen, goTo, closeTrip]);
+  }, [activeTripIndex, currentSlide, detailOpen, totalSlides, goTo, closeTrip]);
 
   // Auto-navigate to today's date if it falls within a trip
   useEffect(() => {
