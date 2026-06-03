@@ -786,6 +786,170 @@ body.trip-on-cover .trip-ask-entry-label { display: inline; }
   max-width: 42ch;
 }
 
+/* Editorial day brief */
+.day-brief {
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  padding: 22px 20px;
+  box-shadow: var(--shadow-card);
+  margin-bottom: 14px;
+}
+.day-brief-heading {
+  font-family: var(--font-serif);
+  font-optical-sizing: auto;
+  font-variation-settings: 'SOFT' 40;
+  font-size: 23px;
+  font-weight: 430;
+  line-height: 1.2;
+  letter-spacing: 0;
+  color: var(--color-text-primary);
+  margin: 0;
+}
+.day-brief-heading em {
+  font-style: italic;
+  font-weight: 380;
+}
+.day-brief-heading-meta {
+  color: var(--color-text-primary);
+}
+.day-brief-heading-dot {
+  display: inline-block;
+  margin: 0 7px;
+  color: var(--color-accent);
+}
+.day-brief-lead {
+  margin: 14px 0 0;
+  font-family: var(--font-serif);
+  font-optical-sizing: auto;
+  font-size: 17px;
+  font-weight: 380;
+  line-height: 1.55;
+  letter-spacing: 0;
+  color: var(--color-text-secondary);
+}
+.day-brief-list {
+  display: grid;
+  gap: 13px;
+  margin: 18px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.day-brief-item {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  gap: 9px;
+  align-items: start;
+}
+.day-brief-bullet {
+  width: 6px;
+  height: 6px;
+  margin-top: 0.72em;
+  justify-self: center;
+  border-radius: 999px;
+  background: var(--color-text-primary);
+}
+.day-brief-copy {
+  min-width: 0;
+  font-family: var(--font-serif);
+  font-optical-sizing: auto;
+  font-size: 17px;
+  font-weight: 390;
+  line-height: 1.55;
+  letter-spacing: 0;
+  color: var(--color-text-primary);
+}
+.day-brief-label,
+.day-brief-emphasis {
+  font-weight: 620;
+  color: var(--color-text-primary);
+}
+.day-brief-time {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--color-accent-deep);
+}
+.day-brief-muted-inline,
+.day-brief-separator {
+  color: var(--color-text-muted);
+}
+.day-brief-place {
+  display: inline;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  appearance: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  letter-spacing: 0;
+  text-align: left;
+}
+button.day-brief-place {
+  cursor: pointer;
+  border-bottom: 1px solid var(--color-accent);
+}
+button.day-brief-place:hover {
+  color: var(--color-accent-deep);
+  border-bottom-color: var(--color-accent-deep);
+}
+.day-brief-detail-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  margin: 0 2px 0 6px;
+  vertical-align: -4px;
+  border: 1px solid rgba(193, 79, 42, 0.22);
+  border-radius: 999px;
+  appearance: none;
+  background: var(--color-accent-light);
+  color: var(--color-accent);
+  cursor: pointer;
+  transition: background var(--motion-fast) var(--ease-standard), transform var(--motion-fast) var(--ease-standard);
+}
+.day-brief-detail-btn svg {
+  width: 12px;
+  height: 12px;
+}
+.day-brief-detail-btn:active {
+  transform: scale(0.94);
+  background: rgba(193, 79, 42, 0.16);
+}
+.day-brief-status {
+  min-height: 22px;
+  margin-left: 8px;
+  padding: 0 8px;
+  font-size: 10px;
+  vertical-align: 2px;
+}
+.day-brief-review-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 24px;
+  margin-left: 8px;
+  padding: 0 9px;
+  border: 1px solid rgba(193, 79, 42, 0.22);
+  border-radius: 999px;
+  appearance: none;
+  background: rgba(193, 79, 42, 0.08);
+  color: var(--color-accent-deep);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0;
+  line-height: 1;
+  cursor: pointer;
+}
+.day-brief-review-btn svg {
+  width: 12px;
+  height: 12px;
+}
+
 /* Content sections — paper card */
 .day-section { background: var(--color-card); border: 1px solid var(--color-border); border-radius: var(--radius-card); padding: 20px; box-shadow: var(--shadow-card); margin-bottom: 14px; }
 .day-section-title { margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid var(--color-border); }
@@ -3187,6 +3351,52 @@ body.trip-on-cover .trip-ask-entry-label { display: inline; }
     border-bottom: 1px solid var(--color-border);
     font-size: 20px;
     line-height: 1.55;
+  }
+
+  .day-brief {
+    margin-bottom: 16px;
+    padding: 30px 32px;
+    border-radius: 6px;
+    box-shadow: none;
+  }
+
+  .day-brief-heading {
+    font-size: 30px;
+    line-height: 1.16;
+  }
+
+  .day-brief-heading-dot {
+    margin: 0 9px;
+  }
+
+  .day-brief-lead {
+    margin-top: 18px;
+    font-size: 22px;
+    line-height: 1.5;
+  }
+
+  .day-brief-list {
+    gap: 16px;
+    margin-top: 26px;
+  }
+
+  .day-brief-item {
+    grid-template-columns: 22px minmax(0, 1fr);
+    gap: 13px;
+  }
+
+  .day-brief-bullet {
+    width: 7px;
+    height: 7px;
+  }
+
+  .day-brief-copy {
+    font-size: 20px;
+    line-height: 1.48;
+  }
+
+  .day-brief-time {
+    font-size: 14px;
   }
 
   .day-section {

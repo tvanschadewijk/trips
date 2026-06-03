@@ -47,6 +47,38 @@ function formatDate(dateStr: string, opts: Intl.DateTimeFormatOptions) {
   return new Date(dateStr + 'T12:00:00').toLocaleDateString('en-GB', opts);
 }
 
+function normalizedNightCount(nights: number | null | undefined): number | null {
+  if (typeof nights !== 'number' || !Number.isFinite(nights) || nights <= 0) return null;
+  return Math.round(nights);
+}
+
+function formatNightLabel(nights: number | null | undefined): string | null {
+  const count = normalizedNightCount(nights);
+  if (!count) return null;
+  return `${count} ${count === 1 ? 'night' : 'nights'}`;
+}
+
+function formatBriefDateRange(dateStr: string, nights: number | null | undefined): string {
+  const start = new Date(dateStr + 'T12:00:00');
+  const count = normalizedNightCount(nights);
+  if (!count) {
+    return start.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+  }
+
+  const end = new Date(start);
+  end.setDate(start.getDate() + count);
+
+  const startDay = start.toLocaleDateString('en-GB', { day: 'numeric' });
+  const endDay = end.toLocaleDateString('en-GB', { day: 'numeric' });
+  const startMonth = start.toLocaleDateString('en-GB', { month: 'short' });
+  const endMonth = end.toLocaleDateString('en-GB', { month: 'short' });
+  const sameMonth = start.getFullYear() === end.getFullYear() && start.getMonth() === end.getMonth();
+
+  return sameMonth
+    ? `${startDay}\u2013${endDay} ${endMonth}`
+    : `${startDay} ${startMonth}\u2013${endDay} ${endMonth}`;
+}
+
 function escapeHtml(value: string | number | null | undefined): string {
   return String(value ?? '')
     .replace(/&/g, '&amp;')
@@ -1655,55 +1687,175 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
       </div>
     ) : heroSection;
 
-    const descSection = day.description ? (
-      <p className="day-description">{day.description}</p>
-    ) : null;
-
     const displayBlocks = (day.blocks ?? []).map(getDisplayableBlock).filter((block) => block !== null);
+    const stayNights = normalizedNightCount(day.accommodation?.nights);
+    const nightLabel = formatNightLabel(stayNights);
+    const dateRangeLabel = formatBriefDateRange(day.date, stayNights);
+    const stayDateLabel = nightLabel ? `${nightLabel} (${dateRangeLabel})` : dateRangeLabel;
 
-    const progSection = displayBlocks.length ? (
-      <div className="day-section">
-        <div className="day-section-title">
-          <span className="text-section-title"><span className="section-icon"><Icon name="calendar" /></span>Programme</span>
-        </div>
-        <div className="time-blocks">
-          {displayBlocks.map(({ block: b, timeLabel, content, options }, i) => (
-            <div key={i} className={`time-block ${b.type === 'transport' ? 'is-transport' : ''} ${b.type === 'options' ? 'is-options' : ''} ${b.detail ? 'has-detail' : ''}`}>
-              {(timeLabel || b.detail) && (
-                <div className="time-block-heading">
-                  {timeLabel && <p className="text-label-dark" style={{ margin: 0 }}>{timeLabel}</p>}
-                  {b.detail && (
-                    <button
-                      type="button"
-                      className="time-block-detail-btn"
-                      aria-label={`More about ${trimDisplayText(b.detail.title) || content || 'this programme item'}`}
-                      onClick={() => openDetail('block', b)}
-                    >
-                      <Icon name="info" />
-                    </button>
-                  )}
-                </div>
-              )}
-              {content && <p className="text-body" style={{ margin: 0 }}>{content}</p>}
-              {b.type === 'options' && options.length ? (
-                <div className="options-list">
-                  {options.map((opt, oi) => (
-                    <div key={oi} className="option-card">
-                      <div className="option-header">
-                        <span className="option-label">{trimDisplayText(opt.label)}</span>
-                        {opt.duration && <span className="option-duration">{opt.duration}</span>}
-                      </div>
-                      {opt.description && <p className="option-desc">{opt.description}</p>}
-                      {opt.note && <p className="option-note">{opt.note}</p>}
-                    </div>
-                  ))}
-                </div>
-              ) : null}
-            </div>
-          ))}
-        </div>
-      </div>
+    const renderBriefDetailButton = (label: string, onClick: () => void) => (
+      <button
+        type="button"
+        className="day-brief-detail-btn"
+        aria-label={label}
+        title={label}
+        onClick={onClick}
+      >
+        <Icon name="info" />
+      </button>
+    );
+
+    const renderBriefPlace = (label: string, mapLabel?: string, className?: string) => {
+      const mapTarget = findDayMapTarget(mapLabel || label);
+      const classes = ['day-brief-place', className].filter(Boolean).join(' ');
+      if (!mapTarget) return <span className={classes}>{label}</span>;
+      return (
+        <button
+          type="button"
+          className={classes}
+          onClick={() => focusDayMapTarget(mapTarget)}
+        >
+          {label}
+        </button>
+      );
+    };
+
+    const seeAndDoLine = displayBlocks.length ? (
+      <li className="day-brief-item">
+        <span className="day-brief-bullet" aria-hidden="true" />
+        <p className="day-brief-copy">
+          <span className="day-brief-label">See &amp; do:</span>{' '}
+          {displayBlocks.map(({ block: b, timeLabel, content, options }, i) => {
+            const detailTitle = trimDisplayText(b.detail?.title) || content || 'this programme item';
+            return (
+              <span key={i} className="day-brief-segment">
+                {timeLabel && <span className="day-brief-time">{timeLabel}: </span>}
+                {content && <span>{content}</span>}
+                {b.detail && renderBriefDetailButton(`More about ${detailTitle}`, () => openDetail('block', b))}
+                {options.length ? (
+                  <span className="day-brief-options">
+                    {content ? ' ' : ''}
+                    <span className="day-brief-time">Options: </span>
+                    {options.map((opt, oi) => (
+                      <span key={oi}>
+                        <span className="day-brief-emphasis">{trimDisplayText(opt.label)}</span>
+                        {opt.duration && <span className="day-brief-muted-inline"> ({opt.duration})</span>}
+                        {opt.description && <span className="day-brief-muted-inline"> - {opt.description}</span>}
+                        {oi < options.length - 1 ? ', ' : ''}
+                      </span>
+                    ))}
+                  </span>
+                ) : null}
+                {i < displayBlocks.length - 1 ? <span className="day-brief-separator">; </span> : null}
+              </span>
+            );
+          })}
+        </p>
+      </li>
     ) : null;
+
+    const stayLine = day.accommodation ? (() => {
+      const a = day.accommodation!;
+      const statusLabel = accommodationStatusLabel(a);
+      const canOpenReviewer = Boolean(tripId && activeTripData);
+      if (!isConfirmedAccommodation(a)) {
+        return (
+          <li className="day-brief-item">
+            <span className="day-brief-bullet" aria-hidden="true" />
+            <p className="day-brief-copy">
+              <span className="day-brief-label">Stay:</span>{' '}
+              <span className="day-brief-emphasis">Hotel not confirmed yet</span>
+              <span className="day-brief-muted-inline"> - Use Accommodations to confirm</span>
+              <span className={`text-status status-badge day-brief-status status-${statusLabel}`}>
+                {statusLabel}
+              </span>
+              {canOpenReviewer && (
+                <button
+                  type="button"
+                  className="day-brief-review-btn"
+                  aria-label="Use Accommodations to confirm"
+                  onClick={() => openAccommodationReviewer(day)}
+                >
+                  Review
+                  <Icon name="chevron" />
+                </button>
+              )}
+            </p>
+          </li>
+        );
+      }
+
+      const stayMeta = [
+        a.price,
+        formatNightLabel(a.nights),
+        a.rating,
+      ].filter(Boolean).join(' · ');
+
+      return (
+        <li className="day-brief-item">
+          <span className="day-brief-bullet" aria-hidden="true" />
+          <p className="day-brief-copy">
+            <span className="day-brief-label">Stay:</span>{' '}
+            {renderBriefPlace(trimDisplayText(a.name) || 'Accommodation', a.name, 'day-brief-emphasis')}
+            {stayMeta && <span className="day-brief-muted-inline"> - {stayMeta}</span>}
+            {a.note && <span> - {a.note}</span>}
+            <span className={`text-status status-badge day-brief-status status-${a.status || 'pending'}`}>
+              {a.status || 'pending'}
+            </span>
+            {a.detail && renderBriefDetailButton(`Open details for ${a.name || 'this stay'}`, () => openDetail('accommodation', a))}
+          </p>
+        </li>
+      );
+    })() : null;
+
+    const eatLine = day.meals?.length ? (
+      <li className="day-brief-item">
+        <span className="day-brief-bullet" aria-hidden="true" />
+        <p className="day-brief-copy">
+          <span className="day-brief-label">Eat:</span>{' '}
+          {day.meals.map((m, i) => (
+            <span key={i} className="day-brief-segment">
+              {m.type && <span className="day-brief-time">{m.type}: </span>}
+              {renderBriefPlace(trimDisplayText(m.name) || 'Restaurant', m.name, 'day-brief-emphasis')}
+              {m.note && <span> - {m.note}</span>}
+              {m.status && (
+                <span className={`text-status status-badge day-brief-status status-${m.status}`}>
+                  {m.status}
+                </span>
+              )}
+              {m.detail && renderBriefDetailButton(`Open details for ${m.name || 'this restaurant'}`, () => openDetail('meal', m))}
+              {i < day.meals!.length - 1 ? <span className="day-brief-separator">; </span> : null}
+            </span>
+          ))}
+        </p>
+      </li>
+    ) : null;
+
+    const hasBriefItems = Boolean(seeAndDoLine || stayLine || eatLine);
+    const briefSection = (
+      <section className="day-brief" aria-labelledby={`day-brief-title-${day.day_number}`}>
+        <h3 className="day-brief-heading" id={`day-brief-title-${day.day_number}`}>
+          <span>{day.day_number}</span>
+          <span className="day-brief-heading-dot" aria-hidden="true">&middot;</span>
+          <span>{day.title}</span>
+          <span className="day-brief-heading-meta">{'\u2014'} {stayDateLabel}</span>
+          {day.subtitle && (
+            <>
+              <span className="day-brief-heading-dot" aria-hidden="true">&middot;</span>
+              <em>{day.subtitle}</em>
+            </>
+          )}
+        </h3>
+        {day.description && <p className="day-brief-lead">{day.description}</p>}
+        {hasBriefItems && (
+          <ul className="day-brief-list">
+            {seeAndDoLine}
+            {stayLine}
+            {eatLine}
+          </ul>
+        )}
+      </section>
+    );
 
     const transSection = day.transport?.length ? (
       <div className="day-section">
@@ -1776,119 +1928,6 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
       }
     }
 
-    const accomSection = day.accommodation ? (() => {
-      const a = day.accommodation!;
-      if (!isConfirmedAccommodation(a)) {
-        const canOpenReviewer = Boolean(tripId && activeTripData);
-        return (
-          <div className="day-section">
-            <div className="day-section-title">
-              <span className="text-section-title"><span className="section-icon"><Icon name="bed" /></span>Stay</span>
-            </div>
-            <div className="accom-card accom-placeholder">
-              <div className="accom-icon-wrap"><Icon name="hotel" /></div>
-              <div className="accom-info">
-                <div className="text-name">Hotel not confirmed yet</div>
-                <div className="text-small accom-note">Use Accommodations to confirm</div>
-              </div>
-              <span className={`text-status status-badge status-${accommodationStatusLabel(a)}`}>
-                {accommodationStatusLabel(a)}
-              </span>
-              {canOpenReviewer && (
-                <button
-                  type="button"
-                  className="row-details-btn accom-reviewer-btn"
-                  aria-label="Use Accommodations to confirm"
-                  onClick={() => openAccommodationReviewer(day)}
-                >
-                  Review
-                  <Icon name="chevron" />
-                </button>
-              )}
-            </div>
-          </div>
-        );
-      }
-
-      const mapTarget = findDayMapTarget(a.name);
-      return (
-        <div className="day-section">
-          <div className="day-section-title">
-            <span className="text-section-title"><span className="section-icon"><Icon name="bed" /></span>Stay</span>
-          </div>
-          <div
-            className={`accom-card${mapTarget ? ' map-focus-row' : ''}`}
-            onClick={mapTarget ? () => focusDayMapTarget(mapTarget) : undefined}
-          >
-            <div className="accom-icon-wrap"><Icon name="hotel" /></div>
-            <div className="accom-info">
-              <div className="text-name">{a.name}</div>
-              <div className="accom-meta">
-                {a.price && <span className="text-mono">{a.price}</span>}
-                {a.nights && a.nights > 1 && <span className="text-small">· {a.nights} nights</span>}
-                {a.rating && <span className="text-small">· {a.rating}</span>}
-              </div>
-              {a.note && <div className="text-small accom-note">{a.note}</div>}
-            </div>
-            <span className={`text-status status-badge status-${a.status || 'pending'}`}>{a.status || 'pending'}</span>
-            {a.detail && (
-              <button
-                type="button"
-                className="row-details-btn"
-                aria-label={`Open details for ${a.name || 'this stay'}`}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  openDetail('accommodation', a);
-                }}
-              >
-                Details
-                <Icon name="chevron" />
-              </button>
-            )}
-          </div>
-        </div>
-      );
-    })() : null;
-
-    const mealsSection = day.meals?.length ? (
-      <div className="day-section">
-        <div className="day-section-title">
-          <span className="text-section-title"><span className="section-icon"><Icon name="fork" /></span>Eating</span>
-        </div>
-        {day.meals.map((m, i) => {
-          const mapTarget = findDayMapTarget(m.name);
-          return (
-            <div
-              key={i}
-              className={`meal-row${mapTarget ? ' map-focus-row' : ''}`}
-              onClick={mapTarget ? () => focusDayMapTarget(mapTarget) : undefined}
-            >
-              <span className="meal-type-badge">{m.type}</span>
-              <div className="meal-detail">
-                <div className="text-name">{m.name}</div>
-                {m.note && <div className="text-small" style={{ marginTop: 1 }}>{m.note}</div>}
-              </div>
-              {m.status && <span className={`text-status status-badge status-${m.status}`} style={{ flexShrink: 0 }}>{m.status}</span>}
-              {m.detail && (
-                <button
-                  type="button"
-                  className="row-details-btn"
-                  aria-label={`Open details for ${m.name || 'this restaurant'}`}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    openDetail('meal', m);
-                  }}
-                >
-                  Details
-                  <Icon name="chevron" />
-                </button>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    ) : null;
-
     const tipsSection = day.tips?.length ? (
       <div className="day-section tips-section">
         <div className="day-section-title">
@@ -1916,12 +1955,9 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
         <div className="day-slide">
           {visualSection}
           <div className="day-content-stack">
-            {descSection}
-            {progSection}
+            {briefSection}
             {transSection}
             {servicesSection}
-            {accomSection}
-            {mealsSection}
             {tipsSection}
           </div>
         </div>
