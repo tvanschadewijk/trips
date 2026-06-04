@@ -1,8 +1,8 @@
 // OurTrips — Service Worker
 // Caches trip pages, assets, and images for offline viewing.
-// v4: flush cached trip pages/static bundles after the map popover refresh.
+// v5: flush cached image assets after the brand icon refresh.
 
-const CACHE_VERSION = 'v4';
+const CACHE_VERSION = 'v5';
 const STATIC_CACHE = `ourtrips-static-${CACHE_VERSION}`;
 const TRIP_CACHE = `ourtrips-trips-${CACHE_VERSION}`;
 const TRIP_DATA_CACHE = `ourtrips-trip-data-${CACHE_VERSION}`;
@@ -151,6 +151,10 @@ self.addEventListener('fetch', (event) => {
   // Other API endpoints we don't manage.
   if (url.pathname.startsWith('/api/')) return;
 
+  // Let browser/CDN cache app chrome assets directly so favicons, app icons,
+  // brand marks, and social cards are not pinned by the offline image cache.
+  if (isAppChromeAsset(url)) return;
+
   if (isImageUrl(url)) {
     event.respondWith(cacheFirstWithNetwork(request, IMAGE_CACHE, MAX_IMAGE_ENTRIES));
     return;
@@ -174,6 +178,20 @@ function isImageUrl(url) {
   return (
     url.hostname === 'images.unsplash.com' ||
     /\.(jpg|jpeg|png|gif|webp|avif|svg)$/i.test(url.pathname)
+  );
+}
+
+function isAppChromeAsset(url) {
+  return (
+    url.origin === self.location.origin &&
+    (
+      url.pathname === '/favicon.ico' ||
+      url.pathname === '/icon.svg' ||
+      url.pathname === '/manifest.json' ||
+      url.pathname === '/og-image.png' ||
+      url.pathname.startsWith('/icons/') ||
+      url.pathname.startsWith('/brand/')
+    )
   );
 }
 
