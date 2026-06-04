@@ -1167,12 +1167,12 @@
 .day-brief-card-kicker {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   min-width: 0;
   font-family: var(--font-sans);
-  font-size: 15px;
+  font-size: 12px;
   font-weight: 600;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.08em;
   line-height: 1;
   text-transform: uppercase;
   color: var(--color-text-primary);
@@ -1181,8 +1181,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
+  width: 16px;
+  height: 16px;
   border-radius: 0;
   background: transparent;
   color: var(--color-accent);
@@ -1190,8 +1190,8 @@
   flex-shrink: 0;
 }
 .day-brief-card-icon svg {
-  width: 20px;
-  height: 20px;
+  width: 16px;
+  height: 16px;
 }
 .day-brief-card-title,
 .day-card-title {
@@ -1470,16 +1470,17 @@ button.day-brief-place:active {
   border-bottom: 0;
 }
 .day-section-title .text-section-title {
-  gap: 8px;
-  font-size: 15px;
+  gap: 6px;
+  font-size: 12px;
+  letter-spacing: 0.08em;
   color: var(--color-text-primary);
 }
 .day-section-title .section-icon {
   color: var(--color-accent);
 }
 .day-section-title .section-icon svg {
-  width: 20px;
-  height: 20px;
+  width: 16px;
+  height: 16px;
 }
 
 .swipe-track.motion-programmatic .slide.active .day-slide > * {
