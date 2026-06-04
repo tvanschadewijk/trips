@@ -25,7 +25,10 @@ export const metadata: Metadata = {
       'Create and share beautiful, interactive travel itineraries. Plan day-by-day, add places, and share a stunning preview with anyone.',
   },
   icons: {
-    icon: '/favicon.ico',
+    icon: [
+      { url: '/favicon.ico', sizes: 'any' },
+      { url: '/icon.svg', type: 'image/svg+xml' },
+    ],
     apple: '/icons/icon-192.png',
   },
   manifest: '/manifest.json',
