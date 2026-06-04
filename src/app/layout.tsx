@@ -17,19 +17,28 @@ export const metadata: Metadata = {
     siteName: 'OurTrips',
     locale: 'en_US',
     type: 'website',
+    images: [
+      {
+        url: '/og-image.png',
+        width: 1200,
+        height: 630,
+        alt: 'OurTrips — your trips, beautifully presented',
+      },
+    ],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'OurTrips — Your trips, beautifully presented',
     description:
       'Create and share beautiful, interactive travel itineraries. Plan day-by-day, add places, and share a stunning preview with anyone.',
+    images: ['/og-image.png'],
   },
   icons: {
     icon: [
       { url: '/favicon.ico', sizes: 'any' },
       { url: '/icon.svg', type: 'image/svg+xml' },
     ],
-    apple: '/icons/icon-192.png',
+    apple: '/icons/apple-touch-icon.png',
   },
   manifest: '/manifest.json',
   appleWebApp: {
