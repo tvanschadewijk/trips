@@ -2333,10 +2333,29 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
               </button>
               <div className="nav-title-text">
                 {!isHero && trip && (
-                  <div className="text-nav-title">
-                    <span className="nav-trip-name">{trip.name}</span>
-                    {trip.subtitle && <span className="nav-trip-subtitle">{trip.subtitle}</span>}
-                  </div>
+                  <>
+                    <div className="text-nav-title">
+                      <span className="nav-trip-name">{trip.name}</span>
+                    </div>
+                    <nav className="nav-breadcrumb" aria-label="Breadcrumb">
+                      <ol>
+                        <li>
+                          <a
+                            className="nav-breadcrumb-link"
+                            href={homeHref}
+                            onClick={(event) => {
+                              if (!autoOpen) {
+                                event.preventDefault();
+                                closeTrip();
+                              }
+                            }}
+                          >
+                            back to trips overview
+                          </a>
+                        </li>
+                      </ol>
+                    </nav>
+                  </>
                 )}
               </div>
             </div>
