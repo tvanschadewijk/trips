@@ -29,7 +29,7 @@ import {
 const MCP_INSTRUCTIONS =
   [
     'Use OurTrips to save and edit travel itineraries for the authenticated user. This MCP connector is self-contained; do not rely on any OurTrips or Artrip skill.',
-    'Use get_trip_schema or get_trip_template when you need structure. Use get_trip summary/day/days/sections reads first; full reads require allow_large=true because large trips can exceed agent token limits.',
+    'Use save_trip_v2 for new or substantially rewritten itineraries so the trip follows the OurTrips quality contract. Use get_trip_schema or get_trip_template when you need structure. Use get_trip summary/day/days/sections reads first; full reads require allow_large=true because large trips can exceed agent token limits.',
     'Use focused upsert/delete tools for meals, hotels, transport, and activities. For route rewrites, hotel swaps, removed stops, or stale nested fields, use replace_day, replace_day_section, replace_accommodation with mode=replace, delete_day, truncate_days_after, replace_paths, or delete_paths instead of deep merge.',
     'Images are part of the MCP workflow: use search_trip_images and set_trip_image for real Unsplash trip/day hero images, then use get_trip_image_prompts plus save_trip_image_asset for externally generated cover/social assets. Check get_trip_image_status or verify_trip_public_data before saying the trip is done.',
     'Do not ask for an API key; OAuth is already authorized.',
@@ -82,6 +82,7 @@ const ReadSectionSchema = z.enum([
   'tips',
   'stats',
   'route_points',
+  'quality',
   'services',
   'notes',
 ]);
@@ -90,7 +91,7 @@ const AccommodationScopeSchema = z
   .optional()
   .describe('Use matching_accommodation_name to update/delete the same hotel across adjacent stay days.');
 const SchemaSectionSchema = z
-  .enum(['overview', 'trip', 'day', 'activity', 'transport', 'accommodation', 'meal', 'route_points', 'image_assets', 'patching'])
+  .enum(['overview', 'trip', 'day', 'activity', 'transport', 'accommodation', 'meal', 'route_points', 'image_assets', 'quality_contract', 'v2', 'patching'])
   .optional();
 const ImageAssetSlotSchema = z.enum(['cover_portrait', 'cover_landscape', 'social_og']);
 const ImageOrientationSchema = z.enum(['landscape', 'portrait', 'squarish']).optional();
@@ -105,6 +106,155 @@ const ImageAssetSchema = z.object({
   source: z.enum(['imagegen', 'manual', 'search']).optional(),
   generated_at: z.string().optional(),
 });
+const TimePrecisionSchema = z.enum(['fixed', 'suggested', 'window']);
+const ItineraryPlaceSchema = z
+  .object({
+    name: z.string().min(1),
+    address: z.string().optional(),
+    lat: z.number().min(-90).max(90).optional(),
+    lng: z.number().min(-180).max(180).optional(),
+    google_maps_url: z.string().optional(),
+    place_id: z.string().optional(),
+    note: z.string().optional(),
+  })
+  .passthrough();
+const ItineraryAlternativeSchema = z
+  .object({
+    label: z.string().min(1),
+    description: z.string().min(1),
+    trigger: z.string().optional(),
+    duration: z.string().optional(),
+    cost_hint: z.string().optional(),
+  })
+  .passthrough();
+const TravelWalletItemSchema = z
+  .object({
+    title: z.string().min(1),
+    type: z.string().optional(),
+    url: z.string().optional(),
+    file_url: z.string().optional(),
+    qr_code_url: z.string().optional(),
+    confirmation: z.string().optional(),
+    note: z.string().optional(),
+    is_private: z.boolean().optional(),
+  })
+  .passthrough();
+const RichDetailV2Schema = z
+  .object({
+    title: z.string().optional(),
+    body: z.string().optional(),
+    why: z.string().optional(),
+    vibe: z.string().optional(),
+    highlights: z.array(z.string()).optional(),
+    what_to_see: z.array(z.string()).optional(),
+    how_to_do_it: z.string().optional(),
+    practical: z.string().optional(),
+    booking_note: z.string().optional(),
+    wallet_items: z.array(TravelWalletItemSchema).optional(),
+  })
+  .passthrough();
+const ActivityV2Schema = z
+  .object({
+    time_label: z.string().min(1).describe('Visible programme label such as "09:00", "09:00-11:00", or "Morning".'),
+    content: z.string().min(1),
+    type: z.string().min(1),
+    starts_at: z.string().optional().describe('HH:mm when known.'),
+    ends_at: z.string().optional().describe('HH:mm when known.'),
+    time_precision: TimePrecisionSchema.optional().describe('fixed = booking/transport/researched constraint; suggested = AI-planned exact time; window = broad time of day.'),
+    duration_minutes: z.number().int().positive().optional(),
+    place: ItineraryPlaceSchema.optional(),
+    booking_status: z.string().optional(),
+    reservation_required: z.boolean().optional(),
+    cost_hint: z.string().optional(),
+    pace: z.string().optional(),
+    detail: RichDetailV2Schema.optional(),
+    options: z.array(JsonObjectSchema).optional(),
+    alternatives: z.array(ItineraryAlternativeSchema).optional(),
+  })
+  .passthrough();
+const TransportV2Schema = z
+  .object({
+    mode: z.string().min(1),
+    label: z.string().min(1),
+    from: z.string().optional(),
+    to: z.string().optional(),
+    depart: z.string().optional(),
+    arrive: z.string().optional(),
+    duration: z.string().optional(),
+    distance: z.string().optional(),
+    status: z.string().optional(),
+    booking_status: z.string().optional(),
+    reservation_required: z.boolean().optional(),
+    cost_hint: z.string().optional(),
+    detail: RichDetailV2Schema.optional(),
+  })
+  .passthrough();
+const AccommodationV2Schema = z
+  .object({
+    name: z.string().min(1),
+    price: z.string().optional(),
+    rating: z.string().optional(),
+    status: z.string().optional(),
+    booking_status: z.string().optional(),
+    reservation_required: z.boolean().optional(),
+    cost_hint: z.string().optional(),
+    nights: z.number().optional(),
+    note: z.string().optional(),
+    detail: RichDetailV2Schema.optional(),
+  })
+  .passthrough();
+const MealV2Schema = z
+  .object({
+    type: z.string().min(1),
+    name: z.string().min(1),
+    note: z.string().optional(),
+    status: z.string().optional(),
+    starts_at: z.string().optional(),
+    ends_at: z.string().optional(),
+    time_precision: TimePrecisionSchema.optional(),
+    booking_status: z.string().optional(),
+    reservation_required: z.boolean().optional(),
+    cost_hint: z.string().optional(),
+    place: ItineraryPlaceSchema.optional(),
+    detail: RichDetailV2Schema.optional(),
+  })
+  .passthrough();
+const DayV2Schema = z
+  .object({
+    day_number: DayNumberSchema,
+    date: z.string().min(1).describe('ISO 8601 YYYY-MM-DD'),
+    title: z.string().min(1),
+    subtitle: z.string().optional(),
+    description_title: z.string().optional(),
+    description: z.string().optional(),
+    day_type: z.string().optional(),
+    pace: z.string().optional(),
+    hero_image: z.string().optional(),
+    stats: z.array(JsonObjectSchema).optional(),
+    blocks: z.array(ActivityV2Schema).optional(),
+    transport: z.array(TransportV2Schema).optional(),
+    accommodation: AccommodationV2Schema.nullable().optional(),
+    meals: z.array(MealV2Schema).optional(),
+    tips: z.array(JsonObjectSchema).optional(),
+    alternatives: z.array(ItineraryAlternativeSchema).optional(),
+  })
+  .passthrough();
+const TripMetaV2Schema = z
+  .object({
+    name: z.string().min(1),
+    subtitle: z.string().min(1),
+    dates: z.object({
+      start: z.string().min(1).describe('ISO 8601 YYYY-MM-DD'),
+      end: z.string().min(1).describe('ISO 8601 YYYY-MM-DD'),
+    }),
+    travelers: z.array(z.string()),
+    summary: z.string().min(1),
+    hero_image: z.string().min(1),
+    overview_image: z.string().optional(),
+    route_points: z.array(JsonObjectSchema).optional(),
+    notes: z.array(JsonObjectSchema).optional(),
+  })
+  .passthrough();
 
 type ToolExtra = {
   authInfo?: AuthInfo;
@@ -162,6 +312,7 @@ const TRIP_SCHEMA_REFERENCE = {
       markdown_source: 'Optional verbatim original plan markdown, max 256 KB.',
     },
     rules: [
+      'Use save_trip_v2 for new or substantially rewritten itineraries; it returns quality warnings for sparse or unstructured days.',
       'Use get_trip summary/day/days/sections reads before full reads.',
       'Unsplash hero image URLs must come from search_trip_images, then set_trip_image should track the selected download_url.',
       'Generated covers/social images live in trip.image_assets and are saved with save_trip_image_asset after the agent has created and hosted them elsewhere.',
@@ -200,7 +351,8 @@ const TRIP_SCHEMA_REFERENCE = {
     section: 'days[].blocks[]',
     required: ['time_label', 'content', 'type'],
     purpose: 'Only actual programme/activity items. Do not use blocks for the day intro; use days[].description_title and days[].description instead.',
-    detail_fields: ['title', 'body', 'why', 'vibe', 'highlights', 'what_to_see', 'how_to_do_it', 'practical', 'booking_note', 'dog_note'],
+    v2_fields: ['starts_at', 'ends_at', 'time_precision', 'duration_minutes', 'place', 'booking_status', 'reservation_required', 'cost_hint', 'pace', 'alternatives'],
+    detail_fields: ['title', 'body', 'why', 'vibe', 'highlights', 'what_to_see', 'how_to_do_it', 'practical', 'booking_note', 'dog_note', 'wallet_items'],
   },
   transport: {
     section: 'days[].transport[]',
@@ -234,6 +386,22 @@ const TRIP_SCHEMA_REFERENCE = {
     },
     fields: ['url', 'prompt', 'aspect_ratio', 'width', 'height', 'provider', 'model', 'source', 'generated_at'],
   },
+  quality_contract: {
+    save_tool: 'save_trip_v2',
+    schema_version: 2,
+    day_contract: [
+      'Every full travel day should have description_title + description and usually 3-6 programme blocks.',
+      'Use exact starts_at/ends_at only with time_precision. fixed is reserved for bookings, transport, or researched constraints; suggested is for AI-planned exact times; window is for broad labels.',
+      'Named sights, hotels, restaurants, and stops should use place.name when known so maps stay reliable.',
+      'Hotels, transport, and reservable meals should carry status or booking_status so action items/readiness work.',
+      'Use day_type, pace, and alternatives for rainy-day, tired-day, kid-friendly, cheaper, or lighter versions.',
+      'Store confirmations, PDFs, QR codes, and private booking references in detail.wallet_items; never invent confirmation numbers.',
+    ],
+    validation: 'save_trip_v2 normalizes the trip to trip_schema_version=2 and returns quality warnings. strict_quality only rejects hard errors such as missing days.',
+  },
+  v2: {
+    alias_for: 'quality_contract',
+  },
   patching: {
     merge: 'Objects deep-merge; omitted nested keys remain. Arrays replace when included.',
     replace: 'Use mode=replace, replace_day, replace_day_section, replace_accommodation, or replace_paths when old nested keys must disappear.',
@@ -245,6 +413,48 @@ const TRIP_TEMPLATE_REFERENCE = {
   new_trip: {
     trip: TRIP_SCHEMA_REFERENCE.trip.example,
     days: [TRIP_SCHEMA_REFERENCE.day.example],
+    markdown_source: '# Optional original plan markdown\n',
+  },
+  new_trip_v2: {
+    tool: 'save_trip_v2',
+    trip: TRIP_SCHEMA_REFERENCE.trip.example,
+    days: [
+      {
+        ...TRIP_SCHEMA_REFERENCE.day.example,
+        day_type: 'arrival',
+        pace: 'light',
+        description_title: 'Soft first landing',
+        description: 'Keep the first day clean: arrive, settle in, take one good walk, and make dinner easy.',
+        blocks: [
+          {
+            time_label: '15:00',
+            starts_at: '15:00',
+            time_precision: 'fixed',
+            content: 'Arrive and transfer to the hotel.',
+            type: 'transport',
+            booking_status: 'booked',
+          },
+          {
+            time_label: '17:00-18:30',
+            starts_at: '17:00',
+            ends_at: '18:30',
+            time_precision: 'suggested',
+            content: 'Orientation walk through the old quarter.',
+            type: 'activity',
+            place: { name: 'Old quarter' },
+          },
+          {
+            time_label: 'Evening',
+            time_precision: 'window',
+            content: 'Low-friction dinner near the hotel.',
+            type: 'meal',
+          },
+        ],
+        meals: [{ type: 'dinner', name: 'Neighbourhood dinner option', booking_status: 'open', reservation_required: false }],
+        alternatives: [{ label: 'Tired-day version', description: 'Skip the orientation walk and keep only a short dinner nearby.', trigger: 'tired' }],
+      },
+    ],
+    strict_quality: false,
     markdown_source: '# Optional original plan markdown\n',
   },
   replace_hotel: {
@@ -324,7 +534,7 @@ export function createOurTripsMcpServer(origin: string): McpServer {
         'Return compact examples for common OurTrips save, edit, image, and read workflows.',
       inputSchema: {
         template: z
-          .enum(['new_trip', 'replace_hotel', 'day_range_read', 'day_hero_image', 'generated_cover'])
+          .enum(['new_trip', 'new_trip_v2', 'replace_hotel', 'day_range_read', 'day_hero_image', 'generated_cover'])
           .optional()
           .describe('Optional template name. Omit to list all templates.'),
       },
@@ -376,6 +586,55 @@ export function createOurTripsMcpServer(origin: string): McpServer {
           createAdminClient(),
           userIdFromAuth(extra),
           input,
+          origin
+        );
+        return jsonResult(result);
+      } catch (err) {
+        return errorResult(err);
+      }
+    }
+  );
+
+  server.registerTool(
+    'save_trip_v2',
+    {
+      title: 'Save trip v2',
+      description:
+        'Save a complete OurTrips itinerary using the v2 quality contract. Returns quality warnings so sparse or unstructured days can be repaired.',
+      inputSchema: {
+        trip: TripMetaV2Schema,
+        days: z.array(DayV2Schema).describe('Day-by-day itinerary data following the OurTrips v2 quality contract.'),
+        markdown_source: z
+          .string()
+          .max(262144)
+          .optional()
+          .describe('Optional original markdown itinerary, up to 256 KB.'),
+        trip_id: z
+          .string()
+          .optional()
+          .describe('Optional existing OurTrips trip id to update.'),
+        strict_quality: z
+          .boolean()
+          .optional()
+          .describe('When true, reject hard quality errors. Warnings are still returned for repair guidance.'),
+      },
+      annotations: {
+        title: 'Save trip v2',
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
+    },
+    async (input, extra) => {
+      try {
+        const result = await saveTripForUser(
+          createAdminClient(),
+          userIdFromAuth(extra),
+          {
+            ...input,
+            trip_schema_version: 2,
+          },
           origin
         );
         return jsonResult(result);

@@ -12,6 +12,15 @@ interface Props {
   data: TripData;
 }
 
+function notifyOfflineStatusChanged(shareId: string, saved: boolean) {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(
+    new CustomEvent('ourtrips:offline-status-changed', {
+      detail: { shareId, saved },
+    })
+  );
+}
+
 /**
  * Small icon-pill button in the trip nav top-right that toggles offline
  * download for the current trip. Shows idle / saving / saved states with
@@ -35,6 +44,7 @@ export default function SaveOfflineButton({ shareId, data }: Props) {
       return;
     }
     await save(data);
+    notifyOfflineStatusChanged(shareId, true);
     setToast('Saved for offline');
     setTimeout(() => setToast(null), 2200);
   };
@@ -42,6 +52,7 @@ export default function SaveOfflineButton({ shareId, data }: Props) {
   const handleRemove = async () => {
     setConfirmingRemove(false);
     await remove();
+    notifyOfflineStatusChanged(shareId, false);
     setToast('Removed from offline');
     setTimeout(() => setToast(null), 2200);
   };

@@ -1,4 +1,5 @@
 export interface TripData {
+  trip_schema_version?: number;
   trip: TripMeta;
   days: Day[];
   /**
@@ -87,6 +88,8 @@ export interface Day {
   subtitle?: string;
   description_title?: string;
   description?: string;
+  day_type?: 'arrival' | 'departure' | 'travel' | 'full' | 'rest' | string;
+  pace?: 'light' | 'balanced' | 'full' | string;
   hero_image?: string;
   stats?: Stat[];
   blocks?: Block[];
@@ -94,6 +97,7 @@ export interface Day {
   accommodation?: Accommodation | null;
   meals?: Meal[];
   tips?: Tip[];
+  alternatives?: ItineraryAlternative[];
 }
 
 export interface Tip {
@@ -113,8 +117,18 @@ export interface Block {
   time_label: string;
   content: string;
   type: string;
+  starts_at?: string;
+  ends_at?: string;
+  time_precision?: TimePrecision;
+  duration_minutes?: number;
+  place?: ItineraryPlace;
+  booking_status?: BookingStatus;
+  reservation_required?: boolean;
+  cost_hint?: string;
+  pace?: 'light' | 'balanced' | 'full' | string;
   detail?: RichDetail;
   options?: Option[];
+  alternatives?: ItineraryAlternative[];
 }
 
 export interface RichDetail {
@@ -129,6 +143,47 @@ export interface RichDetail {
   booking_note?: string;
   what_to_order?: string;
   dog_note?: string;
+  wallet_items?: TravelWalletItem[];
+}
+
+export type TimePrecision = 'fixed' | 'suggested' | 'window';
+
+export type BookingStatus =
+  | 'booked'
+  | 'confirmed'
+  | 'open'
+  | 'pending'
+  | 'optional'
+  | 'not_required'
+  | string;
+
+export interface ItineraryPlace {
+  name: string;
+  address?: string;
+  lat?: number;
+  lng?: number;
+  google_maps_url?: string;
+  place_id?: string;
+  note?: string;
+}
+
+export interface ItineraryAlternative {
+  label: string;
+  description: string;
+  trigger?: 'rainy' | 'tired' | 'kid_friendly' | 'cheaper' | 'lighter' | 'free_time' | string;
+  duration?: string;
+  cost_hint?: string;
+}
+
+export interface TravelWalletItem {
+  title: string;
+  type?: 'confirmation' | 'ticket' | 'voucher' | 'qr' | 'pdf' | 'note' | string;
+  url?: string;
+  file_url?: string;
+  qr_code_url?: string;
+  confirmation?: string;
+  note?: string;
+  is_private?: boolean;
 }
 
 export interface Option {
@@ -148,6 +203,9 @@ export interface Transport {
   duration?: string;
   distance?: string;
   status?: string;
+  booking_status?: BookingStatus;
+  reservation_required?: boolean;
+  cost_hint?: string;
   detail?: TransportDetail;
 }
 
@@ -171,6 +229,7 @@ export interface TransportDetail {
   route?: string;
   charging_stops?: ChargingStop[];
   border?: BorderCrossing;
+  wallet_items?: TravelWalletItem[];
 }
 
 export interface ChargingStop {
@@ -192,6 +251,9 @@ export interface Accommodation {
   price?: string;
   rating?: string;
   status?: string;
+  booking_status?: BookingStatus;
+  reservation_required?: boolean;
+  cost_hint?: string;
   nights?: number;
   note?: string;
   detail?: AccommodationDetail;
@@ -214,6 +276,7 @@ export interface AccommodationDetail extends RichDetail {
   policy_source_label?: string;
   policy_confidence?: 'high' | 'medium' | 'low';
   note?: string;
+  wallet_items?: TravelWalletItem[];
 }
 
 export interface Meal {
@@ -221,6 +284,13 @@ export interface Meal {
   name: string;
   note?: string;
   status?: string;
+  starts_at?: string;
+  ends_at?: string;
+  time_precision?: TimePrecision;
+  booking_status?: BookingStatus;
+  reservation_required?: boolean;
+  cost_hint?: string;
+  place?: ItineraryPlace;
   detail?: MealDetail;
 }
 
@@ -233,6 +303,7 @@ export interface MealDetail extends RichDetail {
   booking_platform?: string;
   hours?: string;
   note?: string;
+  wallet_items?: TravelWalletItem[];
 }
 
 // Database types

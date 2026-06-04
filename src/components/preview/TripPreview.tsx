@@ -19,6 +19,7 @@ import {
 } from '@/lib/day-map';
 import { getTripOverviewImageUrl } from '@/lib/trip-images';
 import { isConfirmedAccommodation } from '@/lib/trip-status';
+import { isTripSavedOffline } from '@/lib/offline';
 import '@/styles/preview.css';
 
 /** Extract 3-letter IATA airport codes from a string like "Amsterdam (AMS) → New York (JFK)" */
@@ -259,6 +260,191 @@ function accommodationTodoKey(day: Day, accommodation: Accommodation): string {
   return `day:${day.day_number}`;
 }
 
+type TodayPlanItem = {
+  key: string;
+  icon: string;
+  label: string;
+  meta?: string;
+  status?: string;
+  mapLabel?: string;
+  minute?: number;
+};
+
+type TodayPlan = {
+  current?: TodayPlanItem;
+  next?: TodayPlanItem;
+  later: TodayPlanItem[];
+  sleep?: TodayPlanItem;
+  transport?: TodayPlanItem;
+  meal?: TodayPlanItem;
+  openActionCount: number;
+};
+
+const TIME_BUCKET_MINUTES: Record<string, number> = {
+  sunrise: 390,
+  early: 480,
+  morning: 540,
+  'late morning': 660,
+  midday: 720,
+  lunch: 750,
+  afternoon: 900,
+  'late afternoon': 1020,
+  sunset: 1080,
+  evening: 1140,
+  dinner: 1170,
+  night: 1260,
+};
+
+function firstTimeMinute(value: string | undefined): number | undefined {
+  const raw = trimDisplayText(value);
+  if (!raw) return undefined;
+  const exact = /\b([01]?\d|2[0-3])[:.]([0-5]\d)\b/.exec(raw);
+  if (exact) return Number(exact[1]) * 60 + Number(exact[2]);
+
+  const normalized = raw.toLowerCase();
+  const matchingBucket = Object.entries(TIME_BUCKET_MINUTES)
+    .sort((a, b) => b[0].length - a[0].length)
+    .find(([label]) => normalized.includes(label));
+  return matchingBucket?.[1];
+}
+
+function mealFallbackMinute(meal: Meal): number {
+  const type = trimDisplayText(meal.type).toLowerCase();
+  if (type.includes('breakfast')) return 510;
+  if (type.includes('brunch')) return 660;
+  if (type.includes('lunch')) return 750;
+  if (type.includes('dinner')) return 1170;
+  return 780;
+}
+
+function nowMinuteOfDay(): number {
+  const now = new Date();
+  return now.getHours() * 60 + now.getMinutes();
+}
+
+function statusForPlanItem(value: string | undefined): string | undefined {
+  const status = trimDisplayText(value);
+  return status || undefined;
+}
+
+function isOpenPlanStatus(value: string | undefined): boolean {
+  const status = trimDisplayText(value).toLowerCase();
+  return status === 'open' || status === 'pending' || status === 'reserved' || status === 'hold';
+}
+
+function buildTodayPlan(day: Day): TodayPlan {
+  const items: TodayPlanItem[] = [];
+
+  for (const [index, block] of (day.blocks ?? []).entries()) {
+    const label = blockDisplayText(block);
+    if (!label) continue;
+    const timeLabel = trimDisplayText(block.time_label);
+    const minute = firstTimeMinute(block.starts_at) ?? firstTimeMinute(timeLabel);
+    items.push({
+      key: `block-${index}`,
+      icon: block.type === 'transport' ? 'route' : block.type === 'meal' ? 'fork' : 'binoculars',
+      label,
+      meta: [timeLabel, trimDisplayText(block.place?.name), trimDisplayText(block.cost_hint)].filter(Boolean).join(' · '),
+      status: statusForPlanItem(block.booking_status),
+      mapLabel: trimDisplayText(block.place?.name) || label,
+      minute,
+    });
+  }
+
+  for (const [index, transport] of (day.transport ?? []).entries()) {
+    const route = [trimDisplayText(transport.from), trimDisplayText(transport.to)].filter(Boolean).join(' → ');
+    const minute = firstTimeMinute(transport.depart);
+    items.push({
+      key: `transport-${index}`,
+      icon: trimDisplayText(transport.mode) || 'route',
+      label: trimDisplayText(transport.label) || route || 'Transport',
+      meta: [trimDisplayText(transport.depart), route, trimDisplayText(transport.duration)].filter(Boolean).join(' · '),
+      status: statusForPlanItem(transport.booking_status ?? transport.status),
+      mapLabel: trimDisplayText(transport.to) || trimDisplayText(transport.from),
+      minute,
+    });
+  }
+
+  for (const [index, meal] of (day.meals ?? []).entries()) {
+    const minute = firstTimeMinute(meal.starts_at) ?? firstTimeMinute(meal.detail?.reservation) ?? mealFallbackMinute(meal);
+    items.push({
+      key: `meal-${index}`,
+      icon: 'fork',
+      label: trimDisplayText(meal.name) || 'Meal',
+      meta: [trimDisplayText(meal.type), trimDisplayText(meal.starts_at), trimDisplayText(meal.detail?.cuisine), trimDisplayText(meal.cost_hint)].filter(Boolean).join(' · '),
+      status: statusForPlanItem(meal.booking_status ?? meal.status),
+      mapLabel: trimDisplayText(meal.place?.name) || trimDisplayText(meal.name),
+      minute,
+    });
+  }
+
+  const sorted = items.sort((left, right) => (left.minute ?? 9999) - (right.minute ?? 9999));
+  const nowMinute = nowMinuteOfDay();
+  const currentIndex = sorted.findIndex((item, index) => {
+    if (typeof item.minute !== 'number') return false;
+    const nextMinute = sorted.slice(index + 1).find((candidate) => typeof candidate.minute === 'number')?.minute;
+    return item.minute <= nowMinute && (typeof nextMinute !== 'number' || nowMinute < nextMinute);
+  });
+  const current = currentIndex >= 0 ? sorted[currentIndex] : undefined;
+  const next = sorted.find((item, index) => (
+    index !== currentIndex &&
+    (typeof item.minute !== 'number' || item.minute >= nowMinute)
+  )) ?? sorted.find((item, index) => index !== currentIndex) ?? sorted[0];
+  const later = sorted
+    .filter((item) => item.key !== current?.key && item.key !== next?.key)
+    .slice(0, 2);
+
+  const accommodation = day.accommodation;
+  const firstTransport = day.transport?.[0];
+  const firstMeal = day.meals?.[0];
+
+  let openActionCount = 0;
+  for (const transport of day.transport ?? []) {
+    if (isOpenPlanStatus(transport.booking_status ?? transport.status)) openActionCount += 1;
+  }
+  if (day.accommodation && !isTodoDoneStatus(day.accommodation.booking_status ?? day.accommodation.status)) openActionCount += 1;
+  for (const meal of day.meals ?? []) {
+    if (meal.reservation_required && !isTodoDoneStatus(meal.booking_status ?? meal.status)) openActionCount += 1;
+  }
+
+  return {
+    current,
+    next,
+    later,
+    sleep: accommodation
+      ? {
+          key: 'sleep',
+          icon: 'hotel',
+          label: isPlaceholderAccommodationName(accommodation.name) ? 'Hotel not confirmed yet' : accommodation.name,
+          meta: [formatNightLabel(accommodation.nights), trimDisplayText(accommodation.detail?.check_in)].filter(Boolean).join(' · '),
+          status: statusForPlanItem(accommodation.booking_status ?? accommodation.status),
+          mapLabel: accommodation.name,
+        }
+      : undefined,
+    transport: firstTransport
+      ? {
+          key: 'transport',
+          icon: trimDisplayText(firstTransport.mode) || 'route',
+          label: trimDisplayText(firstTransport.label) || [firstTransport.from, firstTransport.to].filter(Boolean).join(' → ') || 'Transport',
+          meta: [trimDisplayText(firstTransport.depart), trimDisplayText(firstTransport.duration)].filter(Boolean).join(' · '),
+          status: statusForPlanItem(firstTransport.booking_status ?? firstTransport.status),
+          mapLabel: trimDisplayText(firstTransport.to) || trimDisplayText(firstTransport.from),
+        }
+      : undefined,
+    meal: firstMeal
+      ? {
+          key: 'meal',
+          icon: 'fork',
+          label: trimDisplayText(firstMeal.name) || 'Meal',
+          meta: [trimDisplayText(firstMeal.type), trimDisplayText(firstMeal.detail?.reservation)].filter(Boolean).join(' · '),
+          status: statusForPlanItem(firstMeal.booking_status ?? firstMeal.status),
+          mapLabel: trimDisplayText(firstMeal.place?.name) || trimDisplayText(firstMeal.name),
+        }
+      : undefined,
+    openActionCount,
+  };
+}
+
 function SwipeDots({ total, current, onDotClick }: { total: number; current: number; onDotClick: (i: number) => void }) {
   if (total <= MAX_VISIBLE_DOTS) {
     return (
@@ -335,6 +521,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
   const [brokenImages, setBrokenImages] = useState<Set<string>>(new Set());
   const [dayMapFocusRequest, setDayMapFocusRequest] = useState<DayMapFocusRequest | null>(null);
   const [dayMapViewAllRequest, setDayMapViewAllRequest] = useState<DayMapViewAllRequest | null>(null);
+  const [offlineSaved, setOfflineSaved] = useState(false);
   const onImgError = useCallback((src: string) => {
     setBrokenImages(prev => { const next = new Set(prev); next.add(src); return next; });
   }, []);
@@ -421,6 +608,28 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
   useEffect(() => {
     if (!shareId || typeof window === 'undefined') return;
     fetch(`/api/trip-data/${shareId}`, { credentials: 'omit', cache: 'no-cache' }).catch(() => {});
+  }, [shareId]);
+
+  useEffect(() => {
+    if (!shareId || typeof window === 'undefined') {
+      setOfflineSaved(false);
+      return;
+    }
+
+    const sync = () => setOfflineSaved(isTripSavedOffline(shareId));
+    const handleOfflineStatus = (event: Event) => {
+      const detail = (event as CustomEvent<{ shareId?: string; saved?: boolean }>).detail;
+      if (detail?.shareId !== shareId) return;
+      setOfflineSaved(Boolean(detail.saved));
+    };
+
+    sync();
+    window.addEventListener('storage', sync);
+    window.addEventListener('ourtrips:offline-status-changed', handleOfflineStatus);
+    return () => {
+      window.removeEventListener('storage', sync);
+      window.removeEventListener('ourtrips:offline-status-changed', handleOfflineStatus);
+    };
   }, [shareId]);
 
   // Publish current slide as context for the chat panel. Stored in
@@ -1872,6 +2081,84 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
       );
     };
 
+    const todayPlan = todayInfo?.dayNumber === day.day_number ? buildTodayPlan(day) : null;
+
+    const renderTodayPlanItem = (item: TodayPlanItem | undefined, label: string) => {
+      if (!item) return null;
+      const status = trimDisplayText(item.status);
+      const statusClass = normalizeMapFocusLabel(status).replace(/\s+/g, '-') || 'info';
+      return (
+        <div className="today-mode-row">
+          <span className="today-mode-row-icon"><Icon name={item.icon} /></span>
+          <div className="today-mode-row-copy">
+            <span className="today-mode-row-label">{label}</span>
+            <h3 className="today-mode-row-title">
+              {item.mapLabel ? renderBriefPlace(item.label, item.mapLabel, 'today-mode-place') : item.label}
+            </h3>
+            {item.meta && <p className="today-mode-row-meta">{item.meta}</p>}
+          </div>
+          {status && (
+            <span className={`text-status status-badge today-mode-status status-${statusClass}`}>
+              {status}
+            </span>
+          )}
+        </div>
+      );
+    };
+
+    const todayModeCard = todayPlan ? (() => {
+      const laterItems = todayPlan.later.slice(0, 2);
+      const quickItems = [todayPlan.transport, todayPlan.sleep, todayPlan.meal].filter((item): item is TodayPlanItem => Boolean(item));
+      const readinessLabel = todayPlan.openActionCount === 0
+        ? 'Ready'
+        : `${todayPlan.openActionCount} open`;
+      return (
+        <section className="today-mode-card" aria-label={`Today mode for day ${day.day_number}`}>
+          <div className="today-mode-header">
+            <div>
+              <p className="today-mode-overline">Today</p>
+              <h3 className="today-mode-title">Day {day.day_number} at a glance</h3>
+            </div>
+            <span className={`today-mode-readiness ${todayPlan.openActionCount === 0 ? 'ready' : 'open'}`}>
+              {readinessLabel}
+            </span>
+          </div>
+          <div className="today-mode-timeline">
+            {renderTodayPlanItem(todayPlan.current ?? todayPlan.next, todayPlan.current ? 'Now' : 'Next')}
+            {todayPlan.current && renderTodayPlanItem(todayPlan.next, 'Next')}
+            {laterItems.map((item, index) => renderTodayPlanItem(item, index === 0 ? 'Later' : 'After'))}
+          </div>
+          <div className="today-mode-grid">
+            <div className="today-mode-fact">
+              <span className="today-mode-fact-icon"><Icon name="map" /></span>
+              <span className="today-mode-fact-copy">
+                <span className="today-mode-fact-label">Map</span>
+                <span className="today-mode-fact-value">{dayMapCountLabel}</span>
+              </span>
+            </div>
+            {shareId && (
+              <div className="today-mode-fact">
+                <span className="today-mode-fact-icon"><Icon name={offlineSaved ? 'check' : 'download'} /></span>
+                <span className="today-mode-fact-copy">
+                  <span className="today-mode-fact-label">Offline</span>
+                  <span className="today-mode-fact-value">{offlineSaved ? 'Saved' : 'Not saved'}</span>
+                </span>
+              </div>
+            )}
+            {quickItems.slice(0, 2).map((item) => (
+              <div className="today-mode-fact" key={item.key}>
+                <span className="today-mode-fact-icon"><Icon name={item.icon} /></span>
+                <span className="today-mode-fact-copy">
+                  <span className="today-mode-fact-label">{item.key}</span>
+                  <span className="today-mode-fact-value">{item.label}</span>
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
+      );
+    })() : null;
+
     const renderBriefActivityText = (value: string): ReactNode => {
       const text = trimDisplayText(value);
       if (!text) return null;
@@ -2111,7 +2398,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
       );
     })() : null;
 
-    const hasBriefItems = Boolean(seeAndDoBlock || stayCard || mealCard);
+    const hasBriefItems = Boolean(todayModeCard || seeAndDoBlock || stayCard || mealCard);
     const briefSection = (
       <section className="day-brief" aria-labelledby={dayTitleId}>
         <div className="day-brief-header">
@@ -2126,6 +2413,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
         </div>
         {hasBriefItems && (
           <div className="day-brief-body">
+            {todayModeCard}
             {seeAndDoBlock}
             {(stayCard || mealCard) && (
               <div className="day-brief-card-list">

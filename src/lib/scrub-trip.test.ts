@@ -6,7 +6,12 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { scrubTripData, anchorTripToToday, scrubAndAnchorTripData } from './scrub-trip';
+import {
+  scrubTripData,
+  anchorTripToToday,
+  scrubAndAnchorTripData,
+  stripPrivateTravelWalletData,
+} from './scrub-trip';
 import type { TripData } from './types';
 
 function fixture(): TripData {
@@ -140,6 +145,30 @@ test('keeps meal name + cuisine + price_range, drops address/phone/reservation/s
   assert.equal((m.detail as Record<string, unknown> | undefined)?.address, undefined);
   assert.equal((m.detail as Record<string, unknown> | undefined)?.phone, undefined);
   assert.equal((m.detail as Record<string, unknown> | undefined)?.reservation, undefined);
+});
+
+test('drops wallet items while preserving companion-mode itinerary shape', () => {
+  const data = fixture();
+  data.days[0].blocks[0].detail = {
+    title: 'Eurostar',
+    body: 'Train to London.',
+    wallet_items: [{ title: 'Ticket PDF', file_url: 'https://example.com/ticket.pdf', is_private: true }],
+  };
+  data.days[0].transport![0].detail!.wallet_items = [
+    { title: 'Boarding pass', qr_code_url: 'https://example.com/qr.png', is_private: true },
+  ];
+  data.days[0].accommodation!.detail!.wallet_items = [
+    { title: 'Hotel confirmation', confirmation: 'HOTEL-123', is_private: true },
+  ];
+
+  const out = stripPrivateTravelWalletData(data);
+  assert.equal(out.days[0].title, data.days[0].title);
+  assert.equal(out.days[0].blocks[0].detail?.body, 'Train to London.');
+  assert.equal(out.days[0].blocks[0].detail?.wallet_items, undefined);
+  assert.equal(out.days[0].transport![0].detail?.booking_ref, 'EUR-XYZ-123');
+  assert.equal(out.days[0].transport![0].detail?.wallet_items, undefined);
+  assert.equal(out.days[0].accommodation!.detail?.confirmation, 'BK-CONFIRM-9999');
+  assert.equal(out.days[0].accommodation!.detail?.wallet_items, undefined);
 });
 
 test('drops service ref and status, keeps the rest', () => {

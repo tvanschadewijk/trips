@@ -265,23 +265,99 @@ function normalizeMapSearchLabel(value: string): string {
   return normalizeRouteSearchText(value);
 }
 
-const NON_PLACE_STARTS = /^(?:drive|arrive|settle|keep|use|prepare|choose|pick|repeat|book|confirm|target|board|charge|optional|slow|early|easy|short|long)\b/i;
-const NON_PLACE_WORDS = /\b(?:wander|walk|time|choice|option|reset|arrival|positioning|recovery|buffer|shade|shaded|morning|afternoon|evening|night|day|route|drive|dinner|lunch|breakfast|old-town)\b/i;
+const NON_PLACE_STARTS = /^(?:drive|arrive|settle|keep|use|prepare|choose|pick|repeat|book|confirm|target|board|charge|optional|slow|early|easy|short|long|sleep|rest|relax|pack)\b/i;
+const NON_PLACE_WORDS = /\b(?:wander|walk|time|choice|option|reset|arrival|positioning|recovery|buffer|shade|shaded|morning|afternoon|evening|night|day|route|drive|dinner|lunch|breakfast|old-town|family|familie|gezin|kids|kinderen|children|parents|ouders|solo|uitslapen|zwembad|pool|thuis|home|blijft|sleep|sleeps|sleeping|nap|rest|rust|relax|chill|siesta|laundry|packing|gravelrit|bike|ride|cycling|fietstocht)\b/i;
 const GENERIC_MEAL_WORDS = /\b(?:breakfast|brunch|lunch|dinner|meal|seafood|pizza|pasta|casual|easy|local|nearby|trabucco|style|option|choice|tasting|snack|picnic)\b/i;
+const AUDIENCE_LABEL_PREFIX = /^(?:family|familie|gezin|kids|kinderen|children|parents|ouders|mom|mum|dad|mama|papa|solo|sunny|tjeerd)\s*[:：]\s*/i;
+const GENERIC_LABEL_PREFIX = /^(?:activity|visit|sight|stop|morning|afternoon|evening|ochtend|middag|avond|lunch|dinner)\s*[:：]\s*/i;
+const PLACE_CUE_WORDS = /\b(?:abbey|acropolis|airport|aquarium|arena|baai|bar|basilica|bay|beach|cala|camp|camping|castle|castell|cathedral|cave|center|centre|church|colosseum|fort|gallery|garden|harbor|harbour|hotel|lake|lago|marina|market|monastery|mont|monte|mount|museum|museo|palace|palazzo|parc|park|piazza|plaza|playa|port|resort|restaurant|ridge|rijksmuseum|square|station|tower|trail|valley|villa|village|vineyard|winery)\b/i;
+const DIRECTIONAL_PLACE_PATTERN = /\b(?:naar|to|towards?|richting|visit(?:ing)?|bezoek(?:en)?|explore|see|at|bij)\s+(?:(?:the|de|het|la|le|el|l['’])\s+)?([A-ZÀ-Þ][^.;:!?()]{2,72})/giu;
 
-function looksLikePlaceLabel(value: string): boolean {
-  const label = value.trim().replace(/\.$/, '');
+function cleanPotentialPlaceLabel(value: string): string {
+  return value
+    .trim()
+    .replace(/^[•*-]\s*/, '')
+    .replace(/\s*\([^)]*\)\s*/g, ' ')
+    .replace(/\s+-\s+.*$/, '')
+    .replace(/\s+(?:with|for|near|around|voor|nabij|bij|rond|met)\b.*$/i, '')
+    .replace(/\.$/, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function stripLabelPrefix(value: string): { label: string; hadAudiencePrefix: boolean } {
+  const label = cleanPotentialPlaceLabel(value);
+  const audienceMatch = label.match(AUDIENCE_LABEL_PREFIX);
+  if (audienceMatch) {
+    return {
+      label: cleanPotentialPlaceLabel(label.slice(audienceMatch[0].length)),
+      hadAudiencePrefix: true,
+    };
+  }
+
+  const genericMatch = label.match(GENERIC_LABEL_PREFIX);
+  if (genericMatch) {
+    return {
+      label: cleanPotentialPlaceLabel(label.slice(genericMatch[0].length)),
+      hadAudiencePrefix: false,
+    };
+  }
+
+  return { label, hadAudiencePrefix: false };
+}
+
+function titleCasePlaceWordCount(label: string): number {
+  return label
+    .split(/\s+/)
+    .filter((word) => /^[A-ZÀ-Þ][\p{L}'’.-]{2,}$/u.test(word))
+    .length;
+}
+
+function looksLikePlaceLabel(value: string, options: { allowSingleWord?: boolean } = {}): boolean {
+  const { label, hadAudiencePrefix } = stripLabelPrefix(value);
   if (label.length < 3 || label.length > 72) return false;
   if (NON_PLACE_STARTS.test(label)) return false;
   if (!/[A-ZÀ-Þ]/.test(label)) return false;
   const words = label.split(/\s+/).filter(Boolean);
   if (words.length > 7) return false;
   if (NON_PLACE_WORDS.test(label)) return false;
-  return true;
+  if (PLACE_CUE_WORDS.test(label)) return true;
+
+  const namedWords = titleCasePlaceWordCount(label);
+  if (namedWords >= 2) return true;
+  if (options.allowSingleWord && !hadAudiencePrefix && namedWords === 1 && words.length === 1 && label.length >= 5) return true;
+
+  return false;
+}
+
+function extractDirectionalPlaceLabels(value: string): string[] {
+  const labels: string[] = [];
+  for (const match of value.matchAll(DIRECTIONAL_PLACE_PATTERN)) {
+    const label = cleanPotentialPlaceLabel(match[1]);
+    if (looksLikePlaceLabel(label, { allowSingleWord: true })) labels.push(label);
+  }
+  return labels;
+}
+
+function uniquePlaceLabels(labels: string[]): string[] {
+  const seen = new Set<string>();
+  return labels.filter((label) => {
+    const normalized = normalizeMapSearchLabel(label);
+    if (!normalized || seen.has(normalized)) return false;
+    seen.add(normalized);
+    return true;
+  });
+}
+
+function explicitFallbackPoint(place: { lat?: number; lng?: number } | undefined): ItineraryMapPoiSearchTarget['fallbackPoint'] {
+  if (!place || typeof place.lat !== 'number' || typeof place.lng !== 'number') return undefined;
+  if (!Number.isFinite(place.lat) || !Number.isFinite(place.lng)) return undefined;
+  return { lat: place.lat, lng: place.lng, source: 'stored' };
 }
 
 function looksLikeSpecificMeal(meal: Meal): boolean {
   const label = meal.name.trim();
+  if (meal.place?.name) return true;
   if (meal.detail?.address) return true;
   if (!looksLikePlaceLabel(label)) return false;
   if (GENERIC_MEAL_WORDS.test(label)) return false;
@@ -295,17 +371,24 @@ function looksLikeSpecificMeal(meal: Meal): boolean {
 
 function splitPotentialPlaceLabels(value: string | undefined): string[] {
   if (!value) return [];
-  const cleaned = value
+  const cleanedValue = value
     .replace(/[–—]/g, ' - ')
     .replace(/\s+(?:if|only if|rather than|depending on|as heat|as crowds|before over|after over)\b.*$/i, '')
     .replace(/\s+with\s+.*$/i, '')
     .replace(/\s+or\s+switch\b.*$/i, '')
     .trim();
+  const { label: cleaned } = stripLabelPrefix(cleanedValue);
+  if (!cleaned) return [];
 
-  return cleaned
-    .split(/\s*(?:,|;|\/|\+|\band\b|\bor\b)\s*/i)
+  const directLabels = cleaned
+    .split(/\s*(?:,|;|\/|\+|\band\b|\bor\b|\ben\b)\s*/i)
     .map((part) => part.trim().replace(/\.$/, ''))
-    .filter(looksLikePlaceLabel);
+    .filter((label) => looksLikePlaceLabel(label));
+
+  return uniquePlaceLabels([
+    ...directLabels,
+    ...extractDirectionalPlaceLabels(cleaned),
+  ]);
 }
 
 function matchingAtlasPoint(atlas: TripRouteAtlas | undefined, label: string): TripRouteAtlasPoint | undefined {
@@ -362,6 +445,7 @@ function addDayMapTarget(
     queryPrefix?: string;
     address?: string;
     placeType?: string;
+    fallbackPoint?: ItineraryMapPoiSearchTarget['fallbackPoint'];
   } = {}
 ) {
   if (!label) return;
@@ -380,7 +464,8 @@ function addDayMapTarget(
 
   seen.add(normalized);
   const context = mapSearchContext(day, atlas);
-  const fallbackPoint = matchingAtlasPoint(atlas, [trimmed, options.address].filter(Boolean).join(' '))
+  const fallbackPoint = options.fallbackPoint
+    ?? matchingAtlasPoint(atlas, [trimmed, options.address].filter(Boolean).join(' '))
     ?? approximateAtlasPoint(atlas, targets.length);
   targets.push({
     id: `day-${day.day_number}-poi-${targets.length}-${normalized.replace(/\s+/g, '-')}`,
@@ -447,6 +532,19 @@ export function buildDayMapSearchTargets(
   }
 
   for (const block of day.blocks ?? []) {
+    if (block.place?.name) {
+      addDayMapTarget(targets, seen, day, atlas, block.place.name, 'poi', 'excursion', {
+        title: block.place.name,
+        kicker: `Day ${day.day_number} · Sight`,
+        body: truncateMapDetail(block.place.note || block.detail?.why || block.detail?.body || block.content),
+      }, {
+        address: block.place.address,
+        fallbackPoint: explicitFallbackPoint(block.place),
+        placeType: 'tourist_attraction',
+      });
+      continue;
+    }
+
     const contentLabels = splitPotentialPlaceLabels(block.content);
     const labels = [
       ...contentLabels,
@@ -465,12 +563,14 @@ export function buildDayMapSearchTargets(
 
   for (const meal of day.meals ?? []) {
     if (!looksLikeSpecificMeal(meal)) continue;
-    addDayMapTarget(targets, seen, day, atlas, meal.name, 'poi', 'stop', {
-      title: meal.name,
+    const mealLabel = meal.place?.name ?? meal.name;
+    addDayMapTarget(targets, seen, day, atlas, mealLabel, 'poi', 'stop', {
+      title: mealLabel,
       kicker: `Day ${day.day_number} · ${meal.type}`,
       body: truncateMapDetail(meal.note || meal.detail?.why || meal.detail?.body || meal.detail?.address),
     }, {
-      address: meal.detail?.address,
+      address: meal.place?.address ?? meal.detail?.address,
+      fallbackPoint: explicitFallbackPoint(meal.place),
       placeType: 'restaurant',
       queryPrefix: 'Restaurant',
     });

@@ -2,6 +2,11 @@ import { createHash } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { trySyncAccommodationReviewForTrip } from '@/lib/accommodation-review-store';
 import { normalizeTripData } from '@/lib/trip-data-normalize';
+import {
+  normalizeTripForQualityContract,
+  validateItineraryQuality,
+  type TripQualityReport,
+} from '@/lib/trip-quality';
 import { isPublicItineraryShareId } from '@/lib/public-itineraries';
 import { buildTripImagePromptSet } from '@/lib/trip-image-prompts';
 import type { TripData, TripImageAsset, TripImageAssetSlot } from '@/lib/types';
@@ -22,6 +27,8 @@ export type SaveTripInput = {
   days?: unknown[];
   trip_id?: string;
   markdown_source?: string;
+  trip_schema_version?: number;
+  strict_quality?: boolean;
 };
 
 export type PatchTripInput = {
@@ -52,6 +59,7 @@ export type TripMutationSummary = {
   warnings: string[];
   markdown_source: MarkdownSourceSummary;
   image_status: TripImageStatus;
+  quality?: TripQualityReport;
 };
 
 export type MarkdownSourceSummary = {
@@ -81,6 +89,7 @@ export type TripReadSection =
   | 'tips'
   | 'stats'
   | 'route_points'
+  | 'quality'
   | 'services'
   | 'notes';
 
@@ -235,6 +244,7 @@ export type TripSaveResult = {
   status: 'created' | 'updated';
   day_count: number;
   image_status: TripImageStatus;
+  quality?: TripQualityReport;
   accommodation_review: 'synced' | 'sync_failed';
 };
 
@@ -387,7 +397,7 @@ function assertMarkdownSize(markdownSource: unknown): asserts markdownSource is 
   }
 }
 
-function buildTripBody(input: SaveTripInput): TripData {
+function buildTripBody(input: SaveTripInput): { tripBody: TripData; quality?: TripQualityReport } {
   assertMarkdownSize(input.markdown_source);
 
   if (!input.trip?.name) {
@@ -407,7 +417,16 @@ function buildTripBody(input: SaveTripInput): TripData {
     tripBody.markdown_source = input.markdown_source;
   }
 
-  return normalizeTripData(tripBody);
+  if (input.trip_schema_version === 2) {
+    const normalized = normalizeTripForQualityContract(tripBody);
+    const quality = validateItineraryQuality(normalized);
+    if (input.strict_quality && quality.errors.length > 0) {
+      throw new TripServiceError(quality.errors.join(' '), 422);
+    }
+    return { tripBody: normalized, quality };
+  }
+
+  return { tripBody: normalizeTripData(tripBody) };
 }
 
 export async function saveTripForUser(
@@ -416,7 +435,7 @@ export async function saveTripForUser(
   input: SaveTripInput,
   origin: string
 ): Promise<TripSaveResult> {
-  const tripBody = buildTripBody(input);
+  const { tripBody, quality } = buildTripBody(input);
   const tripName = String(input.trip?.name);
 
   if (input.trip_id) {
@@ -454,6 +473,7 @@ export async function saveTripForUser(
         status: 'updated',
         day_count: Array.isArray(tripBody.days) ? tripBody.days.length : 0,
         image_status: summarizeTripImages(tripBody),
+        quality,
         accommodation_review: accommodationReview,
       };
     }
@@ -510,6 +530,7 @@ export async function saveTripForUser(
       status: 'updated',
       day_count: Array.isArray(tripBody.days) ? tripBody.days.length : 0,
       image_status: summarizeTripImages(tripBody),
+      quality,
       accommodation_review: accommodationReview,
     };
   }
@@ -542,6 +563,7 @@ export async function saveTripForUser(
     status: 'created',
     day_count: Array.isArray(tripBody.days) ? tripBody.days.length : 0,
     image_status: summarizeTripImages(tripBody),
+    quality,
     accommodation_review: accommodationReview,
   };
 }
@@ -1720,6 +1742,10 @@ export function formatTripForRead(
 
   if (selected.has('route_points') && isRecord(data.trip)) {
     result.route_points = data.trip.route_points;
+  }
+
+  if (selected.has('quality')) {
+    result.quality = validateItineraryQuality(data);
   }
 
   if (selected.has('services') && isRecord(data.trip)) {

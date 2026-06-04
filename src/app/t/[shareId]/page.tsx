@@ -5,7 +5,7 @@ import TripChatPanel from '@/components/chat/TripChatPanel';
 import { createClient } from '@/lib/supabase/server';
 import { normalizeTripData } from '@/lib/trip-data-normalize';
 import { loadChatHistory } from '@/lib/trip-chat/history';
-import { scrubTripData } from '@/lib/scrub-trip';
+import { scrubTripData, stripPrivateTravelWalletData } from '@/lib/scrub-trip';
 import {
   getPublicItineraryByShareId,
   isPublicItineraryShareId,
@@ -88,11 +88,14 @@ async function fetchTripAndViewer(shareId: string): Promise<{
 
     const rawTrip = normalizeTripData(data.data);
     const shareMode = (data.share_mode as 'companion' | 'remix') ?? 'companion';
-    // Non-owners on a remix-mode trip get the scrubbed view. Owners
-    // always see their own data raw. Companion-mode behaves as before.
+    // Non-owners on a remix-mode trip get the scrubbed view. Owners always
+    // see their own data raw. Companion-mode keeps legacy share semantics,
+    // but new Travel Wallet items stay private by default.
     const tripData = !isOwner && shareMode === 'remix'
       ? normalizeTripData(scrubTripData(rawTrip))
-      : rawTrip;
+      : !isOwner
+        ? normalizeTripData(stripPrivateTravelWalletData(rawTrip))
+        : rawTrip;
 
     return {
       tripData,

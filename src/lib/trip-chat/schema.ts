@@ -101,6 +101,44 @@ const OptionSchema = z
   })
   .passthrough();
 
+const TimePrecisionSchema = z.enum(['fixed', 'suggested', 'window']);
+const BookingStatusSchema = z.string();
+
+const ItineraryPlaceSchema = z
+  .object({
+    name: NonEmptyString,
+    address: z.string().optional(),
+    lat: z.number().min(-90).max(90).optional(),
+    lng: z.number().min(-180).max(180).optional(),
+    google_maps_url: z.string().optional(),
+    place_id: z.string().optional(),
+    note: z.string().optional(),
+  })
+  .passthrough();
+
+const ItineraryAlternativeSchema = z
+  .object({
+    label: NonEmptyString,
+    description: NonEmptyString,
+    trigger: z.string().optional(),
+    duration: z.string().optional(),
+    cost_hint: z.string().optional(),
+  })
+  .passthrough();
+
+const TravelWalletItemSchema = z
+  .object({
+    title: NonEmptyString,
+    type: z.string().optional(),
+    url: z.string().optional(),
+    file_url: z.string().optional(),
+    qr_code_url: z.string().optional(),
+    confirmation: z.string().optional(),
+    note: z.string().optional(),
+    is_private: z.boolean().optional(),
+  })
+  .passthrough();
+
 const RichDetailShape = {
   title: z.string().optional(),
   body: z.string().optional(),
@@ -113,6 +151,7 @@ const RichDetailShape = {
   booking_note: z.string().optional(),
   what_to_order: z.string().optional(),
   dog_note: z.string().optional(),
+  wallet_items: z.array(TravelWalletItemSchema).optional(),
 };
 
 const RichDetailSchema = z.object(RichDetailShape).passthrough();
@@ -122,8 +161,18 @@ const BlockSchema = z
     time_label: z.string(),
     content: NonEmptyString,
     type: NonEmptyString,
+    starts_at: z.string().optional(),
+    ends_at: z.string().optional(),
+    time_precision: TimePrecisionSchema.optional(),
+    duration_minutes: z.number().int().positive().optional(),
+    place: ItineraryPlaceSchema.optional(),
+    booking_status: BookingStatusSchema.optional(),
+    reservation_required: z.boolean().optional(),
+    cost_hint: z.string().optional(),
+    pace: z.string().optional(),
     detail: RichDetailSchema.optional(),
     options: z.array(OptionSchema).optional(),
+    alternatives: z.array(ItineraryAlternativeSchema).optional(),
   })
   .passthrough();
 
@@ -166,6 +215,7 @@ const TransportDetailSchema = z
     route: z.string().optional(),
     charging_stops: z.array(ChargingStopSchema).optional(),
     border: BorderCrossingSchema.optional(),
+    wallet_items: z.array(TravelWalletItemSchema).optional(),
   })
   .passthrough();
 
@@ -180,6 +230,9 @@ const TransportSchema = z
     duration: z.string().optional(),
     distance: z.string().optional(),
     status: z.string().optional(),
+    booking_status: BookingStatusSchema.optional(),
+    reservation_required: z.boolean().optional(),
+    cost_hint: z.string().optional(),
     detail: TransportDetailSchema.optional(),
   })
   .passthrough();
@@ -203,6 +256,7 @@ const AccommodationDetailSchema = z
     policy_source_label: z.string().optional(),
     policy_confidence: z.enum(['high', 'medium', 'low']).optional(),
     note: z.string().optional(),
+    wallet_items: z.array(TravelWalletItemSchema).optional(),
   })
   .passthrough();
 
@@ -212,6 +266,9 @@ const AccommodationSchema = z
     price: z.string().optional(),
     rating: z.string().optional(),
     status: z.string().optional(),
+    booking_status: BookingStatusSchema.optional(),
+    reservation_required: z.boolean().optional(),
+    cost_hint: z.string().optional(),
     nights: z.number().optional(),
     note: z.string().optional(),
     detail: AccommodationDetailSchema.optional(),
@@ -229,6 +286,7 @@ const MealDetailSchema = z
     booking_platform: z.string().optional(),
     hours: z.string().optional(),
     note: z.string().optional(),
+    wallet_items: z.array(TravelWalletItemSchema).optional(),
   })
   .passthrough();
 
@@ -238,6 +296,13 @@ const MealSchema = z
     name: NonEmptyString,
     note: z.string().optional(),
     status: z.string().optional(),
+    starts_at: z.string().optional(),
+    ends_at: z.string().optional(),
+    time_precision: TimePrecisionSchema.optional(),
+    booking_status: BookingStatusSchema.optional(),
+    reservation_required: z.boolean().optional(),
+    cost_hint: z.string().optional(),
+    place: ItineraryPlaceSchema.optional(),
     detail: MealDetailSchema.optional(),
   })
   .passthrough();
@@ -259,6 +324,8 @@ const DaySchema = z
     subtitle: z.string().optional(),
     description_title: z.string().optional(),
     description: z.string().optional(),
+    day_type: z.string().optional(),
+    pace: z.string().optional(),
     hero_image: z.string().optional(),
     stats: z.array(StatSchema).optional(),
     blocks: z.array(BlockSchema).optional(),
@@ -266,6 +333,7 @@ const DaySchema = z
     accommodation: AccommodationSchema.nullable().optional(),
     meals: z.array(MealSchema).optional(),
     tips: z.array(TipSchema).optional(),
+    alternatives: z.array(ItineraryAlternativeSchema).optional(),
   })
   .passthrough();
 

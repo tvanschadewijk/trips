@@ -319,3 +319,82 @@ test('day map targets skip unconfirmed accommodation searches', () => {
 
   assert.deepEqual(dayMapData.searchTargets.map((target) => target.label), ["All'Antico Vinaio"]);
 });
+
+test('day map targets skip family routine labels and keep actual POIs', () => {
+  const trip = baseTrip([
+    {
+      day_number: 1,
+      date: '2026-07-31',
+      title: 'Gravelrit 2 & Wijnbar in Girona',
+      blocks: [
+        {
+          time_label: '07:00',
+          type: 'activity',
+          content: 'TJEERD: Solo Gravelrit 2 - richting de flanken van de Rocacorba. ~50 km, stevig klimwerk.',
+        },
+        {
+          time_label: 'Ochtend',
+          type: 'activity',
+          content: 'FAMILIE: Uitslapen en zwembad.',
+        },
+        {
+          time_label: 'Middag',
+          type: 'activity',
+          content: "Met het gezin naar Cala Montgó (nabij L'Escala). Prachtig beschutte baai.",
+        },
+      ],
+      accommodation: {
+        name: 'Mas Bombo',
+        status: 'booked',
+        detail: { address: "L'Escala, Spain" },
+      },
+      meals: [
+        {
+          type: 'dinner',
+          name: 'Syrah Girona',
+          status: 'pending',
+        },
+      ],
+    },
+  ]);
+
+  const dayMapData = buildDayMapDataByNumber(undefined, trip.days)[1];
+  const labels = dayMapData.searchTargets.map((target) => target.label);
+
+  assert.deepEqual(labels, ['Mas Bombo', 'Cala Montgó', 'Syrah Girona']);
+  assert.equal(labels.includes('FAMILIE: Uitslapen en zwembad'), false);
+  assert.equal(labels.includes('Uitslapen en zwembad'), false);
+  assert.equal(labels.includes('Solo Gravelrit 2'), false);
+});
+
+test('day map targets trust explicit block places for structured v2 trips', () => {
+  const trip = baseTrip([
+    {
+      day_number: 1,
+      date: '2026-08-01',
+      title: 'Pool morning',
+      blocks: [
+        {
+          time_label: 'Morning',
+          type: 'activity',
+          content: 'Family swim and easy snack.',
+          place: {
+            name: 'Piscina Municipal de Pals',
+            address: 'Pals, Spain',
+            lat: 41.971,
+            lng: 3.148,
+          },
+        },
+      ],
+    },
+  ]);
+
+  const dayMapData = buildDayMapDataByNumber(undefined, trip.days)[1];
+  const target = dayMapData.searchTargets[0];
+
+  assert.equal(dayMapData.searchTargets.length, 1);
+  assert.equal(target.label, 'Piscina Municipal de Pals');
+  assert.equal(target.fallbackPoint?.lat, 41.971);
+  assert.equal(target.fallbackPoint?.lng, 3.148);
+  assert.equal(target.fallbackPoint?.source, 'stored');
+});

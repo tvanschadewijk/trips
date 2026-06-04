@@ -35,13 +35,29 @@ import type {
   Meal,
   Service,
   TripNote,
+  Block,
+  RichDetail,
+  ItineraryPlace,
 } from './types';
 import { normalizeTripData } from './trip-data-normalize';
 
+type JsonRecord = Record<string, unknown>;
+
+function isRecord(value: unknown): value is JsonRecord {
+  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
+}
+
 function scrubService(svc: Service): Service {
-  // Drop ref (often a confirmation code) and status; keep the rest.
-  const { ref: _ref, status: _status, ...rest } = svc;
-  return rest;
+  // Drop ref (often a confirmation code), status, and any future
+  // passthrough/private fields by returning an explicit public shape.
+  return {
+    type: svc.type,
+    label: svc.label,
+    icon: svc.icon,
+    provider: svc.provider,
+    price: svc.price,
+    legs: svc.legs,
+  };
 }
 
 function scrubNote(note: TripNote): TripNote {
@@ -62,8 +78,59 @@ function scrubTransport(t: Transport): Transport {
     duration: t.duration,
     distance: t.distance,
     // status: cleared
+    // booking_status: cleared
     // detail: dropped entirely (booking_ref, seat, flight, gate, terminal,
     // check_in, cancellation_policy, charging_stops, border crossings)
+  };
+}
+
+function scrubPlace(place: ItineraryPlace | undefined): ItineraryPlace | undefined {
+  if (!place?.name) return undefined;
+  return {
+    name: place.name,
+    address: place.address,
+    lat: place.lat,
+    lng: place.lng,
+    google_maps_url: place.google_maps_url,
+    place_id: place.place_id,
+    note: place.note,
+  };
+}
+
+function scrubRichDetail(detail: RichDetail | undefined): RichDetail | undefined {
+  if (!detail) return undefined;
+  return {
+    title: detail.title,
+    body: detail.body,
+    why: detail.why,
+    vibe: detail.vibe,
+    highlights: detail.highlights,
+    what_to_see: detail.what_to_see,
+    how_to_do_it: detail.how_to_do_it,
+    practical: detail.practical,
+    booking_note: detail.booking_note,
+    what_to_order: detail.what_to_order,
+    dog_note: detail.dog_note,
+    // wallet_items intentionally dropped.
+  };
+}
+
+function scrubBlock(block: Block): Block {
+  return {
+    time_label: block.time_label,
+    content: block.content,
+    type: block.type,
+    starts_at: block.starts_at,
+    ends_at: block.ends_at,
+    time_precision: block.time_precision,
+    duration_minutes: block.duration_minutes,
+    place: scrubPlace(block.place),
+    cost_hint: block.cost_hint,
+    pace: block.pace,
+    detail: scrubRichDetail(block.detail),
+    options: block.options,
+    alternatives: block.alternatives,
+    // booking_status and reservation_required cleared for remix/public safety.
   };
 }
 
@@ -150,11 +217,14 @@ function scrubDay(day: Day): Day {
     description: day.description,
     hero_image: day.hero_image,
     stats: day.stats,
-    blocks: day.blocks,
+    day_type: day.day_type,
+    pace: day.pace,
+    blocks: day.blocks?.map(scrubBlock),
     transport: day.transport?.map(scrubTransport),
     accommodation: day.accommodation ? scrubAccommodation(day.accommodation) : day.accommodation,
     meals: day.meals?.map(scrubMeal),
     tips: day.tips,
+    alternatives: day.alternatives,
   };
 }
 
@@ -165,10 +235,32 @@ export function scrubTripData(data: TripData): TripData {
   const normalized = normalizeTripData(data);
 
   return {
+    trip_schema_version: normalized.trip_schema_version,
     trip: scrubTripMeta(normalized.trip),
     days: normalized.days.map(scrubDay),
     // markdown_source dropped entirely
   };
+}
+
+function stripWalletItems(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(stripWalletItems);
+  if (!isRecord(value)) return value;
+
+  const next: JsonRecord = {};
+  for (const [key, nested] of Object.entries(value)) {
+    if (key === 'wallet_items') continue;
+    next[key] = stripWalletItems(nested);
+  }
+  return next;
+}
+
+/**
+ * Companion-mode shares keep the existing public itinerary semantics so old
+ * group trips continue to work, but the new Travel Wallet fields are private
+ * by default for non-owners.
+ */
+export function stripPrivateTravelWalletData(data: TripData): TripData {
+  return normalizeTripData(stripWalletItems(normalizeTripData(data)));
 }
 
 /**

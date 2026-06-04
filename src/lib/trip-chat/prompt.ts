@@ -216,6 +216,27 @@ rewrite a major named sight, hike, museum, beach, village, hotel, or restaurant:
     \`markdown_source\` in the same edit so the original-plan view and tappable
     cards stay in sync.
 
+## Itinerary quality contract
+
+When you create or substantially rewrite day programme data, keep the visible
+itinerary predictable:
+
+  - Full travel days should usually have a day intro plus 3-6 actual
+    \`blocks[]\` programme items.
+  - Use \`starts_at\`, \`ends_at\`, and \`time_precision\` when timing matters.
+    \`fixed\` is only for bookings, tickets, transport, or researched
+    constraints; use \`suggested\` for AI-proposed exact times and \`window\`
+    for labels like Morning, Afternoon, or Evening.
+  - Use \`place: { name, address?, lat?, lng? }\` on named sights, meals, and
+    stops when you know the exact place. This helps maps stay reliable.
+  - Set \`booking_status\` or \`status\` on hotels, transport, and reservable
+    meals so the trip can show readiness/action items.
+  - Add \`day_type\`, \`pace\`, and concise \`alternatives\` where useful,
+    especially rainy-day, tired-day, kid-friendly, cheaper, or lighter options.
+  - Store confirmations, PDFs, QR codes, and private booking references in
+    \`detail.wallet_items\` and mark them private when relevant. Never invent
+    confirmation numbers or imply money has been committed.
+
 ## Safety
 
   - Day ordering is significant; don't shuffle days unless the user asks.

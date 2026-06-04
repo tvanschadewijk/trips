@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { normalizeTripData } from '@/lib/trip-data-normalize';
-import { scrubTripData } from '@/lib/scrub-trip';
+import { scrubTripData, stripPrivateTravelWalletData } from '@/lib/scrub-trip';
 
 // GET /api/trip-data/[shareId] — Public, share-id read for offline use.
 // Returns the same data the /t/[shareId] page renders. The HTTP response
@@ -40,7 +40,9 @@ export async function GET(
     const shareMode = (data.share_mode as 'companion' | 'remix') ?? 'companion';
     const body = !isOwner && shareMode === 'remix'
       ? normalizeTripData(scrubTripData(raw))
-      : raw;
+      : !isOwner
+        ? normalizeTripData(stripPrivateTravelWalletData(raw))
+        : raw;
 
     return NextResponse.json(
       {
