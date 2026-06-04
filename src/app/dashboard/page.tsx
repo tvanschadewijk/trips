@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -68,6 +68,7 @@ export default function DashboardPage() {
   const [connectionCopied, setConnectionCopied] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [cardMenuOpen, setCardMenuOpen] = useState<string | null>(null);
+  const cardMenuRef = useRef<HTMLDivElement | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [loading, setLoading] = useState(() => {
@@ -187,6 +188,21 @@ export default function DashboardPage() {
       return () => clearTimeout(t);
     }
   }, [vtTrip]);
+
+  useEffect(() => {
+    if (!cardMenuOpen) return;
+
+    function closeCardMenuOnOutsidePointer(event: PointerEvent) {
+      const target = event.target;
+      if (target instanceof Node && cardMenuRef.current?.contains(target)) return;
+      setCardMenuOpen(null);
+    }
+
+    document.addEventListener('pointerdown', closeCardMenuOnOutsidePointer, true);
+    return () => {
+      document.removeEventListener('pointerdown', closeCardMenuOnOutsidePointer, true);
+    };
+  }, [cardMenuOpen]);
 
   function copyLink(shareId: string) {
     const url = `${window.location.origin}/t/${shareId}`;
@@ -487,7 +503,7 @@ export default function DashboardPage() {
                       </div>
                     </div>
                   </Link>
-                  <div className="dash-card-menu-wrap">
+                  <div className="dash-card-menu-wrap" ref={menuOpen ? cardMenuRef : undefined}>
                     <button
                       className="dash-card-menu-btn"
                       onClick={(e) => { e.stopPropagation(); setCardMenuOpen(cardMenuOpen === trip.id ? null : trip.id); }}
