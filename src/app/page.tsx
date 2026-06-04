@@ -23,12 +23,21 @@ export const metadata: Metadata = {
     siteName: 'OurTrips',
     locale: 'en_US',
     type: 'website',
+    images: [
+      {
+        url: '/og-image.png',
+        width: 1200,
+        height: 630,
+        alt: 'OurTrips — your trips, beautifully presented',
+      },
+    ],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'OurTrips — AI Travel Itineraries, Beautifully Presented',
     description:
       'Create and share beautiful, interactive travel itineraries from AI planning conversations. Plan day-by-day, add places, save offline, and share with anyone.',
+    images: ['/og-image.png'],
   },
 };
 
