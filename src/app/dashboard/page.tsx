@@ -439,8 +439,10 @@ export default function DashboardPage() {
               const endD = new Date(t.dates.end + 'T12:00:00');
               const nights = Math.round((endD.getTime() - startD.getTime()) / 86400000);
 
+              const menuOpen = cardMenuOpen === trip.id;
+
               return (
-                <div key={trip.id} className="dash-card">
+                <div key={trip.id} className={`dash-card ${menuOpen ? 'is-menu-open' : ''}`}>
                   <Link
                     href={`/t/${trip.share_id}`}
                     className="dash-card-link"
@@ -490,10 +492,11 @@ export default function DashboardPage() {
                       className="dash-card-menu-btn"
                       onClick={(e) => { e.stopPropagation(); setCardMenuOpen(cardMenuOpen === trip.id ? null : trip.id); }}
                       aria-label="Trip options"
+                      aria-expanded={menuOpen}
                     >
                       <Ellipsis size={16} aria-hidden="true" />
                     </button>
-                    {cardMenuOpen === trip.id && (
+                    {menuOpen && (
                       <>
                         <div className="dash-card-menu-backdrop" onClick={() => setCardMenuOpen(null)} />
                         <div className="dash-card-menu">

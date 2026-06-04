@@ -282,7 +282,8 @@
   object-fit: cover;
   transition: transform 0.3s ease;
 }
-.dash-card:hover .dash-card-hero img { transform: scale(1.03); }
+.dash-card:hover:not(.is-menu-open) .dash-card-hero img { transform: scale(1.03); }
+.dash-card.is-menu-open .dash-card-hero img { transform: scale(1); }
 .dash-card-hero-gradient {
   position: absolute;
   inset: 0;
