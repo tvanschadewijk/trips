@@ -191,7 +191,7 @@ export default async function BlogPostPage({ params }: Props) {
           <div className="blog-article-cta">
             <div className="blog-article-cta-title">Ready to try it?</div>
             <p className="blog-article-cta-desc">
-              Install the OurTrips skill and turn your next Claude conversation into a shareable itinerary.
+              Connect OurTrips and turn your next Claude or Codex conversation into a shareable itinerary.
             </p>
             <Link href="/guide" className="blog-article-cta-btn">
               Get started

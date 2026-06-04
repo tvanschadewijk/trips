@@ -207,7 +207,7 @@ export function mapPointDetailsForDay(atlas: TripRouteAtlas | undefined, day: Da
       {
         title: point.label,
         kicker: `Day ${day.day_number}`,
-        body: snippets.join(' · ') || truncateMapDetail(day.subtitle || day.description || day.title),
+        body: snippets.join(' · ') || truncateMapDetail(day.subtitle || day.description_title || day.description || day.title),
       },
     ];
   }));
@@ -225,7 +225,7 @@ export function mapPointDetailsForTrip(atlas: TripRouteAtlas | undefined, days: 
       {
         title: point.label,
         kicker: nightLabel ?? (day ? `Day ${day.day_number}` : point.role === 'home' ? 'Start / finish' : 'Route stop'),
-        body: day ? truncateMapDetail(day.title || day.subtitle || day.description) : '',
+        body: day ? truncateMapDetail(day.title || day.subtitle || day.description_title || day.description) : '',
       },
     ];
   }));

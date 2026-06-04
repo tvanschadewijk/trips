@@ -145,6 +145,7 @@ function scrubDay(day: Day): Day {
     date: day.date,
     title: day.title,
     subtitle: day.subtitle,
+    description_title: day.description_title,
     description: day.description,
     hero_image: day.hero_image,
     stats: day.stats,

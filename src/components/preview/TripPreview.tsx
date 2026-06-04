@@ -37,6 +37,7 @@ interface TripPreviewProps {
    *  "Add to my trips" (companion) or "Remix this trip" (remix). */
   shareMode?: 'companion' | 'remix';
   tripId?: string;
+  homeHref?: string;
 }
 
 function formatDate(dateStr: string, opts: Intl.DateTimeFormatOptions) {
@@ -177,6 +178,41 @@ function getDisplayableBlock(block: Block) {
   return { block, timeLabel, content, options };
 }
 
+type DayIntro = {
+  title: string;
+  body: string;
+  legacyBlock?: Block;
+};
+
+function getLegacyDayIntroBlock(day: Day): Block | undefined {
+  const block = day.blocks?.[0];
+  if (!block || block.type === 'note') return undefined;
+
+  const type = trimDisplayText(block.type).toLowerCase();
+  const isIntroType = type.includes('intro') || ['overview', 'description', 'summary'].includes(type);
+  const isUntimed = !trimDisplayText(block.time_label);
+  if (!isIntroType && !isUntimed) return undefined;
+
+  const title = trimDisplayText(block.detail?.title) || trimDisplayText(block.content);
+  const body = trimDisplayText(block.detail?.body) || trimDisplayText(block.detail?.why);
+  return title && body ? block : undefined;
+}
+
+function getDayIntro(day: Day): DayIntro {
+  const title = trimDisplayText(day.description_title);
+  const body = trimDisplayText(day.description);
+  if (title || body) return { title, body };
+
+  const legacyBlock = getLegacyDayIntroBlock(day);
+  if (!legacyBlock) return { title: '', body: '' };
+
+  return {
+    title: trimDisplayText(legacyBlock.detail?.title) || trimDisplayText(legacyBlock.content),
+    body: trimDisplayText(legacyBlock.detail?.body) || trimDisplayText(legacyBlock.detail?.why),
+    legacyBlock,
+  };
+}
+
 function accommodationStatusLabel(accommodation: Accommodation): string {
   return accommodation.status?.trim() || 'pending';
 }
@@ -266,7 +302,7 @@ function SwipeDots({ total, current, onDotClick }: { total: number; current: num
   );
 }
 
-export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, shareId, canAddToTrips, shareMode, tripId }: TripPreviewProps) {
+export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, shareId, canAddToTrips, shareMode, tripId, homeHref = '/' }: TripPreviewProps) {
   const [trips, setTrips] = useState(initialTrips);
   // Sync to new initialTrips when the parent re-renders with fresh data (e.g.
   // after the admin chat panel applies an edit and calls router.refresh()).
@@ -289,6 +325,8 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
   const [menuOpen, setMenuOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'already_saved' | 'already_owned' | 'error'>('idle');
+  const [inlineBookingKey, setInlineBookingKey] = useState<string | null>(null);
+  const [inlineBookingErrorKey, setInlineBookingErrorKey] = useState<string | null>(null);
   const [brokenImages, setBrokenImages] = useState<Set<string>>(new Set());
   const [dayMapFocusRequest, setDayMapFocusRequest] = useState<DayMapFocusRequest | null>(null);
   const [dayMapViewAllRequest, setDayMapViewAllRequest] = useState<DayMapViewAllRequest | null>(null);
@@ -604,6 +642,42 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     }
   }
 
+  function renderAddToTripsButton() {
+    if (!shareId || !canAddToTrips || saveStatus === 'already_owned') return null;
+
+    const isSaved = saveStatus === 'saved' || saveStatus === 'already_saved';
+
+    return (
+      <button
+        type="button"
+        className={`add-to-trips-btn ${isSaved ? 'saved' : ''}`}
+        onClick={isSaved ? () => { window.location.href = '/dashboard'; } : handleAddToTrips}
+        disabled={saveStatus === 'saving'}
+      >
+        {saveStatus === 'saving' ? (
+          'Saving...'
+        ) : isSaved ? (
+          <>
+            <Icon name="check" />
+            {saveStatus === 'already_saved' ? 'Already saved — View trips' : 'Saved — View trips'}
+          </>
+        ) : saveStatus === 'error' ? (
+          'Failed — Try again'
+        ) : shareMode === 'remix' ? (
+          <>
+            <Icon name="shuffle" />
+            Remix this trip
+          </>
+        ) : (
+          <>
+            <Icon name="plus" />
+            Add to my trips
+          </>
+        )}
+      </button>
+    );
+  }
+
   // Auto-save trip after login redirect
   useEffect(() => {
     if (!shareId) return;
@@ -775,22 +849,6 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     window.history.pushState({ detail: true }, '');
   }, []);
 
-  const openAccommodationReviewer = useCallback((day?: Day) => {
-    if (!tripId || !activeTripData) return;
-    showDetail({
-      title: 'Accommodations',
-      html: '',
-      node: (
-        <AccommodationReviewBoard
-          tripId={tripId}
-          tripData={activeTripData}
-          initialDayNumber={day?.day_number}
-          onTripDataUpdated={handleTripDataUpdated}
-        />
-      ),
-    });
-  }, [activeTripData, handleTripDataUpdated, showDetail, tripId]);
-
   const startCloseDetail = useCallback(() => {
     if (!detailOpen || detailClosingRef.current) return;
     detailClosingRef.current = true;
@@ -951,7 +1009,10 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
       if (itemType === 'transport' && day.transport?.[itemIndex]) {
         day.transport[itemIndex].status = status;
       } else if (itemType === 'accommodation' && day.accommodation) {
-        const accommodationName = trimDisplayText(day.accommodation.name);
+        const rawAccommodationName = trimDisplayText(day.accommodation.name);
+        const accommodationName = rawAccommodationName && !isPlaceholderAccommodationName(rawAccommodationName)
+          ? rawAccommodationName
+          : '';
         for (const tripDay of tripCopy.days) {
           if (!tripDay.accommodation) continue;
           const sameStay = accommodationName
@@ -975,18 +1036,13 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     itemIndex: number,
     newStatus: TodoItemStatus
   ): Promise<boolean> {
-    const endpoint = tripId
-      ? `/api/trips/${tripId}/toggle-status`
-      : shareId
-        ? '/api/trips/toggle-status'
-        : null;
+    const endpoint = tripId ? `/api/trips/${tripId}/toggle-status` : null;
     if (!endpoint || activeTripIndex === null) return false;
 
     const res = await fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        ...(tripId ? {} : { share_id: shareId }),
         day_number: dayNumber,
         item_type: itemType,
         item_index: itemIndex,
@@ -1004,10 +1060,26 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     return true;
   }
 
+  async function handleMarkAccommodationBooked(day: Day, accommodation: Accommodation) {
+    if (!tripId) return;
+
+    const actionKey = `${day.day_number}:${accommodationTodoKey(day, accommodation)}`;
+    if (inlineBookingKey === actionKey) return;
+
+    setInlineBookingKey(actionKey);
+    setInlineBookingErrorKey(null);
+
+    const saved = await handleToggleStatus(day.day_number, 'accommodation', 0, 'booked');
+    if (!saved) {
+      setInlineBookingErrorKey(actionKey);
+    }
+    setInlineBookingKey(null);
+  }
+
   // Event delegation for action item clicks
   useEffect(() => {
     const el = detailBodyRef.current;
-    if (!el || (!tripId && !shareId)) return;
+    if (!el || !tripId) return;
 
     const updateTodoHeader = () => {
       const allRows = el.querySelectorAll('.todo-item');
@@ -1232,28 +1304,55 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
   }
 
   function buildActivitiesHtml(): { html: string; hasData: boolean } {
-    const entries: { day: number; date: string; block: Block }[] = [];
+    const entries: {
+      day: number;
+      date: string;
+      title: string;
+      body: string;
+      highlights?: string[];
+    }[] = [];
+
     for (const d of days) {
+      const intro = getDayIntro(d);
+      if (intro.title || intro.body) {
+        entries.push({
+          day: d.day_number,
+          date: d.date,
+          title: intro.title || `Day ${d.day_number}`,
+          body: intro.body,
+          highlights: intro.legacyBlock?.detail?.highlights,
+        });
+      }
+
       for (const block of d.blocks || []) {
-        if (block.type === 'note') continue;
-        entries.push({ day: d.day_number, date: d.date, block });
+        if (block.type === 'note' || block === intro.legacyBlock) continue;
+        const title = trimDisplayText(block.detail?.title) || trimDisplayText(block.content);
+        const body = trimDisplayText(block.detail?.body) || trimDisplayText(block.detail?.why) || trimDisplayText(block.content);
+        const highlights = block.detail?.highlights?.map(trimDisplayText).filter(Boolean);
+        if (!title && !body && !highlights?.length) continue;
+        entries.push({
+          day: d.day_number,
+          date: d.date,
+          title: title || `Day ${d.day_number}`,
+          body,
+          highlights,
+        });
       }
     }
+
     if (!entries.length) return { html: '', hasData: false };
 
-    const rows = entries.map(({ day, date, block }) => {
+    const rows = entries.map(({ day, date, title, body, highlights }) => {
       const dateLabel = formatDate(date, { weekday: 'short', day: 'numeric', month: 'short' });
-      const title = block.detail?.title || block.content;
-      const body = block.detail?.body || block.detail?.why || block.content;
-      const highlights = block.detail?.highlights?.length
-        ? `<span class="detail-row-value" style="text-align:left;font-size:13px;color:var(--color-text-muted)">${block.detail.highlights.slice(0, 3).map(escapeHtml).join(' · ')}</span>`
+      const highlightsHtml = highlights?.length
+        ? `<span class="detail-row-value" style="text-align:left;font-size:13px;color:var(--color-text-muted)">${highlights.slice(0, 3).map(escapeHtml).join(' · ')}</span>`
         : '';
 
       return `<div class="detail-row" style="flex-direction:column;align-items:flex-start;gap:3px">
         <span class="detail-row-label" style="width:auto">Day ${day} · ${dateLabel}</span>
         <span class="detail-row-value" style="text-align:left;font-size:15px;font-weight:600">${escapeHtml(title)}</span>
         ${body && body !== title ? `<span class="detail-row-value" style="text-align:left;font-size:13px;color:var(--color-text-secondary)">${escapeHtml(body)}</span>` : ''}
-        ${highlights}
+        ${highlightsHtml}
       </div>`;
     }).join('');
 
@@ -1381,7 +1480,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
 
     if (!todoItems.length) return { html: '', hasData: false, allDone: false };
 
-    const canUpdateActionItems = Boolean(tripId || shareId);
+    const canUpdateActionItems = Boolean(tripId);
     const interactive = canUpdateActionItems ? ' todo-interactive' : '';
     const allDone = todoItems.every(t => t.done);
     const interactiveAttrs = (done: boolean) => canUpdateActionItems
@@ -1647,7 +1746,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     const dateRangeLabel = formatBriefDateRange(day.date, stayNights);
     const stayDateLabel = nightLabel ? `${nightLabel} (${dateRangeLabel})` : dateRangeLabel;
     const heroMeta = [nightLabel ? stayDateLabel : null, day.subtitle].filter(Boolean).join(' · ');
-    const dayIntro = trimDisplayText(day.description);
+    const dayIntro = getDayIntro(day);
     const dayTitleId = `day-title-${day.day_number}`;
 
     const statsChips = day.stats?.length ? (
@@ -1669,7 +1768,8 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
         <div className="day-hero-text">
           <p className="text-label" style={{ margin: '0 0 4px' }}>Day {day.day_number} &middot; {dateStr}</p>
           <h2 className="text-card-title-light day-hero-title" id={dayTitleId} style={{ margin: 0 }}>{day.title}</h2>
-          {dayIntro && <p className="day-hero-intro">{dayIntro}</p>}
+          {dayIntro.title && <p className="day-hero-intro-title">{dayIntro.title}</p>}
+          {dayIntro.body && <p className="day-hero-intro">{dayIntro.body}</p>}
           {heroMeta && <p className="text-hero-subtitle day-hero-meta" style={{ margin: '5px 0 0' }}>{heroMeta}</p>}
           {statsChips}
         </div>
@@ -1678,7 +1778,8 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
       <div className="day-header-plain">
         <p className="text-label-dark">Day {day.day_number} &middot; {dateStr}</p>
         <h2 className="text-card-title" id={dayTitleId} style={{ marginTop: 4 }}>{day.title}</h2>
-        {dayIntro && <p className="day-header-plain-intro">{dayIntro}</p>}
+        {dayIntro.title && <p className="day-header-plain-intro-title">{dayIntro.title}</p>}
+        {dayIntro.body && <p className="day-header-plain-intro">{dayIntro.body}</p>}
         {day.subtitle && <p className="text-body-italic" style={{ marginTop: 4 }}>{day.subtitle}</p>}
         {statsChips}
       </div>
@@ -1878,25 +1979,55 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     const stayCard = day.accommodation ? (() => {
       const a = day.accommodation!;
       const statusLabel = accommodationStatusLabel(a);
-      const canOpenReviewer = Boolean(tripId && activeTripData);
-      if (!isConfirmedAccommodation(a)) {
+      if (!isTodoDoneStatus(a.status)) {
+        const hotelName = trimDisplayText(a.name);
+        const hasNamedHotel = hotelName && !isPlaceholderAccommodationName(hotelName);
+        const roomMeta = trimDisplayText(a.detail?.room_type);
+        const pendingStayMeta = [dateRangeLabel, roomMeta].filter(Boolean).join(' · ');
+        const normalizedStatusLabel = statusLabel.trim().toLowerCase();
+        const pendingStatusLabel = normalizedStatusLabel === 'open'
+          ? 'Pending'
+          : normalizedStatusLabel
+            ? `${normalizedStatusLabel.charAt(0).toUpperCase()}${normalizedStatusLabel.slice(1)}`
+            : 'Pending';
+        const actionKey = `${day.day_number}:${accommodationTodoKey(day, a)}`;
+        const isMarkingBooked = inlineBookingKey === actionKey;
+        const hasBookingError = inlineBookingErrorKey === actionKey;
+        const canMarkBooked = Boolean(tripId && hasNamedHotel);
+
         return (
-          <article className="day-brief-detail-card day-brief-detail-card-warning">
-            <div className="day-brief-card-topline">
-              <div className="day-brief-card-kicker">
-                <span className="day-brief-card-icon"><Icon name="hotel" /></span>
-                <span>Accommodation</span>
+          <article className="day-brief-detail-card day-brief-hotel-inline-card">
+            <div className="day-brief-hotel-inline-main">
+              <span className="day-brief-hotel-inline-icon"><Icon name="hotel" /></span>
+              <div className="day-brief-hotel-inline-copy">
+                <h3 className="day-brief-card-title day-brief-hotel-inline-title">
+                  {hasNamedHotel
+                    ? renderBriefPlace(hotelName, hotelName, 'day-brief-card-place')
+                    : 'Hotel not confirmed yet'}
+                </h3>
+                {pendingStayMeta && <p className="day-brief-card-meta day-brief-hotel-inline-meta">{pendingStayMeta}</p>}
               </div>
-              <span className={`text-status status-badge day-brief-status status-${statusLabel}`}>
-                {statusLabel}
-              </span>
             </div>
-            <h3 className="day-brief-card-title">Hotel not confirmed yet</h3>
-            <p className="day-brief-card-copy">Use Accommodations to confirm the stay for this stop.</p>
-            {canOpenReviewer && (
-              <div className="day-brief-card-actions">
-                {renderBriefCardAction('Review accommodation', () => openAccommodationReviewer(day))}
-              </div>
+            <div className="day-brief-hotel-inline-actions">
+              <span className="day-brief-pending-pill">
+                <Icon name="clock" />
+                <span>{pendingStatusLabel}</span>
+              </span>
+              {canMarkBooked && (
+                <button
+                  type="button"
+                  className="day-brief-mark-booked-btn"
+                  onClick={() => void handleMarkAccommodationBooked(day, a)}
+                  disabled={isMarkingBooked}
+                  aria-label={`Mark ${hasNamedHotel ? hotelName : 'hotel'} as booked`}
+                >
+                  <Icon name="check" />
+                  <span>{isMarkingBooked ? 'Marking...' : hasBookingError ? 'Try again' : 'Mark as booked'}</span>
+                </button>
+              )}
+            </div>
+            {hasBookingError && (
+              <p className="day-brief-inline-error" role="status">Could not mark this stay as booked. Try again.</p>
             )}
           </article>
         );
@@ -2010,12 +2141,13 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
         {day.transport.map((t, i) => {
           const route = [trimDisplayText(t.from), trimDisplayText(t.to)].filter(Boolean).join(' \u2192 ');
           const title = trimDisplayText(t.label) || route || 'Transport';
+          const routeMeta = [route, trimDisplayText(t.duration), trimDisplayText(t.distance)].filter(Boolean).join(' \u00b7 ');
           return (
             <div key={i} className={`transport-row${t.detail ? ' tappable' : ''}`}
               onClick={t.detail ? () => openDetail('transport', t) : undefined}>
               <div className="transport-detail">
                 <h3 className="day-card-title transport-title">{title}</h3>
-                <div className="transport-route">{route} {t.duration ? `\u00b7 ${t.duration}` : ''}{t.distance ? ` \u00b7 ${t.distance}` : ''}</div>
+                {routeMeta && <div className="transport-route">{routeMeta}</div>}
               </div>
               {t.depart && <div className="text-mono">{t.depart}</div>}
               <span className={`text-status status-badge status-${t.status || 'pending'}`}>{t.status || 'pending'}</span>
@@ -2191,20 +2323,29 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
         >
           {/* Nav Bar */}
           <div className={`nav-bar ${isHero ? 'over-hero' : ''}`}>
-            <button className="nav-back" onClick={handleBack} aria-label={isHero ? 'All trips' : 'Back to cover'}>
-              <Icon name="back" />
-            </button>
-            <div className="nav-title-text">
-              {!isHero && trip && (
-                <div className="text-nav-title">
-                  <span className="nav-trip-name">{trip.name}</span>
-                  {trip.subtitle && <span className="nav-trip-subtitle">{trip.subtitle}</span>}
-                </div>
+            <a className="nav-home" href={homeHref} aria-label="Go to OurTrips home">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/brand/ourtrips-favicon-48.png" alt="" />
+            </a>
+            <div className="nav-title-group">
+              <button className="nav-back" onClick={handleBack} aria-label={isHero ? 'All trips' : 'Back to cover'}>
+                <Icon name="back" />
+              </button>
+              <div className="nav-title-text">
+                {!isHero && trip && (
+                  <div className="text-nav-title">
+                    <span className="nav-trip-name">{trip.name}</span>
+                    {trip.subtitle && <span className="nav-trip-subtitle">{trip.subtitle}</span>}
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="nav-actions">
+              {renderAddToTripsButton()}
+              {shareId && trip && (
+                <SaveOfflineButton shareId={shareId} data={{ trip, days }} />
               )}
             </div>
-            {shareId && trip && (
-              <SaveOfflineButton shareId={shareId} data={{ trip, days }} />
-            )}
           </div>
 
           {/* Date Strip */}
@@ -2255,37 +2396,6 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
             )}
           </div>
 
-          {/* Floating Add to Trips button */}
-          {shareId && canAddToTrips && saveStatus !== 'already_owned' && (
-            <div className="floating-save">
-              <button
-                className={`floating-save-btn ${saveStatus === 'saved' || saveStatus === 'already_saved' ? 'saved' : ''}`}
-                onClick={saveStatus === 'saved' || saveStatus === 'already_saved' ? () => { window.location.href = '/dashboard'; } : handleAddToTrips}
-                disabled={saveStatus === 'saving'}
-              >
-                {saveStatus === 'saving' ? (
-                  'Saving...'
-                ) : saveStatus === 'saved' || saveStatus === 'already_saved' ? (
-                  <>
-                    <Icon name="check" />
-                    {saveStatus === 'already_saved' ? 'Already saved — View trips' : 'Saved — View trips'}
-                  </>
-                ) : saveStatus === 'error' ? (
-                  'Failed — Try again'
-                ) : shareMode === 'remix' ? (
-                  <>
-                    <Icon name="shuffle" />
-                    Remix this trip
-                  </>
-                ) : (
-                  <>
-                    <Icon name="plus" />
-                    Add to my trips
-                  </>
-                )}
-              </button>
-            </div>
-          )}
         </div>
       )}
 

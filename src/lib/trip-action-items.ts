@@ -30,6 +30,19 @@ export function normalizeActionItemStatus(value: unknown): ActionItemStatus | nu
   return null;
 }
 
+function isPlaceholderAccommodationName(value: string): boolean {
+  const normalized = value.trim().toLowerCase();
+  return (
+    normalized === '' ||
+    normalized === 'hotel not confirmed yet' ||
+    normalized === 'hotel pending' ||
+    normalized === 'accommodation pending' ||
+    normalized === 'to be confirmed' ||
+    normalized === 'tbc' ||
+    normalized === 'tbd'
+  );
+}
+
 export function applyActionItemStatusToTripData(
   data: MutableTripData,
   params: ApplyStatusParams
@@ -51,7 +64,8 @@ export function applyActionItemStatusToTripData(
     }
 
     const accomNameValue = (targetDay.accommodation as Record<string, unknown>).name;
-    const accomName = typeof accomNameValue === 'string' ? accomNameValue.trim() : '';
+    const rawAccomName = typeof accomNameValue === 'string' ? accomNameValue.trim() : '';
+    const accomName = rawAccomName && !isPlaceholderAccommodationName(rawAccomName) ? rawAccomName : '';
 
     for (const day of data.days) {
       const accommodation = day.accommodation as Record<string, unknown> | undefined;

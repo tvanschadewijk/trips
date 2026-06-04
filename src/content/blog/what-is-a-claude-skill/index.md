@@ -1,14 +1,14 @@
 ---
 title: "What is a Claude Skill? A Beginner's Guide"
 subtitle: "Everything you need to know about Claude's skill system - what they are, how they work, and why they matter."
-excerpt: "Claude skills are portable files that give Claude new abilities - from planning trips to generating reports. Here's how the skill ecosystem works and how to get started."
+excerpt: "Claude skills are portable files that give Claude new abilities. OurTrips now uses a remote MCP connector instead; here's how the two approaches differ."
 tag: Guide
 date: 2026-04-07
 lastUpdated: 2026-04-07
 readingTime: "5 min read"
 ---
 
-A **Claude skill** is a portable file (ending in `.skill`) that teaches Claude how to perform a specific task. Install one into your Claude app and Claude picks up a new ability - no prompting, no setup, no instructions to copy-paste every time. Skills work in Claude Cowork and Codex.
+A **Claude skill** is a portable file (ending in `.skill`) that teaches Claude how to perform a specific task. Install one into your Claude app and Claude picks up a new ability - no prompting, no setup, no instructions to copy-paste every time.
 
 It's the difference between telling someone how to cook a recipe from scratch every time you want dinner, versus just handing them the cookbook.
 
@@ -51,7 +51,7 @@ Once installed, Claude reads all of it. You don't have to explain anything. Just
 
 The ecosystem is still early but growing fast. A few categories:
 
-**Travel** - the [OurTrips skill](https://ourtrips.to) takes any travel conversation and turns it into a proper shareable itinerary. Plan your trip, say "send it to OurTrips," and you get a rich mobile-friendly page with your full day-by-day plan.
+**Travel** - OurTrips now uses a remote MCP connector rather than a downloadable skill. Connect `https://ourtrips.to/mcp`, plan your trip, say "send it to OurTrips," and you get a rich mobile-friendly page with your full day-by-day plan.
 
 **Productivity** - skills that generate reports, format documents, create presentations. Instead of explaining the output format every single time, the skill just handles it.
 
@@ -63,19 +63,19 @@ The ecosystem is still early but growing fast. A few categories:
 
 It takes 30 seconds. Two options:
 
-### Just ask Claude to grab it
+### Ask Claude to grab it
 
 If your session has internet access:
 
 ```copy
-Fetch https://ourtrips.to/our-trips.skill and add it to my skills.
+Fetch [skill URL] and add it to my skills.
 ```
 
-Claude downloads it, installs it, done.
+Claude downloads that skill file, installs it, done.
 
 ### Or upload it yourself
 
-1. Download the `.skill` file
+1. Download the `.skill` file from its creator
 2. Open **Customize** in your Cowork settings
 3. Hit **Add skill**, pick the file
 
@@ -85,7 +85,7 @@ Claude downloads it, installs it, done.
 
 Still early days, but there are a few places:
 
-- **Directly from creators** - lots of tools publish their own skills (like [OurTrips](https://ourtrips.to))
+- **Directly from creators** - lots of tools publish their own skills
 - **Directories** - [agentskills.so](https://agentskills.so) and [mcpmarket.com](https://mcpmarket.com) list available skills
 - **GitHub** - developers share skills in repos and Claude communities
 - **Build your own** - if you have a workflow you repeat often, you can package it as a skill
@@ -101,14 +101,14 @@ A few things that follow from that:
 - **They're shareable.** Send the file to a friend. They get the exact same capability.
 - **They stack.** Install multiple skills in one session and Claude can use all of them.
 
-## Try one
+## Try OurTrips
 
-Easiest way to get it is to just do it:
+OurTrips now uses the live connector path instead of a downloadable skill:
 
 1. Open a Claude Cowork session
-2. Tell Claude: `Fetch https://ourtrips.to/our-trips.skill and add it to my skills.`
+2. Connect the OurTrips remote MCP server at `https://ourtrips.to/mcp`
 3. Plan a trip
 4. Say "Send it to OurTrips"
 5. Open the link
 
-Experience the magic :) 
+For Codex, ask: `Install the connector to the MCP server: https://ourtrips.to/mcp`.

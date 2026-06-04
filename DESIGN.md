@@ -4,14 +4,15 @@ Inspired by the approach of [awesome-design-md](https://github.com/VoltAgent/awe
 
 ## 1. Visual Theme & Atmosphere
 
-OurTrips is an editorial travel publication that happens to be software. The canvas is **warm paper** (`#FBF7F1`), not dark glass. Ink is almost-black with a warm cast (`#1A1410`). Type has a distinct magazine voice: serif headlines in **Fraunces** paired with **Inter** for everything else. Accent color is a single **terracotta** (`#C14F2A`) used sparingly — on links, CTAs, and marks that matter. No gradients, no glows, no animated text shaders. Confidence instead of spectacle.
+OurTrips is an editorial travel publication that happens to be software. The canvas is **warm paper** (`#FBF7F1`), not dark glass. Ink is almost-black with a warm cast (`#1A1410`). Type has a distinct magazine voice: serif headlines in **Fraunces** paired with **Inter** for everything else. The main accent color is **terracotta** (`#C14F2A`) used sparingly — on links, CTAs, and marks that matter. A separate **Action Blue** is reserved for explicit user completion/commit actions. No gradients, no glows, no animated text shaders. Confidence instead of spectacle.
 
 Photography leads. Long-form horizontal images, wide cinematic ratios, sparse captions in small caps. Interface chrome recedes so places can breathe. Borders are hair-thin warm lines (`#E8E1D6`) — never grey — and elevation is communicated through paper stacking (subtle shadow + off-white layering), not neon outlines.
 
 **Key Characteristics:**
 - Light-first, paper-warm: `#FBF7F1` page, `#FFFFFF` cards, `#F4EDE2` recessed
 - Two-type system: **Fraunces** (serif display, optical-size axis engaged) + **Inter** (UI)
-- Single chromatic accent: **Terracotta `#C14F2A`** — reserved for primary action + editorial flourishes
+- Main chromatic accent: **Terracotta `#C14F2A`** — reserved for primary action + editorial flourishes
+- User-action accent: **Action Blue `#1F66AE`** — reserved for explicit completion/commit actions, such as `Mark as booked`
 - Hair-thin warm rules: `#E8E1D6` — no cold greys anywhere
 - Generous vertical rhythm (96px+ between sections), confident whitespace
 - Image-forward: wide 16:9 or 21:9 photography, never cropped to squares unless iconic
@@ -38,6 +39,9 @@ Photography leads. Long-form horizontal images, wide cinematic ratios, sparse ca
 - **Terracotta Deep** (`#A03E1F`) — hover state, pressed.
 - **Terracotta Wash** (`#F5E4DA`) — tinted backgrounds, badges, highlights.
 - **Ochre** (`#C89A3D`) — secondary editorial accent, used rarely (e.g. star/callout).
+- **Action Blue** (`#1F66AE`) — explicit user completion/commit actions inside the product UI, e.g. `Mark as booked`.
+- **Action Blue Deep** (`#15518F`) — hover and pressed state for Action Blue controls.
+- **Action Blue Wash** (`#E8F1FA`) — quiet blue surface for action-adjacent feedback when needed.
 
 ### Status
 - **Forest** (`#2F6B4A`) — success, "in progress".
@@ -88,6 +92,34 @@ Photography leads. Long-form horizontal images, wide cinematic ratios, sparse ca
 - **No weight above 620 in Inter**: keeps the UI from shouting against the serif.
 - **Numbers tabular in tables**: `font-variant-numeric: tabular-nums`.
 
+### Product App Card Hierarchy
+
+Research basis: [Apple HIG Typography](https://developer.apple.com/design/human-interface-guidelines/typography) emphasizes legibility, hierarchy, and avoiding too many mixed typefaces; [Material Design 3 typography](https://developer.android.com/develop/ui/compose/designsystems/material3#typography) uses named type roles so component typography is consistent; [W3C WAI headings](https://www.w3.org/WAI/tutorials/page-structure/headings/) recommends heading levels that reflect the content structure rather than visual styling alone.
+
+**Semantic heading order**
+- `h1` — active trip/app title or overview page title.
+- `h2` — active day/screen title.
+- `h3` — primary item title inside a day card or product section: schedule item, transport leg, hotel name, restaurant name, paperwork/action title.
+- `h4` — only for nested subsections inside a detail sheet/card. Do not use `h4` for the primary title of a card.
+- Section labels such as `See & do`, `Accommodation`, `Transport`, and `Dog EU Return Paperwork` are overlines, not visual headlines. They may be semantic headings only when they introduce a standalone content region; otherwise keep them as labels.
+
+**Visual roles for product cards**
+
+| Role | Font | Size | Weight | Line Height | Color | Use |
+|------|------|------|--------|-------------|-------|-----|
+| Product Section Overline | Inter | 11px | 600 | 1 | Ink `#1A1410` | Card/section labels like `See & do`, `Accommodation`, `Transport` |
+| Product Item Title / H3 | Inter | 17px mobile, 18px desktop | 620 | 1.3–1.35 | Ink `#1A1410` | `Self-drive Amsterdam`, hotel names, service titles, restaurant names |
+| Product Inline Label | Inter | 13px | 620 | 1.45 | Ink `#1A1410` | Time labels like `Morning / Midday`, option labels |
+| Product Body | Inter | 14–15px | 420–450 | 1.55–1.65 | Ink 70 `#3D352E` | Supporting details, notes, descriptions |
+| Product Meta | Inter | 12–13px | 500–520 | 1.45 | Ink 50 `#6B6157` | Distances, dates, price/rating meta |
+
+**Color rules**
+- Product card titles and labels are black ink by default. Do not color headings terracotta just to create emphasis.
+- Terracotta belongs on icons, links/actions, selected states, and meaningful status accents. If a title is clickable, keep the title text ink and use underline, icon, or affordance color for interaction.
+- Action Blue is only for direct user commit/completion actions, not decoration, editorial emphasis, or passive status.
+- Status colors are semantic only: Forest for confirmed/booked, Clay/terracotta wash for pending/open/warning.
+- Within one product card family, all section overlines use the same size, weight, tracking, and color. A hotel name must not visually outrank its own `Accommodation` overline by switching to display serif sizing.
+
 ## 4. Components
 
 ### Buttons
@@ -111,14 +143,21 @@ Photography leads. Long-form horizontal images, wide cinematic ratios, sparse ca
 
 ### Cards
 
-**Editorial Card**
+OurTrips has two surface families. **Editorial surfaces** (marketing site, blog, guides, landing) stay paper-sharp. **Product surfaces** (the in-app trip preview and accommodation reviewer — a mobile-app-like experience) use softer, iOS-style rounding. Pick the radius scale (§5) that matches the surface. The palette, ink, terracotta accent, and Fraunces/Inter type are identical across both — only the geometry and depth soften on product surfaces.
+
+**Editorial Card** (marketing / publication surfaces)
 - Background `#FFFFFF`, border `1px solid #E8E1D6`, radius `4px` (sharp, paper-like), shadow `Paper Lift`.
 - Internal padding: `28px` (comfortable) or `40px` (feature).
 - Image-led variants: no border, radius `4px`, wide aspect ratio, caption in 11px overline beneath.
 
-**Quiet Card**
+**Quiet Card** (editorial)
 - Background `#F4EDE2`, no border, radius `4px`, no shadow.
 - Use for secondary tiles, "related" sections.
+
+**Product Card** (in-app surfaces)
+- Background `#FFFFFF`, hairline border `1px solid rgba(26, 20, 16, 0.06)`, radius `16px`, shadow `Paper Lift` — the lift comes from the shadow, not the border.
+- Internal padding: `18px`; gap `14px` between stacked content.
+- Nested content uses borderless soft-fill tiles (`#F4EDE2`, no border, radius `12px`) and grouped section blocks (radius `14px`) instead of bordered boxes. Pills, chips, and selects stay `999px`.
 
 ### Inputs
 
@@ -176,11 +215,22 @@ Photography leads. Long-form horizontal images, wide cinematic ratios, sparse ca
 - Between heading and its body: `16px` (tight coupling).
 
 ### Radius Scale
+
+Two scales, by surface family (see §4 Cards).
+
+**Editorial surfaces** (marketing, blog, guides) — paper-sharp:
 - `0px` — full-bleed images, editorial rules.
 - `4px` — cards, image tiles (paper-like corners).
 - `6px` — inputs.
 - `10px` — rectangular buttons.
 - `999px` — pills, primary CTAs.
+
+**Product surfaces** (in-app trip preview / reviewer) — iOS-style soft rounding:
+- `10–12px` — inputs, detail tiles, link rows, small controls.
+- `14px` — grouped section blocks nested inside a card.
+- `16px` — cards.
+- `20–22px` — sheets, modals, region containers.
+- `999px` — pills, status chips, primary CTAs.
 
 ## 6. Depth & Elevation
 
@@ -206,16 +256,16 @@ No neon outlines. No glow. No gradient borders.
 - Use overlines with wide tracking (`0.14em`) for section labels.
 - Use italic Fraunces for bylines and subtle editorial flourishes.
 - Keep Inter weights ≤ 620. Never go full bold.
-- Use 4px radius on cards — paper has a corner, not a curve.
+- On editorial/marketing surfaces, use 4px radius on cards — paper has a corner, not a curve. On in-app product surfaces, use the softer product radius scale (§5): 16px cards, 12px tiles, 14px section blocks.
 
 ### Don't
 - Don't use dark mode as default. This brand lives on warm paper.
 - Don't stack animated gradients on headlines. Editorial confidence, not shader tricks.
 - Don't use pure black `#000` or pure white `#FFF` on the paper canvas — warmth matters.
-- Don't introduce a second accent color. One accent. Terracotta. Period.
+- Don't introduce extra decorative accent colors beyond Terracotta and reserved Action Blue. Blue is for explicit user commit/completion actions only.
 - Don't use Inter 700/800. Use Fraunces when you need weight.
 - Don't use cold grays (`#888`, `#ccc`) — always warm taupes.
-- Don't wrap every element in a rounded pill. Serif typography wants restraint.
+- On editorial surfaces, don't wrap every element in a rounded pill — serif typography wants restraint. (In-app product surfaces may round more generously; just keep the radius scale consistent within a surface.)
 - Don't animate page titles with background-clip gradients. It's the signature move of generic AI-slop landing pages.
 
 ## 8. Responsive Behavior

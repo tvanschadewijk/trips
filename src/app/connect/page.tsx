@@ -140,7 +140,7 @@ function ConnectInner() {
               <KeyRound aria-hidden="true" />
             </div>
             <h2 className="connect-title">Connect to OurTrips</h2>
-            <p className="connect-desc">Sign in to link your Claude skill to your account.</p>
+            <p className="connect-desc">Sign in to link the OurTrips connector to your account.</p>
             <form onSubmit={handleLogin} className="connect-form">
               <input
                 type="email"
@@ -163,7 +163,7 @@ function ConnectInner() {
             </div>
             <h2 className="connect-title">Check your email</h2>
             <p className="connect-desc">
-              We sent a magic link to <strong>{email}</strong>. Click it to connect your skill.
+              We sent a magic link to <strong>{email}</strong>. Click it to connect OurTrips.
             </p>
           </div>
         )}
@@ -173,9 +173,9 @@ function ConnectInner() {
             <div className="connect-icon">
               <KeyRound aria-hidden="true" />
             </div>
-            <h2 className="connect-title">Connect your skill</h2>
+            <h2 className="connect-title">Connect OurTrips</h2>
             <p className="connect-desc">
-              Allow your Claude skill to save trips to your OurTrips account
+              Allow the OurTrips connector to save trips to your account
               {userEmail && <> (<strong>{userEmail}</strong>)</>}?
             </p>
             <button className="connect-btn" onClick={handleAuthorize}>Authorize</button>
@@ -194,7 +194,7 @@ function ConnectInner() {
               <Check aria-hidden="true" />
             </div>
             <h2 className="connect-title">Connected!</h2>
-            <p className="connect-desc">Your Claude skill is now linked to your account. You can close this window and go back to Claude.</p>
+            <p className="connect-desc">The OurTrips connector is now linked to your account. You can close this window and go back to your agent.</p>
           </div>
         )}
 

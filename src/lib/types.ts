@@ -85,10 +85,11 @@ export interface Day {
   date: string;
   title: string;
   subtitle?: string;
+  description_title?: string;
   description?: string;
   hero_image?: string;
   stats?: Stat[];
-  blocks: Block[];
+  blocks?: Block[];
   transport?: Transport[];
   accommodation?: Accommodation | null;
   meals?: Meal[];

@@ -31,10 +31,7 @@ export const metadata: Metadata = {
 
 export default function GuidePage() {
   const mcpServerUrl = 'https://ourtrips.to/mcp';
-  const codexCliCommand = `codex mcp add ourtrips --url ${mcpServerUrl}
-codex mcp login ourtrips`;
-  const codexToml = `[mcp_servers.ourtrips]
-url = "${mcpServerUrl}"`;
+  const codexPrompt = `Install the connector to the MCP server: ${mcpServerUrl}`;
 
   return (
     <div className="guide">
@@ -94,22 +91,13 @@ url = "${mcpServerUrl}"`;
               <article className="guide-network-card">
                 <h3 className="guide-network-title">Codex</h3>
                 <p className="guide-step-desc">
-                  Run this in your terminal:
+                  Ask Codex to install the connector, then paste the server URL:
                 </p>
                 <div className="guide-code-block guide-code-block-small">
-                  <code>{codexCliCommand}</code>
-                  <GuideCopyButton value={codexCliCommand} />
+                  <code>{codexPrompt}</code>
+                  <GuideCopyButton value={codexPrompt} />
                 </div>
               </article>
-            </div>
-
-            <p className="guide-section-desc">
-              Prefer manual Codex config? Add this to <code>~/.codex/config.toml</code>, restart
-              Codex, then run <code>codex mcp login ourtrips</code>.
-            </p>
-            <div className="guide-code-block guide-code-block-small">
-              <code>{codexToml}</code>
-              <GuideCopyButton value={codexToml} />
             </div>
           </section>
 

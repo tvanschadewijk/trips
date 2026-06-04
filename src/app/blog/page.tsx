@@ -8,14 +8,14 @@ import '@/styles/blog.css';
 export const metadata: Metadata = {
   title: 'Blog — OurTrips',
   description:
-    'Guides, tips, and tutorials on AI-powered trip planning with Claude skills. Learn how to create beautiful, shareable travel itineraries.',
+    'Guides, tips, and tutorials on AI-powered trip planning with remote MCP connectors. Learn how to create beautiful, shareable travel itineraries.',
   alternates: {
     canonical: 'https://ourtrips.to/blog',
   },
   openGraph: {
     title: 'Blog — OurTrips',
     description:
-      'Guides, tips, and tutorials on AI-powered trip planning with Claude skills.',
+      'Guides, tips, and tutorials on AI-powered trip planning with remote MCP connectors.',
     url: 'https://ourtrips.to/blog',
     siteName: 'OurTrips',
     locale: 'en_US',
@@ -25,7 +25,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'Blog — OurTrips',
     description:
-      'Guides, tips, and tutorials on AI-powered trip planning with Claude skills.',
+      'Guides, tips, and tutorials on AI-powered trip planning with remote MCP connectors.',
   },
 };
 
@@ -51,7 +51,7 @@ export default function BlogIndex() {
             <div className="blog-header-badge">Blog</div>
             <h1 className="blog-header-title">AI Trip Planning Guides</h1>
             <p className="blog-header-desc">
-              Learn how to use Claude skills, AI agents, and OurTrips to plan and share
+              Learn how to use remote connectors, AI agents, and OurTrips to plan and share
               beautiful travel itineraries.
             </p>
           </div>

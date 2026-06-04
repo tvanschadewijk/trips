@@ -187,6 +187,7 @@ function inferDayMode(day: Day): string | undefined {
   const text = normalizePlace([
     day.title,
     day.subtitle,
+    day.description_title,
     day.description,
     ...(day.blocks ?? []).flatMap((block) => [block.type, block.content, block.detail?.title]),
   ].filter(Boolean).join(' '));

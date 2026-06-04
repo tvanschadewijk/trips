@@ -12,7 +12,7 @@ Two ways: paste a fetch command like 'Fetch [URL] and add it to my skills' into 
 
 ## What's the difference between a Claude skill and an MCP server?
 
-MCP servers provide live tool connections (like database access or API integrations). Skills are portable instruction files that bundle prompts, schemas, and API connections into a single shareable package. Skills are simpler to install and share.
+MCP servers provide live tool connections, such as database access or API integrations. Skills are portable instruction files that bundle prompts, schemas, and reference docs. OurTrips now uses a remote MCP connector because it needs a signed-in live tool surface.
 
 ## Can I build my own Claude skill?
 

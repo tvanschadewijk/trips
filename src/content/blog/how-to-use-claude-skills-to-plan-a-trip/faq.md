@@ -1,14 +1,14 @@
-## Does the OurTrips skill work with ChatGPT?
+## Does the OurTrips connector work with ChatGPT?
 
-Not yet. The OurTrips skill currently works with Claude Cowork and Codex only. 
+Not yet. The OurTrips connector currently works with agents that support remote MCP connectors, including Claude and Codex.
 
 ## Do I need an account to view a trip?
 
 No. Anyone with the link can view the itinerary without creating an account.
 
-## Is the OurTrips skill free?
+## Is the OurTrips connector free?
 
-Yes. The skill is free to install and use. You just need access to Claude Cowork or Codex.
+Yes. The connector is free to install and use. You just need access to an agent that supports remote MCP connectors.
 
 ## Can I edit the itinerary after it's created?
 

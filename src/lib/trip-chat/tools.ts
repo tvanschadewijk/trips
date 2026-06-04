@@ -153,11 +153,12 @@ const CREATE_ACCOMMODATION_CANDIDATE_DESCRIPTION = `Create one private accommoda
 Use this after researching or choosing a hotel/stay candidate that should enter
 the review board. New candidates should usually start in proposed unless the
 user explicitly says they are already booked. A proposal is incomplete unless it
-includes directWebsite for the official hotel site and ratings with Booking.com
-(\`bookingCom\`), Tripadvisor (\`tripadvisor\`), and Google Reviews
-(\`google\`) values or a clear "not found" note for any source you could not
-verify. Also include platform prices, address/room/contact/check-in details,
-terms, dog/parking notes, and blockers when known.
+includes directWebsite for the official hotel site and a checked ratings row
+with Booking.com (\`bookingCom\`), Tripadvisor (\`tripadvisor\`), and Google
+Reviews (\`google\`) values. Use "Not found" for a source you actually checked
+but could not verify, and set \`checkedAt\` to the check date. Also include
+platform prices, address/room/contact/check-in details, terms, dog/parking
+notes, and blockers when known.
 
 Create exactly one card per hotel. Do not combine multiple hotel names into one
 candidate with slashes or shortlist prose.`;
@@ -292,6 +293,13 @@ const AccommodationCandidateRatingSchema = z
   })
   .strict();
 
+const CheckedAccommodationCandidateRatingSchema = AccommodationCandidateRatingSchema.extend({
+  checkedAt: z.string().min(1),
+  bookingCom: z.string().min(1),
+  tripadvisor: z.string().min(1),
+  google: z.string().min(1),
+});
+
 const AccommodationCandidateBookingSchema = z
   .object({
     bookedAt: z.string().optional(),
@@ -323,8 +331,8 @@ const AccommodationCandidatePatchSchema = z
       'Official/direct hotel website. Do not use Booking.com, Tripadvisor, Google, or an OTA/search-result URL here.'
     ).optional(),
     links: z.array(AccommodationCandidateLinkSchema).optional(),
-    ratings: z.array(AccommodationCandidateRatingSchema).describe(
-      'Customer-review ratings. For hotel proposals include bookingCom, tripadvisor, and google values or "Not found" for each missing source.'
+    ratings: z.array(CheckedAccommodationCandidateRatingSchema).min(1).describe(
+      'Checked customer-review ratings. Include checkedAt plus bookingCom, tripadvisor, and google values; use "Not found" only for sources actually checked.'
     ).optional(),
     rateCheck: z.record(z.string(), z.unknown()).optional(),
     feedbackLoop: z.record(z.string(), z.unknown()).optional(),
@@ -380,11 +388,11 @@ const CreateAccommodationCandidateInputShape = {
       alternatives: z.string().optional(),
       directWebsite: AccommodationCandidateLinkSchema.describe(
         'Official/direct hotel website. Do not use Booking.com, Tripadvisor, Google, or an OTA/search-result URL here.'
-      ).optional(),
+      ),
       links: z.array(AccommodationCandidateLinkSchema).optional(),
-      ratings: z.array(AccommodationCandidateRatingSchema).describe(
-        'Customer-review ratings. Include bookingCom, tripadvisor, and google values or "Not found" for each missing source.'
-      ).optional(),
+      ratings: z.array(CheckedAccommodationCandidateRatingSchema).min(1).describe(
+        'Checked customer-review ratings. Include checkedAt plus bookingCom, tripadvisor, and google values; use "Not found" only for sources actually checked.'
+      ),
       rateCheck: z.record(z.string(), z.unknown()).optional(),
       feedbackLoop: z.record(z.string(), z.unknown()).optional(),
       dayNumbers: z.array(z.number()).optional(),
@@ -484,8 +492,13 @@ not send an empty object.
     than removing and appending a new day (that shifts downstream day_numbers
     and breaks the carousel).
   - When reordering, update \`day_number\` fields to match the new positions.
-  - When adding blocks, meals, transport, tips, or stats to a day: fetch the
-    day, append to the array, send the full \`days\` array back.
+  - Use day \`description_title\` + \`description\` for the one editorial day
+    intro shown on the hero/overview. Do not create a first \`blocks[]\` entry
+    just to hold that intro.
+  - \`blocks[]\` is optional and reserved for actual programme items after the
+    day intro: timed activities, sights, excursions, walks, or other itinerary
+    rows. When adding blocks, meals, transport, tips, or stats to a day: fetch
+    the day, append to the array, send the full \`days\` array back.
   - Free-form fields like \`time_label\` on a block accept "Morning",
     "14:00 – 16:30", "Late afternoon" — stay consistent with what's already
     in the trip.
@@ -499,9 +512,9 @@ not send an empty object.
 
 ## Editorial tone (this product is OurTrips — editorial travel, not a booking system)
 
-  - \`trip.summary\` and day \`description\`: confident, specific, slightly
-    literary. Not "Enjoy Seoul" — "Seoul wakes up slowly on a Wednesday; start
-    at Gwangjang Market."
+  - \`trip.summary\`, day \`description_title\`, and day \`description\`:
+    confident, specific, slightly literary. Not "Enjoy Seoul" — "Seoul wakes
+    up slowly on a Wednesday; start at Gwangjang Market."
   - \`trip.subtitle\` and day \`subtitle\`: under ~60 chars, concrete, a single
     image or idea. Not a sentence.
   - \`tips\` are voice-y, first-person-adjacent when appropriate. The product
@@ -516,7 +529,8 @@ museum, beach, village, hotel, or restaurant:
   - Add a structured \`detail\` object rather than stuffing long copy into
     \`content\` or \`note\`.
   - Programme blocks can carry \`detail\` with \`title\`, \`body\`, \`why\`,
-    \`highlights\`, \`what_to_see\`, \`how_to_do_it\`, and \`practical\`.
+    \`highlights\`, \`what_to_see\`, \`how_to_do_it\`, and \`practical\`, but
+    they should not duplicate the day intro.
   - Accommodation and meal detail objects can carry \`why\`, \`vibe\`,
     \`what_to_order\`, \`booking_note\`, and \`dog_note\` alongside the existing
     practical booking fields.
@@ -529,7 +543,7 @@ museum, beach, village, hotel, or restaurant:
 ## Markdown sync (two-way source of truth)
 
 The trip can be edited from two surfaces: this chat (you) and an external
-agent like Claude CoWork (which saves the trip via the OurTrips skill). To
+agent like Claude CoWork (which saves the trip via the OurTrips connector). To
 keep both surfaces in sync the trip body carries an optional
 \`markdown_source\` field — the long-form markdown the user authored or the
 external agent generated.
@@ -1879,7 +1893,9 @@ export const _internal = {
   applyAccommodationDetailPatch,
   buildPolicySearchQuery,
   collectAccommodations,
+  CreateAccommodationCandidateInputShape,
   extractPolicySnippets,
   inferPolicyFromText,
+  UpdateAccommodationCandidateInputShape,
   upsertAccommodationAgentNote,
 };

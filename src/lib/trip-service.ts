@@ -1,7 +1,9 @@
+import { createHash } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { trySyncAccommodationReviewForTrip } from '@/lib/accommodation-review-store';
 import { isPublicItineraryShareId } from '@/lib/public-itineraries';
-import type { TripData } from '@/lib/types';
+import { buildTripImagePromptSet } from '@/lib/trip-image-prompts';
+import type { TripData, TripImageAsset, TripImageAssetSlot } from '@/lib/types';
 
 type AdminClient = SupabaseClient;
 
@@ -25,6 +27,204 @@ export type PatchTripInput = {
   trip?: Record<string, unknown>;
   days?: Array<Record<string, unknown>>;
   markdown_source?: string;
+  mode?: TripPatchMode;
+  replace_paths?: TripPathReplacement[];
+  delete_paths?: string[];
+  response_mode?: TripResponseMode;
+};
+
+export type TripResponseMode = 'compact' | 'full';
+export type TripPatchMode = 'merge' | 'replace';
+
+export type TripPathReplacement = {
+  path: string;
+  value: unknown;
+};
+
+export type TripMutationSummary = {
+  trip_id: string;
+  share_id: string;
+  url: string;
+  status: 'updated';
+  updated_at: string;
+  changed_paths: string[];
+  warnings: string[];
+  markdown_source: MarkdownSourceSummary;
+  image_status: TripImageStatus;
+};
+
+export type MarkdownSourceSummary = {
+  present: boolean;
+  length: number;
+  sha256: string;
+  previous_sha256?: string;
+};
+
+export type TripMutationResult = {
+  record: Record<string, unknown>;
+  summary: TripMutationSummary;
+};
+
+export type TripReadView = 'full' | 'summary' | 'day' | 'days' | 'sections';
+
+export type TripReadSection =
+  | 'trip'
+  | 'markdown_source'
+  | 'days'
+  | 'images'
+  | 'image_assets'
+  | 'blocks'
+  | 'transport'
+  | 'accommodation'
+  | 'meals'
+  | 'tips'
+  | 'stats'
+  | 'route_points'
+  | 'services'
+  | 'notes';
+
+export type TripReadInput = {
+  view?: TripReadView;
+  day_number?: number;
+  day_numbers?: number[];
+  day_start?: number;
+  day_end?: number;
+  sections?: TripReadSection[];
+  include_markdown_source?: boolean;
+  allow_large?: boolean;
+};
+
+export type DayItemKind = 'meal' | 'transport' | 'activity' | 'accommodation';
+export type DayItemMutationMode = 'merge' | 'replace';
+export type DayItemInsertPosition = 'append' | 'prepend';
+export type AccommodationMutationScope = 'day' | 'matching_accommodation_name';
+
+export type DayItemMatch = {
+  index?: number;
+  name?: string;
+  label?: string;
+  title?: string;
+  type?: string;
+  mode?: string;
+  from?: string;
+  to?: string;
+  time_label?: string;
+  content_contains?: string;
+};
+
+export type UpsertDayItemInput = {
+  kind: DayItemKind;
+  day_number: number;
+  item: Record<string, unknown>;
+  match?: DayItemMatch;
+  mode?: DayItemMutationMode;
+  position?: DayItemInsertPosition;
+  scope?: AccommodationMutationScope;
+  response_mode?: TripResponseMode;
+};
+
+export type DeleteDayItemInput = {
+  kind: DayItemKind;
+  day_number: number;
+  match?: DayItemMatch;
+  scope?: AccommodationMutationScope;
+  response_mode?: TripResponseMode;
+};
+
+export type ReplaceDaySectionInput = {
+  day_number: number;
+  section: 'blocks' | 'transport' | 'accommodation' | 'meals' | 'tips' | 'stats';
+  value: unknown;
+  response_mode?: TripResponseMode;
+};
+
+export type ReplaceDayInput = {
+  day_number: number;
+  day: Record<string, unknown>;
+  response_mode?: TripResponseMode;
+};
+
+export type DeleteDayInput = {
+  day_number: number;
+  response_mode?: TripResponseMode;
+};
+
+export type TruncateDaysAfterInput = {
+  keep_through_day_number: number;
+  response_mode?: TripResponseMode;
+};
+
+export type TripImageSearchOrientation = 'landscape' | 'portrait' | 'squarish';
+
+export type TripImageSearchResult = {
+  id: string;
+  landscape: string;
+  portrait: string;
+  download_url: string;
+  description: string;
+  photographer: string;
+  photographer_url: string;
+};
+
+export type TripHeroImageTarget =
+  | { kind: 'trip'; field?: 'hero_image' | 'overview_image' }
+  | { kind: 'day'; day_number: number };
+
+export type SetTripHeroImageInput = {
+  target: TripHeroImageTarget;
+  url: string;
+  download_url?: string;
+  response_mode?: TripResponseMode;
+};
+
+export type SaveTripImageAssetInput = {
+  slot: TripImageAssetSlot;
+  asset: TripImageAsset;
+  response_mode?: TripResponseMode;
+};
+
+export type TripImageStatus = {
+  trip_hero_image: { present: boolean; url?: string };
+  overview_image: { present: boolean; url?: string };
+  day_hero_images: {
+    present: number;
+    total: number;
+    missing_day_numbers: number[];
+  };
+  image_assets: Record<
+    TripImageAssetSlot,
+    {
+      present: boolean;
+      url?: string;
+      source?: string;
+      aspect_ratio?: string;
+      provider?: string;
+      model?: string;
+    }
+  >;
+};
+
+export type SyncMarkdownSourceInput = {
+  markdown_source: string;
+  expected_current_hash?: string;
+  response_mode?: TripResponseMode;
+};
+
+export type UpdateFromMarkdownInput = SyncMarkdownSourceInput & {
+  trip?: Record<string, unknown>;
+  days?: Array<Record<string, unknown>>;
+  mode?: TripPatchMode;
+};
+
+type MutableTripData = {
+  trip: Record<string, unknown>;
+  days: Array<Record<string, unknown>>;
+  markdown_source?: string;
+};
+
+type MutationDetails = {
+  changed_paths: string[];
+  warnings?: string[];
 };
 
 export type TripSaveResult = {
@@ -32,6 +232,8 @@ export type TripSaveResult = {
   share_id: string;
   url: string;
   status: 'created' | 'updated';
+  day_count: number;
+  image_status: TripImageStatus;
   accommodation_review: 'synced' | 'sync_failed';
 };
 
@@ -44,6 +246,139 @@ export type TripListItem = {
   created_at: string;
   updated_at: string;
 };
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
+}
+
+function cloneValue<T>(value: T): T {
+  return structuredClone(value);
+}
+
+function asMutableTripData(data: unknown): MutableTripData {
+  const cloned = cloneValue(data);
+  if (!isRecord(cloned) || !isRecord(cloned.trip) || !Array.isArray(cloned.days)) {
+    throw new TripServiceError('Trip data is malformed', 500);
+  }
+
+  if (!cloned.days.every(isRecord)) {
+    throw new TripServiceError('Trip day data is malformed', 500);
+  }
+
+  return cloned as MutableTripData;
+}
+
+function unique(values: string[]): string[] {
+  return Array.from(new Set(values.filter(Boolean)));
+}
+
+function tripUrl(origin: string, shareId: string): string {
+  return origin ? `${origin}/t/${shareId}` : `/t/${shareId}`;
+}
+
+function publicVerificationOrigin(): string {
+  const configuredOrigin = process.env.OURTRIPS_PUBLIC_ORIGIN
+    || process.env.NEXT_PUBLIC_SITE_URL
+    || 'https://ourtrips.to';
+
+  try {
+    return new URL(configuredOrigin).origin;
+  } catch {
+    return 'https://ourtrips.to';
+  }
+}
+
+export function hashMarkdownSource(markdownSource: string | undefined): string {
+  return createHash('sha256').update(markdownSource ?? '').digest('hex');
+}
+
+function summarizeMarkdownSource(markdownSource: unknown): MarkdownSourceSummary {
+  const source = typeof markdownSource === 'string' ? markdownSource : undefined;
+  return {
+    present: typeof source === 'string',
+    length: source?.length ?? 0,
+    sha256: hashMarkdownSource(source),
+  };
+}
+
+const IMAGE_ASSET_SLOTS: TripImageAssetSlot[] = [
+  'cover_portrait',
+  'cover_landscape',
+  'social_og',
+];
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
+export function summarizeTripImages(data: unknown): TripImageStatus {
+  const trip = isRecord(data) && isRecord(data.trip) ? data.trip : {};
+  const days = isRecord(data) && Array.isArray(data.days) ? data.days.filter(isRecord) : [];
+  const assets = isRecord(trip.image_assets) ? trip.image_assets : {};
+  const missingDayNumbers: number[] = [];
+  let presentDayImages = 0;
+
+  for (const day of days) {
+    if (isNonEmptyString(day.hero_image)) {
+      presentDayImages += 1;
+    } else if (typeof day.day_number === 'number') {
+      missingDayNumbers.push(day.day_number);
+    }
+  }
+
+  return {
+    trip_hero_image: {
+      present: isNonEmptyString(trip.hero_image),
+      ...(isNonEmptyString(trip.hero_image) ? { url: trip.hero_image } : {}),
+    },
+    overview_image: {
+      present: isNonEmptyString(trip.overview_image),
+      ...(isNonEmptyString(trip.overview_image) ? { url: trip.overview_image } : {}),
+    },
+    day_hero_images: {
+      present: presentDayImages,
+      total: days.length,
+      missing_day_numbers: missingDayNumbers,
+    },
+    image_assets: Object.fromEntries(
+      IMAGE_ASSET_SLOTS.map((slot) => {
+        const asset = isRecord(assets[slot]) ? assets[slot] : {};
+        return [
+          slot,
+          {
+            present: isNonEmptyString(asset.url),
+            ...(isNonEmptyString(asset.url) ? { url: asset.url } : {}),
+            ...(isNonEmptyString(asset.source) ? { source: asset.source } : {}),
+            ...(isNonEmptyString(asset.aspect_ratio) ? { aspect_ratio: asset.aspect_ratio } : {}),
+            ...(isNonEmptyString(asset.provider) ? { provider: asset.provider } : {}),
+            ...(isNonEmptyString(asset.model) ? { model: asset.model } : {}),
+          },
+        ];
+      })
+    ) as TripImageStatus['image_assets'],
+  };
+}
+
+function buildMutationSummary(
+  record: Record<string, unknown>,
+  origin: string,
+  details: MutationDetails
+): TripMutationSummary {
+  const shareId = String(record.share_id ?? '');
+  const data = isRecord(record.data) ? record.data : {};
+
+  return {
+    trip_id: String(record.id ?? ''),
+    share_id: shareId,
+    url: tripUrl(origin, shareId),
+    status: 'updated',
+    updated_at: String(record.updated_at ?? ''),
+    changed_paths: unique(details.changed_paths),
+    warnings: unique(details.warnings ?? []),
+    markdown_source: summarizeMarkdownSource(data.markdown_source),
+    image_status: summarizeTripImages(data),
+  };
+}
 
 function assertMarkdownSize(markdownSource: unknown): asserts markdownSource is string | undefined {
   if (typeof markdownSource === 'string' && markdownSource.length > 262144) {
@@ -116,6 +451,8 @@ export async function saveTripForUser(
         share_id: existing.share_id,
         url: `${origin}/t/${existing.share_id}`,
         status: 'updated',
+        day_count: Array.isArray(tripBody.days) ? tripBody.days.length : 0,
+        image_status: summarizeTripImages(tripBody),
         accommodation_review: accommodationReview,
       };
     }
@@ -175,6 +512,8 @@ export async function saveTripForUser(
       share_id: existingByName.share_id,
       url: `${origin}/t/${existingByName.share_id}`,
       status: 'updated',
+      day_count: Array.isArray(tripBody.days) ? tripBody.days.length : 0,
+      image_status: summarizeTripImages(tripBody),
       accommodation_review: accommodationReview,
     };
   }
@@ -205,6 +544,8 @@ export async function saveTripForUser(
     share_id: newTrip.share_id,
     url: `${origin}/t/${newTrip.share_id}`,
     status: 'created',
+    day_count: Array.isArray(tripBody.days) ? tripBody.days.length : 0,
+    image_status: summarizeTripImages(tripBody),
     accommodation_review: accommodationReview,
   };
 }
@@ -256,21 +597,123 @@ export async function getTripForUser(
   return trip;
 }
 
+async function getTripByShareIdForUser(
+  admin: AdminClient,
+  userId: string,
+  shareId: string
+) {
+  const { data: trip, error } = await admin
+    .from('trips')
+    .select('*')
+    .eq('share_id', shareId)
+    .eq('user_id', userId)
+    .single();
+
+  if (error || !trip) {
+    throw new TripServiceError('Trip not found', 404);
+  }
+
+  return trip;
+}
+
+async function persistTripDataForUser(
+  admin: AdminClient,
+  userId: string,
+  tripId: string,
+  nextData: MutableTripData,
+  expectedUpdatedAt?: string
+): Promise<Record<string, unknown>> {
+  const updatedName = nextData.trip.name;
+  let query = admin
+    .from('trips')
+    .update({
+      data: nextData,
+      ...(typeof updatedName === 'string' && updatedName.length > 0
+        ? { name: updatedName }
+        : {}),
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', tripId)
+    .eq('user_id', userId);
+
+  if (expectedUpdatedAt) {
+    query = query.eq('updated_at', expectedUpdatedAt);
+  }
+
+  const { data: updated, error } = await query.select().single();
+
+  if (error) {
+    if (expectedUpdatedAt) {
+      throw new TripServiceError('Trip changed while applying expected markdown hash', 409);
+    }
+    throw new TripServiceError(error.message, 500);
+  }
+
+  await trySyncAccommodationReviewForTrip(admin, tripId, nextData as unknown as TripData);
+  return updated as Record<string, unknown>;
+}
+
+async function mutateTripForUser(
+  admin: AdminClient,
+  userId: string,
+  tripId: string,
+  origin: string,
+  mutate: (data: MutableTripData, record: Record<string, unknown>) => MutationDetails,
+  options: { compareUpdatedAt?: boolean } = {}
+): Promise<TripMutationResult> {
+  const trip = await getTripForUser(admin, userId, tripId);
+  const nextData = asMutableTripData(trip.data);
+  const details = mutate(nextData, trip);
+  const updated = await persistTripDataForUser(
+    admin,
+    userId,
+    tripId,
+    nextData,
+    options.compareUpdatedAt ? String(trip.updated_at ?? '') : undefined
+  );
+
+  return {
+    record: updated,
+    summary: buildMutationSummary(updated, origin, details),
+  };
+}
+
 export async function patchTripForUser(
   admin: AdminClient,
   userId: string,
   tripId: string,
   input: PatchTripInput
 ) {
-  const trip = await getTripForUser(admin, userId, tripId);
-  const existing = trip.data as {
-    trip: Record<string, unknown>;
-    days: Array<Record<string, unknown>>;
-    markdown_source?: string;
-  };
+  const result = await patchTripForUserWithResult(admin, userId, tripId, input, '');
+  return result.record;
+}
+
+export async function patchTripForUserWithResult(
+  admin: AdminClient,
+  userId: string,
+  tripId: string,
+  input: PatchTripInput,
+  origin: string
+): Promise<TripMutationResult> {
+  return mutateTripForUser(admin, userId, tripId, origin, (existing) => {
+    const details = applyPatchTripInput(existing, input);
+    return details;
+  });
+}
+
+function applyPatchTripInput(existing: MutableTripData, input: PatchTripInput): MutationDetails {
+  const changedPaths: string[] = [];
+  const warnings: string[] = [];
+  const mode = input.mode ?? 'merge';
 
   if (input.trip) {
-    existing.trip = deepMerge(existing.trip, input.trip);
+    if (mode === 'replace') {
+      existing.trip = cloneValue(input.trip);
+      changedPaths.push('trip');
+    } else {
+      existing.trip = deepMerge(existing.trip, input.trip);
+      changedPaths.push(...collectPatchPaths('trip', input.trip));
+    }
   }
 
   if (typeof input.markdown_source === 'string') {
@@ -280,42 +723,1359 @@ export async function patchTripForUser(
     } else {
       existing.markdown_source = input.markdown_source;
     }
+    changedPaths.push('markdown_source');
   }
 
   if (input.days && Array.isArray(input.days)) {
     for (const patchDay of input.days) {
       if (typeof patchDay.day_number !== 'number') continue;
-      const idx = existing.days.findIndex((day) => day.day_number === patchDay.day_number);
+      const dayNumber = patchDay.day_number;
+      const dayPath = dayPathForNumber(dayNumber);
+      const idx = existing.days.findIndex((day) => day.day_number === dayNumber);
+      warnings.push(...collectArrayPatchWarnings(dayPath, patchDay));
+      if (mode === 'merge' && idx >= 0) {
+        warnings.push(...collectAccommodationMergeWarnings(dayPath, existing.days[idx], patchDay));
+      }
       if (idx >= 0) {
-        existing.days[idx] = deepMerge(existing.days[idx], patchDay);
+        existing.days[idx] =
+          mode === 'replace'
+            ? cloneValue(patchDay)
+            : deepMerge(existing.days[idx], patchDay);
       } else {
-        existing.days.push(patchDay);
+        existing.days.push(cloneValue(patchDay));
         existing.days.sort((a, b) => (a.day_number as number) - (b.day_number as number));
       }
+      changedPaths.push(...collectPatchPaths(dayPath, patchDay, new Set(['day_number'])));
     }
   }
 
-  const updatedName = existing.trip.name;
-  const { data: updated, error } = await admin
-    .from('trips')
-    .update({
-      data: existing,
-      ...(typeof updatedName === 'string' && updatedName.length > 0
-        ? { name: updatedName }
-        : {}),
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', tripId)
-    .eq('user_id', userId)
-    .select()
-    .single();
-
-  if (error) {
-    throw new TripServiceError(error.message, 500);
+  for (const replacement of input.replace_paths ?? []) {
+    replaceTripPath(existing, replacement.path, replacement.value);
+    changedPaths.push(replacement.path);
   }
 
-  await trySyncAccommodationReviewForTrip(admin, tripId, existing as unknown as TripData);
-  return updated;
+  for (const path of input.delete_paths ?? []) {
+    deleteTripPath(existing, path);
+    changedPaths.push(path);
+  }
+
+  return { changed_paths: changedPaths, warnings };
+}
+
+function dayPathForNumber(dayNumber: number): string {
+  return `days[day_number=${dayNumber}]`;
+}
+
+function collectPatchPaths(
+  prefix: string,
+  value: unknown,
+  omittedKeys = new Set<string>()
+): string[] {
+  if (!isRecord(value)) return [prefix];
+
+  const paths: string[] = [];
+  for (const [key, nested] of Object.entries(value)) {
+    if (omittedKeys.has(key)) continue;
+    const path = `${prefix}.${key}`;
+    if (isRecord(nested)) {
+      paths.push(...collectPatchPaths(path, nested));
+    } else {
+      paths.push(path);
+    }
+  }
+
+  return paths.length > 0 ? paths : [prefix];
+}
+
+function collectArrayPatchWarnings(prefix: string, value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return [
+      `${prefix} contains an array patch. Arrays are replaced as complete arrays in patch_trip; use the focused upsert/delete tools for item-level edits.`,
+    ];
+  }
+
+  if (!isRecord(value)) return [];
+
+  return Object.entries(value).flatMap(([key, nested]) =>
+    collectArrayPatchWarnings(`${prefix}.${key}`, nested)
+  );
+}
+
+function collectAccommodationMergeWarnings(
+  dayPath: string,
+  existingDay: Record<string, unknown>,
+  patchDay: Record<string, unknown>
+): string[] {
+  if (!isRecord(existingDay.accommodation) || !isRecord(patchDay.accommodation)) {
+    return [];
+  }
+
+  const existingName = existingDay.accommodation.name;
+  const nextName = patchDay.accommodation.name;
+  if (
+    isNonEmptyString(existingName) &&
+    isNonEmptyString(nextName) &&
+    existingName !== nextName
+  ) {
+    return [
+      `${dayPath}.accommodation changed name from "${existingName}" to "${nextName}" with merge semantics. Existing nested accommodation.detail keys may have survived; use replace_accommodation, replace_day_section, or mode=replace when swapping hotels.`,
+    ];
+  }
+
+  return [];
+}
+
+type PathSegment =
+  | { type: 'property'; key: string }
+  | { type: 'arrayIndex'; key: string; index: number }
+  | { type: 'dayNumber'; dayNumber: number };
+
+const SAFE_PROPERTY_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
+const UNSAFE_PATH_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+const REQUIRED_ROOT_PATHS = new Set(['trip', 'days']);
+
+function parseTripPath(path: string): PathSegment[] {
+  const trimmed = path.trim();
+  if (trimmed.length === 0 || trimmed !== path) {
+    throw new TripServiceError(`Invalid path: ${path}`, 400);
+  }
+
+  return trimmed.split('.').map((part) => {
+    const dayMatch = /^days\[day_number=(\d+)\]$/.exec(part);
+    if (dayMatch) {
+      return { type: 'dayNumber', dayNumber: Number(dayMatch[1]) };
+    }
+
+    const arrayMatch = /^([A-Za-z_][A-Za-z0-9_]*)\[(\d+)\]$/.exec(part);
+    if (arrayMatch) {
+      const key = arrayMatch[1];
+      assertSafePathKey(key);
+      return { type: 'arrayIndex', key, index: Number(arrayMatch[2]) };
+    }
+
+    if (!SAFE_PROPERTY_RE.test(part)) {
+      throw new TripServiceError(`Invalid path segment: ${part}`, 400);
+    }
+
+    assertSafePathKey(part);
+    return { type: 'property', key: part };
+  });
+}
+
+function assertPathDoesNotTargetRequiredRoot(
+  segments: PathSegment[],
+  path: string,
+  action: 'replace' | 'delete'
+): void {
+  const first = segments[0];
+  if (
+    segments.length === 1 &&
+    first?.type === 'property' &&
+    REQUIRED_ROOT_PATHS.has(first.key)
+  ) {
+    throw new TripServiceError(
+      `Cannot ${action} required root path "${path}" with replace_paths/delete_paths`,
+      400
+    );
+  }
+}
+
+function assertRequiredTripShape(data: MutableTripData): void {
+  if (!isRecord(data.trip) || !Array.isArray(data.days) || !data.days.every(isRecord)) {
+    throw new TripServiceError('Trip data is malformed after path edit', 400);
+  }
+}
+
+function assertSafePathKey(key: string): void {
+  if (UNSAFE_PATH_KEYS.has(key)) {
+    throw new TripServiceError(`Unsafe path segment: ${key}`, 400);
+  }
+}
+
+function resolvePathSegment(container: unknown, segment: PathSegment): unknown {
+  if (segment.type === 'property') {
+    if (!isRecord(container) || !(segment.key in container)) {
+      throw new TripServiceError(`Path not found: ${segment.key}`, 404);
+    }
+    return container[segment.key];
+  }
+
+  if (segment.type === 'arrayIndex') {
+    if (!isRecord(container) || !Array.isArray(container[segment.key])) {
+      throw new TripServiceError(`Path is not an array: ${segment.key}`, 400);
+    }
+    const array = container[segment.key] as unknown[];
+    if (segment.index < 0 || segment.index >= array.length) {
+      throw new TripServiceError(`Array index out of range: ${segment.key}[${segment.index}]`, 404);
+    }
+    return array[segment.index];
+  }
+
+  if (!isRecord(container) || !Array.isArray(container.days)) {
+    throw new TripServiceError('Path is not a trip days array', 400);
+  }
+  const day = container.days.find((candidate) =>
+    isRecord(candidate) && candidate.day_number === segment.dayNumber
+  );
+  if (!day) {
+    throw new TripServiceError(`Day ${segment.dayNumber} not found`, 404);
+  }
+  return day;
+}
+
+function replaceTripPath(data: MutableTripData, path: string, value: unknown): void {
+  const segments = parseTripPath(path);
+  if (segments.length === 0) {
+    throw new TripServiceError('Path is required', 400);
+  }
+  assertPathDoesNotTargetRequiredRoot(segments, path, 'replace');
+
+  const last = segments[segments.length - 1];
+  const parent = segments.slice(0, -1).reduce<unknown>(
+    (current, segment) => resolvePathSegment(current, segment),
+    data
+  );
+
+  if (last.type === 'property') {
+    if (!isRecord(parent)) {
+      throw new TripServiceError(`Cannot replace property ${last.key}`, 400);
+    }
+    parent[last.key] = cloneValue(value);
+    assertRequiredTripShape(data);
+    return;
+  }
+
+  if (last.type === 'arrayIndex') {
+    if (!isRecord(parent) || !Array.isArray(parent[last.key])) {
+      throw new TripServiceError(`Path is not an array: ${last.key}`, 400);
+    }
+    const array = parent[last.key] as unknown[];
+    if (last.index < 0 || last.index >= array.length) {
+      throw new TripServiceError(`Array index out of range: ${last.key}[${last.index}]`, 404);
+    }
+    array[last.index] = cloneValue(value);
+    assertRequiredTripShape(data);
+    return;
+  }
+
+  if (!Array.isArray(data.days)) {
+    throw new TripServiceError('Path is not a trip days array', 400);
+  }
+  const idx = data.days.findIndex((day) => day.day_number === last.dayNumber);
+  if (idx < 0) {
+    throw new TripServiceError(`Day ${last.dayNumber} not found`, 404);
+  }
+  if (!isRecord(value)) {
+    throw new TripServiceError('Replacement day value must be an object', 400);
+  }
+  data.days[idx] = {
+    ...cloneValue(value),
+    day_number:
+      typeof value.day_number === 'number'
+        ? value.day_number
+        : last.dayNumber,
+  };
+  assertRequiredTripShape(data);
+}
+
+function deleteTripPath(data: MutableTripData, path: string): void {
+  const segments = parseTripPath(path);
+  if (segments.length === 0) {
+    throw new TripServiceError('Path is required', 400);
+  }
+  assertPathDoesNotTargetRequiredRoot(segments, path, 'delete');
+
+  const last = segments[segments.length - 1];
+  const parent = segments.slice(0, -1).reduce<unknown>(
+    (current, segment) => resolvePathSegment(current, segment),
+    data
+  );
+
+  if (last.type === 'property') {
+    if (!isRecord(parent) || !(last.key in parent)) {
+      throw new TripServiceError(`Path not found: ${path}`, 404);
+    }
+    delete parent[last.key];
+    assertRequiredTripShape(data);
+    return;
+  }
+
+  if (last.type === 'arrayIndex') {
+    if (!isRecord(parent) || !Array.isArray(parent[last.key])) {
+      throw new TripServiceError(`Path is not an array: ${last.key}`, 400);
+    }
+    const array = parent[last.key] as unknown[];
+    if (last.index < 0 || last.index >= array.length) {
+      throw new TripServiceError(`Array index out of range: ${last.key}[${last.index}]`, 404);
+    }
+    array.splice(last.index, 1);
+    assertRequiredTripShape(data);
+    return;
+  }
+
+  const idx = data.days.findIndex((day) => day.day_number === last.dayNumber);
+  if (idx < 0) {
+    throw new TripServiceError(`Day ${last.dayNumber} not found`, 404);
+  }
+  data.days.splice(idx, 1);
+  assertRequiredTripShape(data);
+}
+
+const ARRAY_SECTION_BY_KIND: Partial<Record<DayItemKind, string>> = {
+  meal: 'meals',
+  transport: 'transport',
+  activity: 'blocks',
+};
+
+const ARRAY_DAY_SECTIONS = new Set(['blocks', 'transport', 'meals', 'tips', 'stats']);
+
+function dayByNumber(data: MutableTripData, dayNumber: number): Record<string, unknown> {
+  const day = data.days.find((candidate) => candidate.day_number === dayNumber);
+  if (!day) {
+    throw new TripServiceError(`Day ${dayNumber} not found`, 404);
+  }
+  return day;
+}
+
+function normalizedString(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim().length > 0
+    ? value.trim().toLowerCase()
+    : undefined;
+}
+
+function stringIncludes(value: unknown, needle: unknown): boolean {
+  const normalizedValue = normalizedString(value);
+  const normalizedNeedle = normalizedString(needle);
+  return Boolean(normalizedValue && normalizedNeedle && normalizedValue.includes(normalizedNeedle));
+}
+
+function stringEquals(value: unknown, expected: unknown): boolean {
+  const normalizedValue = normalizedString(value);
+  const normalizedExpected = normalizedString(expected);
+  return Boolean(normalizedValue && normalizedExpected && normalizedValue === normalizedExpected);
+}
+
+function nestedTitle(record: Record<string, unknown>): unknown {
+  return isRecord(record.detail) ? record.detail.title : undefined;
+}
+
+function itemMatches(record: Record<string, unknown>, match: DayItemMatch): boolean {
+  const checks: boolean[] = [];
+
+  if (match.name) checks.push(stringEquals(record.name, match.name));
+  if (match.label) checks.push(stringEquals(record.label, match.label));
+  if (match.type) checks.push(stringEquals(record.type, match.type));
+  if (match.mode) checks.push(stringEquals(record.mode, match.mode));
+  if (match.from) checks.push(stringEquals(record.from, match.from));
+  if (match.to) checks.push(stringEquals(record.to, match.to));
+  if (match.time_label) checks.push(stringEquals(record.time_label, match.time_label));
+  if (match.title) {
+    checks.push(
+      stringEquals(record.title, match.title) ||
+        stringEquals(record.label, match.title) ||
+        stringEquals(record.name, match.title) ||
+        stringEquals(nestedTitle(record), match.title)
+    );
+  }
+  if (match.content_contains) {
+    checks.push(stringIncludes(record.content, match.content_contains));
+  }
+
+  return checks.length > 0 && checks.every(Boolean);
+}
+
+function defaultMatchForItem(kind: DayItemKind, item: Record<string, unknown>): DayItemMatch | undefined {
+  if (kind === 'meal') {
+    const match: DayItemMatch = {};
+    if (typeof item.name === 'string') match.name = item.name;
+    if (typeof item.type === 'string') match.type = item.type;
+    return Object.keys(match).length > 0 ? match : undefined;
+  }
+
+  if (kind === 'transport') {
+    const match: DayItemMatch = {};
+    if (typeof item.label === 'string') match.label = item.label;
+    if (typeof item.mode === 'string') match.mode = item.mode;
+    if (typeof item.from === 'string') match.from = item.from;
+    if (typeof item.to === 'string') match.to = item.to;
+    return Object.keys(match).length > 0 ? match : undefined;
+  }
+
+  if (kind === 'activity') {
+    const match: DayItemMatch = {};
+    if (typeof item.time_label === 'string') match.time_label = item.time_label;
+    if (typeof item.type === 'string') match.type = item.type;
+    if (typeof item.title === 'string') match.title = item.title;
+    if (isRecord(item.detail) && typeof item.detail.title === 'string') {
+      match.title = item.detail.title;
+    }
+    return Object.keys(match).length > 0 ? match : undefined;
+  }
+
+  return undefined;
+}
+
+function hasMatchCriteria(match: DayItemMatch | undefined): match is DayItemMatch {
+  if (!match) return false;
+  return Object.entries(match).some(([, value]) =>
+    typeof value === 'number' || (typeof value === 'string' && value.trim().length > 0)
+  );
+}
+
+function findMatchedIndex(
+  items: Array<Record<string, unknown>>,
+  match: DayItemMatch | undefined
+): number {
+  if (!hasMatchCriteria(match)) return -1;
+  if (typeof match.index === 'number') return match.index;
+  return items.findIndex((item) => itemMatches(item, match));
+}
+
+function arraySectionForKind(kind: DayItemKind): string {
+  const section = ARRAY_SECTION_BY_KIND[kind];
+  if (!section) {
+    throw new TripServiceError(`Unsupported array item kind: ${kind}`, 400);
+  }
+  return section;
+}
+
+function ensureDayArray(day: Record<string, unknown>, section: string): Array<Record<string, unknown>> {
+  if (!Array.isArray(day[section])) {
+    day[section] = [];
+  }
+
+  const items = day[section] as unknown[];
+  if (!items.every(isRecord)) {
+    throw new TripServiceError(`Day section ${section} contains malformed items`, 500);
+  }
+  return items as Array<Record<string, unknown>>;
+}
+
+function matchingAccommodationDayIndexes(
+  data: MutableTripData,
+  day: Record<string, unknown>,
+  match: DayItemMatch | undefined
+): number[] {
+  const targetName =
+    match?.name ??
+    (isRecord(day.accommodation) && typeof day.accommodation.name === 'string'
+      ? day.accommodation.name
+      : undefined);
+
+  if (!targetName) {
+    return [data.days.indexOf(day)];
+  }
+
+  return data.days.flatMap((candidate, index) => {
+    if (!isRecord(candidate.accommodation)) return [];
+    return stringEquals(candidate.accommodation.name, targetName) ? [index] : [];
+  });
+}
+
+function accommodationMatchesInput(
+  accommodation: Record<string, unknown>,
+  match: DayItemMatch | undefined
+): boolean {
+  if (!hasMatchCriteria(match)) return true;
+  if (typeof match.index === 'number' && match.index !== 0) return false;
+
+  const fieldMatch: DayItemMatch = { ...match };
+  delete fieldMatch.index;
+  return hasMatchCriteria(fieldMatch) ? itemMatches(accommodation, fieldMatch) : true;
+}
+
+export function upsertDayItemInTripData(
+  data: MutableTripData,
+  input: UpsertDayItemInput
+): MutationDetails {
+  const day = dayByNumber(data, input.day_number);
+  const mode = input.mode ?? 'merge';
+
+  if (input.kind === 'accommodation') {
+    if (
+      input.scope !== 'matching_accommodation_name' &&
+      hasMatchCriteria(input.match) &&
+      (!isRecord(day.accommodation) || !accommodationMatchesInput(day.accommodation, input.match))
+    ) {
+      throw new TripServiceError('Accommodation not found', 404);
+    }
+
+    const indexes =
+      input.scope === 'matching_accommodation_name'
+        ? matchingAccommodationDayIndexes(data, day, input.match)
+        : [data.days.indexOf(day)];
+
+    const changedPaths = indexes.map((index) => {
+      const targetDay = data.days[index];
+      targetDay.accommodation =
+        mode === 'merge' && isRecord(targetDay.accommodation)
+          ? deepMerge(targetDay.accommodation, input.item)
+          : cloneValue(input.item);
+      return `${dayPathForNumber(Number(targetDay.day_number))}.accommodation`;
+    });
+
+    return { changed_paths: changedPaths };
+  }
+
+  const section = arraySectionForKind(input.kind);
+  const items = ensureDayArray(day, section);
+  const match = input.match ?? defaultMatchForItem(input.kind, input.item);
+  const matchedIndex = findMatchedIndex(items, match);
+
+  if (typeof match?.index === 'number' && (match.index < 0 || match.index > items.length)) {
+    throw new TripServiceError(`${section}[${match.index}] is out of range`, 404);
+  }
+
+  let index = matchedIndex;
+  if (index >= 0 && index < items.length) {
+    items[index] =
+      mode === 'merge'
+        ? deepMerge(items[index], input.item)
+        : cloneValue(input.item);
+  } else {
+    if (input.position === 'prepend') {
+      items.unshift(cloneValue(input.item));
+      index = 0;
+    } else {
+      items.push(cloneValue(input.item));
+      index = items.length - 1;
+    }
+  }
+
+  return {
+    changed_paths: [`${dayPathForNumber(input.day_number)}.${section}[${index}]`],
+  };
+}
+
+export function deleteDayItemInTripData(
+  data: MutableTripData,
+  input: DeleteDayItemInput
+): MutationDetails {
+  const day = dayByNumber(data, input.day_number);
+
+  if (input.kind === 'accommodation') {
+    if (
+      input.scope !== 'matching_accommodation_name' &&
+      hasMatchCriteria(input.match) &&
+      (!isRecord(day.accommodation) || !accommodationMatchesInput(day.accommodation, input.match))
+    ) {
+      throw new TripServiceError('Accommodation not found', 404);
+    }
+
+    const indexes =
+      input.scope === 'matching_accommodation_name'
+        ? matchingAccommodationDayIndexes(data, day, input.match)
+        : [data.days.indexOf(day)];
+
+    if (indexes.length === 0 || !indexes.some((index) => isRecord(data.days[index]?.accommodation))) {
+      throw new TripServiceError('Accommodation not found', 404);
+    }
+
+    const changedPaths = indexes.flatMap((index) => {
+      const targetDay = data.days[index];
+      if (!isRecord(targetDay.accommodation)) return [];
+      targetDay.accommodation = null;
+      return [`${dayPathForNumber(Number(targetDay.day_number))}.accommodation`];
+    });
+
+    return { changed_paths: changedPaths };
+  }
+
+  const section = arraySectionForKind(input.kind);
+  const items = ensureDayArray(day, section);
+  if (!hasMatchCriteria(input.match)) {
+    throw new TripServiceError(`A match is required to delete from ${section}`, 400);
+  }
+
+  const index = findMatchedIndex(items, input.match);
+  if (index < 0 || index >= items.length) {
+    throw new TripServiceError(`${input.kind} not found`, 404);
+  }
+
+  items.splice(index, 1);
+  return {
+    changed_paths: [`${dayPathForNumber(input.day_number)}.${section}[${index}]`],
+  };
+}
+
+export function replaceDaySectionInTripData(
+  data: MutableTripData,
+  input: ReplaceDaySectionInput
+): MutationDetails {
+  const day = dayByNumber(data, input.day_number);
+
+  if (ARRAY_DAY_SECTIONS.has(input.section) && !Array.isArray(input.value)) {
+    throw new TripServiceError(`${input.section} must be an array`, 400);
+  }
+
+  if (input.section === 'accommodation' && input.value !== null && !isRecord(input.value)) {
+    throw new TripServiceError('accommodation must be an object or null', 400);
+  }
+
+  day[input.section] = cloneValue(input.value);
+  return {
+    changed_paths: [`${dayPathForNumber(input.day_number)}.${input.section}`],
+  };
+}
+
+export function replaceDayInTripData(
+  data: MutableTripData,
+  input: ReplaceDayInput
+): MutationDetails {
+  const idx = data.days.findIndex((day) => day.day_number === input.day_number);
+  const replacement = {
+    ...cloneValue(input.day),
+    day_number:
+      typeof input.day.day_number === 'number'
+        ? input.day.day_number
+        : input.day_number,
+  };
+
+  if (idx >= 0) {
+    data.days[idx] = replacement;
+  } else {
+    data.days.push(replacement);
+    data.days.sort((a, b) => Number(a.day_number) - Number(b.day_number));
+  }
+
+  return {
+    changed_paths: [dayPathForNumber(input.day_number)],
+  };
+}
+
+export function deleteDayInTripData(
+  data: MutableTripData,
+  input: DeleteDayInput
+): MutationDetails {
+  const idx = data.days.findIndex((day) => day.day_number === input.day_number);
+  if (idx < 0) {
+    throw new TripServiceError(`Day ${input.day_number} not found`, 404);
+  }
+
+  data.days.splice(idx, 1);
+  return {
+    changed_paths: [dayPathForNumber(input.day_number)],
+  };
+}
+
+export function truncateDaysAfterInTripData(
+  data: MutableTripData,
+  input: TruncateDaysAfterInput
+): MutationDetails {
+  const removedDayNumbers = data.days
+    .filter((day) => typeof day.day_number === 'number' && Number(day.day_number) > input.keep_through_day_number)
+    .map((day) => Number(day.day_number));
+
+  data.days = data.days.filter((day) =>
+    typeof day.day_number === 'number'
+      ? Number(day.day_number) <= input.keep_through_day_number
+      : true
+  );
+
+  return {
+    changed_paths: removedDayNumbers.map(dayPathForNumber),
+    warnings:
+      removedDayNumbers.length > 0
+        ? []
+        : [`No days existed after day ${input.keep_through_day_number}.`],
+  };
+}
+
+export async function upsertDayItemForUser(
+  admin: AdminClient,
+  userId: string,
+  tripId: string,
+  input: UpsertDayItemInput,
+  origin: string
+): Promise<TripMutationResult> {
+  return mutateTripForUser(admin, userId, tripId, origin, (data) =>
+    upsertDayItemInTripData(data, input)
+  );
+}
+
+export async function deleteDayItemForUser(
+  admin: AdminClient,
+  userId: string,
+  tripId: string,
+  input: DeleteDayItemInput,
+  origin: string
+): Promise<TripMutationResult> {
+  return mutateTripForUser(admin, userId, tripId, origin, (data) =>
+    deleteDayItemInTripData(data, input)
+  );
+}
+
+export async function replaceDaySectionForUser(
+  admin: AdminClient,
+  userId: string,
+  tripId: string,
+  input: ReplaceDaySectionInput,
+  origin: string
+): Promise<TripMutationResult> {
+  return mutateTripForUser(admin, userId, tripId, origin, (data) =>
+    replaceDaySectionInTripData(data, input)
+  );
+}
+
+export async function replaceDayForUser(
+  admin: AdminClient,
+  userId: string,
+  tripId: string,
+  input: ReplaceDayInput,
+  origin: string
+): Promise<TripMutationResult> {
+  return mutateTripForUser(admin, userId, tripId, origin, (data) =>
+    replaceDayInTripData(data, input)
+  );
+}
+
+export async function deleteDayForUser(
+  admin: AdminClient,
+  userId: string,
+  tripId: string,
+  input: DeleteDayInput,
+  origin: string
+): Promise<TripMutationResult> {
+  return mutateTripForUser(admin, userId, tripId, origin, (data) =>
+    deleteDayInTripData(data, input)
+  );
+}
+
+export async function truncateDaysAfterForUser(
+  admin: AdminClient,
+  userId: string,
+  tripId: string,
+  input: TruncateDaysAfterInput,
+  origin: string
+): Promise<TripMutationResult> {
+  return mutateTripForUser(admin, userId, tripId, origin, (data) =>
+    truncateDaysAfterInTripData(data, input)
+  );
+}
+
+function assertExpectedMarkdownHashForData(
+  data: MutableTripData,
+  expectedHash: string | undefined
+): string {
+  const currentHash = hashMarkdownSource(
+    typeof data.markdown_source === 'string' ? data.markdown_source : undefined
+  );
+
+  if (expectedHash && expectedHash !== currentHash) {
+    throw new TripServiceError('markdown_source hash does not match current trip data', 409);
+  }
+
+  return currentHash;
+}
+
+export async function syncMarkdownSourceForUser(
+  admin: AdminClient,
+  userId: string,
+  tripId: string,
+  input: SyncMarkdownSourceInput,
+  origin: string
+): Promise<TripMutationResult> {
+  let previousHash = '';
+  const result = await mutateTripForUser(
+    admin,
+    userId,
+    tripId,
+    origin,
+    (data) => {
+      previousHash = assertExpectedMarkdownHashForData(data, input.expected_current_hash);
+      return applyPatchTripInput(data, { markdown_source: input.markdown_source });
+    },
+    { compareUpdatedAt: Boolean(input.expected_current_hash) }
+  );
+
+  result.summary.markdown_source = {
+    ...result.summary.markdown_source,
+    previous_sha256: previousHash,
+  } as MarkdownSourceSummary & { previous_sha256: string };
+
+  return result;
+}
+
+export async function updateTripFromMarkdownForUser(
+  admin: AdminClient,
+  userId: string,
+  tripId: string,
+  input: UpdateFromMarkdownInput,
+  origin: string
+): Promise<TripMutationResult> {
+  let previousHash = '';
+  const result = await mutateTripForUser(
+    admin,
+    userId,
+    tripId,
+    origin,
+    (data) => {
+      previousHash = assertExpectedMarkdownHashForData(data, input.expected_current_hash);
+      return applyPatchTripInput(data, {
+        markdown_source: input.markdown_source,
+        trip: input.trip,
+        days: input.days,
+        mode: input.mode,
+      });
+    },
+    { compareUpdatedAt: Boolean(input.expected_current_hash) }
+  );
+
+  const warnings = [
+    ...result.summary.warnings,
+    ...(input.trip || input.days
+      ? []
+      : [
+          'Only markdown_source was updated. OurTrips does not infer structured trip/days JSON from markdown server-side; provide parsed trip/days when the rendered itinerary also needs to change.',
+        ]),
+  ];
+
+  result.summary.warnings = unique(warnings);
+  result.summary.markdown_source = {
+    ...result.summary.markdown_source,
+    previous_sha256: previousHash,
+  } as MarkdownSourceSummary & { previous_sha256: string };
+
+  return result;
+}
+
+function compactDaySummary(day: Record<string, unknown>) {
+  return {
+    day_number: day.day_number,
+    date: day.date,
+    title: day.title,
+    subtitle: day.subtitle,
+    description_title: day.description_title,
+    description: day.description,
+    hero_image: day.hero_image,
+    blocks: Array.isArray(day.blocks) ? day.blocks.length : 0,
+    transport: Array.isArray(day.transport) ? day.transport.length : 0,
+    meals: Array.isArray(day.meals) ? day.meals.length : 0,
+    accommodation: isRecord(day.accommodation) ? day.accommodation.name : null,
+  };
+}
+
+function compactTripDataSummary(data: unknown) {
+  if (!isRecord(data)) {
+    return {
+      trip: null,
+      day_count: 0,
+      markdown_source: summarizeMarkdownSource(undefined),
+      image_status: summarizeTripImages(undefined),
+    };
+  }
+
+  const days = Array.isArray(data.days) ? data.days.filter(isRecord) : [];
+  const trip = isRecord(data.trip) ? data.trip : {};
+
+  return {
+    trip: {
+      name: trip.name,
+      subtitle: trip.subtitle,
+      dates: trip.dates,
+      travelers: trip.travelers,
+      summary: trip.summary,
+      hero_image: trip.hero_image,
+      overview_image: trip.overview_image,
+    },
+    day_count: days.length,
+    days: days.map(compactDaySummary),
+    markdown_source: summarizeMarkdownSource(data.markdown_source),
+    image_status: summarizeTripImages(data),
+  };
+}
+
+function tripReadBase(record: Record<string, unknown>, origin: string) {
+  return {
+    trip_id: record.id,
+    share_id: record.share_id,
+    url: tripUrl(origin, String(record.share_id ?? '')),
+    name: record.name,
+    share_mode: record.share_mode,
+    created_at: record.created_at,
+    updated_at: record.updated_at,
+  };
+}
+
+function selectDaySections(
+  day: Record<string, unknown>,
+  sections: TripReadSection[] | undefined
+): Record<string, unknown> {
+  const selected = new Set(sections?.length ? sections : ['blocks', 'transport', 'accommodation', 'meals']);
+  const result: Record<string, unknown> = {
+    day_number: day.day_number,
+    date: day.date,
+    title: day.title,
+    subtitle: day.subtitle,
+    description_title: day.description_title,
+    description: day.description,
+    hero_image: day.hero_image,
+  };
+
+  for (const section of selected) {
+    if (
+      section === 'blocks' ||
+      section === 'transport' ||
+      section === 'accommodation' ||
+      section === 'meals' ||
+      section === 'tips' ||
+      section === 'stats'
+    ) {
+      result[section] = day[section];
+    }
+  }
+
+  return result;
+}
+
+function selectDaysForRead(
+  days: Array<Record<string, unknown>>,
+  input: TripReadInput
+): Array<Record<string, unknown>> {
+  if (typeof input.day_number === 'number') {
+    return days.filter((candidate) => candidate.day_number === input.day_number);
+  }
+
+  const requestedNumbers = new Set(input.day_numbers ?? []);
+  const hasRequestedNumbers = requestedNumbers.size > 0;
+  const start = typeof input.day_start === 'number' ? input.day_start : undefined;
+  const end = typeof input.day_end === 'number' ? input.day_end : undefined;
+
+  return days.filter((day) => {
+    const dayNumber = typeof day.day_number === 'number' ? day.day_number : undefined;
+    if (typeof dayNumber !== 'number') {
+      return !hasRequestedNumbers && start === undefined && end === undefined;
+    }
+    if (hasRequestedNumbers && !requestedNumbers.has(dayNumber)) return false;
+    if (start !== undefined && dayNumber < start) return false;
+    if (end !== undefined && dayNumber > end) return false;
+    return true;
+  });
+}
+
+export function formatTripForRead(
+  record: Record<string, unknown>,
+  input: TripReadInput,
+  origin: string
+) {
+  const view = input.view ?? 'summary';
+  const data = isRecord(record.data) ? record.data : {};
+  const days = Array.isArray(data.days) ? data.days.filter(isRecord) : [];
+
+  if (view === 'full') {
+    if (input.allow_large !== true) {
+      throw new TripServiceError(
+        'Full trip reads can exceed agent token limits. Use view=summary, view=day, view=days with day ranges, view=sections, or set allow_large=true intentionally.',
+        400
+      );
+    }
+    return { trip: record };
+  }
+
+  const base = tripReadBase(record, origin);
+  if (view === 'summary') {
+    return {
+      ...base,
+      ...compactTripDataSummary(data),
+    };
+  }
+
+  if (view === 'day') {
+    if (typeof input.day_number !== 'number') {
+      throw new TripServiceError('day_number is required for day view', 400);
+    }
+    const day = days.find((candidate) => candidate.day_number === input.day_number);
+    if (!day) {
+      throw new TripServiceError(`Day ${input.day_number} not found`, 404);
+    }
+
+    return {
+      ...base,
+      day,
+      markdown_source: summarizeMarkdownSource(data.markdown_source),
+      image_status: summarizeTripImages(data),
+    };
+  }
+
+  if (view === 'days') {
+    return {
+      ...base,
+      days: selectDaysForRead(days, input),
+      markdown_source: summarizeMarkdownSource(data.markdown_source),
+      image_status: summarizeTripImages(data),
+    };
+  }
+
+  const selected = new Set(input.sections?.length ? input.sections : ['trip', 'days']);
+  const result: Record<string, unknown> = { ...base };
+
+  if (selected.has('trip') && isRecord(data.trip)) {
+    result.trip = data.trip;
+  }
+
+  if (selected.has('images')) {
+    result.image_status = summarizeTripImages(data);
+  }
+
+  if (selected.has('image_assets') && isRecord(data.trip)) {
+    result.image_assets = data.trip.image_assets;
+  }
+
+  if (selected.has('route_points') && isRecord(data.trip)) {
+    result.route_points = data.trip.route_points;
+  }
+
+  if (selected.has('services') && isRecord(data.trip)) {
+    result.services = data.trip.services;
+  }
+
+  if (selected.has('notes') && isRecord(data.trip)) {
+    result.notes = data.trip.notes;
+  }
+
+  if (selected.has('markdown_source')) {
+    result.markdown_source = input.include_markdown_source
+      ? data.markdown_source
+      : summarizeMarkdownSource(data.markdown_source);
+  }
+
+  const daySections = input.sections?.filter((section) =>
+    ['blocks', 'transport', 'accommodation', 'meals', 'tips', 'stats'].includes(section)
+  );
+
+  if (typeof input.day_number === 'number') {
+    const day = days.find((candidate) => candidate.day_number === input.day_number);
+    if (!day) {
+      throw new TripServiceError(`Day ${input.day_number} not found`, 404);
+    }
+    result.day = selectDaySections(day, daySections);
+  } else if (selected.has('days') || (daySections && daySections.length > 0)) {
+    result.days = selectDaysForRead(days, input).map((day) => selectDaySections(day, daySections));
+  }
+
+  return result;
+}
+
+type TripItemCounts = {
+  days: number;
+  blocks: number;
+  transport: number;
+  meals: number;
+  accommodations: number;
+};
+
+function countTripItems(data: unknown): TripItemCounts {
+  const days = isRecord(data) && Array.isArray(data.days) ? data.days.filter(isRecord) : [];
+  return days.reduce<TripItemCounts>(
+    (counts, day) => {
+      counts.days += 1;
+      counts.blocks += Array.isArray(day.blocks) ? day.blocks.length : 0;
+      counts.transport += Array.isArray(day.transport) ? day.transport.length : 0;
+      counts.meals += Array.isArray(day.meals) ? day.meals.length : 0;
+      counts.accommodations += isRecord(day.accommodation) ? 1 : 0;
+      return counts;
+    },
+    { days: 0, blocks: 0, transport: 0, meals: 0, accommodations: 0 }
+  );
+}
+
+function booleanStatus(values: Array<boolean | undefined>): 'ok' | 'failed' {
+  return values.every((value) => value !== false) ? 'ok' : 'failed';
+}
+
+const UNSPLASH_API = 'https://api.unsplash.com/search/photos';
+export async function searchTripImages(
+  query: string,
+  orientation: TripImageSearchOrientation = 'landscape'
+): Promise<{
+  query: string;
+  orientation: TripImageSearchOrientation;
+  results: TripImageSearchResult[];
+}> {
+  if (!query.trim()) {
+    throw new TripServiceError('Image search query is required', 400);
+  }
+
+  const key = process.env.UNSPLASH_ACCESS_KEY;
+  if (!key) {
+    throw new TripServiceError('UNSPLASH_ACCESS_KEY is not configured', 500);
+  }
+
+  const url = new URL(UNSPLASH_API);
+  url.searchParams.set('query', query);
+  url.searchParams.set('per_page', '3');
+  url.searchParams.set('orientation', orientation);
+
+  const response = await fetch(url.toString(), {
+    headers: { Authorization: `Client-ID ${key}` },
+    next: { revalidate: 86400 },
+  });
+
+  if (!response.ok) {
+    const body = await response.text();
+    throw new TripServiceError(`Unsplash image search failed: ${body}`, response.status);
+  }
+
+  const body = await response.json();
+  const results = Array.isArray(body.results) ? body.results : [];
+
+  return {
+    query,
+    orientation,
+    results: results.map((photo: Record<string, unknown>) => {
+      const urls = isRecord(photo.urls) ? photo.urls : {};
+      const links = isRecord(photo.links) ? photo.links : {};
+      const user = isRecord(photo.user) ? photo.user : {};
+      const userLinks = isRecord(user.links) ? user.links : {};
+      const base = isNonEmptyString(urls.raw) ? urls.raw.split('?')[0] : '';
+      return {
+        id: String(photo.id ?? ''),
+        landscape: `${base}?w=800&h=500&fit=crop&q=80`,
+        portrait: `${base}?w=1200&h=1600&fit=crop&q=80`,
+        download_url: isNonEmptyString(links.download_location) ? links.download_location : '',
+        description: String(photo.description || photo.alt_description || ''),
+        photographer: String(user.name || ''),
+        photographer_url: `${isNonEmptyString(userLinks.html) ? userLinks.html : ''}?utm_source=ourtrips&utm_medium=referral`,
+      };
+    }),
+  };
+}
+
+export async function trackTripImageDownload(downloadUrl: string): Promise<{ ok: true }> {
+  const trimmedUrl = downloadUrl.trim();
+  if (!trimmedUrl) {
+    throw new TripServiceError('download_url is required for Unsplash tracking', 400);
+  }
+
+  if (!isUnsplashDownloadLocation(trimmedUrl)) {
+    throw new TripServiceError('download_url must be an Unsplash download location', 400);
+  }
+
+  const key = process.env.UNSPLASH_ACCESS_KEY;
+  if (!key) {
+    throw new TripServiceError('UNSPLASH_ACCESS_KEY is not configured', 500);
+  }
+
+  const response = await fetch(trimmedUrl, {
+    headers: { Authorization: `Client-ID ${key}` },
+  });
+
+  if (!response.ok) {
+    throw new TripServiceError('Unsplash download tracking failed', response.status);
+  }
+
+  return { ok: true };
+}
+
+function isUnsplashDownloadLocation(downloadUrl: string): boolean {
+  try {
+    const url = new URL(downloadUrl);
+    return (
+      url.protocol === 'https:' &&
+      url.hostname === 'api.unsplash.com' &&
+      url.username === '' &&
+      url.password === '' &&
+      /^\/photos\/[^/]+\/download$/.test(url.pathname)
+    );
+  } catch {
+    return false;
+  }
+}
+
+export async function setTripHeroImageForUser(
+  admin: AdminClient,
+  userId: string,
+  tripId: string,
+  input: SetTripHeroImageInput,
+  origin: string
+): Promise<TripMutationResult> {
+  if (!input.url.trim()) {
+    throw new TripServiceError('Image URL is required', 400);
+  }
+
+  const trip = await getTripForUser(admin, userId, tripId);
+  const nextData = asMutableTripData(trip.data);
+
+  if (input.download_url) {
+    await trackTripImageDownload(input.download_url);
+  }
+
+  let details: MutationDetails;
+  if (input.target.kind === 'trip') {
+    const field = input.target.field ?? 'hero_image';
+    nextData.trip[field] = input.url;
+    details = { changed_paths: [`trip.${field}`] };
+  } else {
+    const dayNumber = input.target.day_number;
+    const day = nextData.days.find((candidate) => candidate.day_number === dayNumber);
+    if (!day) {
+      throw new TripServiceError(`Day ${dayNumber} not found`, 404);
+    }
+    day.hero_image = input.url;
+    details = { changed_paths: [`${dayPathForNumber(dayNumber)}.hero_image`] };
+  }
+
+  const updated = await persistTripDataForUser(admin, userId, tripId, nextData);
+  return {
+    record: updated,
+    summary: buildMutationSummary(updated, origin, details),
+  };
+}
+
+export function saveTripImageAssetInTripData(
+  data: MutableTripData,
+  input: SaveTripImageAssetInput
+): MutationDetails {
+  if (!isNonEmptyString(input.asset.url)) {
+    throw new TripServiceError('Image asset URL is required', 400);
+  }
+
+  if (!isRecord(data.trip.image_assets)) {
+    data.trip.image_assets = {};
+  }
+
+  const assets = data.trip.image_assets as Record<string, unknown>;
+  assets[input.slot] = cloneValue({
+    ...input.asset,
+    source: input.asset.source ?? 'manual',
+    generated_at: input.asset.generated_at ?? new Date().toISOString(),
+  });
+
+  return {
+    changed_paths: [`trip.image_assets.${input.slot}`],
+  };
+}
+
+export async function saveTripImageAssetForUser(
+  admin: AdminClient,
+  userId: string,
+  tripId: string,
+  input: SaveTripImageAssetInput,
+  origin: string
+): Promise<TripMutationResult> {
+  return mutateTripForUser(admin, userId, tripId, origin, (data) =>
+    saveTripImageAssetInTripData(data, input)
+  );
+}
+
+export async function getTripImagePromptsForUser(
+  admin: AdminClient,
+  userId: string,
+  tripId: string
+) {
+  const trip = await getTripForUser(admin, userId, tripId);
+  const data = asMutableTripData(trip.data) as unknown as TripData;
+  return {
+    trip_id: trip.id,
+    share_id: trip.share_id,
+    prompts: buildTripImagePromptSet(data),
+    image_status: summarizeTripImages(trip.data),
+    save_tool: 'save_trip_image_asset',
+  };
+}
+
+export async function verifyTripPublicDataForUser(
+  admin: AdminClient,
+  userId: string,
+  input: { trip_id?: string; share_id?: string; check_page?: boolean }
+) {
+  if (!input.trip_id && !input.share_id) {
+    throw new TripServiceError('trip_id or share_id is required', 400);
+  }
+
+  const trip = input.trip_id
+    ? await getTripForUser(admin, userId, input.trip_id)
+    : await getTripByShareIdForUser(admin, userId, String(input.share_id));
+  const shareId = String(trip.share_id);
+  const verificationOrigin = publicVerificationOrigin();
+  const dataUrl = `${verificationOrigin}/api/trip-data/${shareId}`;
+  const pageUrl = tripUrl(verificationOrigin, shareId);
+
+  let publicBody: Record<string, unknown> | undefined;
+  let publicStatus: number | undefined;
+  let publicError: string | undefined;
+  try {
+    const response = await fetch(dataUrl, { cache: 'no-store' });
+    publicStatus = response.status;
+    publicBody = await fetchJsonBody(response, dataUrl);
+  } catch (err) {
+    publicError = err instanceof Error ? err.message : 'Failed to fetch public trip data';
+  }
+
+  let pageStatus: number | undefined;
+  let pageContentType: string | null | undefined;
+  let pageError: string | undefined;
+  if (input.check_page !== false) {
+    try {
+      const response = await fetch(pageUrl, { cache: 'no-store' });
+      pageStatus = response.status;
+      pageContentType = response.headers.get('content-type');
+    } catch (err) {
+      pageError = err instanceof Error ? err.message : 'Failed to fetch public trip page';
+    }
+  }
+
+  const publicData = isRecord(publicBody?.data) ? publicBody.data : undefined;
+  const expectedData = trip.data;
+  const publicImageStatus = summarizeTripImages(publicData);
+  const checks = {
+    public_data_accessible: typeof publicStatus === 'number' && publicStatus >= 200 && publicStatus < 300,
+    public_page_accessible:
+      input.check_page === false
+        ? undefined
+        : typeof pageStatus === 'number' && pageStatus >= 200 && pageStatus < 300,
+    share_id_matches: publicBody?.share_id === trip.share_id,
+    share_mode_matches: publicBody?.share_mode === trip.share_mode,
+    updated_at_matches: publicBody?.updated_at === trip.updated_at,
+    trip_name_matches:
+      isRecord(publicData?.trip) &&
+      isRecord(expectedData?.trip) &&
+      publicData.trip.name === expectedData.trip.name,
+    item_counts_match:
+      JSON.stringify(countTripItems(publicData)) === JSON.stringify(countTripItems(expectedData)),
+    trip_hero_image_present: publicImageStatus.trip_hero_image.present,
+    all_day_hero_images_present:
+      publicImageStatus.day_hero_images.total === 0 ||
+      publicImageStatus.day_hero_images.missing_day_numbers.length === 0,
+  };
+
+  return {
+    trip_id: trip.id,
+    share_id: trip.share_id,
+    url: pageUrl,
+    public_data_url: dataUrl,
+    status: booleanStatus(Object.values(checks)),
+    checks,
+    public_data: {
+      http_status: publicStatus,
+      error: publicError,
+      summary: compactTripDataSummary(publicData),
+      item_counts: countTripItems(publicData),
+      image_status: publicImageStatus,
+    },
+    public_page:
+      input.check_page === false
+        ? undefined
+        : {
+            http_status: pageStatus,
+            content_type: pageContentType,
+            error: pageError,
+          },
+    expected: {
+      updated_at: trip.updated_at,
+      item_counts: countTripItems(expectedData),
+      image_status: summarizeTripImages(expectedData),
+    },
+  };
+}
+
+async function fetchJsonBody(response: Response, url: string): Promise<Record<string, unknown> | undefined> {
+  try {
+    const body = await response.json();
+    return isRecord(body) ? body : undefined;
+  } catch {
+    throw new TripServiceError(`Invalid JSON from ${url}`, 502);
+  }
 }
 
 export function deepMerge(

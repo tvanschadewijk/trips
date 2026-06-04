@@ -1,46 +1,44 @@
 ---
-title: "How to Use Claude Skills to Plan a Trip"
+title: "How to Use the OurTrips Connector to Plan a Trip"
 subtitle: "Turn any Claude conversation into a shareable, interactive travel itinerary in under a minute."
-excerpt: "Claude skills are small files that give Claude new abilities. The OurTrips skill turns any travel conversation into a beautiful, pocket-friendly itinerary you can share with anyone."
+excerpt: "Connect the OurTrips remote MCP server to Claude or Codex, then turn any travel conversation into a beautiful, pocket-friendly itinerary you can share with anyone."
 tag: Guide
 date: 2026-04-05
 lastUpdated: 2026-04-07
 readingTime: "6 min read"
 ---
 
-The **OurTrips skill** is a Claude skill that turns any travel conversation into a shareable, mobile-friendly itinerary on [ourtrips.to](https://ourtrips.to). Install the skill, plan your trip through conversation, and say "Send it to OurTrips" to get a link you can pull up on your phone or share with anyone.
+The **OurTrips connector** is a remote MCP server that turns any travel conversation into a shareable, mobile-friendly itinerary on [ourtrips.to](https://ourtrips.to). Connect it to Claude or Codex, plan your trip through conversation, and say "Send it to OurTrips" to get a link you can pull up on your phone or share with anyone.
 
 We've all been there. You spend 20 minutes going back and forth with Claude about your trip to Portugal, and you end up with a genuinely solid itinerary. Great restaurants, realistic timing, good mix of activities. But then what? You copy-paste it into Apple Notes. Or a Google Doc. Or you just... leave it in the chat and hope you'll find it later.
 
-That's the problem. The planning part is easy now. It's the *keeping and sharing* part that still sucks. **OurTrips.To fixes that with a Claude Skill.**
+That's the problem. The planning part is easy now. It's the *keeping and sharing* part that still sucks. **OurTrips.To fixes that with a remote connector.**
 
-## What is a Claude skill?
+## What is the OurTrips connector?
 
-A skill is a file (ending in `.skill`) that you drop into Claude. It teaches Claude how to do something specific. In this case, the **OurTrips skill** teaches Claude how to take your travel conversation and turn it into a proper itinerary on [ourtrips.to](https://ourtrips.to) - with a link you can pull up on your phone.
-
-Skills work in **Claude CoWork** and **Codex**.
-
-## Step 1: Install the OurTrips skill
-
-Two ways. Both take 30 seconds.
-
-### The easy way
-
-Paste this into your Claude Cowork or Codex chat:
+The connector is a remote MCP server at:
 
 ```copy
-Fetch https://ourtrips.to/our-trips.skill and add it to my skills.
+https://ourtrips.to/mcp
 ```
 
-Done. Claude grabs the file and installs it.
+It gives Claude or Codex a signed-in OurTrips tool surface. The connector handles saving trips, editing them later, schema guidance, image search, and generated cover assets without asking you to download a local skill file.
 
-### The manual way
+## Step 1: Install the OurTrips connector
 
-1. Download the skill file from [ourtrips.to/our-trips.skill](https://ourtrips.to/our-trips.skill)
-2. Open **Customize** in your Cowork session
-3. Go to **Skills**, hit **Add skill**, pick the file
+In Claude, add the connector from **Customize** -> **Connectors** using this server URL:
 
-Either way, it takes a few seconds and you're set for the rest of the session.
+```copy
+https://ourtrips.to/mcp
+```
+
+In Codex, you can simply ask:
+
+```copy
+Install the connector to the MCP server: https://ourtrips.to/mcp
+```
+
+Then sign in when the authorization flow opens. That's it.
 
 ## Step 2: Plan your trip like you normally would
 
@@ -91,11 +89,11 @@ And the main thing - it takes one sentence to create. No formatting, no fiddling
 
 ## What about ChatGPT?
 
-Right now, the skill only works with **Claude CoWork and Codex**. ChatGPT support (through Custom GPTs) is something we're looking into - the API can already handle it, it's just a matter of building the integration.
+Right now, the connector works with agents that support remote MCP connectors, including Claude and Codex. ChatGPT support is something we're looking into.
 
 ## Try it
 
-1. Tell Claude: `Fetch https://ourtrips.to/our-trips.skill and add it to my skills.`
+1. Add the OurTrips connector at `https://ourtrips.to/mcp`
 2. Plan your trip
 3. Say "Send it to OurTrips"
 4. Open the link

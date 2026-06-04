@@ -74,8 +74,8 @@ const POINT_FOCUS_ZOOM = 17;
 const MIN_MAP_ZOOM = 1;
 const MAX_MAP_ZOOM = 21;
 const OVERVIEW_MAP_FIT_PADDING = { top: 28, right: 24, bottom: 28, left: 24 } satisfies google.maps.Padding;
-const DAY_MAP_FIT_PADDING = { top: 24, right: 24, bottom: 24, left: 24 } satisfies google.maps.Padding;
-const DAY_MAP_REFIT_PADDING = { top: 40, right: 40, bottom: 40, left: 40 } satisfies google.maps.Padding;
+const DAY_MAP_FIT_PADDING = { top: 68, right: 84, bottom: 76, left: 68 } satisfies google.maps.Padding;
+const DAY_MAP_REFIT_PADDING = { top: 76, right: 92, bottom: 84, left: 76 } satisfies google.maps.Padding;
 const PLACE_FALLBACK_MAX_DISTANCE_KM = 120;
 const POI_RESULT_BOUNDS_PAD_DEGREES = 0.04;
 const SEARCH_CACHE = new Map<string, ResolvedSearchTarget | null>();
@@ -471,24 +471,10 @@ function popupContentFor(point: PointDisplay, options: PopupOptions = {}): HTMLE
   const popup = document.createElement('div');
   popup.className = 'itinerary-map-stop-popup';
 
-  if (point.detail.kicker) {
-    const kicker = document.createElement('div');
-    kicker.className = 'itinerary-map-stop-popup-kicker';
-    kicker.textContent = point.detail.kicker;
-    popup.append(kicker);
-  }
-
   const title = document.createElement('div');
   title.className = 'itinerary-map-stop-popup-title';
   title.textContent = point.detail.title || point.label || 'Stop';
   popup.append(title);
-
-  if (point.detail.body) {
-    const body = document.createElement('div');
-    body.className = 'itinerary-map-stop-popup-body';
-    body.textContent = point.detail.body;
-    popup.append(body);
-  }
 
   if (options.includeMapActions) {
     const actions = document.createElement('div');

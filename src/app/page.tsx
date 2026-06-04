@@ -3,7 +3,7 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowRight, Download } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import LogoSuffix from '@/components/ui/LogoSuffix';
 import { publicItineraries } from '@/lib/public-itineraries';
 import '@/styles/landing.css';
@@ -95,6 +95,9 @@ export default async function Home() {
       },
     },
   ];
+  const landingItineraries = publicItineraries
+    .filter((itinerary) => itinerary.destination !== 'Bonaire')
+    .slice(0, 3);
 
   return (
     <div className="landing">
@@ -118,7 +121,7 @@ export default async function Home() {
               Your next trip, <em>beautifully</em> planned.
             </h1>
             <p className="landing-hero-subtitle">
-              Built for agentic AI — Claude CoWork, Codex, and other agents that run skills.
+              Built for agentic AI — Claude CoWork, Codex, and agents that connect to remote MCP servers.
               Talk your trip through, then say the word: OurTrips turns the conversation into
               a shareable, day-by-day itinerary — photographs, bookings, addresses, all in
               one place.
@@ -168,7 +171,7 @@ export default async function Home() {
         </div>
 
         <div className="landing-itinerary-grid">
-          {publicItineraries.slice(0, 3).map((itinerary) => (
+          {landingItineraries.map((itinerary) => (
             <article className="landing-itinerary-card" key={itinerary.name}>
               <Link href={itinerary.canonicalPath} className="landing-itinerary-image-link" aria-label={itinerary.name}>
                 <img src={itinerary.image} alt="" className="landing-itinerary-image" loading="lazy" />
@@ -206,14 +209,14 @@ export default async function Home() {
         <div className="landing-steps-inner">
           <div className="landing-step">
             <span className="landing-step-num">1</span>
-            <h3 className="landing-step-title">Install the Claude skill</h3>
+            <h3 className="landing-step-title">Install the connector</h3>
             <p className="landing-step-desc">
-              A small file that teaches Claude about OurTrips. Drop it into your project — thirty seconds.
+              Add the OurTrips remote MCP server in Claude or Codex, sign in, and your agent gets the OurTrips tools.
             </p>
-            <a href="/our-trips.skill" download className="landing-btn-primary landing-btn-sm" style={{ gap: '8px' }}>
-              <Download size={14} aria-hidden="true" />
-              Download skill
-            </a>
+            <Link href="/guide" className="landing-btn-primary landing-btn-sm" style={{ gap: '8px' }}>
+              Connect OurTrips
+              <ArrowRight size={14} strokeWidth={1.7} aria-hidden="true" />
+            </Link>
           </div>
           <div className="landing-step">
             <span className="landing-step-num">2</span>

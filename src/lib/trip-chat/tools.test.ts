@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { z } from 'zod';
 import type { TripData } from '@/lib/types';
 import { _internal } from './tools';
 
@@ -8,8 +9,10 @@ const {
   applyAccommodationDetailPatch,
   buildPolicySearchQuery,
   collectAccommodations,
+  CreateAccommodationCandidateInputShape,
   extractPolicySnippets,
   inferPolicyFromText,
+  UpdateAccommodationCandidateInputShape,
   upsertAccommodationAgentNote,
 } = _internal;
 
@@ -78,6 +81,48 @@ test('collectAccommodations returns compact hotel records with update paths', ()
       ['Bridge of Orchy Hotel', 'days[2].accommodation', null],
     ]
   );
+});
+
+test('accommodation candidate schema requires checked review ratings for proposals', () => {
+  const createSchema = z.object(CreateAccommodationCandidateInputShape);
+
+  const missingRatings = createSchema.safeParse({
+    candidate: {
+      candidate: 'Hotel Bellavista',
+      directWebsite: { label: 'Official site', url: 'https://example.com' },
+    },
+  });
+  assert.equal(missingRatings.success, false);
+
+  const checkedRatings = createSchema.safeParse({
+    candidate: {
+      candidate: 'Hotel Bellavista',
+      directWebsite: { label: 'Official site', url: 'https://example.com' },
+      ratings: [
+        {
+          name: 'Hotel Bellavista',
+          checkedAt: '2026-06-03',
+          bookingCom: '8.8/10',
+          tripadvisor: '4.5/5',
+          google: '4.6/5',
+        },
+      ],
+    },
+  });
+  assert.equal(
+    checkedRatings.success,
+    true,
+    checkedRatings.success ? '' : JSON.stringify(checkedRatings.error.issues)
+  );
+
+  const updateSchema = z.object(UpdateAccommodationCandidateInputShape);
+  const partialRatingPatch = updateSchema.safeParse({
+    candidate_id: 'stay-hotel-bellavista',
+    candidate_patch: {
+      ratings: [{ name: 'Hotel Bellavista', bookingCom: '8.8/10' }],
+    },
+  });
+  assert.equal(partialRatingPatch.success, false);
 });
 
 test('applyAccommodationDetailPatch deep-merges one hotel detail without touching other days', () => {

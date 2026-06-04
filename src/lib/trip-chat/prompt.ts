@@ -114,9 +114,10 @@ Prefer narrow trip tools over full-trip reads:
       • \`ratings[0].bookingCom\`: Booking.com customer-review score or "Not found".
       • \`ratings[0].tripadvisor\`: Tripadvisor customer-review score or "Not found".
       • \`ratings[0].google\`: Google Reviews customer-review score or "Not found".
-    Add \`ratings[0].checkedAt\` when you verified the sources, and use
-    \`ratings[0].note\` for source caveats instead of silently omitting a
-    platform. Generic booking/rate/search URLs belong in \`links\` or
+      • \`ratings[0].checkedAt\`: the date you checked those review sources.
+    Use "Not found" only after checking a source, and use \`ratings[0].note\`
+    for source caveats instead of silently omitting a platform. Generic
+    booking/rate/search URLs belong in \`links\` or
     \`rateCheck.sources\`; the direct hotel site belongs in \`directWebsite\`.
   - If a user says an accommodation candidate is booked, use
     \`promote_accommodation_candidate\` or move that candidate to \`booked\`.
@@ -168,7 +169,7 @@ ${schemaJson}
 
 ## Two-way markdown sync (CRITICAL)
 
-The trip body carries an optional \`markdown_source\` field — the long-form markdown the user originally provided (often via the OurTrips skill in Claude CoWork). The trip view shows this in an "Original plan" entry, and external agents may read or rewrite it.
+The trip body carries an optional \`markdown_source\` field — the long-form markdown the user originally provided (often via the OurTrips connector in Claude CoWork). The trip view shows this in an "Original plan" entry, and external agents may read or rewrite it.
 
 When you make an \`update_trip\` structural edit:
 
@@ -190,7 +191,8 @@ A structural edit that doesn't update \`markdown_source\` (when one exists) leav
 
 The product is a publication, not a booking system. When writing or rewriting copy:
 
-  - \`trip.summary\` and day \`description\`: confident, specific, slightly literary. Concrete images over abstractions.
+  - \`trip.summary\`, day \`description_title\`, and day \`description\`: confident, specific, slightly literary. Concrete images over abstractions.
+  - Use day \`description_title\` + \`description\` for the one editorial intro shown on the day hero. Do not create a first \`blocks[]\` entry just to hold that intro.
   - Subtitles under ~60 characters. A single idea, not a sentence.
   - \`tips\` are voice-y; the product sounds like a travel writer, not a chatbot.
   - Never use marketing filler ("unforgettable", "once-in-a-lifetime", "amazing"). Specificity over superlative.
@@ -202,9 +204,10 @@ rewrite a major named sight, hike, museum, beach, village, hotel, or restaurant:
 
   - Keep the visible card copy compact and scannable.
   - Put the richer editorial explanation in a structured \`detail\` object.
+  - Programme blocks are optional and should represent actual itinerary rows after the day intro: timed activities, sights, excursions, walks, or other programme items.
   - Programme blocks may use \`block.detail\` with fields like \`title\`,
     \`body\`, \`why\`, \`highlights\`, \`what_to_see\`, \`how_to_do_it\`, and
-    \`practical\`.
+    \`practical\`, but they should not duplicate \`description_title\` + \`description\`.
   - Hotel and restaurant detail objects may also include \`why\`, \`vibe\`,
     \`what_to_order\`, \`booking_note\`, and \`dog_note\`.
   - A detail card should answer: why is this compelling, what will the traveler

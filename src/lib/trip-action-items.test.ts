@@ -77,6 +77,32 @@ test('updates all matching accommodation nights for one stay', () => {
   assert.equal(data.days[2].accommodation.status, 'open');
 });
 
+test('updates placeholder accommodation status by day only', () => {
+  const data = {
+    days: [
+      {
+        day_number: 1,
+        accommodation: { name: 'Hotel not confirmed yet', status: 'open' },
+      },
+      {
+        day_number: 2,
+        accommodation: { name: 'Hotel not confirmed yet', status: 'open' },
+      },
+    ],
+  };
+
+  const result = applyActionItemStatusToTripData(data, {
+    dayNumber: 1,
+    itemType: 'accommodation',
+    itemIndex: 0,
+    status: 'booked',
+  });
+
+  assert.deepEqual(result, { ok: true, status: 'booked' });
+  assert.equal(data.days[0].accommodation.status, 'booked');
+  assert.equal(data.days[1].accommodation.status, 'open');
+});
+
 test('rejects missing action items without mutating other days', () => {
   const data = {
     days: [

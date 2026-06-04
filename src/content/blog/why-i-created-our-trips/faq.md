@@ -8,8 +8,8 @@ Yes. OurTrips is a free passion project with no monetization. Affiliate links ma
 
 ## How does OurTrips connect to Claude?
 
-OurTrips uses a Claude skill — a portable file you install into your Claude Cowork or Codex session. Once installed, you can ask Claude to send your itinerary to OurTrips and it creates a visual presentation automatically.
+OurTrips uses a remote MCP connector. Add `https://ourtrips.to/mcp` as a custom connector in Claude or Codex, sign in, and then ask your agent to send your itinerary to OurTrips.
 
 ## Do I need technical skills to use OurTrips?
 
-No. You just chat with Claude about your trip like you normally would, then say "Send it to OurTrips." The skill handles everything — no coding or formatting required.
+No. You just chat with Claude or Codex about your trip like you normally would, then say "Send it to OurTrips." The connector handles the save flow — no coding or formatting required.

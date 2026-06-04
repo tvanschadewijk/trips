@@ -71,7 +71,7 @@ export default async function Image() {
             maxWidth: '800px',
           }}
         >
-          Learn how to use Claude skills to create beautiful, shareable travel itineraries.
+          Learn how to use remote connectors to create beautiful, shareable travel itineraries.
         </div>
         <div
           style={{

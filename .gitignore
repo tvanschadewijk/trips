@@ -40,6 +40,7 @@ yarn-error.log*
 # local agent/editor artifacts
 /.claude/
 /trips/
+/videos/
 preview.html
 agent-sdk-for-ourtrips-brief.md
 claude-code-brief-ourtrips-chat.md

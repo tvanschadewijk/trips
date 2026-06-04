@@ -141,7 +141,7 @@ function normalizeTransportMode(modeOrLabel: string): string {
 }
 
 function isWalkingDay(day: Day): boolean {
-  const titleText = [day.title, day.subtitle, day.description].map(cleanText).join(' ');
+  const titleText = [day.title, day.subtitle, day.description_title, day.description].map(cleanText).join(' ');
   const blockText = (day.blocks ?? []).flatMap((block) => [block.type, block.content, block.detail?.title]).map(cleanText).join(' ');
   const statsText = (day.stats ?? []).flatMap((stat) => [stat.label, stat.value]).map(cleanText).join(' ');
   const haystack = [titleText, blockText, statsText].join(' ');
@@ -168,6 +168,7 @@ function collectJourneyThemes(data: TripData, transportModes: string[]): string[
     ...data.days.flatMap((day) => [
       day.title,
       day.subtitle,
+      day.description_title,
       day.description,
       day.accommodation?.name,
       ...(day.blocks ?? []).flatMap((block) => [block.type, block.content, block.detail?.title, block.detail?.vibe]),
@@ -227,7 +228,7 @@ function collectJourneyMap(data: TripData): JourneyMap {
 
     if (isWalkingDay(day)) {
       const stageParts = titleParts.length >= 2 ? titleParts : [];
-      const placeWithContext = [day.title, day.subtitle || day.description].map(cleanText).filter(Boolean).join(' - ');
+      const placeWithContext = [day.title, day.subtitle || day.description_title || day.description].map(cleanText).filter(Boolean).join(' - ');
       const stage = stageParts.length >= 2
         ? `Day ${day.day_number}: ${routeLabel(stageParts)}`
         : `Day ${day.day_number}: ${placeWithContext || 'walking stage'}`;
@@ -280,7 +281,7 @@ function collectDailyCues(days: Day[]): string[] {
     const cue = [
       `Day ${day.day_number}`,
       cleanText(day.title),
-      cleanText(day.subtitle || day.description),
+      cleanText(day.subtitle || day.description_title || day.description),
       [...transportCues, ...blockCues].join('; '),
     ].filter(Boolean).join(' - ');
     addUnique(cues, truncate(cue, 220), MAX_DAILY_CUES);

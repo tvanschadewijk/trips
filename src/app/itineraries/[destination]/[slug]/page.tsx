@@ -161,6 +161,15 @@ export default async function PublicItineraryPage({ params }: Props) {
   const record = await loadPublicTrip(itinerary.shareId);
   if (!record) notFound();
 
+  let homeHref = '/';
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) homeHref = '/dashboard';
+  } catch {
+    homeHref = '/';
+  }
+
   return (
     <>
       <TripPreview
@@ -169,6 +178,7 @@ export default async function PublicItineraryPage({ params }: Props) {
         shareId={itinerary.shareId}
         canAddToTrips
         shareMode={record.shareMode}
+        homeHref={homeHref}
       />
       <script
         type="application/ld+json"

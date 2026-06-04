@@ -32,6 +32,8 @@ test('accepts a full-days replacement', () => {
         day_number: 1,
         date: '2026-05-01',
         title: 'Arrival',
+        description_title: 'First landing',
+        description: 'Keep the first day easy: arrive, transfer cleanly, and save the city for tomorrow.',
         blocks: [
           { time_label: 'Morning', type: 'travel', content: 'Land at ICN' },
         ],
@@ -43,6 +45,22 @@ test('accepts a full-days replacement', () => {
         blocks: [
           { time_label: 'Late morning', type: 'walk', content: 'Ihwa Mural Village' },
         ],
+      },
+    ],
+  });
+  assert.equal(result.success, true, result.success ? '' : JSON.stringify(result.error.issues));
+});
+
+test('accepts day intro without programme blocks', () => {
+  const result = UpdateTripInputSchema.safeParse({
+    days: [
+      {
+        day_number: 1,
+        date: '2026-05-01',
+        title: 'Opening Drive',
+        description_title: 'Long Opening Drive',
+        description:
+          'This is the one monster road day that buys the whole southern arc.',
       },
     ],
   });
