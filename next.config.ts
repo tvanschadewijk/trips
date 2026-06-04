@@ -51,7 +51,10 @@ const nextConfig: NextConfig = {
     ],
   },
   outputFileTracingIncludes: {
-    '/api/trips/[id]/chat': [
+    // Next 16 normalizes App Router route-handler trace keys differently than
+    // the public route path; matching the stable segment keeps this scoped to
+    // /api/trips/[id]/chat without falling back to a global include.
+    'chat': [
       './node_modules/@anthropic-ai/claude-agent-sdk-linux-x64/claude',
     ],
   },
