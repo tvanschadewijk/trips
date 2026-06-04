@@ -7,6 +7,7 @@
   },
   "scripts": {
     "dev": "next dev",
+    "prebuild": "node scripts/ensure-claude-agent-binary.mjs",
     "build": "next build",
     "typecheck": "tsc -p tsconfig.build.json --noEmit --pretty false",
     "start": "next start",
