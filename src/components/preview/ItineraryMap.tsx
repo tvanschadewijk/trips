@@ -1,8 +1,11 @@
 'use client';
 
 import { importLibrary, setOptions } from '@googlemaps/js-api-loader';
+import { ExternalLink, MapPin } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
+import { flushSync } from 'react-dom';
+import { createRoot } from 'react-dom/client';
 import type { TripRouteAtlas, TripRouteAtlasPoint } from '@/lib/trip-route';
 import type { ItineraryMapPoiSearchTarget, ItineraryMapPointDetail } from '@/lib/day-map';
 import '@/styles/itinerary-map.css';
@@ -42,6 +45,11 @@ interface PointDisplay {
 
 interface PopupOptions {
   includeMapActions?: boolean;
+}
+
+interface PopupContentResult {
+  element: HTMLElement;
+  cleanup: () => void;
 }
 
 export interface ItineraryMapFocusRequest {
@@ -467,32 +475,68 @@ function googleMapsLinkFor(point: PointDisplay): string {
   return `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
 }
 
-function popupContentFor(point: PointDisplay, options: PopupOptions = {}): HTMLElement {
+function popupKickerFor(point: PointDisplay): string {
+  if (point.detail.kicker) return point.detail.kicker;
+  if (point.role === 'home') return 'Start / finish';
+  if (point.marker) return `Stop ${point.marker}`;
+  return 'Route stop';
+}
+
+function ItineraryMapStopPopup({
+  point,
+  includeMapActions,
+}: {
+  point: PointDisplay;
+  includeMapActions: boolean;
+}) {
+  const title = point.detail.title || point.label || 'Stop';
+  const body = point.detail.body?.trim();
+  const showBody = body && body !== title;
+
+  return (
+    <>
+      <div className="itinerary-map-stop-popup-kicker">
+        <span className="itinerary-map-stop-popup-kicker-dot" aria-hidden="true" />
+        <span>{popupKickerFor(point)}</span>
+      </div>
+      <div className="itinerary-map-stop-popup-title">{title}</div>
+      {showBody ? <div className="itinerary-map-stop-popup-body">{body}</div> : null}
+      {includeMapActions ? (
+        <div className="itinerary-map-stop-popup-actions">
+          <a
+            className="itinerary-map-stop-popup-link"
+            href={googleMapsLinkFor(point)}
+            target="_blank"
+            rel="noreferrer"
+            aria-label={`Open ${title} in Google Maps`}
+          >
+            <MapPin className="itinerary-map-stop-popup-link-icon" aria-hidden="true" />
+            <span>Open in Maps</span>
+            <ExternalLink className="itinerary-map-stop-popup-link-external" aria-hidden="true" />
+          </a>
+        </div>
+      ) : null}
+    </>
+  );
+}
+
+function popupContentFor(point: PointDisplay, options: PopupOptions = {}): PopupContentResult {
   const popup = document.createElement('div');
   popup.className = 'itinerary-map-stop-popup';
+  const root = createRoot(popup);
+  flushSync(() => {
+    root.render(
+      <ItineraryMapStopPopup
+        point={point}
+        includeMapActions={Boolean(options.includeMapActions)}
+      />
+    );
+  });
 
-  const title = document.createElement('div');
-  title.className = 'itinerary-map-stop-popup-title';
-  title.textContent = point.detail.title || point.label || 'Stop';
-  popup.append(title);
-
-  if (options.includeMapActions) {
-    const actions = document.createElement('div');
-    actions.className = 'itinerary-map-stop-popup-actions';
-
-    const link = document.createElement('a');
-    link.className = 'itinerary-map-stop-popup-link';
-    link.href = googleMapsLinkFor(point);
-    link.target = '_blank';
-    link.rel = 'noreferrer';
-    link.setAttribute('aria-label', `Open ${point.detail.title || point.label || 'this location'} in Google Maps`);
-    link.textContent = 'Maps';
-    actions.append(link);
-
-    popup.append(actions);
-  }
-
-  return popup;
+  return {
+    element: popup,
+    cleanup: () => root.unmount(),
+  };
 }
 
 function safeRoleClass(role: string): string {
@@ -648,7 +692,8 @@ function addPointMarkers(
         return;
       }
       popupCleanup?.();
-      const popup = popupContentFor(point, { includeMapActions });
+      const popupContent = popupContentFor(point, { includeMapActions });
+      const popup = popupContent.element;
       const stopPopupClick = (event: Event) => event.stopPropagation();
       popup.addEventListener('mouseenter', clearHoverCloseTimer);
       popup.addEventListener('mouseleave', scheduleHoverPopupClose);
@@ -657,6 +702,7 @@ function addPointMarkers(
         popup.removeEventListener('mouseenter', clearHoverCloseTimer);
         popup.removeEventListener('mouseleave', scheduleHoverPopupClose);
         popup.removeEventListener('click', stopPopupClick);
+        popupContent.cleanup();
       };
       activePopupKey = popupKey;
       infoWindow.setContent(popup);
