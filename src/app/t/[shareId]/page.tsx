@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import TripPreview from '@/components/preview/TripPreview';
 import TripChatPanel from '@/components/chat/TripChatPanel';
 import { createClient } from '@/lib/supabase/server';
+import { normalizeTripData } from '@/lib/trip-data-normalize';
 import { loadChatHistory } from '@/lib/trip-chat/history';
 import { scrubTripData } from '@/lib/scrub-trip';
 import {
@@ -26,8 +27,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       .eq('share_id', shareId)
       .in('share_mode', ['companion', 'remix'])
       .single();
-    const trip = data?.data?.trip as TripData['trip'] | undefined;
-    if (trip) {
+    if (data?.data) {
+      const trip = normalizeTripData(data.data).trip;
       const title = `${trip.name} — OurTrips`;
       const description = trip.subtitle || trip.summary || `An itinerary on OurTrips.`;
       return {
@@ -85,11 +86,13 @@ async function fetchTripAndViewer(shareId: string): Promise<{
       }
     } catch { /* not logged in */ }
 
-    const rawTrip = data.data as TripData;
+    const rawTrip = normalizeTripData(data.data);
     const shareMode = (data.share_mode as 'companion' | 'remix') ?? 'companion';
     // Non-owners on a remix-mode trip get the scrubbed view. Owners
     // always see their own data raw. Companion-mode behaves as before.
-    const tripData = !isOwner && shareMode === 'remix' ? scrubTripData(rawTrip) : rawTrip;
+    const tripData = !isOwner && shareMode === 'remix'
+      ? normalizeTripData(scrubTripData(rawTrip))
+      : rawTrip;
 
     return {
       tripData,

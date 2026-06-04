@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { trySyncAccommodationReviewForTrip } from '@/lib/accommodation-review-store';
+import { normalizeTripData } from '@/lib/trip-data-normalize';
 import {
   applyActionItemStatusToTripData,
   normalizeActionItemStatus,
@@ -42,7 +43,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
   }
 
-  const data = trip.data as { trip: Record<string, unknown>; days: Array<Record<string, unknown>> };
+  const data = normalizeTripData(trip.data) as unknown as { trip: Record<string, unknown>; days: Array<Record<string, unknown>> };
   const result = applyActionItemStatusToTripData(data, {
     dayNumber: day_number,
     itemType,

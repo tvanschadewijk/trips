@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
+import { normalizeTripData } from '@/lib/trip-data-normalize';
 import { scrubTripData } from '@/lib/scrub-trip';
-import type { TripData } from '@/lib/types';
 
 // GET /api/trip-data/[shareId] — Public, share-id read for offline use.
 // Returns the same data the /t/[shareId] page renders. The HTTP response
@@ -36,9 +36,11 @@ export async function GET(
       if (user && user.id === data.user_id) isOwner = true;
     } catch { /* anonymous */ }
 
-    const raw = data.data as TripData;
+    const raw = normalizeTripData(data.data);
     const shareMode = (data.share_mode as 'companion' | 'remix') ?? 'companion';
-    const body = !isOwner && shareMode === 'remix' ? scrubTripData(raw) : raw;
+    const body = !isOwner && shareMode === 'remix'
+      ? normalizeTripData(scrubTripData(raw))
+      : raw;
 
     return NextResponse.json(
       {

@@ -1,5 +1,6 @@
 import { ImageResponse } from 'next/og';
 import { OG_SIZE, loadGoogleFont } from './og-image';
+import { normalizeTripData } from './trip-data-normalize';
 import { getTripOgImageUrl } from './trip-images';
 import type { TripData } from './types';
 
@@ -37,7 +38,8 @@ function calcNights(start: string, end: string): number {
 }
 
 export async function renderTripOgImage(trip: TripData): Promise<ImageResponse> {
-  const heroUrl = getTripOgImageUrl(trip.trip);
+  const normalizedTrip = normalizeTripData(trip);
+  const heroUrl = getTripOgImageUrl(normalizedTrip.trip);
 
   const [fraunces, frauncesItalic, inter, photoDataUrl] = await Promise.all([
     loadGoogleFont('Fraunces', 400),
@@ -46,9 +48,9 @@ export async function renderTripOgImage(trip: TripData): Promise<ImageResponse> 
     heroUrl ? fetchPhotoAsDataUrl(heroUrl) : Promise.resolve(null),
   ]);
 
-  const start = formatDateLabel(trip.trip.dates.start);
-  const end = formatDateLabel(trip.trip.dates.end);
-  const nights = calcNights(trip.trip.dates.start, trip.trip.dates.end);
+  const start = formatDateLabel(normalizedTrip.trip.dates.start);
+  const end = formatDateLabel(normalizedTrip.trip.dates.end);
+  const nights = calcNights(normalizedTrip.trip.dates.start, normalizedTrip.trip.dates.end);
 
   return new ImageResponse(
     (
@@ -96,7 +98,7 @@ export async function renderTripOgImage(trip: TripData): Promise<ImageResponse> 
             style={{
               display: 'flex',
               fontFamily: 'Fraunces',
-              fontSize: trip.trip.name.length > 18 ? 76 : 100,
+              fontSize: normalizedTrip.trip.name.length > 18 ? 76 : 100,
               fontWeight: 400,
               lineHeight: 0.96,
               letterSpacing: '-0.025em',
@@ -104,11 +106,11 @@ export async function renderTripOgImage(trip: TripData): Promise<ImageResponse> 
               marginBottom: 20,
             }}
           >
-            {trip.trip.name}
+            {normalizedTrip.trip.name}
           </div>
 
           {/* Subtitle */}
-          {trip.trip.subtitle && (
+          {normalizedTrip.trip.subtitle && (
             <div
               style={{
                 display: 'flex',
@@ -122,7 +124,7 @@ export async function renderTripOgImage(trip: TripData): Promise<ImageResponse> 
                 marginBottom: 36,
               }}
             >
-              {trip.trip.subtitle}
+              {normalizedTrip.trip.subtitle}
             </div>
           )}
 

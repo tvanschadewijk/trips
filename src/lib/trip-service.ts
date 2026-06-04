@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { trySyncAccommodationReviewForTrip } from '@/lib/accommodation-review-store';
+import { normalizeTripData } from '@/lib/trip-data-normalize';
 import { isPublicItineraryShareId } from '@/lib/public-itineraries';
 import { buildTripImagePromptSet } from '@/lib/trip-image-prompts';
 import type { TripData, TripImageAsset, TripImageAssetSlot } from '@/lib/types';
@@ -256,16 +257,16 @@ function cloneValue<T>(value: T): T {
 }
 
 function asMutableTripData(data: unknown): MutableTripData {
-  const cloned = cloneValue(data);
-  if (!isRecord(cloned) || !isRecord(cloned.trip) || !Array.isArray(cloned.days)) {
+  if (!isRecord(data) || !isRecord(data.trip) || !Array.isArray(data.days)) {
     throw new TripServiceError('Trip data is malformed', 500);
   }
 
-  if (!cloned.days.every(isRecord)) {
+  if (!data.days.every(isRecord)) {
     throw new TripServiceError('Trip day data is malformed', 500);
   }
 
-  return cloned as MutableTripData;
+  const cloned = cloneValue(normalizeTripData(data));
+  return cloned as unknown as MutableTripData;
 }
 
 function unique(values: string[]): string[] {
@@ -406,7 +407,7 @@ function buildTripBody(input: SaveTripInput): TripData {
     tripBody.markdown_source = input.markdown_source;
   }
 
-  return tripBody as unknown as TripData;
+  return normalizeTripData(tripBody);
 }
 
 export async function saveTripForUser(
@@ -459,12 +460,7 @@ export async function saveTripForUser(
   }
 
   let existingByName: { id: string; share_id: string } | null = null;
-  const startDate =
-    input.trip?.dates &&
-    typeof input.trip.dates === 'object' &&
-    'start' in input.trip.dates
-      ? (input.trip.dates as { start?: unknown }).start
-      : undefined;
+  const startDate = tripBody.trip.dates.start;
 
   if (typeof startDate === 'string' && startDate.length > 0) {
     const { data } = await admin
@@ -1565,8 +1561,9 @@ function compactTripDataSummary(data: unknown) {
     };
   }
 
-  const days = Array.isArray(data.days) ? data.days.filter(isRecord) : [];
-  const trip = isRecord(data.trip) ? data.trip : {};
+  const normalized = normalizeTripData(data);
+  const days = normalized.days;
+  const trip = normalized.trip;
 
   return {
     trip: {
@@ -1579,7 +1576,7 @@ function compactTripDataSummary(data: unknown) {
       overview_image: trip.overview_image,
     },
     day_count: days.length,
-    days: days.map(compactDaySummary),
+    days: days.map((day) => compactDaySummary(day as unknown as Record<string, unknown>)),
     markdown_source: summarizeMarkdownSource(data.markdown_source),
     image_status: summarizeTripImages(data),
   };
@@ -1659,8 +1656,8 @@ export function formatTripForRead(
   origin: string
 ) {
   const view = input.view ?? 'summary';
-  const data = isRecord(record.data) ? record.data : {};
-  const days = Array.isArray(data.days) ? data.days.filter(isRecord) : [];
+  const data = isRecord(record.data) ? normalizeTripData(record.data) : normalizeTripData({});
+  const days = data.days as unknown as Array<Record<string, unknown>>;
 
   if (view === 'full') {
     if (input.allow_large !== true) {

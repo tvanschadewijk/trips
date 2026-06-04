@@ -11,6 +11,7 @@ import {
 import { syncAccommodationReviewForTrip } from '@/lib/accommodation-review-store';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
+import { normalizeTripData } from '@/lib/trip-data-normalize';
 import type {
   AccommodationCandidate,
   AccommodationCandidateBooking,
@@ -151,7 +152,7 @@ async function requireAccommodationReviewAccess(
   return {
     admin,
     tripId,
-    tripData: trip.data as TripData,
+    tripData: normalizeTripData(trip.data),
   };
 }
 

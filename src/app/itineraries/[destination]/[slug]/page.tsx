@@ -8,6 +8,7 @@ import {
   type PublicItinerary,
 } from '@/lib/public-itineraries';
 import { createClient } from '@/lib/supabase/server';
+import { normalizeTripData } from '@/lib/trip-data-normalize';
 import type { TripData } from '@/lib/types';
 
 interface Props {
@@ -41,7 +42,7 @@ const loadPublicTrip = cache(async (shareId: string): Promise<PublicTripRecord |
     if (error || !data) return null;
 
     return {
-      tripData: data.data as TripData,
+      tripData: normalizeTripData(data.data),
       shareMode: (data.share_mode as 'companion' | 'remix') ?? 'companion',
     };
   } catch {

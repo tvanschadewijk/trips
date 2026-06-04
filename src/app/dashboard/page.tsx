@@ -18,6 +18,7 @@ import {
   WifiOff,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { normalizeTripData } from '@/lib/trip-data-normalize';
 import type { TripData } from '@/lib/types';
 import { getTripOverviewImageUrl } from '@/lib/trip-images';
 import { useSavedTripIds } from '@/lib/offline';
@@ -35,6 +36,13 @@ interface DashTrip {
   updated_at: string;
 }
 
+function normalizeDashTrip(trip: DashTrip): DashTrip {
+  return {
+    ...trip,
+    data: normalizeTripData(trip.data),
+  };
+}
+
 export default function DashboardPage() {
   const router = useRouter();
   const appVersion = process.env.NEXT_PUBLIC_APP_VERSION;
@@ -42,7 +50,12 @@ export default function DashboardPage() {
     if (typeof window !== 'undefined') {
       try {
         const c = sessionStorage.getItem('dash-trips');
-        if (c) return (JSON.parse(c) as DashTrip[]).filter(t => !isPublicItineraryShareId(t.share_id));
+        const parsed = c ? JSON.parse(c) : null;
+        if (Array.isArray(parsed)) {
+          return parsed
+            .filter(t => !isPublicItineraryShareId(t.share_id))
+            .map((trip) => normalizeDashTrip(trip as DashTrip));
+        }
       } catch {}
     }
     return [];
@@ -149,7 +162,7 @@ export default function DashboardPage() {
     if (rawTrips) {
       const sorted = rawTrips
         .filter(t => !isPublicItineraryShareId(t.share_id))
-        .map(t => ({ ...t, share_mode: t.share_mode ?? 'companion' } as DashTrip))
+        .map(t => normalizeDashTrip({ ...t, share_mode: t.share_mode ?? 'companion' } as DashTrip))
         .sort((a, b) => {
           const dateA = a.data?.trip?.dates?.start || '';
           const dateB = b.data?.trip?.dates?.start || '';

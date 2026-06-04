@@ -10,6 +10,7 @@ import TripRouteAtlas from './TripRouteAtlas';
 import ItineraryMap, { type ItineraryMapFocusRequest, type ItineraryMapViewAllRequest } from './ItineraryMap';
 import AccommodationReviewBoard from './AccommodationReviewBoard';
 import { renderTripMarkdown } from '@/lib/render-trip-markdown';
+import { normalizeTripData } from '@/lib/trip-data-normalize';
 import { buildTripRouteAtlas } from '@/lib/trip-route';
 import {
   buildDayMapDataByNumber,
@@ -303,12 +304,16 @@ function SwipeDots({ total, current, onDotClick }: { total: number; current: num
 }
 
 export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, shareId, canAddToTrips, shareMode, tripId, homeHref = '/' }: TripPreviewProps) {
-  const [trips, setTrips] = useState(initialTrips);
+  const normalizedInitialTrips = useMemo(
+    () => initialTrips.map((tripData) => normalizeTripData(tripData)),
+    [initialTrips]
+  );
+  const [trips, setTrips] = useState<TripData[]>(() => normalizedInitialTrips);
   // Sync to new initialTrips when the parent re-renders with fresh data (e.g.
   // after the admin chat panel applies an edit and calls router.refresh()).
   useEffect(() => {
-    setTrips(initialTrips);
-  }, [initialTrips]);
+    setTrips(normalizedInitialTrips);
+  }, [normalizedInitialTrips]);
   const [activeTripIndex, setActiveTripIndex] = useState<number | null>(autoOpen ? 0 : null);
   const [currentSlide, setCurrentSlide] = useState(0);
   const [detailOpen, setDetailOpen] = useState(false);
@@ -832,7 +837,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     setTrips((prev) => {
       if (activeTripIndex === null) return prev;
       const updated = [...prev];
-      updated[activeTripIndex] = nextTripData;
+      updated[activeTripIndex] = normalizeTripData(nextTripData);
       return updated;
     });
   }, [activeTripIndex]);
@@ -2328,9 +2333,11 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
               <img src="/brand/ourtrips-favicon-48.png" alt="" />
             </a>
             <div className="nav-title-group">
-              <button className="nav-back" onClick={handleBack} aria-label={isHero ? 'All trips' : 'Back to cover'}>
-                <Icon name="back" />
-              </button>
+              {isHero && (
+                <button className="nav-back" onClick={handleBack} aria-label="All trips">
+                  <Icon name="back" />
+                </button>
+              )}
               <div className="nav-title-text">
                 {!isHero && trip && (
                   <>
@@ -2350,7 +2357,8 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
                               }
                             }}
                           >
-                            back to trips overview
+                            <Icon className="nav-breadcrumb-icon" name="back" size={14} strokeWidth={2.4} />
+                            <span>Trips overview</span>
                           </a>
                         </li>
                       </ol>

@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { validateApiKey } from '@/lib/auth';
+import { normalizeTripData } from '@/lib/trip-data-normalize';
 import { buildTripImagePromptSet } from '@/lib/trip-image-prompts';
 import { createAdminClient } from '@/lib/supabase/admin';
-import type { TripData } from '@/lib/types';
 
 // GET /api/trips/[id]/image-prompts — Build imagegen prompts for this trip.
 // This does not call an image model or write to storage; it returns grounded
@@ -31,7 +31,7 @@ export async function GET(
     return NextResponse.json({ error: 'Trip not found' }, { status: 404 });
   }
 
-  const tripData = data.data as TripData;
+  const tripData = normalizeTripData(data.data);
   return NextResponse.json({
     trip_id: data.id,
     prompts: buildTripImagePromptSet(tripData),

@@ -36,6 +36,7 @@ import type {
   Service,
   TripNote,
 } from './types';
+import { normalizeTripData } from './trip-data-normalize';
 
 function scrubService(svc: Service): Service {
   // Drop ref (often a confirmation code) and status; keep the rest.
@@ -161,9 +162,11 @@ function scrubDay(day: Day): Day {
  * Whitelist scrub of a full trip body. Idempotent.
  */
 export function scrubTripData(data: TripData): TripData {
+  const normalized = normalizeTripData(data);
+
   return {
-    trip: scrubTripMeta(data.trip),
-    days: data.days.map(scrubDay),
+    trip: scrubTripMeta(normalized.trip),
+    days: normalized.days.map(scrubDay),
     // markdown_source dropped entirely
   };
 }
@@ -174,25 +177,26 @@ export function scrubTripData(data: TripData): TripData {
  * calendar.
  */
 export function anchorTripToToday(data: TripData): TripData {
+  const normalized = normalizeTripData(data);
   const today = new Date();
   today.setHours(12, 0, 0, 0);
   const fmt = (d: Date) => d.toISOString().slice(0, 10);
 
-  const dayCount = data.days.length || 1;
+  const dayCount = normalized.days.length || 1;
   const start = today;
   const end = new Date(today.getTime());
   end.setDate(end.getDate() + Math.max(0, dayCount - 1));
 
-  const rebasedDays = data.days.map((day, idx) => {
+  const rebasedDays = normalized.days.map((day, idx) => {
     const d = new Date(start.getTime());
     d.setDate(d.getDate() + idx);
     return { ...day, date: fmt(d), day_number: idx + 1 };
   });
 
   return {
-    ...data,
+    ...normalized,
     trip: {
-      ...data.trip,
+      ...normalized.trip,
       dates: { start: fmt(start), end: fmt(end) },
     },
     days: rebasedDays,

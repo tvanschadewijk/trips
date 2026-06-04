@@ -24,6 +24,7 @@ import {
   syncAccommodationReviewForTrip,
   trySyncAccommodationReviewForTrip,
 } from '@/lib/accommodation-review-store';
+import { normalizeTripData } from '@/lib/trip-data-normalize';
 import type {
   Accommodation,
   AccommodationCandidate,
@@ -625,7 +626,7 @@ async function readTripData(ctx: TripToolContext): Promise<TripData> {
     throw new Error(`Error reading trip: ${error?.message ?? 'not found'}`);
   }
 
-  return data.data as TripData;
+  return normalizeTripData(data.data);
 }
 
 async function loadOrCreateAccommodationReview(
@@ -1313,7 +1314,7 @@ export function createTripEditorMcpServer(
         content: [
           {
             type: 'text' as const,
-            text: JSON.stringify(data.data, null, 2),
+            text: JSON.stringify(normalizeTripData(data.data), null, 2),
           },
         ],
       };
@@ -1335,7 +1336,7 @@ export function createTripEditorMcpServer(
         return textToolError(`Error reading trip: ${error?.message ?? 'not found'}`);
       }
 
-      const trip = data.data as TripData;
+      const trip = normalizeTripData(data.data);
       return jsonToolResponse({
         count: collectAccommodations(trip).length,
         markdown_source_present: typeof trip.markdown_source === 'string' && trip.markdown_source.length > 0,
@@ -1402,7 +1403,7 @@ export function createTripEditorMcpServer(
         };
       }
 
-      const before = read.data.data as TripData;
+      const before = normalizeTripData(read.data.data);
       const after = mergeTrip(before, input);
 
       // 2. Write back. The service-role client is trusted (admin route has
@@ -1481,7 +1482,7 @@ export function createTripEditorMcpServer(
         return textToolError(`Error reading trip for update: ${read.error?.message ?? 'not found'}`);
       }
 
-      const before = read.data.data as TripData;
+      const before = normalizeTripData(read.data.data);
       const result = applyAccommodationPatch(
         before,
         parsed.data.path,
@@ -1559,7 +1560,7 @@ export function createTripEditorMcpServer(
         return textToolError(`Error reading trip for update: ${read.error?.message ?? 'not found'}`);
       }
 
-      const before = read.data.data as TripData;
+      const before = normalizeTripData(read.data.data);
       const result = applyAccommodationDetailPatch(
         before,
         parsed.data.path,
