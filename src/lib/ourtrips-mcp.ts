@@ -2,7 +2,17 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp';
 import type { AuthInfo } from '@modelcontextprotocol/sdk/server/auth/types';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types';
 import { z } from 'zod';
+import {
+  AccommodationReviewConflictError,
+  addAccommodationCandidate,
+  moveAccommodationCandidate,
+  promoteCandidateToTrip,
+  replaceBookedAccommodationCandidate,
+  updateAccommodationCandidate,
+} from '@/lib/accommodation-review';
+import { syncAccommodationReviewForTrip } from '@/lib/accommodation-review-store';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { normalizeTripData } from '@/lib/trip-data-normalize';
 import {
   deleteDayForUser,
   deleteDayItemForUser,
@@ -25,12 +35,24 @@ import {
   upsertDayItemForUser,
   verifyTripPublicDataForUser,
 } from '@/lib/trip-service';
+import type {
+  AccommodationCandidate,
+  AccommodationCandidateBooking,
+  AccommodationReview,
+  AccommodationReviewDestination,
+  AccommodationReviewLane,
+  TripData,
+} from '@/lib/types';
 
 const MCP_INSTRUCTIONS =
   [
-    'Use OurTrips to save and edit travel itineraries for the authenticated user. This MCP connector is self-contained; do not rely on any OurTrips or Artrip skill.',
+    'Use OurTrips to save and edit travel itineraries for the authenticated user. This MCP connector is self-contained; rely on this connector\'s tools and schema guidance.',
     'Use save_trip_v2 for new or substantially rewritten itineraries so the trip follows the OurTrips quality contract. Use get_trip_schema or get_trip_template when you need structure. Use get_trip summary/day/days/sections reads first; full reads require allow_large=true because large trips can exceed agent token limits.',
     'Use focused upsert/delete tools for meals, hotels, transport, and activities. For route rewrites, hotel swaps, removed stops, or stale nested fields, use replace_day, replace_day_section, replace_accommodation with mode=replace, delete_day, truncate_days_after, replace_paths, or delete_paths instead of deep merge.',
+    'Map contract: every visible named hotel, restaurant, activity site, and route stop must be represented once with a specific name and, when known, place/address/lat/lng context. Do not combine several restaurants or hotels into one title, provider, note, or service.',
+    'Accommodation shortlist contract: for each overnight stop without a booked hotel, create 2-4 private accommodation candidates, usually 3, with create_accommodation_candidate. Create exactly one candidate per hotel. Keep days[].accommodation as the booked/current stay or a clear placeholder such as "Hotel not confirmed yet"; never put hotel shortlists, slash-separated hotel names, or multiple hotel options into one public accommodation entry.',
+    'Restaurant reservations belong in days[].meals[] as one meal per restaurant with detail.reservation or booking_status. Do not create trip.services entries for restaurants; trip.services is only for external logistics or providers not already rendered as transport, accommodation, meals, or activities.',
+    'Every day should include at least one practical, place-specific tip with title and content. Omit tips only when there is truly nothing useful; never send empty tip objects.',
     'Images are part of the MCP workflow: use search_trip_images and set_trip_image for real Unsplash trip/day hero images, then use get_trip_image_prompts plus save_trip_image_asset for externally generated cover/social assets. Check get_trip_image_status or verify_trip_public_data before saying the trip is done.',
     'Do not ask for an API key; OAuth is already authorized.',
   ].join(' ');
@@ -90,8 +112,130 @@ const AccommodationScopeSchema = z
   .enum(['day', 'matching_accommodation_name'])
   .optional()
   .describe('Use matching_accommodation_name to update/delete the same hotel across adjacent stay days.');
+const AccommodationReviewLaneSchema = z.enum(['proposed', 'considering', 'dismissed', 'booked']);
+const AccommodationCandidateLinkSchema = z
+  .object({
+    label: z.string().min(1),
+    url: z.string().url(),
+  })
+  .strict();
+const AccommodationCandidateRatingSchema = z
+  .object({
+    name: z.string().optional(),
+    checkedAt: z.string().min(1),
+    bookingCom: z.string().min(1),
+    tripadvisor: z.string().min(1),
+    google: z.string().min(1),
+    hotelsCom: z.string().optional(),
+    note: z.string().optional(),
+  })
+  .strict()
+  .describe('Checked customer-review ratings. Include checkedAt plus bookingCom, tripadvisor, and google values; use "Not found" only for sources actually checked.');
+const AccommodationCandidateBookingSchema = z
+  .object({
+    bookedAt: z.string().optional(),
+    source: z.string().optional(),
+    confirmation: z.string().optional(),
+    price: z.string().optional(),
+    note: z.string().optional(),
+  })
+  .strict();
+const AccommodationReviewDestinationSchema = z
+  .object({
+    id: z.string().min(1),
+    title: z.string().min(1),
+    dates: z.string().optional(),
+    nights: z.number().optional(),
+    dayNumbers: z.array(DayNumberSchema).optional(),
+    startDate: z.string().optional(),
+    endDate: z.string().optional(),
+  })
+  .strict();
+const AccommodationCandidatePatchSchema = z
+  .object({
+    destinationId: z.string().optional(),
+    stop: z.string().optional(),
+    dates: z.string().optional(),
+    nights: z.number().optional(),
+    lane: AccommodationReviewLaneSchema.optional(),
+    status: z.string().optional(),
+    candidate: z.string().optional(),
+    price: z.string().optional(),
+    dog: z.string().optional(),
+    parking: z.string().optional(),
+    terms: z.string().optional(),
+    why: z.string().optional(),
+    blockers: z.string().optional(),
+    action: z.string().optional(),
+    alternatives: z.string().optional(),
+    directWebsite: AccommodationCandidateLinkSchema.optional().describe(
+      'Official/direct hotel website. Do not use Booking.com, Tripadvisor, Google, or an OTA/search-result URL here.'
+    ),
+    links: z.array(AccommodationCandidateLinkSchema).optional(),
+    ratings: z.array(AccommodationCandidateRatingSchema).optional(),
+    rateCheck: JsonObjectSchema.optional(),
+    feedbackLoop: JsonObjectSchema.optional(),
+    dayNumbers: z.array(DayNumberSchema).optional(),
+    checkInDate: z.string().optional(),
+    checkOutDate: z.string().optional(),
+    address: z.string().optional(),
+    roomType: z.string().optional(),
+    checkIn: z.string().optional(),
+    checkOut: z.string().optional(),
+    phone: z.string().optional(),
+    wifi: z.string().optional(),
+    policySource: AccommodationCandidateLinkSchema.optional(),
+    policyConfidence: z.enum(['high', 'medium', 'low']).optional(),
+    hotelNote: z.string().optional(),
+    booking: AccommodationCandidateBookingSchema.optional(),
+    createdBy: z.enum(['agent', 'user', 'import', 'system']).optional(),
+  })
+  .strict()
+  .refine((value) => Object.keys(value).length > 0, {
+    message: 'Provide at least one candidate field to patch.',
+  });
+const AccommodationCandidateCreateSchema = z
+  .object({
+    destinationId: z.string().optional(),
+    stop: z.string().optional(),
+    dates: z.string().optional(),
+    nights: z.number().optional(),
+    lane: AccommodationReviewLaneSchema.default('proposed'),
+    status: z.string().optional(),
+    candidate: z.string().min(1),
+    price: z.string().optional(),
+    dog: z.string().optional(),
+    parking: z.string().optional(),
+    terms: z.string().optional(),
+    why: z.string().optional(),
+    blockers: z.string().optional(),
+    action: z.string().optional(),
+    alternatives: z.string().optional(),
+    directWebsite: AccommodationCandidateLinkSchema.describe(
+      'Official/direct hotel website. Do not use Booking.com, Tripadvisor, Google, or an OTA/search-result URL here.'
+    ),
+    links: z.array(AccommodationCandidateLinkSchema).optional(),
+    ratings: z.array(AccommodationCandidateRatingSchema).min(1),
+    rateCheck: JsonObjectSchema.optional(),
+    feedbackLoop: JsonObjectSchema.optional(),
+    dayNumbers: z.array(DayNumberSchema).optional(),
+    checkInDate: z.string().optional(),
+    checkOutDate: z.string().optional(),
+    address: z.string().optional(),
+    roomType: z.string().optional(),
+    checkIn: z.string().optional(),
+    checkOut: z.string().optional(),
+    phone: z.string().optional(),
+    wifi: z.string().optional(),
+    policySource: AccommodationCandidateLinkSchema.optional(),
+    policyConfidence: z.enum(['high', 'medium', 'low']).optional(),
+    hotelNote: z.string().optional(),
+    booking: AccommodationCandidateBookingSchema.optional(),
+    createdBy: z.enum(['agent', 'user', 'import', 'system']).optional(),
+  })
+  .strict();
 const SchemaSectionSchema = z
-  .enum(['overview', 'trip', 'day', 'activity', 'transport', 'accommodation', 'meal', 'route_points', 'image_assets', 'quality_contract', 'v2', 'patching'])
+  .enum(['overview', 'trip', 'day', 'activity', 'transport', 'accommodation', 'accommodation_candidates', 'meal', 'tips', 'route_points', 'image_assets', 'quality_contract', 'v2', 'patching'])
   .optional();
 const ImageAssetSlotSchema = z.enum(['cover_portrait', 'cover_landscape', 'social_og']);
 const ImageOrientationSchema = z.enum(['landscape', 'portrait', 'squarish']).optional();
@@ -304,6 +448,105 @@ function mutationResult(
   return jsonResult(result.summary);
 }
 
+function accommodationReviewErrorResult(err: unknown): CallToolResult {
+  if (err instanceof AccommodationReviewConflictError) {
+    return errorResult(new TripServiceError(err.message, 409));
+  }
+  return errorResult(err);
+}
+
+function summarizeAccommodationReviewForMcp(review: AccommodationReview) {
+  return {
+    tripTitle: review.tripTitle,
+    updatedAt: review.updatedAt,
+    destinations: review.destinations,
+    candidate_count: review.accommodations.length,
+    lanes: {
+      proposed: review.accommodations.filter((item) => item.lane === 'proposed'),
+      considering: review.accommodations.filter((item) => item.lane === 'considering'),
+      dismissed: review.accommodations.filter((item) => item.lane === 'dismissed'),
+      booked: review.accommodations.filter((item) => item.lane === 'booked'),
+    },
+    recent_events: (review.events ?? []).slice(-12),
+  };
+}
+
+function accommodationReviewResult(
+  origin: string,
+  record: Record<string, unknown>,
+  review: AccommodationReview,
+  responseMode?: 'compact' | 'full',
+  extra: Record<string, unknown> = {}
+): CallToolResult {
+  const shareId = String(record.share_id ?? '');
+  return jsonResult({
+    trip_id: String(record.id ?? ''),
+    share_id: shareId,
+    url: origin ? `${origin}/t/${shareId}` : `/t/${shareId}`,
+    ...extra,
+    review: responseMode === 'full' ? review : summarizeAccommodationReviewForMcp(review),
+  });
+}
+
+async function loadAccommodationReviewForUser(
+  userId: string,
+  tripId: string
+): Promise<{
+  admin: ReturnType<typeof createAdminClient>;
+  record: Record<string, unknown>;
+  tripData: TripData;
+  review: AccommodationReview;
+}> {
+  const admin = createAdminClient();
+  const record = await getTripForUser(admin, userId, tripId);
+  const tripData = normalizeTripData(record.data);
+  const review = await syncAccommodationReviewForTrip(admin, String(record.id), tripData);
+  return { admin, record, tripData, review };
+}
+
+async function saveAccommodationReviewForTrip(
+  admin: ReturnType<typeof createAdminClient>,
+  tripId: string,
+  review: AccommodationReview
+): Promise<void> {
+  const { error } = await admin
+    .from('trip_accommodation_reviews')
+    .upsert({
+      trip_id: tripId,
+      data: review,
+      updated_at: new Date().toISOString(),
+    });
+
+  if (error) {
+    throw new TripServiceError(error.message, 500);
+  }
+}
+
+async function persistPromotedAccommodationTripData(
+  admin: ReturnType<typeof createAdminClient>,
+  userId: string,
+  tripId: string,
+  nextTripData: TripData
+): Promise<Record<string, unknown>> {
+  const { data, error } = await admin
+    .from('trips')
+    .update({
+      data: nextTripData,
+      name: nextTripData.trip.name,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', tripId)
+    .eq('user_id', userId)
+    .select()
+    .single();
+
+  if (error || !data) {
+    throw new TripServiceError(error?.message ?? 'Failed to update trip accommodation', 500);
+  }
+
+  return data as Record<string, unknown>;
+}
+
 const TRIP_SCHEMA_REFERENCE = {
   overview: {
     top_level: {
@@ -314,6 +557,11 @@ const TRIP_SCHEMA_REFERENCE = {
     rules: [
       'Use save_trip_v2 for new or substantially rewritten itineraries; it returns quality warnings for sparse or unstructured days.',
       'Use get_trip summary/day/days/sections reads before full reads.',
+      'Map every visible named hotel, restaurant, activity site, and route stop with a specific name. Prefer place.name plus address or lat/lng when the exact place is known.',
+      'For each overnight stop without a booked hotel, create 2-4 private accommodation candidates, usually 3, with one candidate per hotel.',
+      'Keep the public days[].accommodation field single-choice: the booked/current stay, or a clear placeholder such as "Hotel not confirmed yet" while candidates are under review.',
+      'Restaurant reservations belong in days[].meals[]; do not put restaurants or combined restaurant lists in trip.services.',
+      'Include at least one practical tip per day. Empty tips arrays or empty tip objects are treated as missing content.',
       'Unsplash hero image URLs must come from search_trip_images, then set_trip_image should track the selected download_url.',
       'Generated covers/social images live in trip.image_assets and are saved with save_trip_image_asset after the agent has created and hosted them elsewhere.',
     ],
@@ -321,6 +569,7 @@ const TRIP_SCHEMA_REFERENCE = {
   trip: {
     required: ['name', 'subtitle', 'dates', 'travelers', 'summary', 'hero_image'],
     optional: ['overview_image', 'image_assets', 'route_points', 'accent_color', 'services', 'notes'],
+    services_rule: 'Use services only for external providers not already represented as transport, accommodation, meals, or activities. Never use services for restaurant reservations or combined restaurant booking lists.',
     example: {
       name: 'Turkey Road Trip',
       subtitle: 'Aegean ruins, Cappadocia, and the overland return',
@@ -363,13 +612,40 @@ const TRIP_SCHEMA_REFERENCE = {
   accommodation: {
     section: 'days[].accommodation',
     required: ['name'],
+    public_itinerary_rule: 'The public itinerary accommodation is single-choice. Use it for a booked/current stay or a clear placeholder while private candidates are under review.',
     replace_rule: 'When changing to a different hotel, use replace_accommodation or upsert_accommodation with mode=replace so stale detail fields are removed.',
     detail_fields: ['check_in', 'check_out', 'room_type', 'address', 'phone', 'confirmation', 'booking_platform', 'parking', 'wifi', 'dog_note', 'policy_source_url'],
+  },
+  accommodation_candidates: {
+    section: 'private Accommodations Reviewer',
+    purpose: 'Store hotel shortlists separately from the public itinerary. Use this for proposed, considering, dismissed, and booked hotel options.',
+    rule: 'For each overnight stop without a booked hotel, create 2-4 candidates, usually 3. Create exactly one candidate per hotel; never combine multiple hotel names in one candidate.',
+    public_itinerary_rule: 'Do not put hotel shortlists into days[].accommodation. Keep days[].accommodation as the booked/current hotel or a placeholder such as "Hotel not confirmed yet".',
+    lanes: ['proposed', 'considering', 'dismissed', 'booked'],
+    candidate_required: ['candidate', 'directWebsite', 'ratings'],
+    candidate_fields: ['destinationId', 'stop', 'dates', 'nights', 'lane', 'status', 'candidate', 'price', 'dog', 'parking', 'terms', 'why', 'blockers', 'action', 'alternatives', 'directWebsite', 'links', 'ratings', 'rateCheck', 'dayNumbers', 'checkInDate', 'checkOutDate', 'address', 'roomType', 'checkIn', 'checkOut', 'phone', 'wifi', 'policySource', 'policyConfidence', 'hotelNote', 'booking'],
+    ratings_rule: 'Include checkedAt plus bookingCom, tripadvisor, and google values. Use "Not found" only for sources actually checked.',
+    promotion_rule: 'Use promote_accommodation_candidate when the user confirms a hotel should become the booked stay. This updates both the private reviewer and public itinerary accommodation cards.',
   },
   meal: {
     section: 'days[].meals[]',
     required: ['type', 'name'],
+    rules: [
+      'One meal entry equals one restaurant, cafe, bar, bakery, or explicit food stop. Do not combine multiple restaurants in one meal name, note, or reservation field.',
+      'For reservable meals, use reservation_required plus booking_status/status and put the time or booking note in detail.reservation or detail.booking_note.',
+      'Use place.name and place.address/lat/lng when the exact venue is known so the day map can find it.',
+    ],
     detail_fields: ['title', 'body', 'why', 'vibe', 'cuisine', 'price_range', 'reservation', 'what_to_order', 'booking_note', 'address', 'phone', 'hours'],
+  },
+  tips: {
+    section: 'days[].tips[]',
+    required: ['title', 'content'],
+    optional: ['icon', 'priority'],
+    rules: [
+      'Add at least one useful, place-specific tip per day.',
+      'Do not send empty tip objects or title-only placeholders.',
+      'Good tips are practical and contextual: booking timing, local routing, etiquette, backup moves, or what to skip.',
+    ],
   },
   route_points: {
     section: 'trip.route_points[]',
@@ -393,7 +669,10 @@ const TRIP_SCHEMA_REFERENCE = {
       'Every full travel day should have description_title + description and usually 3-6 programme blocks.',
       'Use exact starts_at/ends_at only with time_precision. fixed is reserved for bookings, transport, or researched constraints; suggested is for AI-planned exact times; window is for broad labels.',
       'Named sights, hotels, restaurants, and stops should use place.name when known so maps stay reliable.',
+      'Every visible hotel, site, restaurant, and meaningful stop should be map-ready. Use specific names and place/address/lat/lng context instead of prose-only mentions.',
       'Hotels, transport, and reservable meals should carry status or booking_status so action items/readiness work.',
+      'Do not use trip.services for restaurant reservations. Keep each restaurant as its own days[].meals[] entry and put reservation details there.',
+      'Each day should include at least one practical, place-specific tip with title and content.',
       'Use day_type, pace, and alternatives for rainy-day, tired-day, kid-friendly, cheaper, or lighter versions.',
       'Store confirmations, PDFs, QR codes, and private booking references in detail.wallet_items; never invent confirmation numbers.',
     ],
@@ -451,6 +730,7 @@ const TRIP_TEMPLATE_REFERENCE = {
           },
         ],
         meals: [{ type: 'dinner', name: 'Neighbourhood dinner option', booking_status: 'open', reservation_required: false }],
+        tips: [{ icon: 'info', title: 'Keep dinner easy', content: 'Save the first night for a nearby table; the arrival day should not depend on a tight cross-city reservation.' }],
         alternatives: [{ label: 'Tired-day version', description: 'Skip the orientation walk and keep only a short dinner nearby.', trigger: 'tired' }],
       },
     ],
@@ -466,6 +746,35 @@ const TRIP_TEMPLATE_REFERENCE = {
         name: 'New Hotel',
         status: 'booked',
         detail: { check_in: '3:00 PM', check_out: '11:00 AM' },
+      },
+    },
+  },
+  accommodation_shortlist: {
+    tools: ['list_accommodation_review', 'create_accommodation_candidate'],
+    expectation: 'For an unbooked overnight stop, create 2-4 private candidates, usually 3. Call create_accommodation_candidate once per hotel.',
+    input: {
+      trip_id: 'uuid',
+      candidate: {
+        stop: 'Karakoy, Istanbul',
+        dates: '1-4 Sep',
+        nights: 3,
+        lane: 'proposed',
+        candidate: 'Example Hotel',
+        price: 'Approx. EUR 160/night',
+        why: 'Good location for the first Istanbul nights; walkable to ferries and Galata.',
+        blockers: 'Check noise and parking before booking.',
+        action: 'Compare direct rate and cancellation terms.',
+        directWebsite: { label: 'Official website', url: 'https://example-hotel.test' },
+        ratings: [
+          {
+            name: 'Example Hotel',
+            checkedAt: '2026-06-05',
+            bookingCom: '8.7',
+            tripadvisor: '4.5',
+            google: '4.4',
+          },
+        ],
+        dayNumbers: [1, 2, 3],
       },
     },
   },
@@ -534,7 +843,7 @@ export function createOurTripsMcpServer(origin: string): McpServer {
         'Return compact examples for common OurTrips save, edit, image, and read workflows.',
       inputSchema: {
         template: z
-          .enum(['new_trip', 'new_trip_v2', 'replace_hotel', 'day_range_read', 'day_hero_image', 'generated_cover'])
+          .enum(['new_trip', 'new_trip_v2', 'replace_hotel', 'accommodation_shortlist', 'day_range_read', 'day_hero_image', 'generated_cover'])
           .optional()
           .describe('Optional template name. Omit to list all templates.'),
       },
@@ -721,6 +1030,333 @@ export function createOurTripsMcpServer(origin: string): McpServer {
         return jsonResult(formatTripForRead(trip, readInput, origin));
       } catch (err) {
         return errorResult(err);
+      }
+    }
+  );
+
+  server.registerTool(
+    'list_accommodation_review',
+    {
+      title: 'List accommodation review',
+      description:
+        'Read the private Accommodations Reviewer for a trip: overnight destinations, hotel candidates grouped by review lane, and recent candidate events. Use this before creating or promoting hotel options.',
+      inputSchema: {
+        trip_id: z.string().min(1).describe('The OurTrips trip id.'),
+        response_mode: ResponseModeSchema,
+      },
+      annotations: {
+        title: 'List accommodation review',
+        readOnlyHint: true,
+        destructiveHint: false,
+        openWorldHint: false,
+      },
+    },
+    async ({ trip_id, response_mode }, extra) => {
+      try {
+        const context = await loadAccommodationReviewForUser(
+          userIdFromAuth(extra),
+          trip_id
+        );
+        return accommodationReviewResult(origin, context.record, context.review, response_mode);
+      } catch (err) {
+        return accommodationReviewErrorResult(err);
+      }
+    }
+  );
+
+  server.registerTool(
+    'create_accommodation_candidate',
+    {
+      title: 'Create accommodation candidate',
+      description:
+        'Create one private hotel proposal card in the Accommodations Reviewer. For an unbooked overnight stop, create 2-4 candidates, usually 3, by calling this once per hotel. Do not combine several hotels in one candidate.',
+      inputSchema: {
+        trip_id: z.string().min(1).describe('The OurTrips trip id.'),
+        candidate: AccommodationCandidateCreateSchema.describe(
+          'One hotel/stay candidate. Include the official directWebsite and checked ratings evidence.'
+        ),
+        destination: AccommodationReviewDestinationSchema.optional().describe(
+          'Optional overnight destination to create if it does not already exist. Usually omit this and use destinationId or dayNumbers from list_accommodation_review.'
+        ),
+        message: z.string().optional().describe('Optional event note explaining why this candidate was created.'),
+        response_mode: ResponseModeSchema,
+      },
+      annotations: {
+        title: 'Create accommodation candidate',
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
+    },
+    async ({ trip_id, candidate, destination, message, response_mode }, extra) => {
+      try {
+        const context = await loadAccommodationReviewForUser(
+          userIdFromAuth(extra),
+          trip_id
+        );
+        const nextReview = addAccommodationCandidate(
+          context.review,
+          candidate as Omit<AccommodationCandidate, 'id'>,
+          'agent',
+          message,
+          destination as AccommodationReviewDestination | undefined
+        );
+        await saveAccommodationReviewForTrip(context.admin, trip_id, nextReview);
+        return accommodationReviewResult(origin, context.record, nextReview, response_mode, {
+          status: 'created',
+          candidate_id: nextReview.accommodations.at(-1)?.id,
+        });
+      } catch (err) {
+        return accommodationReviewErrorResult(err);
+      }
+    }
+  );
+
+  server.registerTool(
+    'update_accommodation_candidate',
+    {
+      title: 'Update accommodation candidate',
+      description:
+        'Patch one private accommodation-review candidate. Use this for facts such as price, official website, ratings, dog/parking terms, watch-outs, rate checks, or decision notes. This does not edit the public itinerary unless the candidate is later promoted.',
+      inputSchema: {
+        trip_id: z.string().min(1).describe('The OurTrips trip id.'),
+        candidate_id: z.string().min(1),
+        candidate_patch: AccommodationCandidatePatchSchema,
+        message: z.string().optional().describe('Optional event note explaining the update.'),
+        response_mode: ResponseModeSchema,
+      },
+      annotations: {
+        title: 'Update accommodation candidate',
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
+    },
+    async ({ trip_id, candidate_id, candidate_patch, message, response_mode }, extra) => {
+      try {
+        const context = await loadAccommodationReviewForUser(
+          userIdFromAuth(extra),
+          trip_id
+        );
+        const nextReview = updateAccommodationCandidate(
+          context.review,
+          candidate_id,
+          candidate_patch as Partial<AccommodationCandidate>,
+          'agent',
+          message
+        );
+        await saveAccommodationReviewForTrip(context.admin, trip_id, nextReview);
+        return accommodationReviewResult(origin, context.record, nextReview, response_mode, {
+          status: 'updated',
+          candidate_id,
+          updated_keys: Object.keys(candidate_patch),
+        });
+      } catch (err) {
+        return accommodationReviewErrorResult(err);
+      }
+    }
+  );
+
+  server.registerTool(
+    'move_accommodation_candidate',
+    {
+      title: 'Move accommodation candidate',
+      description:
+        'Move one private accommodation candidate between proposed, considering, dismissed, and booked. Moving to booked also promotes the candidate into the public itinerary accommodation cards.',
+      inputSchema: {
+        trip_id: z.string().min(1).describe('The OurTrips trip id.'),
+        candidate_id: z.string().min(1),
+        lane: AccommodationReviewLaneSchema,
+        booking: AccommodationCandidateBookingSchema.optional().describe(
+          'Optional real booking details. Never invent confirmations or booking references.'
+        ),
+        message: z.string().optional().describe('Optional event note explaining the move.'),
+        response_mode: ResponseModeSchema,
+      },
+      annotations: {
+        title: 'Move accommodation candidate',
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
+    },
+    async ({ trip_id, candidate_id, lane, booking, message, response_mode }, extra) => {
+      try {
+        const userId = userIdFromAuth(extra);
+        const context = await loadAccommodationReviewForUser(userId, trip_id);
+        let nextReview = moveAccommodationCandidate(
+          context.review,
+          candidate_id,
+          lane as AccommodationReviewLane,
+          'agent',
+          booking as AccommodationCandidateBooking | undefined,
+          message
+        );
+        let updatedRecord = context.record;
+        let promotedToTrip = false;
+
+        if (lane === 'booked') {
+          const nextTripData = promoteCandidateToTrip(
+            context.tripData,
+            nextReview,
+            candidate_id,
+            booking as AccommodationCandidateBooking | undefined
+          );
+          updatedRecord = await persistPromotedAccommodationTripData(
+            context.admin,
+            userId,
+            trip_id,
+            nextTripData
+          );
+          await saveAccommodationReviewForTrip(context.admin, trip_id, nextReview);
+          nextReview = await syncAccommodationReviewForTrip(
+            context.admin,
+            trip_id,
+            nextTripData
+          );
+          promotedToTrip = true;
+        } else {
+          await saveAccommodationReviewForTrip(context.admin, trip_id, nextReview);
+        }
+
+        return accommodationReviewResult(origin, updatedRecord, nextReview, response_mode, {
+          status: 'moved',
+          candidate_id,
+          lane,
+          promoted_to_trip: promotedToTrip,
+        });
+      } catch (err) {
+        return accommodationReviewErrorResult(err);
+      }
+    }
+  );
+
+  server.registerTool(
+    'promote_accommodation_candidate',
+    {
+      title: 'Promote accommodation candidate',
+      description:
+        'Mark one private accommodation candidate as booked and promote it into the public itinerary accommodation cards for its destination/day numbers.',
+      inputSchema: {
+        trip_id: z.string().min(1).describe('The OurTrips trip id.'),
+        candidate_id: z.string().min(1),
+        booking: AccommodationCandidateBookingSchema.optional().describe(
+          'Optional real booking details. Never invent confirmations or booking references.'
+        ),
+        message: z.string().optional().describe('Optional event note explaining the promotion.'),
+        response_mode: ResponseModeSchema,
+      },
+      annotations: {
+        title: 'Promote accommodation candidate',
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
+    },
+    async ({ trip_id, candidate_id, booking, message, response_mode }, extra) => {
+      try {
+        const userId = userIdFromAuth(extra);
+        const context = await loadAccommodationReviewForUser(userId, trip_id);
+        let nextReview = moveAccommodationCandidate(
+          context.review,
+          candidate_id,
+          'booked',
+          'agent',
+          booking as AccommodationCandidateBooking | undefined,
+          message ?? 'Promoted into the itinerary by the OurTrips MCP agent.'
+        );
+        const nextTripData = promoteCandidateToTrip(
+          context.tripData,
+          nextReview,
+          candidate_id,
+          booking as AccommodationCandidateBooking | undefined
+        );
+        const updatedRecord = await persistPromotedAccommodationTripData(
+          context.admin,
+          userId,
+          trip_id,
+          nextTripData
+        );
+        await saveAccommodationReviewForTrip(context.admin, trip_id, nextReview);
+        nextReview = await syncAccommodationReviewForTrip(
+          context.admin,
+          trip_id,
+          nextTripData
+        );
+        return accommodationReviewResult(origin, updatedRecord, nextReview, response_mode, {
+          status: 'promoted',
+          candidate_id,
+          promoted_to_trip: true,
+        });
+      } catch (err) {
+        return accommodationReviewErrorResult(err);
+      }
+    }
+  );
+
+  server.registerTool(
+    'replace_booked_accommodation_candidate',
+    {
+      title: 'Replace booked accommodation candidate',
+      description:
+        'Replace the currently booked hotel for a destination with another private candidate. This demotes the old booked candidate, marks the selected candidate booked, and updates the public itinerary accommodation cards.',
+      inputSchema: {
+        trip_id: z.string().min(1).describe('The OurTrips trip id.'),
+        candidate_id: z.string().min(1),
+        booking: AccommodationCandidateBookingSchema.optional().describe(
+          'Optional real booking details. Never invent confirmations or booking references.'
+        ),
+        message: z.string().optional().describe('Optional event note explaining the replacement.'),
+        response_mode: ResponseModeSchema,
+      },
+      annotations: {
+        title: 'Replace booked accommodation candidate',
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
+    },
+    async ({ trip_id, candidate_id, booking, message, response_mode }, extra) => {
+      try {
+        const userId = userIdFromAuth(extra);
+        const context = await loadAccommodationReviewForUser(userId, trip_id);
+        let nextReview = replaceBookedAccommodationCandidate(
+          context.review,
+          candidate_id,
+          'agent',
+          booking as AccommodationCandidateBooking | undefined,
+          message
+        );
+        const nextTripData = promoteCandidateToTrip(
+          context.tripData,
+          nextReview,
+          candidate_id,
+          booking as AccommodationCandidateBooking | undefined
+        );
+        const updatedRecord = await persistPromotedAccommodationTripData(
+          context.admin,
+          userId,
+          trip_id,
+          nextTripData
+        );
+        await saveAccommodationReviewForTrip(context.admin, trip_id, nextReview);
+        nextReview = await syncAccommodationReviewForTrip(
+          context.admin,
+          trip_id,
+          nextTripData
+        );
+        return accommodationReviewResult(origin, updatedRecord, nextReview, response_mode, {
+          status: 'replaced_booked_candidate',
+          candidate_id,
+          promoted_to_trip: true,
+        });
+      } catch (err) {
+        return accommodationReviewErrorResult(err);
       }
     }
   );
