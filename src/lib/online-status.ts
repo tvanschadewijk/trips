@@ -7,11 +7,13 @@ import { useEffect, useState } from 'react';
  * during SSR) so hydration mismatches don't render "Offline" pre-mount.
  */
 export function useOnlineStatus(): boolean {
-  const [online, setOnline] = useState<boolean>(true);
+  const [online, setOnline] = useState<boolean>(() => {
+    if (typeof navigator === 'undefined') return true;
+    return navigator.onLine;
+  });
 
   useEffect(() => {
     if (typeof navigator === 'undefined') return;
-    setOnline(navigator.onLine);
     const handleOnline = () => setOnline(true);
     const handleOffline = () => setOnline(false);
     window.addEventListener('online', handleOnline);

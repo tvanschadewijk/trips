@@ -22,15 +22,8 @@ function readCache(pathname: string | null): CachedItineraryPreview {
 
 export default function LoadingPublicItineraryPage() {
   const pathname = usePathname();
-  const [preview, setPreview] = useState<CachedItineraryPreview>(() => readCache(pathname));
+  const preview = readCache(pathname);
   const [showLabel, setShowLabel] = useState(false);
-
-  useEffect(() => {
-    if (!preview.heroImage) {
-      const fresh = readCache(pathname);
-      if (fresh.heroImage) setPreview(fresh);
-    }
-  }, [pathname, preview.heroImage]);
 
   useEffect(() => {
     const timer = setTimeout(() => setShowLabel(true), 500);

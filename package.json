@@ -10,6 +10,7 @@
     "prebuild": "node scripts/ensure-claude-agent-binary.mjs",
     "build": "next build",
     "typecheck": "tsc -p tsconfig.build.json --noEmit --pretty false",
+    "verify": "npm run lint && npm run typecheck && npm run test && npm run build",
     "start": "next start",
     "lint": "eslint",
     "test": "node --test --import tsx \"src/**/*.test.ts\"",
