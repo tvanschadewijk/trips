@@ -627,6 +627,24 @@ function syncDestinationFromImported(
   return changed;
 }
 
+function applyDestinationLogisticsToCandidate<T extends Partial<AccommodationCandidate>>(
+  candidate: T,
+  destination?: AccommodationReviewDestination
+): T {
+  if (!destination) return candidate;
+
+  return compactObject({
+    ...candidate,
+    destinationId: destination.id,
+    stop: destination.title,
+    dates: destination.dates ?? candidate.dates,
+    nights: destination.nights ?? candidate.nights,
+    dayNumbers: destination.dayNumbers ?? candidate.dayNumbers,
+    checkInDate: destination.startDate ?? candidate.checkInDate,
+    checkOutDate: destination.endDate ?? candidate.checkOutDate,
+  }) as T;
+}
+
 function syncCandidateScheduleFromImported(
   candidate: AccommodationCandidate,
   imported: AccommodationCandidate
@@ -1112,14 +1130,16 @@ export function updateAccommodationCandidate(
     throw new Error(`Accommodation candidate not found: ${candidateId}`);
   }
 
-  next.accommodations[index] = {
+  const destinationId = patch.destinationId ?? next.accommodations[index].destinationId;
+  const destination = next.destinations.find((item) => item.id === destinationId);
+  next.accommodations[index] = applyDestinationLogisticsToCandidate({
     ...next.accommodations[index],
     ...patch,
     id: next.accommodations[index].id,
-    destinationId: patch.destinationId ?? next.accommodations[index].destinationId,
+    destinationId,
     lane: patch.lane ? normalizeLane(patch.lane) : next.accommodations[index].lane,
     updatedAt: new Date().toISOString(),
-  };
+  }, destination) as AccommodationCandidate;
   next.updatedAt = new Date().toISOString();
   next.events = [
     ...(next.events ?? []),
@@ -1157,7 +1177,7 @@ export function addAccommodationCandidate(
     candidate.id || `${destinationId}-${slugify(candidate.candidate)}`,
     usedIds
   );
-  const nextCandidate: AccommodationCandidate = {
+  const nextCandidate: AccommodationCandidate = applyDestinationLogisticsToCandidate({
     ...candidate,
     id,
     destinationId,
@@ -1165,7 +1185,7 @@ export function addAccommodationCandidate(
     lane: candidate.lane ?? 'proposed',
     createdBy: candidate.createdBy ?? actor,
     updatedAt: new Date().toISOString(),
-  };
+  }, destinationRecord) as AccommodationCandidate;
 
   next.accommodations.push(nextCandidate);
   next.updatedAt = new Date().toISOString();

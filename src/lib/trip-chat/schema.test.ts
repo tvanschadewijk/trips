@@ -51,6 +51,19 @@ test('accepts a full-days replacement', () => {
   assert.equal(result.success, true, result.success ? '' : JSON.stringify(result.error.issues));
 });
 
+test('rejects impossible calendar dates', () => {
+  const result = UpdateTripInputSchema.safeParse({
+    days: [
+      {
+        day_number: 1,
+        date: '2026-02-31',
+        title: 'Impossible day',
+      },
+    ],
+  });
+  assert.equal(result.success, false);
+});
+
 test('accepts day intro without programme blocks', () => {
   const result = UpdateTripInputSchema.safeParse({
     days: [

@@ -13,6 +13,8 @@ import {
 import { syncAccommodationReviewForTrip } from '@/lib/accommodation-review-store';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { normalizeTripData } from '@/lib/trip-data-normalize';
+import { auditTripLogistics, ISO_DATE_RE, isIsoDateString } from '@/lib/trip-logistics';
+import { validateItineraryQuality } from '@/lib/trip-quality';
 import {
   deleteDayForUser,
   deleteDayItemForUser,
@@ -47,17 +49,22 @@ import type {
 const MCP_INSTRUCTIONS =
   [
     'Use OurTrips to save and edit travel itineraries for the authenticated user. This MCP connector is self-contained; rely on this connector\'s tools and schema guidance.',
-    'Use save_trip_v2 for new or substantially rewritten itineraries so the trip follows the OurTrips quality contract. Use get_trip_schema or get_trip_template when you need structure. Use get_trip summary/day/days/sections reads first; full reads require allow_large=true because large trips can exceed agent token limits.',
+    'Use save_trip_v3 for new or substantially rewritten itineraries when exact dates, sleeps/nights, or transport requirements matter; it rejects hard logistics contradictions. Use save_trip_v2 only when you intentionally want warnings without a hard logistics gate. Use get_trip_schema or get_trip_template when you need structure. Use get_trip summary/day/days/sections reads first; full reads require allow_large=true because large trips can exceed agent token limits.',
     'Use focused upsert/delete tools for meals, hotels, transport, and activities. For route rewrites, hotel swaps, removed stops, or stale nested fields, use replace_day, replace_day_section, replace_accommodation with mode=replace, delete_day, truncate_days_after, replace_paths, or delete_paths instead of deep merge.',
     'Map contract: every visible named hotel, restaurant, activity site, and route stop must be represented once with a specific name and, when known, place/address/lat/lng context. Do not combine several restaurants or hotels into one title, provider, note, or service.',
     'Accommodation shortlist contract: for each overnight stop without a booked hotel, create 2-4 private accommodation candidates, usually 3, with create_accommodation_candidate. Create exactly one candidate per hotel. Keep days[].accommodation as the booked/current stay or a clear placeholder such as "Hotel not confirmed yet"; never put hotel shortlists, slash-separated hotel names, or multiple hotel options into one public accommodation entry.',
     'Restaurant reservations belong in days[].meals[] as one meal per restaurant with detail.reservation or booking_status. Do not create trip.services entries for restaurants; trip.services is only for external logistics or providers not already rendered as transport, accommodation, meals, or activities.',
     'Every day should include at least one practical, place-specific tip with title and content. Omit tips only when there is truly nothing useful; never send empty tip objects.',
-    'Images are part of the MCP workflow: use search_trip_images and set_trip_image for real Unsplash trip/day hero images, then use get_trip_image_prompts plus save_trip_image_asset for externally generated cover/social assets. Check get_trip_image_status or verify_trip_public_data before saying the trip is done.',
+    'Logistics contract: a day is one calendar itinerary date; a sleep/night is one overnight stay with check-in inclusive and check-out exclusive; a stay segment is one hotel across contiguous sleeps; a transport leg is one movement from an origin to a destination on a specific itinerary day. Run validate_trip_contract before saying a trip is complete.',
+    'Images are part of the MCP workflow: use search_trip_images and set_trip_image for real Unsplash trip/day hero images, then use get_trip_image_prompts plus save_trip_image_asset for externally generated cover/social assets. Check get_trip_image_status, validate_trip_contract, or verify_trip_public_data before saying the trip is done.',
     'Do not ask for an API key; OAuth is already authorized.',
   ].join(' ');
 
 const JsonObjectSchema = z.record(z.string(), z.unknown());
+const IsoDateSchema = z
+  .string()
+  .regex(ISO_DATE_RE, 'Use ISO 8601 YYYY-MM-DD.')
+  .refine(isIsoDateString, 'Use a real calendar date.');
 const TripPayloadSchema = JsonObjectSchema.describe(
   'The trip metadata object. It must include a human-readable name.'
 );
@@ -97,6 +104,7 @@ const ReadSectionSchema = z.enum([
   'days',
   'images',
   'image_assets',
+  'logistics',
   'blocks',
   'transport',
   'accommodation',
@@ -122,7 +130,7 @@ const AccommodationCandidateLinkSchema = z
 const AccommodationCandidateRatingSchema = z
   .object({
     name: z.string().optional(),
-    checkedAt: z.string().min(1),
+    checkedAt: IsoDateSchema,
     bookingCom: z.string().min(1),
     tripadvisor: z.string().min(1),
     google: z.string().min(1),
@@ -147,8 +155,8 @@ const AccommodationReviewDestinationSchema = z
     dates: z.string().optional(),
     nights: z.number().optional(),
     dayNumbers: z.array(DayNumberSchema).optional(),
-    startDate: z.string().optional(),
-    endDate: z.string().optional(),
+    startDate: IsoDateSchema.optional(),
+    endDate: IsoDateSchema.optional(),
   })
   .strict();
 const AccommodationCandidatePatchSchema = z
@@ -176,8 +184,8 @@ const AccommodationCandidatePatchSchema = z
     rateCheck: JsonObjectSchema.optional(),
     feedbackLoop: JsonObjectSchema.optional(),
     dayNumbers: z.array(DayNumberSchema).optional(),
-    checkInDate: z.string().optional(),
-    checkOutDate: z.string().optional(),
+    checkInDate: IsoDateSchema.optional(),
+    checkOutDate: IsoDateSchema.optional(),
     address: z.string().optional(),
     roomType: z.string().optional(),
     checkIn: z.string().optional(),
@@ -219,8 +227,8 @@ const AccommodationCandidateCreateSchema = z
     rateCheck: JsonObjectSchema.optional(),
     feedbackLoop: JsonObjectSchema.optional(),
     dayNumbers: z.array(DayNumberSchema).optional(),
-    checkInDate: z.string().optional(),
-    checkOutDate: z.string().optional(),
+    checkInDate: IsoDateSchema.optional(),
+    checkOutDate: IsoDateSchema.optional(),
     address: z.string().optional(),
     roomType: z.string().optional(),
     checkIn: z.string().optional(),
@@ -235,7 +243,7 @@ const AccommodationCandidateCreateSchema = z
   })
   .strict();
 const SchemaSectionSchema = z
-  .enum(['overview', 'trip', 'day', 'activity', 'transport', 'accommodation', 'accommodation_candidates', 'meal', 'tips', 'route_points', 'image_assets', 'quality_contract', 'v2', 'patching'])
+  .enum(['overview', 'trip', 'day', 'activity', 'transport', 'accommodation', 'accommodation_candidates', 'meal', 'tips', 'route_points', 'image_assets', 'quality_contract', 'logistics_contract', 'v2', 'patching'])
   .optional();
 const ImageAssetSlotSchema = z.enum(['cover_portrait', 'cover_landscape', 'social_og']);
 const ImageOrientationSchema = z.enum(['landscape', 'portrait', 'squarish']).optional();
@@ -366,7 +374,7 @@ const MealV2Schema = z
 const DayV2Schema = z
   .object({
     day_number: DayNumberSchema,
-    date: z.string().min(1).describe('ISO 8601 YYYY-MM-DD'),
+    date: IsoDateSchema.describe('ISO 8601 YYYY-MM-DD'),
     title: z.string().min(1),
     subtitle: z.string().optional(),
     description_title: z.string().optional(),
@@ -388,8 +396,8 @@ const TripMetaV2Schema = z
     name: z.string().min(1),
     subtitle: z.string().min(1),
     dates: z.object({
-      start: z.string().min(1).describe('ISO 8601 YYYY-MM-DD'),
-      end: z.string().min(1).describe('ISO 8601 YYYY-MM-DD'),
+      start: IsoDateSchema.describe('ISO 8601 YYYY-MM-DD'),
+      end: IsoDateSchema.describe('ISO 8601 YYYY-MM-DD'),
     }),
     travelers: z.array(z.string()),
     summary: z.string().min(1),
@@ -555,8 +563,10 @@ const TRIP_SCHEMA_REFERENCE = {
       markdown_source: 'Optional verbatim original plan markdown, max 256 KB.',
     },
     rules: [
-      'Use save_trip_v2 for new or substantially rewritten itineraries; it returns quality warnings for sparse or unstructured days.',
+      'Use save_trip_v3 for new or substantially rewritten itineraries when exact dates, sleeps/nights, or transport requirements matter; it rejects hard logistics contradictions.',
+      'Use save_trip_v2 only when you intentionally want quality/logistics warnings without a hard logistics gate.',
       'Use get_trip summary/day/days/sections reads before full reads.',
+      'Run validate_trip_contract before claiming the trip is complete.',
       'Map every visible named hotel, restaurant, activity site, and route stop with a specific name. Prefer place.name plus address or lat/lng when the exact place is known.',
       'For each overnight stop without a booked hotel, create 2-4 private accommodation candidates, usually 3, with one candidate per hotel.',
       'Keep the public days[].accommodation field single-choice: the booked/current stay, or a clear placeholder such as "Hotel not confirmed yet" while candidates are under review.',
@@ -613,6 +623,7 @@ const TRIP_SCHEMA_REFERENCE = {
     section: 'days[].accommodation',
     required: ['name'],
     public_itinerary_rule: 'The public itinerary accommodation is single-choice. Use it for a booked/current stay or a clear placeholder while private candidates are under review.',
+    sleep_rule: 'One public accommodation day equals one sleep/night. A 3-night stay should appear on 3 contiguous itinerary days with nights=3, check-in on the first day, and check-out the day after the final sleep.',
     replace_rule: 'When changing to a different hotel, use replace_accommodation or upsert_accommodation with mode=replace so stale detail fields are removed.',
     detail_fields: ['check_in', 'check_out', 'room_type', 'address', 'phone', 'confirmation', 'booking_platform', 'parking', 'wifi', 'dog_note', 'policy_source_url'],
   },
@@ -663,7 +674,7 @@ const TRIP_SCHEMA_REFERENCE = {
     fields: ['url', 'prompt', 'aspect_ratio', 'width', 'height', 'provider', 'model', 'source', 'generated_at'],
   },
   quality_contract: {
-    save_tool: 'save_trip_v2',
+    save_tool: 'save_trip_v3',
     schema_version: 2,
     day_contract: [
       'Every full travel day should have description_title + description and usually 3-6 programme blocks.',
@@ -676,7 +687,31 @@ const TRIP_SCHEMA_REFERENCE = {
       'Use day_type, pace, and alternatives for rainy-day, tired-day, kid-friendly, cheaper, or lighter versions.',
       'Store confirmations, PDFs, QR codes, and private booking references in detail.wallet_items; never invent confirmation numbers.',
     ],
-    validation: 'save_trip_v2 normalizes the trip to trip_schema_version=2 and returns quality warnings. strict_quality only rejects hard errors such as missing days.',
+    validation: 'save_trip_v3 normalizes the trip to trip_schema_version=2 and rejects hard quality/logistics errors by default. save_trip_v2 returns the same quality/logistics report but only rejects hard errors when strict_quality=true.',
+  },
+  logistics_contract: {
+    purpose: 'Hard arithmetic contract for exact dates, sleeps/nights, stay segments, and transport legs.',
+    glossary: {
+      day: 'One calendar itinerary date.',
+      sleep: 'One overnight stay: check-in date inclusive, check-out date exclusive. Sleep and night mean the same thing in OurTrips.',
+      stay_segment: 'A contiguous allocation of one hotel/stay across one or more sleeps.',
+      transport_leg: 'One atomic movement from an origin to a destination on a specific itinerary day.',
+    },
+    validation_tool: 'validate_trip_contract',
+    save_tool: 'save_trip_v3',
+    hard_errors: [
+      'trip.dates.start and trip.dates.end must be real YYYY-MM-DD calendar dates.',
+      'trip.dates.start must equal days[0].date and trip.dates.end must equal the final day date.',
+      'days.length must equal the inclusive calendar day count from start to end.',
+      'day_number values must be continuous and match array order.',
+      'day.date values must increase exactly one calendar day at a time.',
+      'A public accommodation day equals one sleep/night; contiguous dayNumbers for a stay must match nights.',
+      'Scheduled/booked/required transport legs must include from and to, and scheduled booked transport must include depart.',
+    ],
+    server_derived_fields: [
+      'Accommodation candidates with destinationId inherit stop, dates, nights, dayNumbers, checkInDate, and checkOutDate from the Accommodations Reviewer destination.',
+      'Agents should pass destinationId instead of retyping date arithmetic for hotel candidates.',
+    ],
   },
   v2: {
     alias_for: 'quality_contract',
@@ -736,6 +771,65 @@ const TRIP_TEMPLATE_REFERENCE = {
     ],
     strict_quality: false,
     markdown_source: '# Optional original plan markdown\n',
+  },
+  new_trip_v3: {
+    tool: 'save_trip_v3',
+    trip: {
+      ...TRIP_SCHEMA_REFERENCE.trip.example,
+      dates: { start: '2026-09-01', end: '2026-09-01' },
+    },
+    days: [
+      {
+        ...TRIP_SCHEMA_REFERENCE.day.example,
+        date: '2026-09-01',
+        day_type: 'arrival',
+        pace: 'light',
+        description_title: 'Soft first landing',
+        description: 'Keep the first day clean: arrive, settle in, take one good walk, and make dinner easy.',
+        transport: [
+          {
+            mode: 'flight',
+            label: 'Arrival flight',
+            from: 'Amsterdam',
+            to: 'Istanbul',
+            depart: '09:00',
+            arrive: '13:30',
+            booking_status: 'open',
+          },
+        ],
+        accommodation: {
+          name: 'Hotel not confirmed yet',
+          status: 'open',
+          booking_status: 'open',
+          nights: 1,
+        },
+        blocks: [
+          {
+            time_label: '17:00-18:30',
+            starts_at: '17:00',
+            ends_at: '18:30',
+            time_precision: 'suggested',
+            content: 'Orientation walk through the old quarter.',
+            type: 'activity',
+            place: { name: 'Old quarter' },
+          },
+          {
+            time_label: 'Evening',
+            time_precision: 'window',
+            content: 'Low-friction dinner near the hotel.',
+            type: 'meal',
+          },
+        ],
+        meals: [{ type: 'dinner', name: 'Neighbourhood dinner option', booking_status: 'open', reservation_required: false }],
+        tips: [{ icon: 'info', title: 'Keep dinner easy', content: 'Save the first night for a nearby table; the arrival day should not depend on a tight cross-city reservation.' }],
+      },
+    ],
+    strict_quality: true,
+    markdown_source: '# Optional original plan markdown\n',
+  },
+  validate_contract: {
+    tool: 'validate_trip_contract',
+    input: { trip_id: 'uuid', response_mode: 'compact' },
   },
   replace_hotel: {
     tool: 'replace_accommodation',
@@ -843,7 +937,7 @@ export function createOurTripsMcpServer(origin: string): McpServer {
         'Return compact examples for common OurTrips save, edit, image, and read workflows.',
       inputSchema: {
         template: z
-          .enum(['new_trip', 'new_trip_v2', 'replace_hotel', 'accommodation_shortlist', 'day_range_read', 'day_hero_image', 'generated_cover'])
+          .enum(['new_trip', 'new_trip_v2', 'new_trip_v3', 'validate_contract', 'replace_hotel', 'accommodation_shortlist', 'day_range_read', 'day_hero_image', 'generated_cover'])
           .optional()
           .describe('Optional template name. Omit to list all templates.'),
       },
@@ -954,6 +1048,57 @@ export function createOurTripsMcpServer(origin: string): McpServer {
   );
 
   server.registerTool(
+    'save_trip_v3',
+    {
+      title: 'Save trip v3',
+      description:
+        'Save a complete OurTrips itinerary with the v2 quality contract plus a hard logistics gate for exact dates, sleeps/nights, stay segments, and transport requirements. Rejects hard logistics contradictions by default.',
+      inputSchema: {
+        trip: TripMetaV2Schema,
+        days: z.array(DayV2Schema).describe('Day-by-day itinerary data following the OurTrips quality and logistics contracts.'),
+        markdown_source: z
+          .string()
+          .max(262144)
+          .optional()
+          .describe('Optional original markdown itinerary, up to 256 KB.'),
+        trip_id: z
+          .string()
+          .optional()
+          .describe('Optional existing OurTrips trip id to update.'),
+        strict_quality: z
+          .boolean()
+          .optional()
+          .default(true)
+          .describe('When true, reject hard quality/logistics errors. Defaults to true for save_trip_v3.'),
+      },
+      annotations: {
+        title: 'Save trip v3',
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
+    },
+    async (input, extra) => {
+      try {
+        const result = await saveTripForUser(
+          createAdminClient(),
+          userIdFromAuth(extra),
+          {
+            ...input,
+            strict_quality: input.strict_quality ?? true,
+            trip_schema_version: 2,
+          },
+          origin
+        );
+        return jsonResult(result);
+      } catch (err) {
+        return errorResult(err);
+      }
+    }
+  );
+
+  server.registerTool(
     'list_trips',
     {
       title: 'List trips',
@@ -1028,6 +1173,58 @@ export function createOurTripsMcpServer(origin: string): McpServer {
           trip_id
         );
         return jsonResult(formatTripForRead(trip, readInput, origin));
+      } catch (err) {
+        return errorResult(err);
+      }
+    }
+  );
+
+  server.registerTool(
+    'validate_trip_contract',
+    {
+      title: 'Validate trip contract',
+      description:
+        'Run the OurTrips quality and logistics contracts for a saved trip. Use this before saying a trip is complete, especially after edits involving exact dates, sleeps/nights, hotel stays, or transport legs.',
+      inputSchema: {
+        trip_id: z.string().min(1).describe('The OurTrips trip id.'),
+        response_mode: ResponseModeSchema,
+      },
+      annotations: {
+        title: 'Validate trip contract',
+        readOnlyHint: true,
+        destructiveHint: false,
+        openWorldHint: false,
+      },
+    },
+    async ({ trip_id, response_mode }, extra) => {
+      try {
+        const record = await getTripForUser(
+          createAdminClient(),
+          userIdFromAuth(extra),
+          trip_id
+        );
+        const tripData = normalizeTripData(record.data);
+        const logistics = auditTripLogistics(tripData);
+        const quality = validateItineraryQuality(tripData);
+
+        if (response_mode === 'full') {
+          return jsonResult({ logistics, quality });
+        }
+
+        return jsonResult({
+          status: logistics.errors.length || quality.errors.length ? 'needs_repair' : 'ok',
+          logistics: {
+            summary: logistics.summary,
+            errors: logistics.errors,
+            warnings: logistics.warnings,
+            open_questions: logistics.ledger.openQuestions,
+          },
+          quality: {
+            summary: quality.summary,
+            errors: quality.errors,
+            warnings: quality.warnings,
+          },
+        });
       } catch (err) {
         return errorResult(err);
       }

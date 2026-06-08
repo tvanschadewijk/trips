@@ -12,7 +12,7 @@ function legacyTrip(): TripData {
     trip: {
       name: 'Legacy Turkey',
       subtitle: 'Old sparse trip',
-      dates: { start: '2026-09-01', end: '2026-09-02' },
+      dates: { start: '2026-09-01', end: '2026-09-01' },
       travelers: ['Thijs'],
       summary: 'A legacy itinerary with broad time labels.',
       hero_image: 'https://example.com/turkey.jpg',
@@ -47,15 +47,16 @@ test('quality validation reports sparse legacy days as warnings, not hard errors
   assert.equal(report.errors.length, 0);
   assert.ok(report.warnings.some((warning) => warning.includes('programme')));
   assert.ok(report.warnings.some((warning) => warning.includes('description_title')));
+  assert.ok(report.warnings.some((warning) => warning.includes('practical')));
   assert.equal(report.summary.open_action_count, 1);
 });
 
-test('quality validation rejects an empty v2 itinerary only as a hard error', () => {
+test('quality validation rejects an empty v2 itinerary as a hard error', () => {
   const report = validateItineraryQuality({
     trip: legacyTrip().trip,
     days: [],
   });
-  assert.deepEqual(report.errors, ['A v2 OurTrips itinerary must include at least one day.']);
+  assert.ok(report.errors.includes('A v2 OurTrips itinerary must include at least one day.'));
 });
 
 test('normalization distinguishes fixed booked times from suggested AI times', () => {
@@ -70,4 +71,26 @@ test('normalization distinguishes fixed booked times from suggested AI times', (
   assert.equal(normalized.days[0].blocks?.[0].time_precision, 'fixed');
   assert.equal(normalized.days[0].blocks?.[1].starts_at, '11:00');
   assert.equal(normalized.days[0].blocks?.[1].time_precision, 'suggested');
+});
+
+test('quality validation treats days with real tips as tip-ready', () => {
+  const data = legacyTrip();
+  data.days[0].tips = [
+    { icon: 'info', title: 'Reservation sanity', content: "Keep each restaurant reservation attached to its own meal." },
+  ];
+
+  const report = validateItineraryQuality(data);
+
+  assert.equal(report.days[0].has_tips, true);
+  assert.equal(report.issues.some((issue) => issue.code === 'missing_tips'), false);
+});
+
+test('quality validation includes hard logistics errors', () => {
+  const data = legacyTrip();
+  data.trip.dates.end = '2026-09-02';
+
+  const report = validateItineraryQuality(data);
+
+  assert.ok(report.logistics.errors.some((error) => error.includes('require 2 calendar days')));
+  assert.ok(report.issues.some((issue) => issue.code === 'logistics_day_count_mismatch'));
 });

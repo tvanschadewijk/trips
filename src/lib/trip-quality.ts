@@ -1,4 +1,5 @@
 import { normalizeTripData } from './trip-data-normalize';
+import { auditTripLogistics, type TripLogisticsAudit } from './trip-logistics';
 import type { Block, Day, Meal, Transport, TripData } from './types';
 
 export const OURTRIPS_TRIP_SCHEMA_VERSION = 2;
@@ -22,6 +23,7 @@ export interface DayQualityReport {
   has_intro: boolean;
   has_time_structure: boolean;
   has_map_targets: boolean;
+  has_tips: boolean;
   meal_count: number;
   open_action_count: number;
 }
@@ -31,6 +33,7 @@ export interface TripQualityReport {
   warnings: string[];
   errors: string[];
   issues: TripQualityIssue[];
+  logistics: TripLogisticsAudit;
   days: DayQualityReport[];
   summary: {
     day_count: number;
@@ -194,6 +197,7 @@ function dayOpenActionCount(day: Day): number {
 
 export function validateItineraryQuality(data: unknown): TripQualityReport {
   const normalized = normalizeTripForQualityContract(data);
+  const logistics = auditTripLogistics(normalized);
   const issues: TripQualityIssue[] = [];
   const dayReports: DayQualityReport[] = [];
 
@@ -214,6 +218,7 @@ export function validateItineraryQuality(data: unknown): TripQualityReport {
     const hasIntro = Boolean(text(day.description_title) && text(day.description));
     const hasTimeStructure = programme.some((block) => text(block.starts_at) || text(block.time_label));
     const mapReady = hasMapTarget(day);
+    const hasTips = (day.tips ?? []).some((tip) => text(tip.title) || text(tip.content));
     const openActionCount = dayOpenActionCount(day);
 
     if (!hasIntro) {
@@ -281,6 +286,15 @@ export function validateItineraryQuality(data: unknown): TripQualityReport {
       });
     }
 
+    if (!hasTips) {
+      addIssue(issues, {
+        level: 'warning',
+        code: 'missing_tips',
+        path: `${path}.tips`,
+        message: `Day ${day.day_number} should include at least one practical, place-specific tip.`,
+      });
+    }
+
     if (day.accommodation && !text(day.accommodation.booking_status ?? day.accommodation.status)) {
       addIssue(issues, {
         level: 'warning',
@@ -300,10 +314,18 @@ export function validateItineraryQuality(data: unknown): TripQualityReport {
       has_intro: hasIntro,
       has_time_structure: hasTimeStructure,
       has_map_targets: mapReady,
+      has_tips: hasTips,
       meal_count: day.meals?.length ?? 0,
       open_action_count: openActionCount,
     });
   });
+
+  for (const issue of logistics.issues) {
+    addIssue(issues, {
+      ...issue,
+      code: `logistics_${issue.code}`,
+    });
+  }
 
   const warnings = issues.filter((issue) => issue.level === 'warning').map((issue) => issue.message);
   const errors = issues.filter((issue) => issue.level === 'error').map((issue) => issue.message);
@@ -311,6 +333,7 @@ export function validateItineraryQuality(data: unknown): TripQualityReport {
     day.has_intro &&
     day.has_time_structure &&
     day.has_map_targets &&
+    day.has_tips &&
     day.open_action_count === 0
   )).length;
 
@@ -319,6 +342,7 @@ export function validateItineraryQuality(data: unknown): TripQualityReport {
     warnings,
     errors,
     issues,
+    logistics,
     days: dayReports,
     summary: {
       day_count: dayReports.length,

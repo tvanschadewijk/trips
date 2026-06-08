@@ -16,24 +16,29 @@
  * the existing JSONB blob pass through unchanged during a merge update.
  */
 import { z } from 'zod';
+import { ISO_DATE_RE, isIsoDateString } from '../trip-logistics';
 
 // ---------- primitives ----------
 
 const NonEmptyString = z.string().min(1);
+const IsoDateString = z
+  .string()
+  .regex(ISO_DATE_RE, 'Use ISO 8601 YYYY-MM-DD.')
+  .refine(isIsoDateString, 'Use a real calendar date.');
 
 // ---------- nested shapes ----------
 
 const ServiceLegSchema = z
   .object({
-    date: NonEmptyString,
+    date: IsoDateString,
     route: NonEmptyString,
   })
   .passthrough();
 
 const ServiceSchema = z
   .object({
-    type: NonEmptyString,
-    label: NonEmptyString,
+    type: NonEmptyString.describe('External service type. Do not use for restaurants, meals, or restaurant reservations.'),
+    label: NonEmptyString.describe('External service label. Restaurant reservations belong in days[].meals[], not trip.services.'),
     icon: NonEmptyString,
     provider: NonEmptyString,
     ref: z.string().optional(),
@@ -293,7 +298,7 @@ const MealDetailSchema = z
 const MealSchema = z
   .object({
     type: NonEmptyString,
-    name: NonEmptyString,
+    name: NonEmptyString.describe('One restaurant, cafe, bar, bakery, or explicit food stop. Do not combine multiple restaurants in one meal.'),
     note: z.string().optional(),
     status: z.string().optional(),
     starts_at: z.string().optional(),
@@ -311,7 +316,7 @@ const TipSchema = z
   .object({
     icon: NonEmptyString,
     title: NonEmptyString,
-    content: NonEmptyString,
+    content: NonEmptyString.describe('Practical, place-specific tip content. Do not send empty placeholder tips.'),
     priority: z.enum(['high', 'normal']).optional(),
   })
   .passthrough();
@@ -319,7 +324,7 @@ const TipSchema = z
 const DaySchema = z
   .object({
     day_number: z.number().int().positive(),
-    date: NonEmptyString.describe('ISO 8601 YYYY-MM-DD'),
+    date: IsoDateString.describe('ISO 8601 YYYY-MM-DD'),
     title: NonEmptyString,
     subtitle: z.string().optional(),
     description_title: z.string().optional(),
@@ -349,8 +354,8 @@ export const TripMetaEditableSchema = z
     subtitle: z.string().optional(),
     dates: z
       .object({
-        start: NonEmptyString.describe('ISO 8601 YYYY-MM-DD'),
-        end: NonEmptyString.describe('ISO 8601 YYYY-MM-DD'),
+        start: IsoDateString.describe('ISO 8601 YYYY-MM-DD'),
+        end: IsoDateString.describe('ISO 8601 YYYY-MM-DD'),
       })
       .optional(),
     travelers: z.array(z.string()).optional(),
