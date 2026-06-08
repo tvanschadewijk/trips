@@ -44,6 +44,33 @@ test('updates a transport action item status', () => {
   assert.deepEqual(result, { ok: true, status: 'booked' });
   assert.equal(data.days[0].transport[0].status, 'open');
   assert.equal(data.days[0].transport[1].status, 'booked');
+  assert.equal(data.days[0].transport[1].booking_status, 'booked');
+});
+
+test('updates a meal reservation action item status', () => {
+  const data = {
+    days: [
+      {
+        day_number: 1,
+        meals: [
+          { name: 'Cafe Le Bistrot', booking_status: 'open', reservation_required: true },
+          { name: 'Casual lunch', booking_status: 'open', reservation_required: false },
+        ],
+      },
+    ],
+  };
+
+  const result = applyActionItemStatusToTripData(data, {
+    dayNumber: 1,
+    itemType: 'meal',
+    itemIndex: 0,
+    status: 'booked',
+  });
+
+  assert.deepEqual(result, { ok: true, status: 'booked' });
+  assert.equal(data.days[0].meals[0].status, 'booked');
+  assert.equal(data.days[0].meals[0].booking_status, 'booked');
+  assert.equal(data.days[0].meals[1].booking_status, 'open');
 });
 
 test('updates all matching accommodation nights for one stay', () => {
@@ -73,7 +100,9 @@ test('updates all matching accommodation nights for one stay', () => {
 
   assert.deepEqual(result, { ok: true, status: 'booked' });
   assert.equal(data.days[0].accommodation.status, 'booked');
+  assert.equal(data.days[0].accommodation.booking_status, 'booked');
   assert.equal(data.days[1].accommodation.status, 'booked');
+  assert.equal(data.days[1].accommodation.booking_status, 'booked');
   assert.equal(data.days[2].accommodation.status, 'open');
 });
 
