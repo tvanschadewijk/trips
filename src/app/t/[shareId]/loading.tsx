@@ -35,15 +35,8 @@ export default function LoadingTripPage() {
   const params = useParams<{ shareId: string }>();
   const shareId = params?.shareId;
 
-  const [trip, setTrip] = useState<CachedTrip>(() => readCache(shareId));
+  const trip = readCache(shareId);
   const [showLabel, setShowLabel] = useState(false);
-
-  useEffect(() => {
-    if (!trip.heroImage) {
-      const fresh = readCache(shareId);
-      if (fresh.heroImage) setTrip(fresh);
-    }
-  }, [shareId, trip.heroImage]);
 
   useEffect(() => {
     const t = setTimeout(() => setShowLabel(true), 500);

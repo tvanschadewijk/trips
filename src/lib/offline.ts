@@ -181,29 +181,31 @@ export interface UseOfflineTripResult {
   remove(): Promise<void>;
 }
 
+interface OfflineTripSnapshot {
+  state: OfflineState;
+  isSaved: boolean;
+}
+
+function readOfflineTripSnapshot(shareId: string | undefined): OfflineTripSnapshot {
+  if (!shareId) return { state: { status: 'idle' }, isSaved: false };
+  const entry = readManifest()[shareId];
+  if (!entry) return { state: { status: 'idle' }, isSaved: false };
+  return { state: { status: 'saved', savedAt: entry.savedAt }, isSaved: true };
+}
+
+function readSavedTripIds(): Set<string> {
+  return new Set(Object.keys(readManifest()));
+}
+
 export function useOfflineTrip(
   shareId: string | undefined,
   meta?: Pick<OfflineManifestEntry, 'name' | 'subtitle' | 'heroImage' | 'start' | 'end'>
 ): UseOfflineTripResult {
-  const [state, setState] = useState<OfflineState>({ status: 'idle' });
-  const [isSaved, setIsSaved] = useState(false);
-
-  useEffect(() => {
-    if (!shareId) return;
-    const manifest = readManifest();
-    const entry = manifest[shareId];
-    if (entry) {
-      setIsSaved(true);
-      setState({ status: 'saved', savedAt: entry.savedAt });
-    } else {
-      setIsSaved(false);
-      setState({ status: 'idle' });
-    }
-  }, [shareId]);
+  const [offline, setOffline] = useState<OfflineTripSnapshot>(() => readOfflineTripSnapshot(shareId));
 
   const save = useCallback(async (data: TripData) => {
     if (!shareId) return;
-    setState({ status: 'saving' });
+    setOffline((current) => ({ ...current, state: { status: 'saving' } }));
     saveOfflineTripData(shareId, data);
 
     const urls = collectTripAssetUrls(shareId, data);
@@ -225,8 +227,7 @@ export function useOfflineTrip(
         savedAt: Date.now(),
       };
       setManifestEntry(entry);
-      setIsSaved(true);
-      setState({ status: 'saved', savedAt: entry.savedAt });
+      setOffline({ isSaved: true, state: { status: 'saved', savedAt: entry.savedAt } });
       return;
     }
 
@@ -240,39 +241,45 @@ export function useOfflineTrip(
       savedAt: Date.now(),
     };
     setManifestEntry(entry);
-    setIsSaved(true);
-    setState({ status: 'saved', savedAt: entry.savedAt });
+    setOffline({ isSaved: true, state: { status: 'saved', savedAt: entry.savedAt } });
   }, [shareId, meta?.name, meta?.subtitle, meta?.heroImage, meta?.start, meta?.end]);
 
   const remove = useCallback(async () => {
     if (!shareId) return;
-    setState({ status: 'removing' });
+    setOffline((current) => ({ ...current, state: { status: 'removing' } }));
     await postToSw({ type: 'remove-trip', shareId });
     removeManifestEntry(shareId);
     clearOfflineTripData(shareId);
-    setIsSaved(false);
-    setState({ status: 'idle' });
+    setOffline({ isSaved: false, state: { status: 'idle' } });
   }, [shareId]);
 
-  return { state, isSaved, save, remove };
+  return { state: offline.state, isSaved: offline.isSaved, save, remove };
 }
 
 export function useIsOfflineSavedTrip(shareId: string | undefined): boolean {
-  const [saved, setSaved] = useState(false);
+  const [saved, setSaved] = useState(() => (shareId ? isTripSavedOffline(shareId) : false));
   useEffect(() => {
-    if (!shareId) {
-      setSaved(false);
-      return;
-    }
-    setSaved(isTripSavedOffline(shareId));
+    const refresh = () => setSaved(shareId ? isTripSavedOffline(shareId) : false);
+    window.addEventListener('ourtrips:offline-status-changed', refresh);
+    window.addEventListener('storage', refresh);
+    return () => {
+      window.removeEventListener('ourtrips:offline-status-changed', refresh);
+      window.removeEventListener('storage', refresh);
+    };
   }, [shareId]);
   return saved;
 }
 
 export function useSavedTripIds(): Set<string> {
-  const [ids, setIds] = useState<Set<string>>(new Set());
+  const [ids, setIds] = useState<Set<string>>(() => readSavedTripIds());
   useEffect(() => {
-    setIds(new Set(Object.keys(readManifest())));
+    const refresh = () => setIds(readSavedTripIds());
+    window.addEventListener('ourtrips:offline-status-changed', refresh);
+    window.addEventListener('storage', refresh);
+    return () => {
+      window.removeEventListener('ourtrips:offline-status-changed', refresh);
+      window.removeEventListener('storage', refresh);
+    };
   }, []);
   return ids;
 }

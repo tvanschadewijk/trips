@@ -10,6 +10,22 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+## Release Process
+
+Work in feature branches and keep `main` as the production release branch. Vercel is configured to ignore pushes to non-`main` branches, so routine iteration should happen locally without creating preview deployments.
+
+Before merging a release into `main`, update from the latest `main` and run the local release gate:
+
+```bash
+git switch main
+git pull --ff-only
+git switch -
+npm run verify
+npm run dev
+```
+
+Review the app locally at [http://localhost:3000](http://localhost:3000). After the release looks good, merge the checked branch into `main` once. That single merge is the production deployment trigger.
+
 ## Versioning
 
 Versions are managed by release-please from Conventional Commit messages on `main`. The canonical app version lives in `package.json`.

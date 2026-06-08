@@ -14,14 +14,12 @@ interface CacheStat {
  * client-side.
  */
 export default function OfflineDebugOverlay() {
-  const [enabled, setEnabled] = useState(false);
-  const [online, setOnline] = useState(true);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
+  const [enabled] = useState(() => {
+    if (typeof window === 'undefined') return false;
     const params = new URLSearchParams(window.location.search);
-    setEnabled(params.get('debug') === 'offline');
-  }, []);
+    return params.get('debug') === 'offline';
+  });
+  const [online, setOnline] = useState(true);
   const [swState, setSwState] = useState<string>('?');
   const [caches, setCaches] = useState<CacheStat[]>([]);
   const [manifestCount, setManifestCount] = useState(0);

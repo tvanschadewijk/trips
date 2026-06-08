@@ -57,6 +57,7 @@ import {
   FIXED_SDK_OPTIONS,
   resolveTripChatModel,
 } from '@/lib/trip-chat/sdk-options';
+import { tryRunFastLaneTurn } from '@/lib/trip-chat/fast-lane';
 
 export const runtime = 'nodejs';        // Agent SDK spawns a subprocess; Node-only.
 export const maxDuration = 300;         // Vercel Pro ceiling — first agent turn after a cold spawn can be slow.
@@ -264,6 +265,64 @@ export async function POST(
       { error: 'Failed to reserve chat turn', detail: reserveTurn.error.message },
       { status: 500 }
     );
+  }
+
+  const fastLane = await tryRunFastLaneTurn({
+    supabase: admin,
+    tripId,
+    message: body.message,
+    viewContext: body.view_context,
+  });
+  if (fastLane) {
+    const insertAssistant = await admin.from('trip_chat_messages').insert({
+      session_id: sessionRowId,
+      trip_id: tripId,
+      user_id: access.userId,
+      turn_index: turnIndex,
+      role: 'assistant',
+      content: fastLane.assistantText,
+      tool_calls_json: fastLane.toolCallsSummary,
+    });
+    if (insertAssistant.error) {
+      return NextResponse.json(
+        { error: 'Failed to save fast-lane response', detail: insertAssistant.error.message },
+        { status: 500 }
+      );
+    }
+
+    await admin
+      .from('trip_chat_sessions')
+      .update({
+        last_sdk_session_id: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', sessionRowId);
+
+    await recordTurnUsage({
+      supabase: admin,
+      sessionRowId,
+      tripId,
+      userId: access.userId,
+      turnIndex,
+      model: 'fast-lane-v1',
+      usage: {
+        input_tokens: 0,
+        output_tokens: 0,
+        cache_creation_input_tokens: 0,
+        cache_read_input_tokens: 0,
+      },
+      total_cost_usd: 0,
+      duration_ms: fastLane.durationMs,
+      toolCallCounter: { count: fastLane.toolCallsSummary.length },
+    });
+
+    return NextResponse.json({
+      status: 'fast_lane',
+      assistant_message: fastLane.assistantText,
+      session_id: null,
+      tool_calls_summary: fastLane.toolCallsSummary,
+      turn_index: turnIndex,
+    });
   }
 
   const runArgs: RunAgentTurnArgs = {
