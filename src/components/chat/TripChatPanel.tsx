@@ -57,7 +57,7 @@ const CHAT_POLL_TIMEOUT_MS = 305_000;
 const CHAT_HISTORY_LIMIT = 50;
 
 type ChatTurnResponse = {
-  status?: 'queued';
+  status?: 'queued' | 'fast_lane';
   assistant_message: string | null;
   session_id: string | null;
   tool_calls_summary: ToolCallSummary[];
