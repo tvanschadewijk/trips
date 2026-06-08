@@ -25,6 +25,7 @@ import {
   trySyncAccommodationReviewForTrip,
 } from '@/lib/accommodation-review-store';
 import { normalizeTripData } from '@/lib/trip-data-normalize';
+import { auditTripLogistics, ISO_DATE_RE, isIsoDateString } from '@/lib/trip-logistics';
 import type {
   Accommodation,
   AccommodationCandidate,
@@ -61,6 +62,10 @@ const POLICY_CANDIDATE_LIMIT = 5;
 const ACCOMMODATION_PATH_RE = /^days\[(\d+)\]\.accommodation$/;
 const AGENT_NOTES_START = '<!-- OURTRIPS_AGENT_NOTES_START -->';
 const AGENT_NOTES_END = '<!-- OURTRIPS_AGENT_NOTES_END -->';
+const IsoDateSchema = z
+  .string()
+  .regex(ISO_DATE_RE, 'Use ISO 8601 YYYY-MM-DD.')
+  .refine(isIsoDateString, 'Use a real calendar date.');
 
 const LIST_ACCOMMODATIONS_DESCRIPTION = `List every accommodation on the current trip without loading the full itinerary.
 
@@ -185,6 +190,13 @@ make a selected candidate the stay for that destination. This updates both the
 private Accommodations Reviewer and the public trip accommodation cards for the matching
 destination days.`;
 
+const GET_LOGISTICS_AUDIT_DESCRIPTION = `Run the strict OurTrips logistics contract for this trip.
+
+Use this before claiming an edit is complete when exact dates, hotel
+sleeps/nights, stay segments, or transport requirements changed. The audit
+returns hard errors, warnings, open questions, and a canonical ledger of days,
+stay segments, and transport legs.`;
+
 const DetailPatchSchema = z
   .object({
     title: z.string().optional(),
@@ -295,7 +307,7 @@ const AccommodationCandidateRatingSchema = z
   .strict();
 
 const CheckedAccommodationCandidateRatingSchema = AccommodationCandidateRatingSchema.extend({
-  checkedAt: z.string().min(1),
+  checkedAt: IsoDateSchema,
   bookingCom: z.string().min(1),
   tripadvisor: z.string().min(1),
   google: z.string().min(1),
@@ -338,8 +350,8 @@ const AccommodationCandidatePatchSchema = z
     rateCheck: z.record(z.string(), z.unknown()).optional(),
     feedbackLoop: z.record(z.string(), z.unknown()).optional(),
     dayNumbers: z.array(z.number()).optional(),
-    checkInDate: z.string().optional(),
-    checkOutDate: z.string().optional(),
+    checkInDate: IsoDateSchema.optional(),
+    checkOutDate: IsoDateSchema.optional(),
     address: z.string().optional(),
     roomType: z.string().optional(),
     checkIn: z.string().optional(),
@@ -364,8 +376,8 @@ const AccommodationReviewDestinationSchema = z
     dates: z.string().optional(),
     nights: z.number().optional(),
     dayNumbers: z.array(z.number()).optional(),
-    startDate: z.string().optional(),
-    endDate: z.string().optional(),
+    startDate: IsoDateSchema.optional(),
+    endDate: IsoDateSchema.optional(),
   })
   .strict();
 
@@ -397,8 +409,8 @@ const CreateAccommodationCandidateInputShape = {
       rateCheck: z.record(z.string(), z.unknown()).optional(),
       feedbackLoop: z.record(z.string(), z.unknown()).optional(),
       dayNumbers: z.array(z.number()).optional(),
-      checkInDate: z.string().optional(),
-      checkOutDate: z.string().optional(),
+      checkInDate: IsoDateSchema.optional(),
+      checkOutDate: IsoDateSchema.optional(),
       address: z.string().optional(),
       roomType: z.string().optional(),
       checkIn: z.string().optional(),
@@ -503,6 +515,10 @@ not send an empty object.
   - Free-form fields like \`time_label\` on a block accept "Morning",
     "14:00 – 16:30", "Late afternoon" — stay consistent with what's already
     in the trip.
+  - Every visible hotel, activity site, restaurant, and route stop should be
+    map-ready exactly once. Use \`place: { name, address?, lat?, lng? }\` on
+    named sights, meals, and stops when you know the exact place; avoid
+    prose-only mentions when you know the venue.
   - Public itinerary entries are single-choice. Do not put multiple hotels or
     multiple restaurants into one \`accommodation\`, \`meal\`, or programme
     block with slashes or shortlist prose. Hotel search options belong in the
@@ -510,6 +526,13 @@ not send an empty object.
     in \`days[]\` should be only a destination marker for the "Hotel not
     confirmed yet" placeholder. For meals, choose one restaurant for the
     suggestion or ask the user when the choice is truly ambiguous.
+  - Restaurant reservations belong in the matching \`days[].meals[]\` entry:
+    one meal per restaurant, with \`reservation_required\`,
+    \`booking_status\`, and \`detail.reservation\` or
+    \`detail.booking_note\` when useful. Do not create \`trip.services\`
+    entries for restaurants or combined restaurant booking lists; services are
+    only for external providers not already rendered as transport,
+    accommodation, meals, or activities.
 
 ## Editorial tone (this product is OurTrips — editorial travel, not a booking system)
 
@@ -520,6 +543,8 @@ not send an empty object.
     image or idea. Not a sentence.
   - \`tips\` are voice-y, first-person-adjacent when appropriate. The product
     sounds like a travel writer, not a chatbot.
+  - Every day should include at least one practical, place-specific tip. Do
+    not send empty tip objects or title-only placeholders.
 
 ## Rich detail cards
 
@@ -1321,6 +1346,28 @@ export function createTripEditorMcpServer(
     }
   );
 
+  const getLogisticsAudit = tool(
+    'get_logistics_audit',
+    GET_LOGISTICS_AUDIT_DESCRIPTION,
+    {},
+    async () => {
+      try {
+        const trip = await readTripData(ctx);
+        const audit = auditTripLogistics(trip);
+        return jsonToolResponse({
+          status: audit.errors.length ? 'needs_repair' : 'ok',
+          summary: audit.summary,
+          errors: audit.errors,
+          warnings: audit.warnings,
+          open_questions: audit.ledger.openQuestions,
+          ledger: audit.ledger,
+        });
+      } catch (err) {
+        return textToolError(err instanceof Error ? err.message : String(err));
+      }
+    }
+  );
+
   const listAccommodations = tool(
     'list_accommodations',
     LIST_ACCOMMODATIONS_DESCRIPTION,
@@ -1855,6 +1902,7 @@ export function createTripEditorMcpServer(
     version: '0.1.0',
     tools: [
       getTrip,
+      getLogisticsAudit,
       listAccommodations,
       listAccommodationReview,
       updateTrip,
@@ -1876,6 +1924,7 @@ export function createTripEditorMcpServer(
  */
 export const TRIP_EDITOR_TOOL_NAMES = [
   'mcp__trip_editor__get_trip',
+  'mcp__trip_editor__get_logistics_audit',
   'mcp__trip_editor__list_accommodations',
   'mcp__trip_editor__list_accommodation_review',
   'mcp__trip_editor__update_trip',

@@ -52,6 +52,7 @@ export function buildSystemPrompt(): string {
 You have these tools:
 
   - \`mcp__trip_editor__get_trip\` — read the full current state of the trip. Use this only when the edit needs fields outside the narrow list tools, or when you must update markdown_source alongside structural changes.
+  - \`mcp__trip_editor__get_logistics_audit\` — run the strict logistics contract for the current trip. Use this before claiming completion after edits involving exact dates, hotel sleeps/nights, stay segments, or transport legs.
   - \`mcp__trip_editor__list_accommodations\` — list only the trip's hotels/stays with day numbers, dates, location hints, existing dog_note fields, and JSON paths. Use this instead of \`get_trip\` for "all hotels", accommodation policy, check-in, parking, pet, or stay-specific questions.
   - \`mcp__trip_editor__list_accommodation_review\` — list the private Accommodations Reviewer board: destinations, hotel candidates, review states, and recent reviewer events. Use this when the user is in the Accommodations Reviewer surface or asks about proposed / booked hotel options. Destinations are derived from the canonical trip itinerary.
   - \`mcp__trip_editor__update_trip\` — apply an edit. Merge-patch semantics: top-level \`trip\` is deep-merged into \`data.trip\`; \`days\`, if provided, replaces \`data.days\` wholesale.
@@ -135,6 +136,13 @@ Prefer narrow trip tools over full-trip reads:
     accommodation-review candidates. For dinner/lunch, choose one restaurant;
     if the choice is genuinely ambiguous, ask the user rather than listing
     options in the day programme.
+  - Restaurant reservations belong in the matching \`days[].meals[]\` entry:
+    one meal per restaurant, with \`reservation_required\`,
+    \`booking_status\`, and \`detail.reservation\` or
+    \`detail.booking_note\` when useful. Do not create \`trip.services\`
+    entries for restaurants or combined restaurant booking lists; services are
+    only for external providers not already rendered as transport,
+    accommodation, meals, or activities.
   - For a factual update to one hotel detail field: call
     \`update_accommodation_detail\` with the path returned by
     \`list_accommodations\`. When \`markdown_source\` exists, that tool also
@@ -229,18 +237,40 @@ itinerary predictable:
     for labels like Morning, Afternoon, or Evening.
   - Use \`place: { name, address?, lat?, lng? }\` on named sights, meals, and
     stops when you know the exact place. This helps maps stay reliable.
+    Every visible hotel, activity site, restaurant, and route stop should be
+    map-ready exactly once; avoid prose-only mentions when you know the venue.
   - Set \`booking_status\` or \`status\` on hotels, transport, and reservable
     meals so the trip can show readiness/action items.
+  - Include at least one practical, place-specific \`tips[]\` item per day.
+    Do not send empty tip objects or title-only placeholders.
   - Add \`day_type\`, \`pace\`, and concise \`alternatives\` where useful,
     especially rainy-day, tired-day, kid-friendly, cheaper, or lighter options.
   - Store confirmations, PDFs, QR codes, and private booking references in
     \`detail.wallet_items\` and mark them private when relevant. Never invent
     confirmation numbers or imply money has been committed.
 
+## Logistics contract
+
+Use this terminology exactly:
+
+  - A \`day\` is one calendar itinerary date.
+  - A \`sleep\` / \`night\` is one overnight stay: check-in date inclusive,
+    check-out date exclusive.
+  - A \`stay segment\` is one hotel across contiguous sleeps.
+  - A \`transport leg\` is one movement from an origin to a destination on a
+    specific itinerary day.
+
+When changing dates, hotel nights, stay locations, or transport requirements,
+run \`mcp__trip_editor__get_logistics_audit\` before your final reply and repair
+hard errors first.
+
 ## Safety
 
   - Day ordering is significant; don't shuffle days unless the user asks.
-  - Dates are ISO 8601 (YYYY-MM-DD). Keep \`trip.dates\` in sync with the day range.
+  - Dates are real ISO 8601 calendar dates (YYYY-MM-DD). Keep \`trip.dates\`
+    in sync with the exact day range.
+  - One public accommodation day equals one sleep/night. A 3-night hotel stay
+    should appear on 3 contiguous itinerary days with \`nights: 3\`.
   - Do not commit money, make bookings, or invent confirmation numbers. Those are out of scope.
   - After any edit, briefly state what changed so the user can spot-check.`;
 }
@@ -281,7 +311,8 @@ export function buildTurnPrompt(
           ? `    tools: ${t.tool_calls
               .map((c) => {
                 const keys = c.input_keys?.length ? ` {${c.input_keys.join(', ')}}` : '';
-                return `${c.tool}${keys}${c.ok ? '' : ' (failed)'}`;
+                const note = c.note ? ` — ${c.note}` : '';
+                return `${c.tool}${keys}${c.ok ? '' : ' (failed)'}${note}`;
               })
               .join(', ')}`
           : '';

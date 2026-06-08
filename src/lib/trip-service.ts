@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { trySyncAccommodationReviewForTrip } from '@/lib/accommodation-review-store';
 import { normalizeTripData } from '@/lib/trip-data-normalize';
+import { auditTripLogistics, type TripLogisticsAudit } from '@/lib/trip-logistics';
 import {
   normalizeTripForQualityContract,
   validateItineraryQuality,
@@ -90,6 +91,7 @@ export type TripReadSection =
   | 'stats'
   | 'route_points'
   | 'quality'
+  | 'logistics'
   | 'services'
   | 'notes';
 
@@ -245,6 +247,7 @@ export type TripSaveResult = {
   day_count: number;
   image_status: TripImageStatus;
   quality?: TripQualityReport;
+  logistics?: TripLogisticsAudit;
   accommodation_review: 'synced' | 'sync_failed';
 };
 
@@ -436,6 +439,7 @@ export async function saveTripForUser(
   origin: string
 ): Promise<TripSaveResult> {
   const { tripBody, quality } = buildTripBody(input);
+  const logistics = quality?.logistics ?? auditTripLogistics(tripBody);
   const tripName = String(input.trip?.name);
 
   if (input.trip_id) {
@@ -474,6 +478,7 @@ export async function saveTripForUser(
         day_count: Array.isArray(tripBody.days) ? tripBody.days.length : 0,
         image_status: summarizeTripImages(tripBody),
         quality,
+        logistics,
         accommodation_review: accommodationReview,
       };
     }
@@ -531,6 +536,7 @@ export async function saveTripForUser(
       day_count: Array.isArray(tripBody.days) ? tripBody.days.length : 0,
       image_status: summarizeTripImages(tripBody),
       quality,
+      logistics,
       accommodation_review: accommodationReview,
     };
   }
@@ -564,6 +570,7 @@ export async function saveTripForUser(
     day_count: Array.isArray(tripBody.days) ? tripBody.days.length : 0,
     image_status: summarizeTripImages(tripBody),
     quality,
+    logistics,
     accommodation_review: accommodationReview,
   };
 }
@@ -1746,6 +1753,10 @@ export function formatTripForRead(
 
   if (selected.has('quality')) {
     result.quality = validateItineraryQuality(data);
+  }
+
+  if (selected.has('logistics')) {
+    result.logistics = auditTripLogistics(data);
   }
 
   if (selected.has('services') && isRecord(data.trip)) {

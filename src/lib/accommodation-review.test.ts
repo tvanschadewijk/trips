@@ -3,12 +3,14 @@ import assert from 'node:assert/strict';
 
 import {
   AccommodationReviewConflictError,
+  addAccommodationCandidate,
   buildInitialAccommodationReview,
   mergeAccommodationReviewWithTripData,
   moveAccommodationCandidate,
   normalizeAccommodationReview,
   promoteCandidateToTrip,
   replaceBookedAccommodationCandidate,
+  updateAccommodationCandidate,
 } from './accommodation-review';
 import type { TripData } from './types';
 
@@ -216,6 +218,55 @@ test('moveAccommodationCandidate rejects a second booked stay for one destinatio
       err instanceof AccommodationReviewConflictError &&
       err.existingCandidateId === bookedCandidateId
   );
+});
+
+test('accommodation candidates inherit logistics from their destination', () => {
+  const review = buildInitialAccommodationReview(sampleTrip);
+  const destination = review.destinations[0];
+  const withCandidate = addAccommodationCandidate(
+    review,
+    {
+      destinationId: destination.id,
+      stop: 'Wrong stop',
+      dates: 'wrong dates',
+      nights: 99,
+      lane: 'proposed',
+      candidate: 'Second Tekirdag Hotel',
+      directWebsite: { label: 'Official website', url: 'https://example.com' },
+      ratings: [
+        {
+          checkedAt: '2026-06-08',
+          bookingCom: '8.4',
+          tripadvisor: '4.1',
+          google: '4.3',
+        },
+      ],
+      dayNumbers: [99],
+      checkInDate: '2026-01-01',
+      checkOutDate: '2026-01-02',
+    },
+    'agent'
+  );
+  const candidate = withCandidate.accommodations.at(-1);
+
+  assert.equal(candidate?.stop, destination.title);
+  assert.equal(candidate?.dates, destination.dates);
+  assert.equal(candidate?.nights, destination.nights);
+  assert.deepEqual(candidate?.dayNumbers, destination.dayNumbers);
+  assert.equal(candidate?.checkInDate, destination.startDate);
+  assert.equal(candidate?.checkOutDate, destination.endDate);
+
+  const updated = updateAccommodationCandidate(
+    withCandidate,
+    candidate?.id ?? '',
+    { nights: 77, dayNumbers: [77], checkInDate: '2026-02-01' },
+    'agent'
+  );
+  const updatedCandidate = updated.accommodations.find((item) => item.id === candidate?.id);
+
+  assert.equal(updatedCandidate?.nights, destination.nights);
+  assert.deepEqual(updatedCandidate?.dayNumbers, destination.dayNumbers);
+  assert.equal(updatedCandidate?.checkInDate, destination.startDate);
 });
 
 test('replaceBookedAccommodationCandidate swaps the destination hotel in one action', () => {

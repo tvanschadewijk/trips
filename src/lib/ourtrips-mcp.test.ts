@@ -5,6 +5,8 @@ import { ourTripsMcpInstructions } from './ourtrips-mcp';
 test('MCP instructions name the save flow without requiring API keys', () => {
   assert.match(ourTripsMcpInstructions, /save_trip/);
   assert.match(ourTripsMcpInstructions, /save_trip_v2/);
+  assert.match(ourTripsMcpInstructions, /save_trip_v3/);
+  assert.match(ourTripsMcpInstructions, /validate_trip_contract/);
   assert.match(ourTripsMcpInstructions, /OAuth/);
   assert.match(ourTripsMcpInstructions, /Do not ask for an API key/);
   assert.match(ourTripsMcpInstructions, /self-contained/);
@@ -15,6 +17,13 @@ test('MCP instructions name the save flow without requiring API keys', () => {
   assert.doesNotMatch(ourTripsMcpInstructions, /generate_trip_image_asset/);
   assert.doesNotMatch(ourTripsMcpInstructions, /skill is required/i);
   assert.doesNotMatch(ourTripsMcpInstructions, /Artrip/i);
+});
+
+test('MCP instructions pin the logistics contract', () => {
+  assert.match(ourTripsMcpInstructions, /Logistics contract/);
+  assert.match(ourTripsMcpInstructions, /sleep\/night/);
+  assert.match(ourTripsMcpInstructions, /check-in inclusive and check-out exclusive/);
+  assert.match(ourTripsMcpInstructions, /transport leg/);
 });
 
 test('MCP instructions pin map, meal reservation, and tips contract', () => {

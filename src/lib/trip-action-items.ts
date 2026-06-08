@@ -73,6 +73,7 @@ export function applyActionItemStatusToTripData(
       const sameStay = accomName ? name === accomName : day.day_number === dayNumber;
       if (accommodation && sameStay) {
         accommodation.status = status;
+        accommodation.booking_status = status;
       }
     }
 
@@ -93,5 +94,6 @@ export function applyActionItemStatusToTripData(
   }
 
   items[itemIndex].status = status;
+  items[itemIndex].booking_status = status;
   return { ok: true, status };
 }

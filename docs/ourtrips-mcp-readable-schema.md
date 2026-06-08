@@ -1,6 +1,6 @@
 # OurTrips MCP Readable Schema
 
-Generated: June 5, 2026
+Generated: June 8, 2026
 
 This document explains the public OurTrips MCP connector in plain language. It is meant for reviewing what an external planning agent is being asked to deliver when it saves or updates trips for us.
 
@@ -20,8 +20,10 @@ The agent is expected to act as more than a text generator. It must deliver a st
 
 Core expectations:
 
-- Use `save_trip_v2` for new or substantially rewritten trips.
+- Use `save_trip_v3` for new or substantially rewritten trips when exact dates, sleeps/nights, hotel stay segments, or transport requirements matter.
+- Use `save_trip_v2` only when you intentionally want quality/logistics warnings without the hard logistics gate.
 - Use `get_trip_schema` or `get_trip_template` when unsure about structure.
+- Use `validate_trip_contract` before claiming the trip is complete.
 - Use smaller reads first: `summary`, `day`, `days`, or `sections`.
 - Avoid full-trip reads unless intentionally requested with `allow_large`.
 - Treat the connector as self-contained. The agent should rely on the MCP tools and schema guidance from this connector.
@@ -33,12 +35,13 @@ Core expectations:
 - For each overnight stop without a booked hotel, create 2-4 private accommodation candidates, usually 3.
 - Keep hotel options in the private Accommodations Reviewer, one candidate per hotel.
 - Keep `days[].accommodation` single-choice: the booked/current stay or a clear placeholder such as `Hotel not confirmed yet`.
+- Treat one public accommodation day as one sleep/night.
 - Put restaurant reservations in `days[].meals[]`, one restaurant per meal entry.
 - Do not use `trip.services` for restaurants.
 - Give every day at least one useful, place-specific tip.
 - Use real image URLs from image search for trip and day hero images.
 - Save generated cover and social images separately in image asset slots.
-- Check image status or public data before claiming the trip is complete.
+- Check image status, logistics contract, or public data before claiming the trip is complete.
 
 ## Top-Level Trip Shape
 
@@ -118,6 +121,29 @@ Each day describes one calendar day in the itinerary.
 Use `description_title` and `description` for the day intro.
 
 Do not create a programme block just to introduce the day.
+
+## Logistics Contract
+
+The logistics contract is the strict arithmetic layer for dates, sleeps, stay segments, and transport requirements.
+
+Canonical terms:
+
+- `day`: one calendar itinerary date.
+- `sleep` or `night`: one overnight stay. Check-in date is inclusive; check-out date is exclusive.
+- `stay segment`: one hotel or stay across contiguous sleeps.
+- `transport leg`: one movement from an origin to a destination on a specific itinerary day.
+
+Hard logistics errors include:
+
+- `trip.dates.start` and `trip.dates.end` are not real `YYYY-MM-DD` calendar dates.
+- The number of itinerary days does not equal the inclusive calendar range.
+- Day numbers are not continuous in array order.
+- Day dates do not increase exactly one calendar day at a time.
+- A public accommodation's `nights` count does not match its contiguous accommodation days.
+- A scheduled, booked, or required transport leg is missing `from` or `to`.
+- A booked scheduled transport leg is missing `depart`.
+
+Use `validate_trip_contract` to get the compact repair report: hard errors, warnings, open questions, and a canonical ledger of days, stay segments, and transport legs.
 
 ## Programme Blocks
 
@@ -230,6 +256,8 @@ Use one accommodation object per day where relevant. It can be repeated across a
 
 The public itinerary accommodation is single-choice. It should be the booked/current stay, or a clear placeholder such as `Hotel not confirmed yet` while options are still under review. It should not contain a shortlist, slash-separated hotel names, or several options in one note.
 
+One accommodation day equals one sleep/night. A 3-night hotel stay should appear on 3 contiguous itinerary days with `nights: 3`; the check-out date is the day after the final sleep.
+
 | Field | Required | Meaning |
 |---|---:|---|
 | `name` | Yes | Hotel, apartment, campsite, or stay name. |
@@ -328,6 +356,8 @@ Candidate fields:
 | `booking` | Optional | Real booking details. Never invent confirmations. |
 
 Ratings should include when the check happened plus values for Booking.com, Tripadvisor, and Google. Use `Not found` only when that source was actually checked.
+
+When a candidate has `destinationId`, OurTrips derives `stop`, `dates`, `nights`, `dayNumbers`, `checkInDate`, and `checkOutDate` from the Accommodations Reviewer destination. Agents should pass the destination ID instead of retyping date arithmetic.
 
 Recommended candidate workflow:
 
@@ -539,7 +569,7 @@ Recommended image workflow:
 
 ## Quality Contract
 
-`save_trip_v2` applies the current quality contract.
+`save_trip_v3` applies the current quality contract plus the strict logistics contract. `save_trip_v2` returns the same quality/logistics report but does not reject logistics errors unless `strict_quality` is true.
 
 What it normalizes:
 
@@ -552,9 +582,10 @@ What it normalizes:
 - Marks exact booked times as `fixed` and other exact planned times as `suggested` when possible.
 - Marks broad time labels like morning or evening as `window` when possible.
 
-Hard error:
+Hard errors:
 
 - A v2 itinerary must include at least one day.
+- The strict logistics contract has date, sleep/night, stay segment, or transport leg errors.
 
 Warnings:
 
@@ -582,7 +613,8 @@ Quality report output includes:
 
 Strict quality mode:
 
-- `strict_quality` only rejects hard errors.
+- `save_trip_v3` defaults `strict_quality` to true.
+- `save_trip_v2` only rejects hard errors when `strict_quality` is true.
 - Warnings are returned for repair guidance but do not block saving.
 
 ## Tool Catalog
@@ -598,10 +630,12 @@ Strict quality mode:
 
 | Tool | Use when | Key inputs |
 |---|---|---|
-| `save_trip_v2` | Creating or substantially rewriting a trip. Preferred save tool. | `trip`, `days`, optional `markdown_source`, optional `trip_id`, optional `strict_quality`. |
+| `save_trip_v3` | Creating or substantially rewriting a trip with strict logistics. Preferred save tool. | `trip`, `days`, optional `markdown_source`, optional `trip_id`, optional `strict_quality` defaulting to true. |
+| `save_trip_v2` | Creating or substantially rewriting a trip when warnings are acceptable. | `trip`, `days`, optional `markdown_source`, optional `trip_id`, optional `strict_quality`. |
 | `save_trip` | Legacy save flow. | `trip`, `days`, optional `markdown_source`, optional `trip_id`. |
 | `list_trips` | Finding saved trips for the authenticated user. | No inputs. |
 | `get_trip` | Reading a saved trip. Prefer smaller views. | `trip_id`, `view`, optional day filters, optional sections, optional markdown inclusion, optional `allow_large`. |
+| `validate_trip_contract` | Checking exact dates, sleeps/nights, stay segments, transport legs, and quality before claiming completion. | `trip_id`, optional `response_mode`. |
 
 ### Trip Editing
 

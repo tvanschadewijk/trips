@@ -16,13 +16,12 @@ const tableItineraries = publicItineraries
 
 export default function LoginPage() {
   const router = useRouter();
-  const [ready, setReady] = useState(false);
+  const [ready, setReady] = useState(() => !isSupabaseConfigured());
 
   // If user already has a session (e.g. just returned from OAuth callback),
   // redirect to dashboard instead of showing the login page again.
   useEffect(() => {
     if (!isSupabaseConfigured()) {
-      setReady(true);
       return;
     }
 
