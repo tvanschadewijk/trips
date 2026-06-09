@@ -4901,3 +4901,247 @@ button.day-brief-place:active {
     }
   }
 }
+
+/* ------------------------------------------------------------------ */
+/* Trip chat — thread rail (hideable ChatGPT-style history sidebar).   */
+/* Product surface: soft tiles on recessed paper, hairline rules,      */
+/* overline group labels. Component markup in TripChatPanel.tsx.       */
+/* ------------------------------------------------------------------ */
+
+.trip-chat-sheet.is-rail-open {
+  --trip-chat-sheet-width: 816px;
+  --trip-chat-sheet-max-height: min(56vh, 470px);
+  --trip-chat-sheet-height: var(--trip-chat-sheet-max-height);
+}
+
+.trip-chat-body {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.trip-chat-main {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+.trip-chat-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 224px;
+  flex-shrink: 0;
+  min-height: 0;
+  padding: 10px;
+  background: #f4ede2;
+  border-right: 1px solid #e8e1d6;
+}
+
+.trip-chat-rail-new {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 9px 12px;
+  background: #ffffff;
+  border: 1px solid rgba(26, 20, 16, 0.06);
+  border-radius: 10px;
+  font-family: Inter, system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 580;
+  color: #1a1410;
+  cursor: pointer;
+}
+
+.trip-chat-rail-new:hover {
+  background: #fbf7f1;
+}
+
+.trip-chat-rail-new svg {
+  color: #c14f2a;
+}
+
+.trip-chat-rail-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.trip-chat-rail-group {
+  margin: 12px 6px 5px;
+  font-family: Inter, system-ui, sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #6b6157;
+}
+
+.trip-chat-rail-section:first-child .trip-chat-rail-group {
+  margin-top: 2px;
+}
+
+.trip-chat-rail-empty {
+  margin: 0;
+  padding: 8px 6px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: #6b6157;
+}
+
+.trip-chat-thread {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin: 1px 0;
+  border: 1px solid transparent;
+  border-radius: 10px;
+}
+
+.trip-chat-thread:hover {
+  background: rgba(26, 20, 16, 0.045);
+}
+
+.trip-chat-thread.is-active {
+  background: #ffffff;
+  border-color: rgba(26, 20, 16, 0.06);
+  box-shadow: rgba(26, 20, 16, 0.04) 0 1px 0 0;
+}
+
+.trip-chat-thread-select {
+  flex: 1;
+  min-width: 0;
+  display: block;
+  padding: 8px 10px;
+  background: transparent;
+  border: none;
+  text-align: left;
+  font-family: Inter, system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 480;
+  line-height: 1.4;
+  color: #3d352e;
+  cursor: pointer;
+}
+
+.trip-chat-thread.is-active .trip-chat-thread-select {
+  color: #1a1410;
+  font-weight: 560;
+}
+
+.trip-chat-thread-title {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trip-chat-thread-actions {
+  display: none;
+  align-items: center;
+  gap: 2px;
+  padding-right: 6px;
+  flex-shrink: 0;
+}
+
+.trip-chat-thread:hover .trip-chat-thread-actions,
+.trip-chat-thread.is-active .trip-chat-thread-actions {
+  display: inline-flex;
+}
+
+.trip-chat-thread-actions button {
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 7px;
+  color: #6b6157;
+  cursor: pointer;
+}
+
+.trip-chat-thread-actions button:hover {
+  background: #f4ede2;
+  color: #1a1410;
+}
+
+.trip-chat-thread-rename {
+  flex: 1;
+  min-width: 0;
+  margin: 4px;
+  padding: 5px 8px;
+  font-family: Inter, system-ui, sans-serif;
+  font-size: 13px;
+  color: #1a1410;
+  background: #ffffff;
+  border: 1px solid #1a1410;
+  border-radius: 8px;
+  outline: none;
+}
+
+.trip-chat-thread-confirm {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  font-family: Inter, system-ui, sans-serif;
+  font-size: 12.5px;
+  font-weight: 560;
+  color: #9b4f2e;
+}
+
+.trip-chat-thread-confirm button {
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 7px;
+  color: #6b6157;
+  cursor: pointer;
+}
+
+.trip-chat-thread-confirm button:first-of-type {
+  color: #c14f2a;
+}
+
+.trip-chat-thread-confirm button:hover {
+  background: #f4ede2;
+}
+
+.trip-chat-rail-scrim {
+  display: none;
+}
+
+@media (max-width: 719px) {
+  .trip-chat-sheet.is-rail-open {
+    --trip-chat-sheet-width: 520px;
+  }
+
+  .trip-chat-rail {
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 6;
+    width: min(78vw, 300px);
+    box-shadow: rgba(26, 20, 16, 0.18) 12px 0 32px -16px;
+  }
+
+  .trip-chat-rail-scrim {
+    display: block;
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+    background: rgba(26, 20, 16, 0.18);
+  }
+}
