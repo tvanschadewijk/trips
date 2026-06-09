@@ -24,6 +24,10 @@ import {
   syncAccommodationReviewForTrip,
   trySyncAccommodationReviewForTrip,
 } from '@/lib/accommodation-review-store';
+import {
+  deleteDayItemInTripData,
+  upsertDayItemInTripData,
+} from '@/lib/trip-service';
 import { normalizeTripData } from '@/lib/trip-data-normalize';
 import { auditTripLogistics, ISO_DATE_RE, isIsoDateString } from '@/lib/trip-logistics';
 import type {
@@ -197,6 +201,50 @@ sleeps/nights, stay segments, or transport requirements changed. The audit
 returns hard errors, warnings, open questions, and a canonical ledger of days,
 stay segments, and transport legs.`;
 
+const UPSERT_ACTIVITY_DESCRIPTION = `Add or update one day programme item without loading or replacing the full itinerary.
+
+Use this for museums, galleries, beaches, viewpoints, walks, excursions,
+neighbourhood time, shops, markets, and other non-meal activities. If the user
+asks for a current recommendation such as "find a nice beach" or "add a good
+museum", use WebSearch first when freshness or specific venue choice matters,
+then write one chosen activity with this tool.
+
+Do not use this for the day intro; day intros are description_title and
+description and require update_trip. Put richer explanation in activity.detail
+and keep the visible content compact.`;
+
+const DELETE_ACTIVITY_DESCRIPTION = `Delete one day programme item by index, title, time label, type, or content match.
+
+Use this when the user asks to remove a museum, beach, viewpoint, walk,
+excursion, or other programme block from a specific day.`;
+
+const UPSERT_MEAL_DESCRIPTION = `Add or update one meal or restaurant without loading or replacing the full itinerary.
+
+Use this after choosing one specific restaurant, cafe, bar, bakery, or food
+stop. For "find a nice restaurant", WebSearch first, then either ask the user
+to choose among options or save the clearly best fit with this tool.
+
+Each meal row is one restaurant. If the user asks for multiple restaurant
+suggestions, return a concise shortlist in the chat first. Only save multiple
+meal rows when the user explicitly asks to add multiple options to the trip,
+and never combine several restaurant names into one meal.name or meal.note.`;
+
+const DELETE_MEAL_DESCRIPTION = `Delete one meal or restaurant by index, name, type, or other match fields.
+
+Use this when the user asks to remove a lunch, dinner, cafe, bar, bakery, or
+restaurant from a specific day.`;
+
+const UPSERT_TRANSPORT_DESCRIPTION = `Add or update one transport leg without loading or replacing the full itinerary.
+
+Use this for trains, flights, ferries, taxis, transfers, drives, buses, and
+other route legs. For booked/scheduled transport include from, to, depart,
+arrive, duration, booking_status/status, and detail fields when known.`;
+
+const DELETE_TRANSPORT_DESCRIPTION = `Delete one transport leg by index, label, route, mode, or other match fields.
+
+Use this when the user asks to remove a train, flight, ferry, taxi, transfer,
+drive, bus, or other route leg from a specific day.`;
+
 const DetailPatchSchema = z
   .object({
     title: z.string().optional(),
@@ -264,6 +312,171 @@ const UpdateAccommodationInputShape = {
 type AccommodationPatch = Partial<
   Pick<Accommodation, 'name' | 'price' | 'rating' | 'status' | 'nights' | 'note'>
 >;
+
+const DayNumberSchema = z.number().int().positive();
+const TimePrecisionSchema = z.enum(['fixed', 'suggested', 'window']);
+const PatchModeSchema = z.enum(['merge', 'replace']).default('merge');
+const InsertPositionSchema = z.enum(['append', 'prepend']).default('append');
+
+const ItemMatchSchema = z
+  .object({
+    index: z.number().int().nonnegative().optional(),
+    name: z.string().optional(),
+    label: z.string().optional(),
+    title: z.string().optional(),
+    type: z.string().optional(),
+    mode: z.string().optional(),
+    from: z.string().optional(),
+    to: z.string().optional(),
+    time_label: z.string().optional(),
+    content_contains: z.string().optional(),
+  })
+  .strict()
+  .refine(
+    (value) =>
+      Object.values(value).some((item) =>
+        typeof item === 'number' || (typeof item === 'string' && item.trim().length > 0)
+      ),
+    { message: 'Provide at least one match field.' }
+  );
+
+const ItineraryPlaceSchema = z
+  .object({
+    name: z.string().min(1),
+    address: z.string().optional(),
+    lat: z.number().min(-90).max(90).optional(),
+    lng: z.number().min(-180).max(180).optional(),
+    google_maps_url: z.string().optional(),
+    place_id: z.string().optional(),
+    note: z.string().optional(),
+  })
+  .passthrough();
+
+const ItineraryAlternativeSchema = z
+  .object({
+    label: z.string().min(1),
+    description: z.string().min(1),
+    trigger: z.string().optional(),
+    duration: z.string().optional(),
+    cost_hint: z.string().optional(),
+  })
+  .passthrough();
+
+const ActivitySchema = z
+  .object({
+    time_label: z.string().min(1),
+    content: z.string().min(1),
+    type: z.string().min(1),
+    starts_at: z.string().optional(),
+    ends_at: z.string().optional(),
+    time_precision: TimePrecisionSchema.optional(),
+    duration_minutes: z.number().int().positive().optional(),
+    place: ItineraryPlaceSchema.optional(),
+    booking_status: z.string().optional(),
+    reservation_required: z.boolean().optional(),
+    cost_hint: z.string().optional(),
+    pace: z.string().optional(),
+    detail: DetailPatchSchema.optional(),
+    options: z.array(z.record(z.string(), z.unknown())).optional(),
+    alternatives: z.array(ItineraryAlternativeSchema).optional(),
+  })
+  .passthrough();
+
+const MealSchema = z
+  .object({
+    type: z.string().min(1),
+    name: z.string().min(1),
+    note: z.string().optional(),
+    status: z.string().optional(),
+    starts_at: z.string().optional(),
+    ends_at: z.string().optional(),
+    time_precision: TimePrecisionSchema.optional(),
+    booking_status: z.string().optional(),
+    reservation_required: z.boolean().optional(),
+    cost_hint: z.string().optional(),
+    place: ItineraryPlaceSchema.optional(),
+    detail: DetailPatchSchema.optional(),
+  })
+  .passthrough();
+
+const TransportDetailSchema = z
+  .object({
+    class: z.string().optional(),
+    cabin: z.string().optional(),
+    seats: z.string().optional(),
+    seat: z.string().optional(),
+    booking_ref: z.string().optional(),
+    booking_platform: z.string().optional(),
+    cabin_bag: z.string().optional(),
+    hold_bag: z.string().optional(),
+    check_in: z.string().optional(),
+    platform: z.string().optional(),
+    flight: z.string().optional(),
+    terminal: z.string().optional(),
+    gate: z.string().optional(),
+    amenities: z.string().optional(),
+    cancellation_policy: z.string().optional(),
+    note: z.string().optional(),
+    route: z.string().optional(),
+  })
+  .passthrough();
+
+const TransportSchema = z
+  .object({
+    mode: z.string().min(1),
+    label: z.string().min(1),
+    from: z.string().optional(),
+    to: z.string().optional(),
+    depart: z.string().optional(),
+    arrive: z.string().optional(),
+    duration: z.string().optional(),
+    distance: z.string().optional(),
+    status: z.string().optional(),
+    booking_status: z.string().optional(),
+    reservation_required: z.boolean().optional(),
+    cost_hint: z.string().optional(),
+    detail: TransportDetailSchema.optional(),
+  })
+  .passthrough();
+
+const UpsertActivityInputShape = {
+  day_number: DayNumberSchema,
+  activity: ActivitySchema,
+  match: ItemMatchSchema.optional(),
+  mode: PatchModeSchema,
+  position: InsertPositionSchema,
+} as const;
+
+const DeleteActivityInputShape = {
+  day_number: DayNumberSchema,
+  match: ItemMatchSchema,
+} as const;
+
+const UpsertMealInputShape = {
+  day_number: DayNumberSchema,
+  meal: MealSchema,
+  match: ItemMatchSchema.optional(),
+  mode: PatchModeSchema,
+  position: InsertPositionSchema,
+} as const;
+
+const DeleteMealInputShape = {
+  day_number: DayNumberSchema,
+  match: ItemMatchSchema,
+} as const;
+
+const UpsertTransportInputShape = {
+  day_number: DayNumberSchema,
+  transport: TransportSchema,
+  match: ItemMatchSchema.optional(),
+  mode: PatchModeSchema,
+  position: InsertPositionSchema,
+} as const;
+
+const DeleteTransportInputShape = {
+  day_number: DayNumberSchema,
+  match: ItemMatchSchema,
+} as const;
 
 const ResearchPlacePolicyInputShape = {
   place_name: z.string().min(1),
@@ -654,6 +867,21 @@ async function readTripData(ctx: TripToolContext): Promise<TripData> {
   return normalizeTripData(data.data);
 }
 
+async function writeTripData(ctx: TripToolContext, next: TripData): Promise<void> {
+  const { error } = await ctx.supabase
+    .from('trips')
+    .update({ data: next, updated_at: new Date().toISOString() })
+    .eq('id', ctx.tripId);
+
+  if (error) {
+    throw new Error(`Error writing trip: ${error.message}`);
+  }
+}
+
+function cloneTripData(data: TripData): TripData {
+  return JSON.parse(JSON.stringify(data)) as TripData;
+}
+
 async function loadOrCreateAccommodationReview(
   ctx: TripToolContext,
   tripData: TripData
@@ -861,6 +1089,103 @@ export function upsertAccommodationAgentNote(
   return `${markdownSource.trimEnd()}\n\n${section}`;
 }
 
+function readableDayItemKind(kind: 'activity' | 'meal' | 'transport'): string {
+  if (kind === 'activity') return 'Programme item';
+  if (kind === 'meal') return 'Meal';
+  return 'Transport';
+}
+
+function summarizeDayItem(kind: 'activity' | 'meal' | 'transport', item: Record<string, unknown>): string[] {
+  const parts: string[] = [];
+  const add = (label: string, value: unknown) => {
+    const clean = oneLineMarkdown(value);
+    if (clean) parts.push(`${label}: ${clean}`);
+  };
+
+  if (kind === 'activity') {
+    const detail = typeof item.detail === 'object' && item.detail ? item.detail as Record<string, unknown> : {};
+    const place = typeof item.place === 'object' && item.place ? item.place as Record<string, unknown> : {};
+    add('Time', item.time_label);
+    add('Type', item.type);
+    add('Title', detail.title ?? place.name);
+    add('What', item.content);
+    add('Why', detail.why);
+    add('Practical', detail.practical);
+    add('Cost', item.cost_hint);
+    return parts;
+  }
+
+  if (kind === 'meal') {
+    const detail = typeof item.detail === 'object' && item.detail ? item.detail as Record<string, unknown> : {};
+    const place = typeof item.place === 'object' && item.place ? item.place as Record<string, unknown> : {};
+    add('Type', item.type);
+    add('Restaurant', item.name);
+    add('Place', place.address ?? place.name);
+    add('Cuisine', detail.cuisine);
+    add('Order', detail.what_to_order);
+    add('Booking', detail.booking_note ?? detail.reservation);
+    add('Status', item.booking_status ?? item.status);
+    return parts;
+  }
+
+  const detail = typeof item.detail === 'object' && item.detail ? item.detail as Record<string, unknown> : {};
+  add('Mode', item.mode);
+  add('Label', item.label);
+  add('From', item.from);
+  add('To', item.to);
+  add('Depart', item.depart);
+  add('Arrive', item.arrive);
+  add('Duration', item.duration);
+  add('Status', item.booking_status ?? item.status);
+  add('Note', detail.note);
+  return parts;
+}
+
+function summarizeMatch(match: Record<string, unknown>): string {
+  return Object.entries(match)
+    .flatMap(([key, value]) => {
+      const clean = oneLineMarkdown(value);
+      return clean ? [`${key}: ${clean}`] : [];
+    })
+    .join(', ');
+}
+
+function upsertDayItemAgentNote(
+  markdownSource: string,
+  args: {
+    kind: 'activity' | 'meal' | 'transport';
+    action: 'upserted' | 'deleted';
+    dayNumber: number;
+    date?: string;
+    path: string;
+    item?: Record<string, unknown>;
+    match?: Record<string, unknown>;
+  }
+): string {
+  const summary = args.item
+    ? summarizeDayItem(args.kind, args.item)
+    : [`Match: ${summarizeMatch(args.match ?? {})}`].filter((part) => part !== 'Match: ');
+  if (summary.length === 0) return markdownSource;
+
+  const heading = `Day ${args.dayNumber}${args.date ? ` (${args.date})` : ''} — ${readableDayItemKind(args.kind)}`;
+  const noteLine = `- ${heading}: ${args.action}; ${summary.join('; ')}. <!-- path: ${args.path} -->`;
+
+  const startIndex = markdownSource.indexOf(AGENT_NOTES_START);
+  const endIndex = markdownSource.indexOf(AGENT_NOTES_END);
+  if (startIndex >= 0 && endIndex > startIndex) {
+    const before = markdownSource.slice(0, startIndex).trimEnd();
+    const existingBodyStart = startIndex + AGENT_NOTES_START.length;
+    const existingBody = markdownSource.slice(existingBodyStart, endIndex).trim();
+    const after = markdownSource.slice(endIndex + AGENT_NOTES_END.length).trimStart();
+    const nextBody = upsertAgentNoteLine(existingBody, args.path, noteLine);
+    const section = `${AGENT_NOTES_START}\n## OurTrips agent notes\n\n${nextBody}\n${AGENT_NOTES_END}`;
+    return [before, section, after].filter(Boolean).join('\n\n');
+  }
+
+  const section = `${AGENT_NOTES_START}\n## OurTrips agent notes\n\n${noteLine}\n${AGENT_NOTES_END}`;
+  return `${markdownSource.trimEnd()}\n\n${section}`;
+}
+
 export function collectAccommodations(trip: TripData) {
   return trip.days.flatMap((day, dayIndex) => {
     if (!day.accommodation) return [];
@@ -1041,6 +1366,129 @@ export function applyAccommodationPatch(
     updatedCount: updatedDayNumbers.length,
     markdownSourceUpdated: next.markdown_source !== existing.markdown_source,
   };
+}
+
+type FocusedDayItemKind = 'activity' | 'meal' | 'transport';
+type MutableTripDataForDayItems = Parameters<typeof upsertDayItemInTripData>[0];
+
+async function applyFocusedDayItemUpsert(args: {
+  ctx: TripToolContext;
+  toolName: string;
+  kind: FocusedDayItemKind;
+  dayNumber: number;
+  item: Record<string, unknown>;
+  match?: Record<string, unknown>;
+  mode?: 'merge' | 'replace';
+  position?: 'append' | 'prepend';
+  rawInput: unknown;
+}) {
+  const before = await readTripData(args.ctx);
+  const next = cloneTripData(before);
+  const mutableNext = next as unknown as MutableTripDataForDayItems;
+  const day = before.days.find((candidate) => candidate.day_number === args.dayNumber);
+  const result = upsertDayItemInTripData(mutableNext, {
+    kind: args.kind,
+    day_number: args.dayNumber,
+    item: args.item,
+    match: args.match,
+    mode: args.mode,
+    position: args.position,
+  });
+
+  if (typeof next.markdown_source === 'string' && next.markdown_source.length > 0) {
+    next.markdown_source = result.changed_paths.reduce(
+      (markdownSource, path) =>
+        upsertDayItemAgentNote(markdownSource, {
+          kind: args.kind,
+          action: 'upserted',
+          dayNumber: args.dayNumber,
+          date: day?.date,
+          path,
+          item: args.item,
+        }),
+      next.markdown_source
+    );
+  }
+
+  await writeTripData(args.ctx, next);
+
+  if (args.ctx.onUpdateApplied) {
+    try {
+      await args.ctx.onUpdateApplied({
+        tool: args.toolName,
+        before,
+        after: next,
+        input: args.rawInput,
+      });
+    } catch {
+      // Telemetry errors must not fail the tool call.
+    }
+  }
+
+  return jsonToolResponse({
+    ok: true,
+    kind: args.kind,
+    day_number: args.dayNumber,
+    changed_paths: result.changed_paths,
+    markdown_source_updated: next.markdown_source !== before.markdown_source,
+  });
+}
+
+async function applyFocusedDayItemDelete(args: {
+  ctx: TripToolContext;
+  toolName: string;
+  kind: FocusedDayItemKind;
+  dayNumber: number;
+  match: Record<string, unknown>;
+  rawInput: unknown;
+}) {
+  const before = await readTripData(args.ctx);
+  const next = cloneTripData(before);
+  const mutableNext = next as unknown as MutableTripDataForDayItems;
+  const day = before.days.find((candidate) => candidate.day_number === args.dayNumber);
+  const result = deleteDayItemInTripData(mutableNext, {
+    kind: args.kind,
+    day_number: args.dayNumber,
+    match: args.match,
+  });
+
+  if (typeof next.markdown_source === 'string' && next.markdown_source.length > 0) {
+    next.markdown_source = result.changed_paths.reduce(
+      (markdownSource, path) =>
+        upsertDayItemAgentNote(markdownSource, {
+          kind: args.kind,
+          action: 'deleted',
+          dayNumber: args.dayNumber,
+          date: day?.date,
+          path,
+          match: args.match,
+        }),
+      next.markdown_source
+    );
+  }
+
+  await writeTripData(args.ctx, next);
+
+  if (args.ctx.onUpdateApplied) {
+    try {
+      await args.ctx.onUpdateApplied({
+        tool: args.toolName,
+        before,
+        after: next,
+        input: args.rawInput,
+      });
+    } catch {
+      // Telemetry errors must not fail the tool call.
+    }
+  }
+
+  return jsonToolResponse({
+    ok: true,
+    kind: args.kind,
+    day_number: args.dayNumber,
+    changed_paths: result.changed_paths,
+    markdown_source_updated: next.markdown_source !== before.markdown_source,
+  });
 }
 
 export function buildPolicySearchQuery(args: {
@@ -1657,6 +2105,189 @@ export function createTripEditorMcpServer(
     }
   );
 
+  const upsertActivity = tool(
+    'upsert_activity',
+    UPSERT_ACTIVITY_DESCRIPTION,
+    UpsertActivityInputShape,
+    async (rawArgs) => {
+      const parsed = z.object(UpsertActivityInputShape).safeParse(rawArgs);
+      if (!parsed.success) {
+        return textToolError(
+          `Invalid input: ${parsed.error.issues
+            .map((i) => `${i.path.join('.')}: ${i.message}`)
+            .join('; ')}`
+        );
+      }
+
+      try {
+        return await applyFocusedDayItemUpsert({
+          ctx,
+          toolName: 'upsert_activity',
+          kind: 'activity',
+          dayNumber: parsed.data.day_number,
+          item: parsed.data.activity as Record<string, unknown>,
+          match: parsed.data.match as Record<string, unknown> | undefined,
+          mode: parsed.data.mode,
+          position: parsed.data.position,
+          rawInput: parsed.data,
+        });
+      } catch (err) {
+        return textToolError(err instanceof Error ? err.message : String(err));
+      }
+    }
+  );
+
+  const deleteActivity = tool(
+    'delete_activity',
+    DELETE_ACTIVITY_DESCRIPTION,
+    DeleteActivityInputShape,
+    async (rawArgs) => {
+      const parsed = z.object(DeleteActivityInputShape).safeParse(rawArgs);
+      if (!parsed.success) {
+        return textToolError(
+          `Invalid input: ${parsed.error.issues
+            .map((i) => `${i.path.join('.')}: ${i.message}`)
+            .join('; ')}`
+        );
+      }
+
+      try {
+        return await applyFocusedDayItemDelete({
+          ctx,
+          toolName: 'delete_activity',
+          kind: 'activity',
+          dayNumber: parsed.data.day_number,
+          match: parsed.data.match as Record<string, unknown>,
+          rawInput: parsed.data,
+        });
+      } catch (err) {
+        return textToolError(err instanceof Error ? err.message : String(err));
+      }
+    }
+  );
+
+  const upsertMeal = tool(
+    'upsert_meal',
+    UPSERT_MEAL_DESCRIPTION,
+    UpsertMealInputShape,
+    async (rawArgs) => {
+      const parsed = z.object(UpsertMealInputShape).safeParse(rawArgs);
+      if (!parsed.success) {
+        return textToolError(
+          `Invalid input: ${parsed.error.issues
+            .map((i) => `${i.path.join('.')}: ${i.message}`)
+            .join('; ')}`
+        );
+      }
+
+      try {
+        return await applyFocusedDayItemUpsert({
+          ctx,
+          toolName: 'upsert_meal',
+          kind: 'meal',
+          dayNumber: parsed.data.day_number,
+          item: parsed.data.meal as Record<string, unknown>,
+          match: parsed.data.match as Record<string, unknown> | undefined,
+          mode: parsed.data.mode,
+          position: parsed.data.position,
+          rawInput: parsed.data,
+        });
+      } catch (err) {
+        return textToolError(err instanceof Error ? err.message : String(err));
+      }
+    }
+  );
+
+  const deleteMeal = tool(
+    'delete_meal',
+    DELETE_MEAL_DESCRIPTION,
+    DeleteMealInputShape,
+    async (rawArgs) => {
+      const parsed = z.object(DeleteMealInputShape).safeParse(rawArgs);
+      if (!parsed.success) {
+        return textToolError(
+          `Invalid input: ${parsed.error.issues
+            .map((i) => `${i.path.join('.')}: ${i.message}`)
+            .join('; ')}`
+        );
+      }
+
+      try {
+        return await applyFocusedDayItemDelete({
+          ctx,
+          toolName: 'delete_meal',
+          kind: 'meal',
+          dayNumber: parsed.data.day_number,
+          match: parsed.data.match as Record<string, unknown>,
+          rawInput: parsed.data,
+        });
+      } catch (err) {
+        return textToolError(err instanceof Error ? err.message : String(err));
+      }
+    }
+  );
+
+  const upsertTransport = tool(
+    'upsert_transport',
+    UPSERT_TRANSPORT_DESCRIPTION,
+    UpsertTransportInputShape,
+    async (rawArgs) => {
+      const parsed = z.object(UpsertTransportInputShape).safeParse(rawArgs);
+      if (!parsed.success) {
+        return textToolError(
+          `Invalid input: ${parsed.error.issues
+            .map((i) => `${i.path.join('.')}: ${i.message}`)
+            .join('; ')}`
+        );
+      }
+
+      try {
+        return await applyFocusedDayItemUpsert({
+          ctx,
+          toolName: 'upsert_transport',
+          kind: 'transport',
+          dayNumber: parsed.data.day_number,
+          item: parsed.data.transport as Record<string, unknown>,
+          match: parsed.data.match as Record<string, unknown> | undefined,
+          mode: parsed.data.mode,
+          position: parsed.data.position,
+          rawInput: parsed.data,
+        });
+      } catch (err) {
+        return textToolError(err instanceof Error ? err.message : String(err));
+      }
+    }
+  );
+
+  const deleteTransport = tool(
+    'delete_transport',
+    DELETE_TRANSPORT_DESCRIPTION,
+    DeleteTransportInputShape,
+    async (rawArgs) => {
+      const parsed = z.object(DeleteTransportInputShape).safeParse(rawArgs);
+      if (!parsed.success) {
+        return textToolError(
+          `Invalid input: ${parsed.error.issues
+            .map((i) => `${i.path.join('.')}: ${i.message}`)
+            .join('; ')}`
+        );
+      }
+
+      try {
+        return await applyFocusedDayItemDelete({
+          ctx,
+          toolName: 'delete_transport',
+          kind: 'transport',
+          dayNumber: parsed.data.day_number,
+          match: parsed.data.match as Record<string, unknown>,
+          rawInput: parsed.data,
+        });
+      } catch (err) {
+        return textToolError(err instanceof Error ? err.message : String(err));
+      }
+    }
+  );
+
   const researchPolicy = tool(
     'research_place_policy',
     RESEARCH_PLACE_POLICY_DESCRIPTION,
@@ -1908,6 +2539,12 @@ export function createTripEditorMcpServer(
       updateTrip,
       updateAccommodation,
       updateAccommodationDetail,
+      upsertActivity,
+      deleteActivity,
+      upsertMeal,
+      deleteMeal,
+      upsertTransport,
+      deleteTransport,
       researchPolicy,
       createAccommodationReviewCandidate,
       updateAccommodationReviewCandidate,
@@ -1930,6 +2567,12 @@ export const TRIP_EDITOR_TOOL_NAMES = [
   'mcp__trip_editor__update_trip',
   'mcp__trip_editor__update_accommodation',
   'mcp__trip_editor__update_accommodation_detail',
+  'mcp__trip_editor__upsert_activity',
+  'mcp__trip_editor__delete_activity',
+  'mcp__trip_editor__upsert_meal',
+  'mcp__trip_editor__delete_meal',
+  'mcp__trip_editor__upsert_transport',
+  'mcp__trip_editor__delete_transport',
   'mcp__trip_editor__research_place_policy',
   'mcp__trip_editor__create_accommodation_candidate',
   'mcp__trip_editor__update_accommodation_candidate',
@@ -1946,6 +2589,13 @@ export const _internal = {
   CreateAccommodationCandidateInputShape,
   extractPolicySnippets,
   inferPolicyFromText,
+  DeleteActivityInputShape,
+  DeleteMealInputShape,
+  DeleteTransportInputShape,
   UpdateAccommodationCandidateInputShape,
+  UpsertActivityInputShape,
   upsertAccommodationAgentNote,
+  upsertDayItemAgentNote,
+  UpsertMealInputShape,
+  UpsertTransportInputShape,
 };
