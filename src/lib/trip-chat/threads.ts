@@ -20,12 +20,24 @@ export async function listThreads(
   admin: SupabaseClient,
   { tripId, userId }: ThreadScope
 ): Promise<ChatThreadSummary[]> {
-  const { data } = await admin
+  let { data } = await admin
     .from('trip_chat_sessions')
     .select('id, title, created_at, updated_at')
     .eq('trip_id', tripId)
     .eq('user_id', userId)
     .order('updated_at', { ascending: false });
+
+  if (!data) {
+    // Pre-migration database (no title column yet): degrade to titleless
+    // rows instead of an empty sidebar. See migration 010.
+    const legacy = await admin
+      .from('trip_chat_sessions')
+      .select('id, created_at, updated_at')
+      .eq('trip_id', tripId)
+      .eq('user_id', userId)
+      .order('updated_at', { ascending: false });
+    data = (legacy.data ?? []).map((row) => ({ ...row, title: null }));
+  }
 
   const rows = data ?? [];
   const backfilled = await Promise.all(
@@ -83,10 +95,28 @@ export async function createThread(
     .insert({ trip_id: tripId, user_id: userId, title })
     .select('id')
     .single();
-  if (error || !data) {
-    return { error: error?.message ?? 'insert returned no row' };
+  if (!error && data) {
+    return { id: data.id };
   }
-  return { id: data.id };
+
+  // Pre-migration database fallbacks (see migration 010), so a deploy that
+  // outruns the migration degrades to the old single-thread behavior
+  // instead of failing every chat turn:
+  //   - missing title column → insert without it
+  //   - unique(trip_id, user_id) still present → reuse the existing row
+  const legacyInsert = await admin
+    .from('trip_chat_sessions')
+    .insert({ trip_id: tripId, user_id: userId })
+    .select('id')
+    .single();
+  if (!legacyInsert.error && legacyInsert.data) {
+    return { id: legacyInsert.data.id };
+  }
+  const existing = await latestThread(admin, { tripId, userId });
+  if (existing) {
+    return { id: existing.id };
+  }
+  return { error: error?.message ?? 'insert returned no row' };
 }
 
 /** Fetch one thread, scoped to (trip, user) so a caller can never address someone else's. */
