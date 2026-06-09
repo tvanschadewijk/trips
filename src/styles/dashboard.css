@@ -19,15 +19,19 @@
   border-bottom: 1px solid #E8E1D6;
 }
 .dash-nav-inner {
-  max-width: 1200px;
-  margin: 0 auto;
+  width: 100%;
   padding: 0 24px;
   height: 64px;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  box-sizing: border-box;
 }
 .dash-logo {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  min-width: 0;
   font-family: 'Fraunces', 'Iowan Old Style', 'Palatino', 'Georgia', serif;
   font-optical-sizing: auto;
   font-size: 20px;
@@ -35,6 +39,10 @@
   letter-spacing: -0.012em;
   color: #1A1410;
   text-decoration: none;
+  white-space: nowrap;
+}
+.dash-logo-word {
+  flex-shrink: 0;
 }
 .dash-logo .logo-to {
   font-style: italic;
@@ -42,15 +50,23 @@
   font-weight: 380;
 }
 .dash-logo .logo-suffix {
+  display: inline-block;
+  min-width: 0;
+  max-width: min(48vw, 560px);
+  overflow: hidden;
+  text-overflow: ellipsis;
   font-style: italic;
   color: #6B6157;
   font-weight: 380;
   font-size: 17px;
+  white-space: nowrap;
 }
 .dash-nav-right {
   position: relative;
   display: flex;
   align-items: center;
+  flex-shrink: 0;
+  margin-left: 18px;
 }
 .dash-settings-btn {
   display: flex; align-items: center; justify-content: center;
@@ -241,6 +257,10 @@
 }
 @media (max-width: 500px) {
   .dash-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 560px) {
+  .dash-logo .logo-suffix { display: none; }
 }
 
 /* Card — white paper sheet on warm paper canvas */

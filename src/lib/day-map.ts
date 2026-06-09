@@ -1,5 +1,4 @@
 import type { Accommodation, Day, Meal } from './types';
-import { isConfirmedAccommodation } from './trip-status';
 import {
   buildDayRouteMapSearchText,
   routePlaceTextMatches,
@@ -113,17 +112,14 @@ function snippetsForPoint(day: Day, label: string): string[] {
     .slice(0, 2);
 }
 
-function accommodationSearchText(day: Day): string {
+function accommodationLocationSearchText(day: Day): string {
   const accommodation = day.accommodation;
-  if (!isConfirmedAccommodation(accommodation)) return '';
+  if (!isMapSpecificAccommodation(accommodation)) return '';
 
   return [
     accommodation.name,
-    accommodation.note,
     accommodation.detail?.title,
     accommodation.detail?.address,
-    accommodation.detail?.body,
-    accommodation.detail?.why,
   ].filter(Boolean).join(' ');
 }
 
@@ -133,9 +129,25 @@ function accommodationIdentity(day: Day): string {
 
   return normalizeRouteSearchText([
     accommodation.name,
-    accommodation.detail?.title,
     accommodation.detail?.address,
   ].filter(Boolean).join(' ')) || `day-${day.day_number}`;
+}
+
+function destinationTitleText(day: Day): string {
+  const title = day.title.replace(/[–—]/g, '->');
+  const parts = title
+    .split(/\s*(?:→|->)\s*/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  return parts.length > 1 ? parts[parts.length - 1] : day.title;
+}
+
+function stayDestinationSearchText(day: Day): string {
+  return [
+    destinationTitleText(day),
+    ...(day.transport ?? []).slice(-1).flatMap((transport) => [transport.to]),
+  ].filter(Boolean).join(' ');
 }
 
 function daySortTime(day: Day): number {
@@ -172,8 +184,11 @@ function nightsForRoutePoint(point: TripRouteAtlasPoint, days: Day[]): number {
 
   const matchingDays = days
     .filter((day) => (
-      isConfirmedAccommodation(day.accommodation)
-      && routePlaceTextMatches(accommodationSearchText(day), point.label)
+      isMapSpecificAccommodation(day.accommodation)
+      && (
+        routePlaceTextMatches(accommodationLocationSearchText(day), point.label)
+        || routePlaceTextMatches(stayDestinationSearchText(day), point.label)
+      )
     ))
     .sort((a, b) => daySortTime(a) - daySortTime(b));
 
@@ -253,12 +268,12 @@ function dayMapSearchBbox(atlas: TripRouteAtlas | undefined): [number, number, n
   ];
 }
 
-function mapSearchContext(day: Day, atlas: TripRouteAtlas | undefined): string {
+function mapSearchContext(day: Day, atlas: TripRouteAtlas | undefined, contextLabels: string[] = []): string {
   const routeLabels = atlas?.points
     .filter((point) => point.role !== 'home')
     .map((point) => point.label)
     .slice(0, 3) ?? [];
-  return [...routeLabels, day.title].join(' ');
+  return uniquePlaceLabels([...routeLabels, ...contextLabels, day.title]).join(' ');
 }
 
 function normalizeMapSearchLabel(value: string): string {
@@ -355,18 +370,44 @@ function explicitFallbackPoint(place: { lat?: number; lng?: number } | undefined
   return { lat: place.lat, lng: place.lng, source: 'stored' };
 }
 
+function isPlaceholderAccommodationName(value: string): boolean {
+  const normalized = normalizeMapSearchLabel(value);
+  return (
+    normalized === '' ||
+    normalized === 'hotel not confirmed yet' ||
+    normalized === 'hotel pending' ||
+    normalized === 'accommodation pending' ||
+    normalized === 'to be confirmed' ||
+    normalized === 'tbc' ||
+    normalized === 'tbd'
+  );
+}
+
+function looksLikeAccommodationSearch(value: string): boolean {
+  const normalized = normalizeMapSearchLabel(value);
+  return /\b(?:search|shortlist|shortlisted|options?|candidates?|proposals?|alternatives?|to be chosen|choose later)\b/.test(normalized);
+}
+
+function isMapSpecificAccommodation(accommodation: Accommodation | undefined | null): accommodation is Accommodation {
+  if (!accommodation) return false;
+  const name = accommodation.name?.trim();
+  if (!name || isPlaceholderAccommodationName(name)) return false;
+  if (accommodation.detail?.address) return true;
+  return !looksLikeAccommodationSearch(name);
+}
+
 function looksLikeSpecificMeal(meal: Meal): boolean {
   const label = meal.name.trim();
   if (meal.place?.name) return true;
   if (meal.detail?.address) return true;
-  if (!looksLikePlaceLabel(label)) return false;
+  if (!looksLikePlaceLabel(label, { allowSingleWord: true })) return false;
   if (GENERIC_MEAL_WORDS.test(label)) return false;
 
   const namedWords = label
     .split(/\s+/)
     .filter((word) => /^[A-ZÀ-Þ][\p{L}'’-]{2,}$/u.test(word));
 
-  return namedWords.length >= 2 || /\b(?:ristorante|trattoria|osteria|bistro|bar|cafe|café|taverna|auberge)\b/i.test(label);
+  return namedWords.length >= 1 || /\b(?:ristorante|trattoria|osteria|bistro|bar|cafe|café|taverna|auberge)\b/i.test(label);
 }
 
 function splitPotentialPlaceLabels(value: string | undefined): string[] {
@@ -424,7 +465,7 @@ function queryWithContext(label: string, context: string, address?: string, quer
 }
 
 function accommodationDetail(accommodation: Accommodation | undefined | null, dayNumber: number): ItineraryMapPointDetail | undefined {
-  if (!isConfirmedAccommodation(accommodation) || !accommodation?.name) return undefined;
+  if (!isMapSpecificAccommodation(accommodation)) return undefined;
   return {
     title: accommodation.name,
     kicker: `Day ${dayNumber} · Hotel`,
@@ -446,6 +487,7 @@ function addDayMapTarget(
     address?: string;
     placeType?: string;
     fallbackPoint?: ItineraryMapPoiSearchTarget['fallbackPoint'];
+    contextLabels?: string[];
   } = {}
 ) {
   if (!label) return;
@@ -463,7 +505,7 @@ function addDayMapTarget(
   }
 
   seen.add(normalized);
-  const context = mapSearchContext(day, atlas);
+  const context = mapSearchContext(day, atlas, options.contextLabels);
   const fallbackPoint = options.fallbackPoint
     ?? matchingAtlasPoint(atlas, [trimmed, options.address].filter(Boolean).join(' '))
     ?? approximateAtlasPoint(atlas, targets.length);
@@ -490,7 +532,8 @@ function addDayMapTarget(
 export function buildDayMapSearchTargets(
   day: Day,
   atlas: TripRouteAtlas | undefined,
-  previousDay?: Day
+  previousDay?: Day,
+  contextLabels: string[] = []
 ): ItineraryMapPoiSearchTarget[] {
   const targets: ItineraryMapPoiSearchTarget[] = [];
   const seen = new Set<string>();
@@ -501,6 +544,7 @@ export function buildDayMapSearchTargets(
       address: previousDay?.accommodation?.detail?.address,
       placeType: 'lodging',
       queryPrefix: 'Hotel',
+      contextLabels,
     });
   }
 
@@ -519,7 +563,7 @@ export function buildDayMapSearchTargets(
     });
   }
 
-  if (isConfirmedAccommodation(day.accommodation) && day.accommodation?.name) {
+  if (isMapSpecificAccommodation(day.accommodation)) {
     addDayMapTarget(targets, seen, day, atlas, day.accommodation.name, 'poi', 'stay', {
       title: day.accommodation.name,
       kicker: `Day ${day.day_number} · Hotel`,
@@ -528,6 +572,7 @@ export function buildDayMapSearchTargets(
       address: day.accommodation.detail?.address,
       placeType: 'lodging',
       queryPrefix: 'Hotel',
+      contextLabels,
     });
   }
 
@@ -541,6 +586,7 @@ export function buildDayMapSearchTargets(
         address: block.place.address,
         fallbackPoint: explicitFallbackPoint(block.place),
         placeType: 'tourist_attraction',
+        contextLabels,
       });
       continue;
     }
@@ -557,6 +603,7 @@ export function buildDayMapSearchTargets(
         body: truncateMapDetail(block.detail?.why || block.detail?.body || block.content),
       }, {
         placeType: 'tourist_attraction',
+        contextLabels,
       });
     }
   }
@@ -573,6 +620,7 @@ export function buildDayMapSearchTargets(
       fallbackPoint: explicitFallbackPoint(meal.place),
       placeType: 'restaurant',
       queryPrefix: 'Restaurant',
+      contextLabels,
     });
   }
 
@@ -685,12 +733,12 @@ export function buildDayRouteAtlas(atlas: TripRouteAtlas | undefined, day: Day):
   return buildAtlasFromSelection(atlas, [...selected].sort((a, b) => a - b), dayNumber);
 }
 
-export function buildDayMapDataByNumber(routeAtlas: TripRouteAtlas | undefined, days: Day[]): Record<number, DayMapData> {
+export function buildDayMapDataByNumber(routeAtlas: TripRouteAtlas | undefined, days: Day[], contextLabels: string[] = []): Record<number, DayMapData> {
   const mapData: Record<number, DayMapData> = {};
 
   days.forEach((day, index) => {
     const dayRouteAtlas = buildDayRouteAtlas(routeAtlas, day);
-    const searchTargets = buildDayMapSearchTargets(day, dayRouteAtlas ?? routeAtlas, days[index - 1]);
+    const searchTargets = buildDayMapSearchTargets(day, dayRouteAtlas ?? routeAtlas, days[index - 1], contextLabels);
     const searchTargetAtlas = buildAtlasFromSearchTargets(searchTargets, day.day_number);
     const atlas = searchTargetAtlas ?? dayRouteAtlas;
     mapData[day.day_number] = {

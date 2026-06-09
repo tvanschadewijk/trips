@@ -199,6 +199,16 @@
   transform: none;
 }
 
+.login-btn-local {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.login-btn-local:hover {
+  border-color: var(--accent-deep);
+  background: var(--accent-deep);
+}
+
 .login-btn-google:focus-visible,
 .login-logo:focus-visible {
   outline: none;

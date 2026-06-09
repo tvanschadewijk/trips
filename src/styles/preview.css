@@ -136,9 +136,19 @@
   position: relative;
   isolation: isolate;
   touch-action: pan-y;
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.trip-app button,
+.trip-app .nav-bar,
+.trip-app .date-strip,
+.trip-app .trip-bottom-drawer,
+.trip-app .trip-card,
+.trip-app .confirm-overlay {
   -webkit-user-select: none;
   user-select: none;
-  -webkit-tap-highlight-color: transparent;
 }
 
 /* ============================================
@@ -795,7 +805,7 @@
 }
 .todo-check { display: flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--color-border-strong); flex-shrink: 0; font-size: 13px; color: transparent; transition: background var(--motion-fast) var(--ease-standard), border-color var(--motion-fast) var(--ease-standard), color var(--motion-fast) var(--ease-standard), transform var(--motion-fast) var(--ease-standard); pointer-events: none; }
 .todo-check.done { border-color: var(--color-success); background: var(--color-success); color: #FBF7F1; }
-.todo-item.todo-interactive { cursor: pointer; -webkit-tap-highlight-color: transparent; user-select: none; padding: 10px 12px; margin: 0 -12px; border-radius: 4px; transition: background 0.15s; border-bottom: none; }
+.todo-item.todo-interactive { cursor: pointer; -webkit-tap-highlight-color: transparent; -webkit-user-select: text; user-select: text; padding: 10px 12px; margin: 0 -12px; border-radius: 4px; transition: background 0.15s; border-bottom: none; }
 .todo-item.todo-interactive:active { background: var(--color-surface-deep); }
 .todo-status { flex-shrink: 0; font-size: 11px; text-transform: lowercase; }
 @media (hover: hover) { .todo-item.todo-interactive:hover { background: var(--color-surface-deep); } }

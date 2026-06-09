@@ -19,6 +19,10 @@ import {
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { normalizeTripData } from '@/lib/trip-data-normalize';
+import {
+  getLocalPreviewTrips,
+  isLocalPreviewWithoutSupabase,
+} from '@/lib/local-preview';
 import type { TripData } from '@/lib/types';
 import { getTripOverviewImageUrl } from '@/lib/trip-images';
 import { useSavedTripIds } from '@/lib/offline';
@@ -113,15 +117,20 @@ export default function DashboardPage() {
   ].filter(s => s.trips.length > 0);
 
   const loadTrips = useCallback(async () => {
+    if (isLocalPreviewWithoutSupabase()) {
+      const localTrips = getLocalPreviewTrips();
+      setTrips(localTrips);
+      setEmail('local-preview@example.com');
+      sessionStorage.setItem('dash-email', 'local-preview@example.com');
+      sessionStorage.setItem('dash-trips', JSON.stringify(localTrips));
+      setLoading(false);
+      return;
+    }
+
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
-      if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
-        setEmail('demo@example.com');
-        setLoading(false);
-        return;
-      }
       router.push('/login');
       return;
     }
@@ -213,6 +222,13 @@ export default function DashboardPage() {
   }
 
   async function handleSignOut() {
+    if (isLocalPreviewWithoutSupabase()) {
+      sessionStorage.removeItem('dash-email');
+      sessionStorage.removeItem('dash-trips');
+      router.push('/');
+      return;
+    }
+
     const supabase = createClient();
     await supabase.auth.signOut();
     router.push('/');
@@ -225,6 +241,7 @@ export default function DashboardPage() {
     const updated = trips.map(t => t.id === tripId ? { ...t, share_mode: next } : t);
     setTrips(updated);
     sessionStorage.setItem('dash-trips', JSON.stringify(updated));
+    if (isLocalPreviewWithoutSupabase()) return;
 
     const res = await fetch(`/api/trips/${tripId}/share-mode`, {
       method: 'POST',
@@ -241,6 +258,15 @@ export default function DashboardPage() {
 
   async function handleDelete(tripId: string) {
     setDeleting(true);
+    if (isLocalPreviewWithoutSupabase()) {
+      const updated = trips.filter(t => t.id !== tripId);
+      setTrips(updated);
+      sessionStorage.setItem('dash-trips', JSON.stringify(updated));
+      setDeleting(false);
+      setDeleteConfirm(null);
+      return;
+    }
+
     const supabase = createClient();
     const { error } = await supabase.from('trips').delete().eq('id', tripId);
     if (!error) {
@@ -295,7 +321,10 @@ export default function DashboardPage() {
     <div className="dash">
       <nav className="dash-nav">
         <div className="dash-nav-inner">
-          <Link href="/" className="dash-logo">OurTrips<span className="logo-to">.To</span> <span className="logo-suffix">{personalTrips.length > 0 ? `${personalTrips[0].name}${personalTrips.length > 1 ? ` and ${personalTrips.length - 1} more` : ''}` : '?'}</span></Link>
+          <Link href="/" className="dash-logo" aria-label="OurTrips home">
+            <span className="dash-logo-word">OurTrips<span className="logo-to">.To</span></span>
+            <span className="logo-suffix">{personalTrips.length > 0 ? `${personalTrips[0].name}${personalTrips.length > 1 ? ` and ${personalTrips.length - 1} more` : ''}` : '?'}</span>
+          </Link>
           <div className="dash-nav-right">
             <button className="dash-settings-btn" onClick={() => setSettingsOpen(!settingsOpen)} aria-label="Settings">
               <Settings size={20} aria-hidden="true" />

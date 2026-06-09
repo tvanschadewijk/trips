@@ -78,6 +78,7 @@ const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 const GOOGLE_MAPS_MAP_ID = process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID;
 const MAP_POPOVER_Z_INDEX = 1_000_000;
 const HOVER_POPUP_CLOSE_DELAY_MS = 160;
+const EMPTY_SEARCH_TARGETS: ItineraryMapPoiSearchTarget[] = [];
 const POINT_FOCUS_ZOOM = 17;
 const MIN_MAP_ZOOM = 1;
 const MAX_MAP_ZOOM = 21;
@@ -771,7 +772,7 @@ export default function ItineraryMap({
   enabled = true,
   loadingLabel = 'Loading map',
   loadingHint,
-  searchTargets = [],
+  searchTargets = EMPTY_SEARCH_TARGETS,
   focusRequest,
   viewAllRequest,
 }: ItineraryMapProps) {
@@ -780,12 +781,19 @@ export default function ItineraryMap({
   const markerControllerRef = useRef<MarkerController | null>(null);
   const handledFocusNonceRef = useRef<number | null>(null);
   const handledViewAllNonceRef = useRef<number | null>(null);
+  const searchTargetSignature = useMemo(() => JSON.stringify(searchTargets), [searchTargets]);
+  const stableSearchTargetSignatureRef = useRef(searchTargetSignature);
+  const stableSearchTargetsRef = useRef(searchTargets);
+  if (stableSearchTargetSignatureRef.current !== searchTargetSignature) {
+    stableSearchTargetSignatureRef.current = searchTargetSignature;
+    stableSearchTargetsRef.current = searchTargets;
+  }
+  const stableSearchTargets = stableSearchTargetsRef.current;
   const [ready, setReady] = useState(false);
   const [failed, setFailed] = useState(false);
   const [currentZoom, setCurrentZoom] = useState<number | null>(null);
-  const [searchComplete, setSearchComplete] = useState(searchTargets.length === 0);
+  const [searchComplete, setSearchComplete] = useState(stableSearchTargets.length === 0);
   const [resolvedSearchTargets, setResolvedSearchTargets] = useState<ResolvedSearchTarget[]>([]);
-  const searchTargetSignature = useMemo(() => JSON.stringify(searchTargets), [searchTargets]);
   const resolvedSearchDetails = useMemo<Record<string, ItineraryMapPointDetail>>(
     () => Object.fromEntries(resolvedSearchTargets.map((target) => [target.point.id, target.detail])),
     [resolvedSearchTargets]
@@ -797,7 +805,7 @@ export default function ItineraryMap({
   const displayPointDetails = resolvedSearchTargets.length && searchComplete ? resolvedSearchDetails : pointDetails;
   const routeSegments = useMemo(() => routeSegmentsFor(displayAtlas), [displayAtlas]);
   const points = useMemo(() => pointDataFor(displayAtlas, variant, displayPointDetails), [displayAtlas, displayPointDetails, variant]);
-  const waitingForSearch = enabled && Boolean(GOOGLE_MAPS_API_KEY) && searchTargets.length > 0 && !searchComplete;
+  const waitingForSearch = enabled && Boolean(GOOGLE_MAPS_API_KEY) && stableSearchTargets.length > 0 && !searchComplete;
   const showFallback = !GOOGLE_MAPS_API_KEY || (!waitingForSearch && displayAtlas.points.length === 0);
   const showDeferred = !enabled && !showFallback;
   const fallbackNode = fallback ? <div className="itinerary-map-fallback">{fallback}</div> : null;
@@ -823,19 +831,22 @@ export default function ItineraryMap({
 
   useEffect(() => {
     const apiKey = GOOGLE_MAPS_API_KEY;
-    if (!enabled || !apiKey || !searchTargets.length) {
-      setResolvedSearchTargets([]);
-      setSearchComplete(searchTargets.length === 0);
+    if (!enabled || !apiKey || !stableSearchTargets.length) {
+      setResolvedSearchTargets((current) => current.length ? [] : current);
+      setSearchComplete((current) => {
+        const next = stableSearchTargets.length === 0 || !apiKey;
+        return current === next ? current : next;
+      });
       return;
     }
 
     const googleMapsApiKey = apiKey;
     let cancelled = false;
-    setResolvedSearchTargets([]);
-    setSearchComplete(false);
+    setResolvedSearchTargets((current) => current.length ? [] : current);
+    setSearchComplete((current) => current ? false : current);
 
     async function loadSearchTargets() {
-      const limitedTargets = searchTargets.slice(0, 10);
+      const limitedTargets = stableSearchTargets.slice(0, 10);
       const resolved = await Promise.all(
         limitedTargets.map(async (target, index) => (
           await resolveSearchTarget(target, googleMapsApiKey)
@@ -851,7 +862,7 @@ export default function ItineraryMap({
     return () => {
       cancelled = true;
     };
-  }, [enabled, searchTargetSignature, searchTargets]);
+  }, [enabled, searchTargetSignature, stableSearchTargets]);
 
   useEffect(() => {
     setReady(false);

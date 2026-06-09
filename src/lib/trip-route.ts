@@ -48,6 +48,7 @@ interface CandidatePoint {
 const GAZETTEER: GazetteerEntry[] = [
   { label: 'Amsterdam', lat: 52.3676, lng: 4.9041, aliases: ['amsterdam', 'amsterdam centraal'], role: 'home' },
   { label: 'London', lat: 51.5072, lng: -0.1276, aliases: ['london', 'london st pancras', 'st pancras'] },
+  { label: 'Antwerp', lat: 51.2194, lng: 4.4025, aliases: ['antwerp', 'antwerpen', 'antwerp centraal', 'antwerp central', 'antwerp-centraal', 'antwerpen centraal', 'antwerpen-centraal'] },
   { label: 'Glasgow', lat: 55.8642, lng: -4.2518, aliases: ['glasgow'] },
   { label: 'Milngavie', lat: 55.941, lng: -4.314, aliases: ['milngavie'] },
   { label: 'Balmaha', lat: 56.083, lng: -4.539, aliases: ['balmaha'] },
