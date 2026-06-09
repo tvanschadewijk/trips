@@ -3,7 +3,7 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import type { ReactNode } from 'react';
 import { flushSync } from 'react-dom';
-import type { TripData, Day, Transport, Accommodation, Tip, Meal, Block, RichDetail } from '@/lib/types';
+import type { TripData, Day, Transport, Accommodation, Tip, Meal, Block, RichDetail, Service } from '@/lib/types';
 import { TripIcon as Icon } from './icons';
 import SaveOfflineButton from './SaveOfflineButton';
 import TripRouteAtlas from './TripRouteAtlas';
@@ -219,8 +219,12 @@ function accommodationStatusLabel(accommodation: Accommodation): string {
   return accommodation.status?.trim() || 'pending';
 }
 
-type TodoItemType = 'transport' | 'accommodation';
+type TodoItemType = 'transport' | 'accommodation' | 'meal';
 type TodoItemStatus = 'booked' | 'open';
+
+function todoBookingStatus(item: { booking_status?: string; status?: string }): string {
+  return trimDisplayText(item.booking_status) || trimDisplayText(item.status);
+}
 
 function isTodoDoneStatus(status: string | undefined): boolean {
   const normalized = status?.trim().toLowerCase();
@@ -229,6 +233,15 @@ function isTodoDoneStatus(status: string | undefined): boolean {
 
 function todoStatusFromDone(done: boolean): TodoItemStatus {
   return done ? 'booked' : 'open';
+}
+
+function todoStatusFromItem(item: { booking_status?: string; status?: string }): TodoItemStatus {
+  return todoStatusFromDone(isTodoDoneStatus(todoBookingStatus(item)));
+}
+
+function isNoActionBookingStatus(status: string | undefined): boolean {
+  const normalized = status?.trim().toLowerCase();
+  return normalized === 'not_required' || normalized === 'not required' || normalized === 'optional' || normalized === 'none' || normalized === 'n/a';
 }
 
 function isPlaceholderAccommodationName(value: string): boolean {
@@ -258,6 +271,106 @@ function accommodationTodoKey(day: Day, accommodation: Accommodation): string {
     return `hotel:${normalizeMapFocusLabel(name)}:${normalizeMapFocusLabel(checkIn)}:${normalizeMapFocusLabel(checkOut)}`;
   }
   return `day:${day.day_number}`;
+}
+
+function mealReservationText(meal: Meal): string {
+  return [
+    meal.detail?.reservation,
+    meal.detail?.booking_note,
+    meal.detail?.practical,
+    meal.note,
+  ].map(trimDisplayText).filter(Boolean).join(' · ');
+}
+
+function isMealReservationAction(meal: Meal): boolean {
+  const bookingStatus = trimDisplayText(meal.booking_status);
+  const legacyStatus = trimDisplayText(meal.status);
+  const status = bookingStatus || legacyStatus;
+  const reservationText = mealReservationText(meal);
+  if (isNoActionBookingStatus(status)) return false;
+  if (meal.reservation_required) return true;
+  if (/\b(?:reserv|book|pre-?book|table|advance|ahead|before|confirm|required|essential|recommended|vooraf|van tevoren)\b/i.test(reservationText)) return true;
+  if (bookingStatus && meal.reservation_required !== false) return true;
+
+  return isTodoDoneStatus(legacyStatus) && Boolean(reservationText);
+}
+
+function mealTodoLabel(meal: Meal): string {
+  const name = trimDisplayText(meal.name) || trimDisplayText(meal.place?.name) || 'restaurant';
+  return `Reserve ${name}`;
+}
+
+function mealTodoDetail(day: Day, meal: Meal): string {
+  const mealType = trimDisplayText(meal.type) || 'meal';
+  const reservation = mealReservationText(meal);
+  return [`Day ${day.day_number}`, mealType, reservation].filter(Boolean).join(' · ');
+}
+
+function hasSelectedTextWithin(element: HTMLElement): boolean {
+  const selection = window.getSelection();
+  if (!selection || selection.isCollapsed || !selection.toString().trim()) return false;
+  return Boolean(
+    (selection.anchorNode && element.contains(selection.anchorNode)) ||
+    (selection.focusNode && element.contains(selection.focusNode))
+  );
+}
+
+function normalizeServiceText(value: unknown): string {
+  return normalizeMapFocusLabel(trimDisplayText(value));
+}
+
+function isMealReservationService(service: Service, day: Day): boolean {
+  const serviceText = normalizeServiceText([
+    service.type,
+    service.label,
+    service.provider,
+  ].filter(Boolean).join(' '));
+  const legText = normalizeServiceText((service.legs ?? []).map((leg) => leg.route).join(' '));
+  const mealNames = (day.meals ?? [])
+    .map((meal) => normalizeServiceText(meal.place?.name || meal.name))
+    .filter(Boolean);
+  const mentionsDayMeal = mealNames.some((mealName) => serviceText.includes(mealName) || legText.includes(mealName));
+  const hasMealWords = /\b(?:restaurant|restaurants|dining|meal|meals|breakfast|brunch|lunch|dinner)\b/.test(serviceText);
+  const hasReservationWords = /\b(?:reservation|reservations|booking|bookings)\b/.test(serviceText);
+
+  return hasMealWords || (hasReservationWords && mentionsDayMeal) || mentionsDayMeal;
+}
+
+function displayableTips(tips: Tip[] | undefined): Tip[] {
+  return (tips ?? []).filter((tip) => trimDisplayText(tip.content));
+}
+
+function tipDisplayTitle(tip: Tip): string {
+  return trimDisplayText(tip.title) || 'Tip';
+}
+
+function mealDisplayName(meal: Meal): string {
+  return trimDisplayText(meal.name) || trimDisplayText(meal.place?.name);
+}
+
+function mealHasDetail(meal: Meal): boolean {
+  if (!meal.detail) return false;
+  return Boolean(
+    renderRichDetail(meal.detail) ||
+      trimDisplayText(meal.detail.address) ||
+      trimDisplayText(meal.detail.phone) ||
+      trimDisplayText(meal.detail.cuisine) ||
+      trimDisplayText(meal.detail.price_range) ||
+      trimDisplayText(meal.detail.reservation) ||
+      trimDisplayText(meal.detail.hours) ||
+      trimDisplayText(meal.detail.note)
+  );
+}
+
+function displayableMeals(meals: Meal[] | undefined): Meal[] {
+  return (meals ?? []).filter((meal) => (
+    mealDisplayName(meal) ||
+    trimDisplayText(meal.note) ||
+    trimDisplayText(meal.detail?.body) ||
+    trimDisplayText(meal.detail?.why) ||
+    trimDisplayText(meal.detail?.booking_note) ||
+    mealHasDetail(meal)
+  ));
 }
 
 type TodayPlanItem = {
@@ -365,7 +478,9 @@ function buildTodayPlan(day: Day): TodayPlan {
     });
   }
 
-  for (const [index, meal] of (day.meals ?? []).entries()) {
+  const visibleMeals = displayableMeals(day.meals);
+
+  for (const [index, meal] of visibleMeals.entries()) {
     const minute = firstTimeMinute(meal.starts_at) ?? firstTimeMinute(meal.detail?.reservation) ?? mealFallbackMinute(meal);
     items.push({
       key: `meal-${index}`,
@@ -396,14 +511,14 @@ function buildTodayPlan(day: Day): TodayPlan {
 
   const accommodation = day.accommodation;
   const firstTransport = day.transport?.[0];
-  const firstMeal = day.meals?.[0];
+  const firstMeal = visibleMeals[0];
 
   let openActionCount = 0;
   for (const transport of day.transport ?? []) {
     if (isOpenPlanStatus(transport.booking_status ?? transport.status)) openActionCount += 1;
   }
   if (day.accommodation && !isTodoDoneStatus(day.accommodation.booking_status ?? day.accommodation.status)) openActionCount += 1;
-  for (const meal of day.meals ?? []) {
+  for (const meal of visibleMeals) {
     if (meal.reservation_required && !isTodoDoneStatus(meal.booking_status ?? meal.status)) openActionCount += 1;
   }
 
@@ -577,8 +692,12 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
   }, [isDesktopPreview]);
 
   const dayMapDataByNumber = useMemo(
-    () => buildDayMapDataByNumber(routeAtlas, days),
-    [routeAtlas, days]
+    () => buildDayMapDataByNumber(
+      routeAtlas,
+      days,
+      [trip?.name, trip?.subtitle, trip?.summary].map(trimDisplayText).filter(Boolean)
+    ),
+    [routeAtlas, days, trip?.name, trip?.subtitle, trip?.summary]
   );
 
   const focusDayMapPoi = useCallback((dayNumber: number, target: { id?: string; label?: string }) => {
@@ -1092,16 +1211,19 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     }
     if (type === 'tip') {
       const tip = item as Tip;
+      const content = trimDisplayText(tip.content);
+      if (!content) return;
       showDetail({
-        title: tip.title,
-        html: `<div class="detail-tip-body"><p class="detail-tip-text">${escapeHtml(tip.content)}</p></div>`
+        title: tipDisplayTitle(tip),
+        html: `<div class="detail-tip-body"><p class="detail-tip-text">${escapeHtml(content)}</p></div>`
       });
       return;
     }
     if (type === 'meal') {
       const m = item as Meal;
-      if (!m.detail) return;
+      if (!mealHasDetail(m)) return;
       const d = m.detail;
+      if (!d) return;
       const detailForRender = {
         ...d,
         body: d.body || m.note,
@@ -1222,6 +1344,10 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
 
       if (itemType === 'transport' && day.transport?.[itemIndex]) {
         day.transport[itemIndex].status = status;
+        day.transport[itemIndex].booking_status = status;
+      } else if (itemType === 'meal' && day.meals?.[itemIndex]) {
+        day.meals[itemIndex].status = status;
+        day.meals[itemIndex].booking_status = status;
       } else if (itemType === 'accommodation' && day.accommodation) {
         const rawAccommodationName = trimDisplayText(day.accommodation.name);
         const accommodationName = rawAccommodationName && !isPlaceholderAccommodationName(rawAccommodationName)
@@ -1234,6 +1360,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
             : tripDay.day_number === dayNumber;
           if (sameStay) {
             tripDay.accommodation.status = status;
+            tripDay.accommodation.booking_status = status;
           }
         }
       }
@@ -1340,7 +1467,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
       const nowDone = !wasDone;
       const nextStatus = todoStatusFromDone(nowDone);
 
-      if (itemType !== 'transport' && itemType !== 'accommodation') return;
+      if (itemType !== 'transport' && itemType !== 'accommodation' && itemType !== 'meal') return;
 
       row.dataset.pending = 'true';
       row.setAttribute('aria-disabled', 'true');
@@ -1362,6 +1489,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
       const target = e.target instanceof Element ? e.target : null;
       const row = target?.closest('.todo-item.todo-interactive') as HTMLElement | null;
       if (!row) return;
+      if (hasSelectedTextWithin(row)) return;
       toggleTodoRow(row);
     };
 
@@ -1651,19 +1779,20 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     const seenAccommodationTodos = new Set<string>();
 
     for (const d of days) {
-      // Transport bookings and hotel bookings. Restaurant reservations stay out of this checklist.
+      // Transport, stays, and reservable meals all belong in the readiness list.
       if (d.transport?.length) {
         for (let i = 0; i < d.transport.length; i++) {
           const t = d.transport[i];
-          if (!t.status) continue;
-          const done = isTodoDoneStatus(t.status);
+          const statusValue = todoBookingStatus(t);
+          if (!statusValue && !t.reservation_required) continue;
+          const done = isTodoDoneStatus(statusValue);
           const routeLabel = [trimDisplayText(t.from), trimDisplayText(t.to)].filter(Boolean).join(' → ');
           const mode = trimDisplayText(t.mode) || 'transport';
           todoItems.push({
             label: trimDisplayText(t.label) || routeLabel || 'Transport booking',
             detail: `Day ${d.day_number} · ${mode}`,
             done,
-            status: todoStatusFromDone(done),
+            status: todoStatusFromItem(t),
             dayNumber: d.day_number,
             itemType: 'transport',
             itemIndex: i,
@@ -1675,7 +1804,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
         const key = accommodationTodoKey(d, d.accommodation);
         if (!seenAccommodationTodos.has(key)) {
           seenAccommodationTodos.add(key);
-          const done = isTodoDoneStatus(d.accommodation.status);
+          const done = isTodoDoneStatus(todoBookingStatus(d.accommodation));
           const nights = d.accommodation.nights
             ? ` · ${d.accommodation.nights} ${d.accommodation.nights === 1 ? 'night' : 'nights'}`
             : '';
@@ -1683,10 +1812,27 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
             label: accommodationTodoLabel(d, d.accommodation),
             detail: `Day ${d.day_number} · hotel${nights}`,
             done,
-            status: todoStatusFromDone(done),
+            status: todoStatusFromItem(d.accommodation),
             dayNumber: d.day_number,
             itemType: 'accommodation',
             itemIndex: 0,
+          });
+        }
+      }
+
+      if (d.meals?.length) {
+        for (let i = 0; i < d.meals.length; i++) {
+          const meal = d.meals[i];
+          if (!isMealReservationAction(meal)) continue;
+          const done = isTodoDoneStatus(todoBookingStatus(meal));
+          todoItems.push({
+            label: mealTodoLabel(meal),
+            detail: mealTodoDetail(d, meal),
+            done,
+            status: todoStatusFromItem(meal),
+            dayNumber: d.day_number,
+            itemType: 'meal',
+            itemIndex: i,
           });
         }
       }
@@ -1800,7 +1946,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
                   <ItineraryMap
                     atlas={routeAtlas}
                     title={`${trip.name} itinerary map`}
-                    variant="day"
+                    variant="overview-card"
                     interactive
                     pointDetails={routePointDetails}
                     showLines={false}
@@ -2041,6 +2187,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     ) : heroSection;
 
     const displayBlocks = (day.blocks ?? []).map(getDisplayableBlock).filter((block) => block !== null);
+    const visibleMeals = displayableMeals(day.meals);
 
     const renderBriefDetailButton = (label: string, onClick: () => void) => (
       <button
@@ -2356,9 +2503,9 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
       );
     })() : null;
 
-    const mealCard = day.meals?.length ? (() => {
-      const mealLabel = day.meals.length === 1
-        ? trimDisplayText(day.meals[0].type).replace(/^\w/, (char) => char.toUpperCase()) || 'Dinner'
+    const mealCard = visibleMeals.length ? (() => {
+      const mealLabel = visibleMeals.length === 1
+        ? trimDisplayText(visibleMeals[0].type).replace(/^\w/, (char) => char.toUpperCase()) || 'Dining'
         : 'Dining';
       return (
         <article className="day-brief-detail-card">
@@ -2367,32 +2514,35 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
               <span className="day-brief-card-icon"><Icon name="fork" /></span>
               <span>{mealLabel}</span>
             </div>
-            {day.meals.length === 1 && day.meals[0].status ? (
-              <span className={`text-status status-badge day-brief-status status-${day.meals[0].status}`}>
-                {day.meals[0].status}
+            {visibleMeals.length === 1 && visibleMeals[0].status ? (
+              <span className={`text-status status-badge day-brief-status status-${visibleMeals[0].status}`}>
+                {visibleMeals[0].status}
               </span>
             ) : null}
           </div>
           <div className="day-brief-meal-list">
-            {day.meals.map((m, i) => (
-              <div key={i} className="day-brief-meal-entry">
-                {day.meals!.length > 1 && m.type ? (
-                  <div className="day-brief-meal-type">{m.type}</div>
-                ) : null}
-                <h3 className="day-brief-card-title">
-                  {renderBriefPlace(trimDisplayText(m.name) || 'Restaurant', m.name, 'day-brief-card-place')}
-                </h3>
-                {m.note && <p className="day-brief-card-copy">{m.note}</p>}
-                <div className="day-brief-card-actions">
-                  {day.meals!.length > 1 && m.status ? (
-                    <span className={`text-status status-badge day-brief-status status-${m.status}`}>
-                      {m.status}
-                    </span>
+            {visibleMeals.map((m, i) => {
+              const mealName = mealDisplayName(m) || trimDisplayText(m.note) || 'Meal';
+              return (
+                <div key={i} className="day-brief-meal-entry">
+                  {visibleMeals.length > 1 && m.type ? (
+                    <div className="day-brief-meal-type">{m.type}</div>
                   ) : null}
-                  {m.detail && renderBriefCardAction('Meal details', () => openDetail('meal', m))}
+                  <h3 className="day-brief-card-title">
+                    {renderBriefPlace(mealName, mealDisplayName(m), 'day-brief-card-place')}
+                  </h3>
+                  {m.note && <p className="day-brief-card-copy">{m.note}</p>}
+                  <div className="day-brief-card-actions">
+                    {visibleMeals.length > 1 && m.status ? (
+                      <span className={`text-status status-badge day-brief-status status-${m.status}`}>
+                        {m.status}
+                      </span>
+                    ) : null}
+                    {mealHasDetail(m) && renderBriefCardAction('Meal details', () => openDetail('meal', m))}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </article>
       );
@@ -2463,7 +2613,10 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
         }
       }
 
-      const dayServices = trip.services.filter(s => s.legs?.some(l => l.date === day.date));
+      const dayServices = trip.services.filter(s => (
+        s.legs?.some(l => l.date === day.date) &&
+        !isMealReservationService(s, day)
+      ));
       if (dayServices.length) {
         servicesSection = dayServices.map((svc, si) => {
           // Filter out legs that already appear in the transport section
@@ -2501,19 +2654,20 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
       }
     }
 
-    const tipsSection = day.tips?.length ? (
+    const visibleTips = displayableTips(day.tips);
+    const tipsSection = visibleTips.length ? (
       <div className="day-section tips-section">
         <div className="day-section-title">
           <span className="text-section-title"><span className="section-icon"><Icon name="info" /></span>Tips</span>
         </div>
-        {day.tips.map((tip, i) => (
+        {visibleTips.map((tip, i) => (
           <div key={i} className={`tip-row ${tip.priority === 'high' ? 'tip-high' : ''}`}
             onClick={() => openDetail('tip', tip)}>
             <div className="tip-icon-wrap">
               <Icon name={tip.icon || 'info'} />
             </div>
             <div className="tip-content">
-              <h3 className="day-card-title tip-title">{tip.title}</h3>
+              <h3 className="day-card-title tip-title">{tipDisplayTitle(tip)}</h3>
             </div>
             <div className="tip-chevron">
               <Icon name="chevron" />

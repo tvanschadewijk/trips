@@ -108,6 +108,8 @@ export interface RecordUsageArgs extends HookContext {
   };
   total_cost_usd?: number;
   duration_ms?: number;
+  /** Raw failure detail when the turn errored (see turn-failure.ts). */
+  error_detail?: string;
 }
 
 export async function recordTurnUsage(args: RecordUsageArgs): Promise<void> {
@@ -126,6 +128,7 @@ export async function recordTurnUsage(args: RecordUsageArgs): Promise<void> {
       total_cost_usd: args.total_cost_usd ?? null,
       duration_ms: args.duration_ms ?? null,
       num_tool_calls: args.toolCallCounter.count,
+      error_detail: args.error_detail?.slice(0, 2000) ?? null,
     });
   } catch (err) {
     // Usage logging is advisory — a failure here must not fail the route.

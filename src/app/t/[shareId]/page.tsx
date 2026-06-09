@@ -4,8 +4,12 @@ import TripPreview from '@/components/preview/TripPreview';
 import TripChatPanel from '@/components/chat/TripChatPanel';
 import { createClient } from '@/lib/supabase/server';
 import { normalizeTripData } from '@/lib/trip-data-normalize';
-import { loadChatHistory } from '@/lib/trip-chat/history';
+import { loadInitialChatBundle, type InitialChatBundle } from '@/lib/trip-chat/history';
 import { scrubTripData, stripPrivateTravelWalletData } from '@/lib/scrub-trip';
+import {
+  getLocalPreviewTripByShareId,
+  isLocalPreviewWithoutSupabase,
+} from '@/lib/local-preview';
 import {
   getPublicItineraryByShareId,
   isPublicItineraryShareId,
@@ -19,6 +23,18 @@ interface Props {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { shareId } = await params;
   const publicItinerary = getPublicItineraryByShareId(shareId);
+  if (isLocalPreviewWithoutSupabase()) {
+    const localTrip = getLocalPreviewTripByShareId(shareId);
+    if (localTrip) {
+      const trip = localTrip.data.trip;
+      return {
+        title: `${trip.name} — OurTrips`,
+        description: trip.subtitle || trip.summary || 'A local preview itinerary on OurTrips.',
+        robots: { index: false, follow: false },
+      };
+    }
+  }
+
   try {
     const supabase = await createClient();
     const { data } = await supabase
@@ -66,6 +82,18 @@ async function fetchTripAndViewer(shareId: string): Promise<{
   shareMode: 'companion' | 'remix';
 } | null> {
   try {
+    if (isLocalPreviewWithoutSupabase()) {
+      const localTrip = getLocalPreviewTripByShareId(shareId);
+      if (!localTrip) return null;
+      return {
+        tripData: localTrip.data,
+        tripId: localTrip.id,
+        isOwner: true,
+        viewerUserId: null,
+        shareMode: localTrip.share_mode === 'remix' ? 'remix' : 'companion',
+      };
+    }
+
     const supabase = await createClient();
     const { data, error } = await supabase
       .from('trips')
@@ -115,6 +143,7 @@ export default async function TripPage({ params }: Props) {
 
   const result = await fetchTripAndViewer(shareId);
   const isPublicSample = isPublicItineraryShareId(shareId);
+  const isLocalPreview = isLocalPreviewWithoutSupabase() && Boolean(getLocalPreviewTripByShareId(shareId));
 
   if (!result) {
     notFound();
@@ -123,9 +152,9 @@ export default async function TripPage({ params }: Props) {
   // Only the trip owner can edit through chat. Shared-trip viewers need
   // to add the trip to their own account first, then edit their copy.
   const canEditViaChat = !isPublicSample && result.isOwner && !!result.viewerUserId;
-  let initialChatMessages: Awaited<ReturnType<typeof loadChatHistory>> = [];
+  let initialChat: InitialChatBundle = { threads: [], activeThreadId: null, messages: [] };
   if (canEditViaChat && result.viewerUserId) {
-    initialChatMessages = await loadChatHistory(result.tripId, result.viewerUserId);
+    initialChat = await loadInitialChatBundle(result.tripId, result.viewerUserId);
   }
 
   return (
@@ -134,13 +163,18 @@ export default async function TripPage({ params }: Props) {
         trips={[result.tripData]}
         autoOpen
         shareId={shareId}
-        canAddToTrips={isPublicSample || !result.isOwner}
+        canAddToTrips={!isLocalPreview && (isPublicSample || !result.isOwner)}
         shareMode={result.shareMode}
-        tripId={!isPublicSample && result.isOwner ? result.tripId : undefined}
-        homeHref={result.viewerUserId ? '/dashboard' : '/'}
+        tripId={!isLocalPreview && !isPublicSample && result.isOwner ? result.tripId : undefined}
+        homeHref={isLocalPreview || result.viewerUserId ? '/dashboard' : '/'}
       />
       {canEditViaChat && (
-        <TripChatPanel tripId={result.tripId} initialMessages={initialChatMessages} />
+        <TripChatPanel
+          tripId={result.tripId}
+          initialThreads={initialChat.threads}
+          initialThreadId={initialChat.activeThreadId}
+          initialMessages={initialChat.messages}
+        />
       )}
     </>
   );

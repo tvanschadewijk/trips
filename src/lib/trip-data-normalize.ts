@@ -1,4 +1,4 @@
-import type { Accommodation, Block, Day, Meal, Transport, TripData, TripMeta } from './types';
+import type { Accommodation, Block, Day, Meal, Tip, Transport, TripData, TripMeta } from './types';
 
 type UnknownRecord = Record<string, unknown>;
 
@@ -101,6 +101,26 @@ function normalizeMeals(value: unknown): Meal[] | undefined {
   return meals.length ? meals : undefined;
 }
 
+function normalizeTips(value: unknown): Tip[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+
+  const tips = value
+    .filter(isRecord)
+    .map((tip) => {
+      const content = text(tip.content) || text(tip.body) || text(tip.note);
+      const title = text(tip.title) || text(tip.label) || (content ? 'Tip' : '');
+      return {
+        ...tip,
+        icon: text(tip.icon) || 'info',
+        title,
+        content,
+      } as Tip;
+    })
+    .filter((tip) => tip.title || tip.content);
+
+  return tips.length ? tips : undefined;
+}
+
 function normalizeAccommodation(value: unknown): Accommodation | null | undefined {
   if (value === null) return null;
 
@@ -155,6 +175,10 @@ function normalizeDay(value: UnknownRecord, index: number): Day {
   const transport = normalizeTransport(value.transport);
   if (transport !== undefined) day.transport = transport;
   else delete day.transport;
+
+  const tips = normalizeTips(value.tips);
+  if (tips !== undefined) day.tips = tips;
+  else delete day.tips;
 
   return day as unknown as Day;
 }

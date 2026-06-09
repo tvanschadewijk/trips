@@ -4,6 +4,8 @@
  */
 import { createAdminClient } from '@/lib/supabase/admin';
 import type { ToolCallSummary } from './prompt';
+import { listThreads } from './threads';
+import type { ChatThreadSummary } from './thread-utils';
 
 export interface UiChatMessage {
   id: string;
@@ -12,6 +14,16 @@ export interface UiChatMessage {
   content: string;
   tool_calls_json: ToolCallSummary[] | null;
   created_at: string;
+}
+
+export interface InitialChatBundle {
+  threads: ChatThreadSummary[];
+  /** Newest thread, if any. The client decides at open time whether it is
+   *  stale (>24h idle) and should be left in the sidebar in favor of a
+   *  fresh conversation. */
+  activeThreadId: string | null;
+  /** Messages of the newest thread, oldest→newest. */
+  messages: UiChatMessage[];
 }
 
 /**
@@ -29,36 +41,31 @@ export async function checkIsAdmin(userId: string): Promise<boolean> {
 }
 
 /**
- * Load the last N messages for a (trip, user) chat session. Returns empty
- * array if no session exists yet. Ordered oldest→newest for rendering.
+ * Initial payload for the chat panel: thread list (newest first) plus the
+ * newest thread's messages. Replaces the pre-thread single-session
+ * `loadChatHistory`.
  */
-export async function loadChatHistory(
+export async function loadInitialChatBundle(
   tripId: string,
   userId: string,
   limit: number = 50
-): Promise<UiChatMessage[]> {
+): Promise<InitialChatBundle> {
   const admin = createAdminClient();
-  const { data: session } = await admin
-    .from('trip_chat_sessions')
-    .select('id')
-    .eq('trip_id', tripId)
-    .eq('user_id', userId)
-    .maybeSingle();
-  if (!session) return [];
+  const threads = await listThreads(admin, { tripId, userId });
+  if (threads.length === 0) {
+    return { threads: [], activeThreadId: null, messages: [] };
+  }
 
-  // Fetch the last N turns (= ~2N rows), then sort oldest→newest within a turn
-  // rendering user before assistant regardless of alphabetical order.
+  const newest = threads[0];
   const { data: rows } = await admin
     .from('trip_chat_messages')
     .select('id, turn_index, role, content, tool_calls_json, created_at')
-    .eq('session_id', session.id)
+    .eq('session_id', newest.id)
     .order('turn_index', { ascending: false })
     .limit(limit * 2);
 
-  if (!rows) return [];
-
   const roleOrder: Record<string, number> = { user: 0, assistant: 1 };
-  return rows
+  const messages = (rows ?? [])
     .sort((a, b) =>
       a.turn_index === b.turn_index
         ? roleOrder[a.role] - roleOrder[b.role]
@@ -72,4 +79,6 @@ export async function loadChatHistory(
       tool_calls_json: (r.tool_calls_json ?? null) as ToolCallSummary[] | null,
       created_at: r.created_at,
     }));
+
+  return { threads, activeThreadId: newest.id, messages };
 }

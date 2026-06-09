@@ -1,0 +1,270 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1220" height="1280" viewBox="0 0 1220 1280">
+  <defs>
+    <filter id="paperLift" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="1" stdDeviation="0" flood-color="#1A1410" flood-opacity="0.04"/>
+      <feDropShadow dx="0" dy="12" stdDeviation="18" flood-color="#1A1410" flood-opacity="0.08"/>
+    </filter>
+    <style>
+      .page-title {
+        font-family: "Fraunces", "Iowan Old Style", Georgia, serif;
+        font-size: 38px;
+        font-weight: 420;
+        letter-spacing: -0.012em;
+        fill: #1A1410;
+      }
+      .page-subtitle,
+      .note {
+        font-family: "Inter Variable", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        fill: #6B6157;
+      }
+      .page-subtitle {
+        font-size: 15px;
+        font-weight: 430;
+        line-height: 1.5;
+      }
+      .rail-label {
+        font-family: "Inter Variable", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        font-size: 11px;
+        font-weight: 620;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        fill: #C14F2A;
+      }
+      .card {
+        fill: #fffdf9;
+        stroke: rgba(26, 20, 16, 0.06);
+        stroke-width: 1;
+        filter: url(#paperLift);
+      }
+      .rule {
+        stroke: #E8E1D6;
+        stroke-width: 1;
+      }
+      .icon-stroke {
+        fill: none;
+        stroke: #C14F2A;
+        stroke-width: 1.9;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      .section-overline {
+        font-family: "Inter Variable", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        font-size: 11px;
+        font-weight: 620;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        fill: #1A1410;
+      }
+      .inline-label {
+        font-family: "Inter Variable", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        font-size: 13px;
+        font-weight: 620;
+        fill: #1A1410;
+      }
+      .item-title {
+        font-family: "Inter Variable", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        font-size: 18px;
+        font-weight: 620;
+        letter-spacing: 0;
+        fill: #1A1410;
+      }
+      .body-copy {
+        font-family: "Inter Variable", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        font-size: 14.5px;
+        font-weight: 430;
+        fill: #3D352E;
+      }
+      .meta-copy {
+        font-family: "Inter Variable", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        font-size: 12.5px;
+        font-weight: 500;
+        fill: #6B6157;
+      }
+      .action-copy {
+        font-family: "Inter Variable", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        font-size: 12px;
+        font-weight: 620;
+        fill: #A03E1F;
+      }
+      .status-copy {
+        font-family: "Inter Variable", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        font-size: 11px;
+        font-weight: 620;
+        letter-spacing: 0.08em;
+        fill: #2F6B4A;
+      }
+      .pending-copy {
+        font-family: "Inter Variable", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        font-size: 11px;
+        font-weight: 620;
+        letter-spacing: 0.08em;
+        fill: #9B4F2E;
+      }
+      .legend-title {
+        font-family: "Inter Variable", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        font-size: 13px;
+        font-weight: 620;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        fill: #1A1410;
+      }
+      .legend-heading {
+        font-family: "Inter Variable", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        font-size: 17px;
+        font-weight: 620;
+        fill: #1A1410;
+      }
+      .legend-body {
+        font-family: "Inter Variable", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        font-size: 13px;
+        font-weight: 430;
+        fill: #6B6157;
+      }
+      .small-label {
+        font-family: "Inter Variable", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        font-size: 11px;
+        font-weight: 560;
+        fill: #9B9087;
+      }
+    </style>
+  </defs>
+
+  <rect width="1220" height="1280" fill="#FBF7F1"/>
+
+  <text x="72" y="82" class="page-title">Right column typography hierarchy</text>
+  <text x="72" y="112" class="page-subtitle">Proposal for the trip day rail: quieter section labels, clearer item titles, body copy that reads instead of competes.</text>
+
+  <text x="72" y="166" class="rail-label">Proposed right rail at 500px</text>
+
+  <!-- Right rail mockup -->
+  <g transform="translate(72 188)">
+    <!-- See & Do -->
+    <rect class="card" x="0" y="0" width="500" height="174" rx="16"/>
+    <g transform="translate(20 20)">
+      <circle cx="7" cy="8" r="5.2" class="icon-stroke"/>
+      <circle cx="18" cy="8" r="5.2" class="icon-stroke"/>
+      <path d="M12.2 8h.6M3.5 15.5l-2 3.5M21.5 15.5l2 3.5" class="icon-stroke"/>
+      <text x="34" y="12" class="section-overline">See &amp; do</text>
+    </g>
+    <line class="rule" x1="20" y1="48" x2="480" y2="48"/>
+    <text x="20" y="81" class="inline-label">Day</text>
+    <text x="132" y="79" class="body-copy">
+      <tspan x="132" dy="0">Drive down the Adriatic to Gargano; charge at</tspan>
+      <tspan x="132" dy="22">Cerignola as needed.</tspan>
+    </text>
+    <circle cx="462" cy="80" r="10.5" fill="#F5E4DA" stroke="#E7C6B7"/>
+    <circle cx="462" cy="80" r="3.2" fill="none" stroke="#C14F2A" stroke-width="1.7"/>
+    <line class="rule" x1="20" y1="112" x2="480" y2="112"/>
+    <text x="20" y="145" class="inline-label">Evening</text>
+    <text x="132" y="144" class="body-copy">Peschici old-town sunset and simple coastal dinner.</text>
+    <circle cx="462" cy="144" r="10.5" fill="#F5E4DA" stroke="#E7C6B7"/>
+    <circle cx="462" cy="144" r="3.2" fill="none" stroke="#C14F2A" stroke-width="1.7"/>
+
+    <!-- Accommodation -->
+    <g transform="translate(0 198)">
+      <rect class="card" x="0" y="0" width="500" height="220" rx="16"/>
+      <g transform="translate(20 20)">
+        <rect x="1.5" y="2.5" width="16" height="16" rx="2.5" class="icon-stroke"/>
+        <path d="M5.5 18.5v-5h8v5M5.5 7h1.8M11.7 7h1.8M5.5 10.5h1.8M11.7 10.5h1.8" class="icon-stroke"/>
+        <text x="34" y="12" class="section-overline">Accommodation</text>
+      </g>
+      <rect x="408" y="16" width="72" height="25" rx="12.5" fill="#EDF5EE" stroke="#C9DDCF"/>
+      <text x="423" y="32" class="status-copy">BOOKED</text>
+      <line class="rule" x1="20" y1="52" x2="480" y2="52"/>
+      <text x="20" y="84" class="item-title">Vila SEJUDA Alberghetto</text>
+      <text x="20" y="110" class="meta-copy">2 nights (1-3 Jul) - Booking.com 9.5/10 - price not stored yet</text>
+      <text x="20" y="139" class="body-copy">
+        <tspan x="20" dy="0">Booked via Booking.com for 1-3 Jul after cancelling Masseria</tspan>
+        <tspan x="20" dy="22">Procacci; no accommodation action remains.</tspan>
+      </text>
+      <rect x="20" y="180" width="94" height="28" rx="14" fill="#FFFFFF" stroke="#E7C6B7"/>
+      <text x="33" y="198" class="action-copy">Stay details</text>
+      <path d="M102 189l4 4-4 4" fill="none" stroke="#C14F2A" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+
+    <!-- Dinner -->
+    <g transform="translate(0 444)">
+      <rect class="card" x="0" y="0" width="500" height="154" rx="16"/>
+      <g transform="translate(20 20)">
+        <path d="M5 2v17M10 2v17M5 9h5M17 2v17M17 2c5 4 5 9 0 12" class="icon-stroke"/>
+        <text x="34" y="12" class="section-overline">Dinner</text>
+      </g>
+      <line class="rule" x1="20" y1="52" x2="480" y2="52"/>
+      <text x="20" y="84" class="item-title">Casual trabucco-style seafood</text>
+      <text x="20" y="111" class="body-copy">Keep the first Gargano night easy and local.</text>
+      <rect x="20" y="116" width="94" height="28" rx="14" fill="#FFFFFF" stroke="#E7C6B7"/>
+      <text x="33" y="134" class="action-copy">Meal details</text>
+      <path d="M102 125l4 4-4 4" fill="none" stroke="#C14F2A" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+
+    <!-- Transport -->
+    <g transform="translate(0 622)">
+      <rect class="card" x="0" y="0" width="500" height="126" rx="16"/>
+      <g transform="translate(20 20)">
+        <path d="M3 14h3l2-5h13l2 5h3M8.5 17.5h.1M20.5 17.5h.1M7 14h16v5H7z" class="icon-stroke"/>
+        <text x="34" y="12" class="section-overline">Transport</text>
+      </g>
+      <line class="rule" x1="20" y1="52" x2="480" y2="52"/>
+      <text x="20" y="84" class="item-title">Self-drive - Ravenna -> Peschici</text>
+      <text x="20" y="108" class="meta-copy">Ravenna -> Peschici - ~470-500 km</text>
+      <rect x="403" y="72" width="77" height="28" rx="14" fill="#FBF0EB" stroke="#E5C4B5"/>
+      <text x="419" y="90" class="pending-copy">PENDING</text>
+    </g>
+  </g>
+
+  <!-- Legend / specs -->
+  <g transform="translate(640 188)">
+    <rect x="0" y="0" width="500" height="712" rx="22" fill="#F4EDE2"/>
+    <text x="32" y="44" class="legend-title">Type ladder</text>
+    <text x="32" y="78" class="note" style="font-size:14px;font-weight:430;">A five-step system keeps every card scannable without making the rail feel loud.</text>
+
+    <g transform="translate(32 120)">
+      <text x="0" y="0" class="small-label">01 / Section overline</text>
+      <text x="0" y="30" class="section-overline">Accommodation</text>
+      <text x="0" y="58" class="legend-body">Inter 11 / 620 / uppercase / 0.14em. It labels the region; it is not the headline.</text>
+      <line class="rule" x1="0" y1="82" x2="436" y2="82"/>
+    </g>
+
+    <g transform="translate(32 232)">
+      <text x="0" y="0" class="small-label">02 / Primary item title</text>
+      <text x="0" y="32" class="item-title">Vila SEJUDA Alberghetto</text>
+      <text x="0" y="62" class="legend-body">Inter 18 / 620 / 1.32. This is the scan anchor inside each card.</text>
+      <line class="rule" x1="0" y1="86" x2="436" y2="86"/>
+    </g>
+
+    <g transform="translate(32 348)">
+      <text x="0" y="0" class="small-label">03 / Body copy</text>
+      <text x="0" y="31" class="body-copy">Booked via Booking.com for 1-3 Jul after cancelling Masseria Procacci.</text>
+      <text x="0" y="62" class="legend-body">Inter 14.5 / 430 / 1.6. Warm ink-70, never title weight.</text>
+      <line class="rule" x1="0" y1="86" x2="436" y2="86"/>
+    </g>
+
+    <g transform="translate(32 464)">
+      <text x="0" y="0" class="small-label">04 / Meta</text>
+      <text x="0" y="29" class="meta-copy">2 nights (1-3 Jul) - Booking.com 9.5/10</text>
+      <text x="0" y="58" class="legend-body">Inter 12.5 / 500 / ink-50. Useful, but visually behind the title and body.</text>
+      <line class="rule" x1="0" y1="82" x2="436" y2="82"/>
+    </g>
+
+    <g transform="translate(32 576)">
+      <text x="0" y="0" class="small-label">05 / Inline label, action, status</text>
+      <text x="0" y="30" class="inline-label">Evening</text>
+      <rect x="110" y="12" width="88" height="28" rx="14" fill="#FFFFFF" stroke="#E7C6B7"/>
+      <text x="123" y="30" class="action-copy">Meal details</text>
+      <rect x="222" y="12" width="60" height="28" rx="14" fill="#EDF5EE" stroke="#C9DDCF"/>
+      <text x="237" y="30" class="status-copy">BOOKED</text>
+      <text x="0" y="68" class="legend-body">Small controls stay readable, but they should not outrank the content.</text>
+    </g>
+  </g>
+
+  <g transform="translate(72 972)">
+    <text x="0" y="0" class="legend-title">Design notes</text>
+    <text x="0" y="38" class="note" style="font-size:15px;font-weight:430;">
+      <tspan x="0" dy="0">1. The current section labels feel too large. Reducing them to true overlines creates air and restores hierarchy.</tspan>
+      <tspan x="0" dy="26">2. Every card gets one clear scan anchor: the hotel, meal, transport, or activity title at 18px / 620.</tspan>
+      <tspan x="0" dy="26">3. Meta is smaller and warmer; body copy is a touch larger than meta, but lighter than titles.</tspan>
+      <tspan x="0" dy="26">4. Actions and status pills remain compact. Terracotta signals interaction, forest/clay signals state.</tspan>
+      <tspan x="0" dy="26">5. No serif inside the product rail. Fraunces can stay in the hero; the right column is functional itinerary UI.</tspan>
+    </text>
+  </g>
+</svg>

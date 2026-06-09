@@ -10,8 +10,8 @@ For all UI and design work, follow the design system in `DESIGN.md`. It defines 
 
 ## Local Dev Servers and Deploys
 
-Hard rule: do not start a local dev server, run local browser verification, or spend time on local preview checks unless the user explicitly asks for it in the current turn.
+Prefer local verification over pushing to production. For UI work, finish with the local dev server running and the app open in a local browser for review. If the dev server cannot start, investigate it, restart or fix it when possible, and report the outcome.
 
-When asked to push changes live, push directly to `main` for review there. Verification should be limited to non-server checks unless the user explicitly requests local dev-server/browser testing.
+Do not push routine changes to `main`. Push to `main` only when the user explicitly asks for a live release. Favor incidental releases over repeated production pushes during iteration.
 
 After pushing live, always explicitly confirm that the commit was pushed to `main` and include the commit hash.

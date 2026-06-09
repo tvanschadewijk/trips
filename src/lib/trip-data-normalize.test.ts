@@ -103,3 +103,37 @@ test('keeps existing current-schema data intact', () => {
   assert.deepEqual(trip.days[0].blocks, source.days[0].blocks);
   assert.equal(trip.markdown_source, '# London');
 });
+
+test('drops empty tip placeholders and normalizes useful legacy tip fields', () => {
+  const trip = normalizeTripData({
+    trip: {
+      name: 'Antwerp',
+      dates: { start: '2026-06-23', end: '2026-06-24' },
+      travelers: [],
+    },
+    days: [
+      {
+        day_number: 1,
+        date: '2026-06-23',
+        title: 'Antwerp food day',
+        tips: [
+          {},
+          { title: 'Booking window', content: "Reserve Ciro's and Le Pristine separately." },
+          { label: 'Map sanity', note: 'Use Antwerp in map searches for restaurant names.' },
+        ],
+      },
+      {
+        day_number: 2,
+        date: '2026-06-24',
+        title: 'No useful tips',
+        tips: [{ title: '', content: '' }],
+      },
+    ],
+  });
+
+  assert.deepEqual(trip.days[0].tips, [
+    { icon: 'info', title: 'Booking window', content: "Reserve Ciro's and Le Pristine separately." },
+    { icon: 'info', title: 'Map sanity', content: 'Use Antwerp in map searches for restaurant names.', label: 'Map sanity', note: 'Use Antwerp in map searches for restaurant names.' },
+  ]);
+  assert.equal(trip.days[1].tips, undefined);
+});

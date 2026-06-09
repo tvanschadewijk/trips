@@ -5,6 +5,13 @@
  * the prompt string instead of resuming SDK-local session state, because
  * serverless filesystems are ephemeral. See src/lib/trip-chat/prompt.ts.
  *
+ * Conversations are organized into THREADS (one trip_chat_sessions row per
+ * thread, many per trip+user — see migration 010). POST without a thread_id
+ * starts a new thread titled from the user's message + view context; the
+ * title is polished asynchronously by a small Messages API call. GET reads
+ * one thread's messages (?thread_id=…), defaulting to the newest thread so
+ * pre-thread clients keep working. Thread CRUD lives in ./threads.
+ *
  * The HTTP request is intentionally short-lived: it persists the user's turn,
  * reserves a monotonic turn_index, schedules the agent work with `after()`, and
  * returns 202. The client polls GET /chat for the assistant row. This avoids
@@ -30,13 +37,17 @@
  *
  *   - `CLAUDE_CONFIG_DIR` pointed at /tmp on Vercel so the SDK's local-disk
  *     writes land on a writable tmpfs within the invocation lifetime.
+ *
+ *   - Failed turns persist a TRUTHFUL assistant message (see turn-failure.ts)
+ *     and record the raw cause in trip_chat_usage.error_detail. The June 2026
+ *     outage hid an invalid prod API key behind a generic "connection
+ *     problem" string for a week; never reintroduce that.
  */
 import { after, NextRequest, NextResponse } from 'next/server';
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import type { Options } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod';
 
-import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
   createTripEditorMcpServer,
@@ -58,6 +69,18 @@ import {
   resolveTripChatModel,
 } from '@/lib/trip-chat/sdk-options';
 import { tryRunFastLaneTurn } from '@/lib/trip-chat/fast-lane';
+import { requireTripChatAccess } from '@/lib/trip-chat/access';
+import {
+  createThread,
+  findThread,
+  latestThread,
+  renameThread,
+} from '@/lib/trip-chat/threads';
+import {
+  deriveThreadTitleHeuristic,
+  generateThreadTitle,
+} from '@/lib/trip-chat/thread-title';
+import { classifyTurnFailure } from '@/lib/trip-chat/turn-failure';
 
 export const runtime = 'nodejs';        // Agent SDK spawns a subprocess; Node-only.
 export const maxDuration = 300;         // Vercel Pro ceiling — first agent turn after a cold spawn can be slow.
@@ -65,9 +88,11 @@ export const maxDuration = 300;         // Vercel Pro ceiling — first agent tu
 const BodySchema = z.object({
   message: z.string().min(1).max(8000),
   session_id: z.string().optional(),    // echoed back from UI; telemetry only
+  // Thread to continue. Absent/null → start a new thread.
+  thread_id: z.string().uuid().nullable().optional(),
   // Snapshot of what the user is currently looking at (which day, etc).
   // Forwarded to the agent as a prefix on the user prompt so it answers
-  // in the right scope without asking.
+  // in the right scope without asking, and folded into new-thread titles.
   view_context: z
     .object({
       slide: z.number().optional(),
@@ -89,7 +114,7 @@ type ChatRequestBody = z.infer<typeof BodySchema>;
 interface RunAgentTurnArgs {
   tripId: string;
   userId: string;
-  sessionRowId: string;
+  sessionRowId: string;                 // thread id (trip_chat_sessions.id)
   turnIndex: number;
   message: string;
   viewContext: ChatRequestBody['view_context'];
@@ -107,50 +132,6 @@ interface UiChatMessage {
 const CHAT_HISTORY_TURNS_REPLAYED = 12; // last N user+assistant exchanges summarized in prompt
 const DEFAULT_CHAT_HISTORY_LIMIT = 50;
 
-async function isAdmin(userId: string): Promise<boolean> {
-  const supabase = createAdminClient();
-  const { data } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', userId)
-    .single();
-  return data?.role === 'admin';
-}
-
-async function isOwner(userId: string, tripId: string): Promise<boolean> {
-  const supabase = createAdminClient();
-  const { data } = await supabase
-    .from('trips')
-    .select('user_id')
-    .eq('id', tripId)
-    .single();
-  return data?.user_id === userId;
-}
-
-async function requireTripChatAccess(
-  tripId: string
-): Promise<{ userId: string } | { response: NextResponse }> {
-  const serverClient = await createClient();
-  const {
-    data: { user },
-  } = await serverClient.auth.getUser();
-  if (!user) {
-    return { response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) };
-  }
-
-  // Trip owner can edit their own trip via chat. Admins can edit any
-  // trip (for support). Anyone else: forbidden.
-  const [ownerOk, adminOk] = await Promise.all([
-    isOwner(user.id, tripId),
-    isAdmin(user.id),
-  ]);
-  if (!ownerOk && !adminOk) {
-    return { response: NextResponse.json({ error: 'Forbidden' }, { status: 403 }) };
-  }
-
-  return { userId: user.id };
-}
-
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -163,10 +144,28 @@ export async function GET(
   const limit = Number.isFinite(limitParam)
     ? Math.min(100, Math.max(1, Math.floor(limitParam)))
     : DEFAULT_CHAT_HISTORY_LIMIT;
-  const admin = createAdminClient();
-  const messages = await loadChatMessages(admin, tripId, access.userId, limit);
 
-  return NextResponse.json({ messages });
+  const admin = createAdminClient();
+  const scope = { tripId, userId: access.userId };
+
+  // Explicit thread, or the newest one for pre-thread clients.
+  const requestedThreadId = request.nextUrl.searchParams.get('thread_id');
+  let threadId: string | null = null;
+  if (requestedThreadId) {
+    const thread = await findThread(admin, scope, requestedThreadId);
+    if (!thread) {
+      return NextResponse.json({ error: 'Thread not found' }, { status: 404 });
+    }
+    threadId = thread.id;
+  } else {
+    threadId = (await latestThread(admin, scope))?.id ?? null;
+  }
+
+  const messages = threadId
+    ? await loadThreadMessages(admin, threadId, limit)
+    : [];
+
+  return NextResponse.json({ messages, thread_id: threadId });
 }
 
 export async function POST(
@@ -201,37 +200,36 @@ export async function POST(
     return NextResponse.json({ error: 'Trip not found' }, { status: 404 });
   }
 
-  // 4. Session row (one per trip + user), + prior turns for prompt.
-  const { data: existingSession } = await admin
-    .from('trip_chat_sessions')
-    .select('id, turn_count')
-    .eq('trip_id', tripId)
-    .eq('user_id', access.userId)
-    .maybeSingle();
-
+  // 4. Resolve the thread: continue an existing one, or start a new one
+  //    titled from this first message + what the user was looking at.
+  const scope = { tripId, userId: access.userId };
   let sessionRowId: string;
   let turnIndex: number;
+  let threadTitle: string | null = null;
+  let isNewThread = false;
 
-  if (existingSession) {
-    sessionRowId = existingSession.id;
-    turnIndex = await nextTurnIndex(admin, sessionRowId, existingSession.turn_count);
+  if (body.thread_id) {
+    const thread = await findThread(admin, scope, body.thread_id);
+    if (!thread) {
+      return NextResponse.json({ error: 'Thread not found' }, { status: 404 });
+    }
+    sessionRowId = thread.id;
+    turnIndex = await nextTurnIndex(admin, sessionRowId, thread.turn_count);
   } else {
-    const ins = await admin
-      .from('trip_chat_sessions')
-      .insert({ trip_id: tripId, user_id: access.userId })
-      .select('id')
-      .single();
-    if (ins.error || !ins.data) {
+    threadTitle = deriveThreadTitleHeuristic(body.message, body.view_context);
+    const created = await createThread(admin, scope, threadTitle);
+    if ('error' in created) {
       return NextResponse.json(
-        { error: 'Failed to create chat session', detail: ins.error?.message },
+        { error: 'Failed to create chat thread', detail: created.error },
         { status: 500 }
       );
     }
-    sessionRowId = ins.data.id;
+    sessionRowId = created.id;
     turnIndex = 0;
+    isNewThread = true;
   }
 
-  const priorTurns = await loadPriorTurns(admin, sessionRowId);
+  const priorTurns = isNewThread ? [] : await loadPriorTurns(admin, sessionRowId);
 
   // 5. Persist the user's message row immediately so UI refresh mid-turn
   //    shows it even if the agent times out.
@@ -266,6 +264,20 @@ export async function POST(
       { status: 500 }
     );
   }
+
+  // New threads get an async title polish (small Messages API call, falls
+  // back silently to the heuristic title if the key is broken or slow).
+  const polishTitle = isNewThread
+    ? async () => {
+        const polished = await generateThreadTitle({
+          message: body.message,
+          viewContext: body.view_context,
+        });
+        if (polished && polished !== threadTitle) {
+          await renameThread(admin, scope, sessionRowId, polished);
+        }
+      }
+    : null;
 
   const fastLane = await tryRunFastLaneTurn({
     supabase: admin,
@@ -316,10 +328,18 @@ export async function POST(
       toolCallCounter: { count: fastLane.toolCallsSummary.length },
     });
 
+    if (polishTitle) {
+      after(async () => {
+        await polishTitle().catch(() => {});
+      });
+    }
+
     return NextResponse.json({
       status: 'fast_lane',
       assistant_message: fastLane.assistantText,
       session_id: null,
+      thread_id: sessionRowId,
+      thread_title: threadTitle,
       tool_calls_summary: fastLane.toolCallsSummary,
       turn_index: turnIndex,
     });
@@ -336,12 +356,20 @@ export async function POST(
   };
 
   after(async () => {
-    try {
-      await runAgentTurn(runArgs);
-    } catch (err) {
-      console.error('trip-chat: unhandled background turn error', err);
-      await persistAssistantFallback(runArgs);
+    const work: Promise<unknown>[] = [
+      (async () => {
+        try {
+          await runAgentTurn(runArgs);
+        } catch (err) {
+          console.error('trip-chat: unhandled background turn error', err);
+          await persistAssistantFallback(runArgs, err);
+        }
+      })(),
+    ];
+    if (polishTitle) {
+      work.push(polishTitle().catch(() => {}));
     }
+    await Promise.all(work);
   });
 
   return NextResponse.json(
@@ -349,6 +377,8 @@ export async function POST(
       status: 'queued',
       assistant_message: null,
       session_id: null,
+      thread_id: sessionRowId,
+      thread_title: threadTitle,
       tool_calls_summary: [],
       turn_index: turnIndex,
     },
@@ -447,6 +477,7 @@ async function runAgentTurn(args: RunAgentTurnArgs): Promise<void> {
   let totalCostUsd: number | undefined;
   let durationMs: number | undefined;
   let resultError: string | undefined;
+  let errorDetail: string | undefined;
 
   const t0 = Date.now();
   console.log('trip-chat: invoking SDK', {
@@ -497,16 +528,26 @@ async function runAgentTurn(args: RunAgentTurnArgs): Promise<void> {
   } catch (err) {
     durationMs = Date.now() - t0;
     const detail = err instanceof Error ? err.message : String(err);
+    // The CLI reports fatal API problems ("Invalid API key · Fix external
+    // API key") as assistant/result TEXT before the stream throws, so the
+    // accumulated assistantText is part of the evidence — classify on both,
+    // then replace it with an honest user-facing message.
+    const failure = classifyTurnFailure(detail, assistantText);
     console.error('trip-chat: agent error', {
       detail,
+      kind: failure.kind,
+      cliText: assistantText || undefined,
       binary: resolveDiagnostic,
       tripId: args.tripId,
       turnIndex: args.turnIndex,
     });
-    assistantText =
-      'I hit a connection problem while working on that. Please try again in a moment.';
+    assistantText = failure.userMessage;
+    errorDetail = `${failure.kind}: ${failure.detail}`;
   }
 
+  if (resultError && !errorDetail) {
+    errorDetail = resultError;
+  }
   if (resultError && !assistantText) {
     assistantText = `(${resultError})`;
   }
@@ -539,10 +580,14 @@ async function runAgentTurn(args: RunAgentTurnArgs): Promise<void> {
     usage,
     total_cost_usd: totalCostUsd,
     duration_ms: durationMs,
+    error_detail: errorDetail,
   });
 }
 
-async function persistAssistantFallback(args: RunAgentTurnArgs): Promise<void> {
+async function persistAssistantFallback(
+  args: RunAgentTurnArgs,
+  cause?: unknown
+): Promise<void> {
   const admin = createAdminClient();
   const { data: existingAssistant } = await admin
     .from('trip_chat_messages')
@@ -553,20 +598,31 @@ async function persistAssistantFallback(args: RunAgentTurnArgs): Promise<void> {
     .maybeSingle();
   if (existingAssistant) return;
 
+  const detail = cause instanceof Error ? cause.message : cause ? String(cause) : '';
+  const failure = classifyTurnFailure(detail);
+
   await admin.from('trip_chat_messages').insert({
     session_id: args.sessionRowId,
     trip_id: args.tripId,
     user_id: args.userId,
     turn_index: args.turnIndex,
     role: 'assistant',
-    content:
-      'I hit a connection problem while working on that. Please try again in a moment.',
+    content: failure.userMessage,
     tool_calls_json: null,
   });
   await admin
     .from('trip_chat_sessions')
     .update({ updated_at: new Date().toISOString() })
     .eq('id', args.sessionRowId);
+  await recordTurnUsage({
+    supabase: admin,
+    sessionRowId: args.sessionRowId,
+    tripId: args.tripId,
+    userId: args.userId,
+    turnIndex: args.turnIndex,
+    toolCallCounter: { count: 0 },
+    error_detail: detail ? `unhandled: ${detail}` : 'unhandled background turn error',
+  });
 }
 
 function formatViewContextPrefix(ctx: ChatRequestBody['view_context']): string {
@@ -636,24 +692,15 @@ async function nextTurnIndex(
   return Math.max(turnCount ?? 0, afterLatestMessage);
 }
 
-async function loadChatMessages(
+async function loadThreadMessages(
   admin: ReturnType<typeof createAdminClient>,
-  tripId: string,
-  userId: string,
+  threadId: string,
   limit: number
 ): Promise<UiChatMessage[]> {
-  const { data: session } = await admin
-    .from('trip_chat_sessions')
-    .select('id')
-    .eq('trip_id', tripId)
-    .eq('user_id', userId)
-    .maybeSingle();
-  if (!session) return [];
-
   const { data: rows } = await admin
     .from('trip_chat_messages')
     .select('id, turn_index, role, content, tool_calls_json, created_at')
-    .eq('session_id', session.id)
+    .eq('session_id', threadId)
     .order('turn_index', { ascending: false })
     .limit(limit * 2);
 

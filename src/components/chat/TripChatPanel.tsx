@@ -7,9 +7,18 @@
  * minimized (status pill while a turn is in flight). Animations via
  * motion/react.
  *
- * Posts to /api/trips/[id]/chat. On a successful response with tool
- * calls, triggers a router.refresh() so the trip view picks up the
- * edits.
+ * Conversations are organized into THREADS, ChatGPT-style:
+ *
+ *   - A hideable rail (PanelLeft toggle in the header) lists threads
+ *     grouped by recency; "New chat" starts a fresh one.
+ *   - Threads are created server-side on the first message and titled from
+ *     that message + the day the user was viewing (see thread-title.ts).
+ *   - A thread idle for >24h is treated as finished: opening the chat
+ *     starts fresh instead of resuming it (the old thread stays in the rail).
+ *
+ * Posts to /api/trips/[id]/chat (with thread_id). On a successful response
+ * with tool calls, triggers a router.refresh() so the trip view picks up
+ * the edits.
  *
  * Styling follows the editorial design system in DESIGN.md: warm paper
  * surfaces, Fraunces serif for display, Inter for UI, terracotta accent.
@@ -17,12 +26,27 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { AnimatePresence, motion, useDragControls } from 'motion/react';
-import { MessageCircle, SendHorizontal } from 'lucide-react';
+import {
+  Check,
+  MessageCircle,
+  PanelLeft,
+  PanelLeftClose,
+  Pencil,
+  SendHorizontal,
+  SquarePen,
+  Trash2,
+  X,
+} from 'lucide-react';
 import type { ToolCallSummary } from '@/lib/trip-chat/prompt';
 import {
   DEFAULT_CHAT_STATUS_PHASES,
   getChatStatusPhases,
 } from '@/lib/trip-chat/progress';
+import {
+  groupThreadsByRecency,
+  isThreadStale,
+  type ChatThreadSummary,
+} from '@/lib/trip-chat/thread-utils';
 import { useOnlineStatus } from '@/lib/online-status';
 import { renderTripMarkdown } from '@/lib/render-trip-markdown';
 
@@ -37,6 +61,8 @@ export interface ChatMessage {
 
 interface Props {
   tripId: string;
+  initialThreads: ChatThreadSummary[];
+  initialThreadId: string | null;
   initialMessages: ChatMessage[];
 }
 
@@ -55,17 +81,26 @@ const KEYBOARD_INSET_THRESHOLD = 100;
 const CHAT_POLL_INTERVAL_MS = 2400;
 const CHAT_POLL_TIMEOUT_MS = 305_000;
 const CHAT_HISTORY_LIMIT = 50;
+const RAIL_PREF_STORAGE_KEY = 'trip-chat-rail-open';
+const MOBILE_RAIL_QUERY = '(max-width: 719px)';
 
 type ChatTurnResponse = {
   status?: 'queued' | 'fast_lane';
   assistant_message: string | null;
   session_id: string | null;
+  thread_id?: string | null;
+  thread_title?: string | null;
   tool_calls_summary: ToolCallSummary[];
   turn_index: number;
 };
 
 type ChatHistoryResponse = {
   messages: ChatMessage[];
+  thread_id?: string | null;
+};
+
+type ThreadListResponse = {
+  threads: ChatThreadSummary[];
 };
 
 function sleep(ms: number) {
@@ -84,6 +119,10 @@ function userFacingChatError(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
+function isMobileRail(): boolean {
+  return typeof window !== 'undefined' && window.matchMedia(MOBILE_RAIL_QUERY).matches;
+}
+
 function notifyTripEditApplied(tripId: string) {
   if (typeof window === 'undefined') return;
   window.dispatchEvent(
@@ -93,10 +132,15 @@ function notifyTripEditApplied(tripId: string) {
   );
 }
 
-async function fetchChatHistory(tripId: string): Promise<ChatMessage[]> {
-  const res = await fetch(`/api/trips/${tripId}/chat?limit=${CHAT_HISTORY_LIMIT}`, {
-    cache: 'no-store',
-  });
+async function fetchChatHistory(
+  tripId: string,
+  threadId: string | null
+): Promise<ChatMessage[]> {
+  const threadParam = threadId ? `&thread_id=${encodeURIComponent(threadId)}` : '';
+  const res = await fetch(
+    `/api/trips/${tripId}/chat?limit=${CHAT_HISTORY_LIMIT}${threadParam}`,
+    { cache: 'no-store' }
+  );
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     const headline = body.error ?? `HTTP ${res.status}`;
@@ -106,8 +150,16 @@ async function fetchChatHistory(tripId: string): Promise<ChatMessage[]> {
   return json.messages;
 }
 
+async function fetchThreads(tripId: string): Promise<ChatThreadSummary[]> {
+  const res = await fetch(`/api/trips/${tripId}/chat/threads`, { cache: 'no-store' });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const json = (await res.json()) as ThreadListResponse;
+  return json.threads;
+}
+
 async function pollForAssistant(
   tripId: string,
+  threadId: string,
   turnIndex: number
 ): Promise<{ messages: ChatMessage[]; assistant: ChatMessage }> {
   const started = Date.now();
@@ -115,7 +167,7 @@ async function pollForAssistant(
 
   while (Date.now() - started < CHAT_POLL_TIMEOUT_MS) {
     try {
-      const messages = await fetchChatHistory(tripId);
+      const messages = await fetchChatHistory(tripId, threadId);
       lastMessages = messages;
       const assistant = messages.find(
         (m) => m.role === 'assistant' && m.turn_index === turnIndex
@@ -140,11 +192,33 @@ async function pollForAssistant(
   );
 }
 
-export default function TripChatPanel({ tripId, initialMessages }: Props) {
+export default function TripChatPanel({
+  tripId,
+  initialThreads,
+  initialThreadId,
+  initialMessages,
+}: Props) {
   const router = useRouter();
   const online = useOnlineStatus();
   const [state, setState] = useState<PanelState>('closed');
-  const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
+  const [threads, setThreads] = useState<ChatThreadSummary[]>(initialThreads);
+  // Auto-new-chat: if the newest thread has been idle >24h, open fresh.
+  // Render output while 'closed' is identical either way, so the SSR/client
+  // boundary can disagree on staleness without a hydration mismatch.
+  const [activeThreadId, setActiveThreadId] = useState<string | null>(() => {
+    if (!initialThreadId) return null;
+    const thread = initialThreads.find((t) => t.id === initialThreadId);
+    if (!thread || isThreadStale(thread.updated_at)) return null;
+    return initialThreadId;
+  });
+  const [messages, setMessages] = useState<ChatMessage[]>(
+    activeThreadId ? initialMessages : []
+  );
+  const [railOpen, setRailOpen] = useState(false);
+  const [threadLoading, setThreadLoading] = useState(false);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameDraft, setRenameDraft] = useState('');
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -157,7 +231,21 @@ export default function TripChatPanel({ tripId, initialMessages }: Props) {
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const sheetRef = useRef<HTMLDivElement | null>(null);
+  const activeThreadIdRef = useRef<string | null>(activeThreadId);
   const dragControls = useDragControls();
+
+  useEffect(() => {
+    activeThreadIdRef.current = activeThreadId;
+  }, [activeThreadId]);
+
+  // Restore the rail visibility preference (desktop users tend to keep it).
+  useEffect(() => {
+    try {
+      if (localStorage.getItem(RAIL_PREF_STORAGE_KEY) === '1' && !isMobileRail()) {
+        setRailOpen(true);
+      }
+    } catch {}
+  }, []);
 
   // Auto-scroll within the messages container only.
   useEffect(() => {
@@ -226,11 +314,45 @@ export default function TripChatPanel({ tripId, initialMessages }: Props) {
     };
   }, [loading, statusPhases]);
 
-  // Open the panel — clears unread badge.
+  const refreshThreads = useCallback(async () => {
+    try {
+      const fresh = await fetchThreads(tripId);
+      setThreads(fresh);
+      // The active thread may have been deleted from another device.
+      const current = activeThreadIdRef.current;
+      if (current && !fresh.some((t) => t.id === current)) {
+        setActiveThreadId(null);
+        setMessages([]);
+      }
+    } catch {
+      // Sidebar refresh is cosmetic; never surface as a chat error.
+    }
+  }, [tripId]);
+
+  const startNewChat = useCallback(() => {
+    setActiveThreadId(null);
+    setMessages([]);
+    setError(null);
+    setConfirmDeleteId(null);
+    setRenamingId(null);
+    if (isMobileRail()) setRailOpen(false);
+    inputRef.current?.focus();
+  }, []);
+
+  // Open the panel — clears unread badge, rolls a stale conversation over
+  // into a fresh one (the old thread stays in the rail).
   const openPanel = useCallback(() => {
     setState('open');
     setUnread(false);
-  }, []);
+    if (!loading && activeThreadIdRef.current) {
+      const thread = threads.find((t) => t.id === activeThreadIdRef.current);
+      if (thread && isThreadStale(thread.updated_at)) {
+        setActiveThreadId(null);
+        setMessages([]);
+        setError(null);
+      }
+    }
+  }, [loading, threads]);
 
   const minimize = useCallback(() => {
     setState('minimized');
@@ -241,27 +363,122 @@ export default function TripChatPanel({ tripId, initialMessages }: Props) {
     setUnread(false);
   }, []);
 
-  const finishTurn = useCallback((serverMessages: ChatMessage[], assistant: ChatMessage) => {
-    setMessages(serverMessages);
-
-    // If the user collapsed mid-turn, mark unread.
-    setState((s) => {
-      if (s === 'minimized') setUnread(true);
-      return s;
+  const toggleRail = useCallback(() => {
+    setRailOpen((open) => {
+      const next = !open;
+      try {
+        localStorage.setItem(RAIL_PREF_STORAGE_KEY, next ? '1' : '0');
+      } catch {}
+      return next;
     });
+  }, []);
 
-    if ((assistant.tool_calls_json?.length ?? 0) > 0) {
-      notifyTripEditApplied(tripId);
-      router.refresh();
-    }
-  }, [router, tripId]);
+  const selectThread = useCallback(
+    async (threadId: string) => {
+      if (threadLoading) return;
+      setConfirmDeleteId(null);
+      setRenamingId(null);
+      if (threadId === activeThreadIdRef.current) {
+        if (isMobileRail()) setRailOpen(false);
+        return;
+      }
+      setThreadLoading(true);
+      setError(null);
+      try {
+        const threadMessages = await fetchChatHistory(tripId, threadId);
+        setActiveThreadId(threadId);
+        setMessages(threadMessages);
+        if (isMobileRail()) setRailOpen(false);
+        inputRef.current?.focus();
+      } catch (err) {
+        setError(userFacingChatError(err));
+      } finally {
+        setThreadLoading(false);
+      }
+    },
+    [threadLoading, tripId]
+  );
+
+  const deleteThread = useCallback(
+    async (threadId: string) => {
+      setConfirmDeleteId(null);
+      try {
+        const res = await fetch(`/api/trips/${tripId}/chat/threads/${threadId}`, {
+          method: 'DELETE',
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        setThreads((prev) => prev.filter((t) => t.id !== threadId));
+        if (activeThreadIdRef.current === threadId) {
+          setActiveThreadId(null);
+          setMessages([]);
+        }
+      } catch (err) {
+        setError(userFacingChatError(err));
+      }
+    },
+    [tripId]
+  );
+
+  const commitRename = useCallback(
+    async (threadId: string) => {
+      const title = renameDraft.trim();
+      setRenamingId(null);
+      if (!title) return;
+      const previous = threads.find((t) => t.id === threadId)?.title;
+      if (title === previous) return;
+      setThreads((prev) =>
+        prev.map((t) => (t.id === threadId ? { ...t, title } : t))
+      );
+      try {
+        const res = await fetch(`/api/trips/${tripId}/chat/threads/${threadId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title }),
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      } catch {
+        // Roll back the optimistic rename.
+        setThreads((prev) =>
+          prev.map((t) =>
+            t.id === threadId && previous ? { ...t, title: previous } : t
+          )
+        );
+      }
+    },
+    [renameDraft, threads, tripId]
+  );
+
+  const finishTurn = useCallback(
+    (threadId: string, serverMessages: ChatMessage[], assistant: ChatMessage) => {
+      // Only swap the transcript if the user is still on that thread.
+      if (activeThreadIdRef.current === threadId) {
+        setMessages(serverMessages);
+      }
+
+      // If the user collapsed mid-turn, mark unread.
+      setState((s) => {
+        if (s === 'minimized') setUnread(true);
+        return s;
+      });
+
+      // Pick up the async LLM-polished title (and fresh updated_at ordering).
+      void refreshThreads();
+
+      if ((assistant.tool_calls_json?.length ?? 0) > 0) {
+        notifyTripEditApplied(tripId);
+        router.refresh();
+      }
+    },
+    [refreshThreads, router, tripId]
+  );
 
   async function send() {
     const trimmed = input.trim();
-    if (!trimmed || loading) return;
+    if (!trimmed || loading || threadLoading) return;
     setError(null);
     setStatusPhases(getChatStatusPhases(trimmed));
 
+    const threadIdAtSend = activeThreadId;
     const nextTurnIndex =
       messages.length === 0 ? 0 : Math.max(...messages.map((m) => m.turn_index)) + 1;
 
@@ -288,7 +505,11 @@ export default function TripChatPanel({ tripId, initialMessages }: Props) {
       const res = await fetch(`/api/trips/${tripId}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: trimmed, view_context: viewContext }),
+        body: JSON.stringify({
+          message: trimmed,
+          thread_id: threadIdAtSend,
+          view_context: viewContext,
+        }),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
@@ -297,9 +518,38 @@ export default function TripChatPanel({ tripId, initialMessages }: Props) {
       }
       const json = (await res.json()) as ChatTurnResponse;
 
+      // The server creates the thread on the first message; adopt it.
+      const threadId = json.thread_id ?? threadIdAtSend;
+      if (threadId && !threadIdAtSend) {
+        const nowIso = new Date().toISOString();
+        setActiveThreadId(threadId);
+        setThreads((prev) => [
+          {
+            id: threadId,
+            title: json.thread_title || trimmed.slice(0, 46),
+            created_at: nowIso,
+            updated_at: nowIso,
+          },
+          ...prev.filter((t) => t.id !== threadId),
+        ]);
+      } else if (threadId) {
+        const nowIso = new Date().toISOString();
+        setThreads((prev) => {
+          const current = prev.find((t) => t.id === threadId);
+          if (!current) return prev;
+          return [
+            { ...current, updated_at: nowIso },
+            ...prev.filter((t) => t.id !== threadId),
+          ];
+        });
+      }
+
       if (json.status === 'queued') {
-        const completed = await pollForAssistant(tripId, json.turn_index);
-        finishTurn(completed.messages, completed.assistant);
+        if (!threadId) {
+          throw new Error('The server did not return a thread for this conversation.');
+        }
+        const completed = await pollForAssistant(tripId, threadId, json.turn_index);
+        finishTurn(threadId, completed.messages, completed.assistant);
         return;
       }
 
@@ -311,20 +561,23 @@ export default function TripChatPanel({ tripId, initialMessages }: Props) {
         tool_calls_json:
           json.tool_calls_summary.length > 0 ? json.tool_calls_summary : null,
       };
-      setMessages((prev) => [...prev, assistant]);
+      if (activeThreadIdRef.current === threadId || !threadIdAtSend) {
+        setMessages((prev) => [...prev, assistant]);
+      }
       setState((s) => {
         if (s === 'minimized') setUnread(true);
         return s;
       });
+      void refreshThreads();
       if ((assistant.tool_calls_json?.length ?? 0) > 0) {
         notifyTripEditApplied(tripId);
         router.refresh();
       }
     } catch (err) {
-      if (isLikelyDroppedFetch(err)) {
+      if (isLikelyDroppedFetch(err) && threadIdAtSend) {
         try {
-          const completed = await pollForAssistant(tripId, nextTurnIndex);
-          finishTurn(completed.messages, completed.assistant);
+          const completed = await pollForAssistant(tripId, threadIdAtSend, nextTurnIndex);
+          finishTurn(threadIdAtSend, completed.messages, completed.assistant);
           return;
         } catch (pollErr) {
           setError(userFacingChatError(pollErr));
@@ -347,6 +600,8 @@ export default function TripChatPanel({ tripId, initialMessages }: Props) {
   // Hide the entry point entirely when offline — without a network
   // there's nothing the chat can do.
   if (!online) return null;
+
+  const threadGroups = groupThreadsByRecency(threads);
 
   return (
     <>
@@ -423,6 +678,7 @@ export default function TripChatPanel({ tripId, initialMessages }: Props) {
               ref={sheetRef}
               role="dialog"
               aria-label="Ask your travel expert"
+              className={`trip-chat-sheet${railOpen ? ' is-rail-open' : ''}`}
               style={{ ...sheetStyle, bottom: keyboardInset }}
               initial={{ y: '100%' }}
               animate={{ y: 0 }}
@@ -448,77 +704,222 @@ export default function TripChatPanel({ tripId, initialMessages }: Props) {
                 <div style={grabberStyle} />
               </div>
               <header style={headerStyle}>
+                <button
+                  type="button"
+                  onClick={toggleRail}
+                  style={headerIconButtonStyle}
+                  aria-label={railOpen ? 'Hide chat history' : 'Show chat history'}
+                  aria-expanded={railOpen}
+                >
+                  {railOpen ? (
+                    <PanelLeftClose size={17} strokeWidth={2.1} aria-hidden="true" />
+                  ) : (
+                    <PanelLeft size={17} strokeWidth={2.1} aria-hidden="true" />
+                  )}
+                </button>
                 <div style={chatTitleStyle}>
                   Ask your travel expert
                 </div>
+                <button
+                  type="button"
+                  onClick={startNewChat}
+                  style={headerIconButtonStyle}
+                  aria-label="New chat"
+                >
+                  <SquarePen size={16} strokeWidth={2.1} aria-hidden="true" />
+                </button>
               </header>
 
-              <div ref={scrollerRef} style={messagesStyle}>
-                {messages.length === 0 && (
-                  <div style={emptyStyle}>
-                    <p style={{ margin: 0, color: '#6B6157' }}>
-                      Ask anything about the trip — &quot;make day 2 more relaxed&quot;, &quot;swap Friday dinner&quot;, &quot;what should I pack?&quot;.
-                    </p>
-                  </div>
-                )}
-                {messages.map((m) => (
-                  <MessageBubble key={m.id} m={m} />
-                ))}
-                {loading && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    style={statusRowStyle}
-                  >
-                    <TypingDots />
-                    <AnimatePresence mode="wait">
-                      <motion.span
-                        key={statusIdx}
-                        initial={{ opacity: 0, y: 4 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -4 }}
-                        transition={{ duration: 0.25 }}
-                        style={statusTextStyle}
+              <div className="trip-chat-body">
+                {railOpen && (
+                  <>
+                    <div
+                      className="trip-chat-rail-scrim"
+                      onClick={() => setRailOpen(false)}
+                      aria-hidden="true"
+                    />
+                    <nav className="trip-chat-rail" aria-label="Chat history">
+                      <button
+                        type="button"
+                        className="trip-chat-rail-new"
+                        onClick={startNewChat}
                       >
-                        {statusPhases[statusIdx] ?? statusPhases[statusPhases.length - 1]}
-                      </motion.span>
-                    </AnimatePresence>
-                  </motion.div>
+                        <SquarePen size={14} strokeWidth={2.2} aria-hidden="true" />
+                        New chat
+                      </button>
+                      <div className="trip-chat-rail-list">
+                        {threads.length === 0 && (
+                          <p className="trip-chat-rail-empty">
+                            No conversations yet. Ask something to start the first one.
+                          </p>
+                        )}
+                        {threadGroups.map(({ group, threads: groupThreads }) => (
+                          <div key={group} className="trip-chat-rail-section">
+                            <div className="trip-chat-rail-group">{group}</div>
+                            {groupThreads.map((thread) => {
+                              const active = thread.id === activeThreadId;
+                              const renaming = renamingId === thread.id;
+                              const confirming = confirmDeleteId === thread.id;
+                              return (
+                                <div
+                                  key={thread.id}
+                                  className={`trip-chat-thread${active ? ' is-active' : ''}`}
+                                >
+                                  {renaming ? (
+                                    <input
+                                      className="trip-chat-thread-rename"
+                                      value={renameDraft}
+                                      autoFocus
+                                      maxLength={80}
+                                      onChange={(e) => setRenameDraft(e.target.value)}
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter') commitRename(thread.id);
+                                        if (e.key === 'Escape') setRenamingId(null);
+                                      }}
+                                      onBlur={() => commitRename(thread.id)}
+                                      aria-label="Rename conversation"
+                                    />
+                                  ) : confirming ? (
+                                    <div className="trip-chat-thread-confirm">
+                                      <span>Delete?</span>
+                                      <button
+                                        type="button"
+                                        onClick={() => deleteThread(thread.id)}
+                                        aria-label="Confirm delete"
+                                      >
+                                        <Check size={14} strokeWidth={2.4} aria-hidden="true" />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => setConfirmDeleteId(null)}
+                                        aria-label="Cancel delete"
+                                      >
+                                        <X size={14} strokeWidth={2.4} aria-hidden="true" />
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <>
+                                      <button
+                                        type="button"
+                                        className="trip-chat-thread-select"
+                                        onClick={() => selectThread(thread.id)}
+                                        title={thread.title}
+                                      >
+                                        <span className="trip-chat-thread-title">
+                                          {thread.title}
+                                        </span>
+                                      </button>
+                                      <span className="trip-chat-thread-actions">
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setRenamingId(thread.id);
+                                            setRenameDraft(thread.title);
+                                            setConfirmDeleteId(null);
+                                          }}
+                                          aria-label={`Rename "${thread.title}"`}
+                                        >
+                                          <Pencil size={13} strokeWidth={2.2} aria-hidden="true" />
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setConfirmDeleteId(thread.id);
+                                            setRenamingId(null);
+                                          }}
+                                          aria-label={`Delete "${thread.title}"`}
+                                        >
+                                          <Trash2 size={13} strokeWidth={2.2} aria-hidden="true" />
+                                        </button>
+                                      </span>
+                                    </>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ))}
+                      </div>
+                    </nav>
+                  </>
                 )}
-                {error && (
-                  <div style={errorStyle} role="alert">
-                    {error}
-                  </div>
-                )}
-              </div>
 
-              <footer style={footerStyle}>
-                <div style={inputWrapStyle}>
-                  <textarea
-                    ref={inputRef}
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    onKeyDown={onKeyDown}
-                    placeholder="Describe an edit…"
-                    rows={1}
-                    style={textareaStyle}
-                    disabled={loading}
-                  />
-                  <button
-                    type="button"
-                    onClick={send}
-                    disabled={loading || !input.trim()}
-                    style={sendIconButtonStyle(loading || !input.trim())}
-                    aria-label={loading ? 'Sending' : 'Send'}
-                  >
-                    {loading ? (
-                      <TypingDots />
-                    ) : (
-                      <SendHorizontal size={16} strokeWidth={2.4} aria-hidden="true" />
+                <div className="trip-chat-main">
+                  <div ref={scrollerRef} style={messagesStyle}>
+                    {threadLoading && (
+                      <div style={statusRowStyle}>
+                        <TypingDots />
+                        <span style={statusTextStyle}>Opening conversation…</span>
+                      </div>
                     )}
-                  </button>
+                    {!threadLoading && messages.length === 0 && (
+                      <div style={emptyStyle}>
+                        <p style={{ margin: 0, color: '#6B6157' }}>
+                          {threads.length > 0
+                            ? 'New conversation. Ask anything about the trip — earlier chats stay in the sidebar.'
+                            : 'Ask anything about the trip — "make day 2 more relaxed", "swap Friday dinner", "what should I pack?".'}
+                        </p>
+                      </div>
+                    )}
+                    {!threadLoading &&
+                      messages.map((m) => <MessageBubble key={m.id} m={m} />)}
+                    {loading && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        style={statusRowStyle}
+                      >
+                        <TypingDots />
+                        <AnimatePresence mode="wait">
+                          <motion.span
+                            key={statusIdx}
+                            initial={{ opacity: 0, y: 4 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -4 }}
+                            transition={{ duration: 0.25 }}
+                            style={statusTextStyle}
+                          >
+                            {statusPhases[statusIdx] ?? statusPhases[statusPhases.length - 1]}
+                          </motion.span>
+                        </AnimatePresence>
+                      </motion.div>
+                    )}
+                    {error && (
+                      <div style={errorStyle} role="alert">
+                        {error}
+                      </div>
+                    )}
+                  </div>
+
+                  <footer style={footerStyle}>
+                    <div style={inputWrapStyle}>
+                      <textarea
+                        ref={inputRef}
+                        value={input}
+                        onChange={(e) => setInput(e.target.value)}
+                        onKeyDown={onKeyDown}
+                        placeholder="Describe an edit…"
+                        rows={1}
+                        style={textareaStyle}
+                        disabled={loading}
+                      />
+                      <button
+                        type="button"
+                        onClick={send}
+                        disabled={loading || !input.trim()}
+                        style={sendIconButtonStyle(loading || !input.trim())}
+                        aria-label={loading ? 'Sending' : 'Send'}
+                      >
+                        {loading ? (
+                          <TypingDots />
+                        ) : (
+                          <SendHorizontal size={16} strokeWidth={2.4} aria-hidden="true" />
+                        )}
+                      </button>
+                    </div>
+                  </footer>
                 </div>
-              </footer>
+              </div>
             </motion.div>
           </>
         )}
@@ -620,7 +1021,8 @@ function MessageBubble({ m }: { m: ChatMessage }) {
 // ---------- styles ----------
 
 // Entry CTA styling lives in preview.css so the button can align with
-// TripPreview chrome without prop drilling.
+// TripPreview chrome without prop drilling. Thread-rail styling also lives
+// there (classes trip-chat-rail*) because it needs media queries.
 
 const minimizedPillStyle: React.CSSProperties = {
   position: 'fixed',
@@ -713,13 +1115,29 @@ const grabberStyle: React.CSSProperties = {
 const headerStyle: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
-  justifyContent: 'center',
-  padding: 'var(--trip-chat-header-padding, 4px 16px 10px)',
+  gap: 8,
+  padding: 'var(--trip-chat-header-padding, 4px 10px 8px)',
   borderBottom: '1px solid #E8E1D6',
   background: '#FBF7F1',
 };
 
+const headerIconButtonStyle: React.CSSProperties = {
+  flexShrink: 0,
+  width: 32,
+  height: 32,
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  background: 'transparent',
+  color: '#3D352E',
+  border: 'none',
+  borderRadius: 9,
+  cursor: 'pointer',
+};
+
 const chatTitleStyle: React.CSSProperties = {
+  flex: 1,
+  textAlign: 'center',
   fontFamily: '"Fraunces", "Iowan Old Style", "Palatino", Georgia, serif',
   fontOpticalSizing: 'auto',
   fontVariationSettings: "'SOFT' 42",
@@ -728,6 +1146,9 @@ const chatTitleStyle: React.CSSProperties = {
   lineHeight: 'var(--trip-chat-title-line-height, 1.15)',
   color: '#1A1410',
   letterSpacing: 0,
+  whiteSpace: 'nowrap',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
 };
 
 const messagesStyle: React.CSSProperties = {
