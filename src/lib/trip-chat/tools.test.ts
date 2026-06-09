@@ -10,10 +10,15 @@ const {
   buildPolicySearchQuery,
   collectAccommodations,
   CreateAccommodationCandidateInputShape,
+  DeleteActivityInputShape,
   extractPolicySnippets,
   inferPolicyFromText,
   UpdateAccommodationCandidateInputShape,
+  UpsertActivityInputShape,
   upsertAccommodationAgentNote,
+  upsertDayItemAgentNote,
+  UpsertMealInputShape,
+  UpsertTransportInputShape,
 } = _internal;
 
 const sampleTrip: TripData = {
@@ -123,6 +128,100 @@ test('accommodation candidate schema requires checked review ratings for proposa
     },
   });
   assert.equal(partialRatingPatch.success, false);
+});
+
+test('focused day item schemas support activities, meals, and transport edits', () => {
+  const activitySchema = z.object(UpsertActivityInputShape);
+  assert.equal(
+    activitySchema.safeParse({
+      day_number: 2,
+      activity: {
+        time_label: 'Afternoon',
+        type: 'museum',
+        content: 'Visit Kelvingrove Art Gallery and Museum.',
+        place: { name: 'Kelvingrove Art Gallery and Museum' },
+        detail: { why: 'A strong rainy-day anchor with a broad collection.' },
+      },
+    }).success,
+    true
+  );
+
+  const mealSchema = z.object(UpsertMealInputShape);
+  assert.equal(
+    mealSchema.safeParse({
+      day_number: 2,
+      meal: {
+        type: 'dinner',
+        name: 'Ox and Finch',
+        booking_status: 'open',
+        reservation_required: true,
+        detail: { cuisine: 'Modern Scottish', booking_note: 'Reserve ahead.' },
+      },
+    }).success,
+    true
+  );
+
+  const transportSchema = z.object(UpsertTransportInputShape);
+  assert.equal(
+    transportSchema.safeParse({
+      day_number: 3,
+      transport: {
+        mode: 'train',
+        label: 'ScotRail to Bridge of Orchy',
+        from: 'Glasgow Queen Street',
+        to: 'Bridge of Orchy',
+      },
+      match: { label: 'ScotRail to Bridge of Orchy' },
+    }).success,
+    true
+  );
+
+  const deleteSchema = z.object(DeleteActivityInputShape);
+  assert.equal(
+    deleteSchema.safeParse({
+      day_number: 2,
+      match: { title: 'Kelvingrove Art Gallery and Museum' },
+    }).success,
+    true
+  );
+});
+
+test('day item agent notes are upserted into markdown_source', () => {
+  const first = upsertDayItemAgentNote('# Scotland\n\nOriginal plan.', {
+    kind: 'activity',
+    action: 'upserted',
+    dayNumber: 2,
+    date: '2026-04-25',
+    path: 'days[day_number=2].blocks[1]',
+    item: {
+      time_label: 'Afternoon',
+      type: 'museum',
+      content: 'Visit Kelvingrove Art Gallery and Museum.',
+      detail: { title: 'Kelvingrove Art Gallery and Museum' },
+    },
+  });
+
+  assert.match(first, /OURTRIPS_AGENT_NOTES_START/);
+  assert.match(first, /Programme item/);
+  assert.match(first, /Kelvingrove Art Gallery and Museum/);
+  assert.match(first, /path: days\[day_number=2\]\.blocks\[1\]/);
+
+  const second = upsertDayItemAgentNote(first, {
+    kind: 'activity',
+    action: 'upserted',
+    dayNumber: 2,
+    date: '2026-04-25',
+    path: 'days[day_number=2].blocks[1]',
+    item: {
+      time_label: 'Late afternoon',
+      type: 'museum',
+      content: 'Visit Kelvingrove before dinner.',
+      detail: { title: 'Kelvingrove Art Gallery and Museum' },
+    },
+  });
+
+  assert.equal((second.match(/path: days\[day_number=2\]\.blocks\[1\]/g) ?? []).length, 1);
+  assert.match(second, /Late afternoon/);
 });
 
 test('applyAccommodationDetailPatch deep-merges one hotel detail without touching other days', () => {
