@@ -79,7 +79,9 @@ export default function ItinerariesExplorer({ itineraries }: ItinerariesExplorer
       router.push(itinerary.canonicalPath);
       await new Promise<void>((resolve) => {
         (window as unknown as Record<string, unknown>).__tripTransitionResolve = resolve;
-        setTimeout(resolve, 700);
+        // Hold the catalogue long enough for warm loads to fade straight to
+        // the real cover; slower loads fade to the cover-shaped skeleton.
+        setTimeout(resolve, 1600);
       });
     });
   };
