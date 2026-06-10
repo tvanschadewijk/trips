@@ -420,12 +420,48 @@ export const UpdateTripInputSchema = z
 export type UpdateTripInput = z.infer<typeof UpdateTripInputSchema>;
 export type TripMetaEditable = z.infer<typeof TripMetaEditableSchema>;
 
+const TripReadSectionSchema = z.enum([
+  'trip',
+  'markdown_source',
+  'days',
+  'images',
+  'image_assets',
+  'blocks',
+  'transport',
+  'accommodation',
+  'meals',
+  'tips',
+  'stats',
+  'route_points',
+  'quality',
+  'logistics',
+  'services',
+  'notes',
+]);
+
 /**
- * Input for `get_trip`. Trivially empty — the trip_id is injected server-side
- * from the authenticated request, never passed by the agent. Keeping this as a
- * no-args schema prevents the agent from requesting arbitrary trips.
+ * Input for `get_trip`. The trip_id is injected server-side from the
+ * authenticated request, never passed by the agent. Reads default to a compact
+ * summary so broad questions cannot accidentally push long trips over the
+ * agent context limit; full reads are still possible but require an explicit
+ * allow_large opt-in.
  */
-export const GetTripInputShape = {} as const;
+export const GetTripInputShape = {
+  view: z
+    .enum(['summary', 'day', 'days', 'sections', 'full'])
+    .default('summary')
+    .describe('summary is compact. day returns one full day. days returns selected full days. sections returns selected fields. full requires allow_large=true.'),
+  day_number: z.number().int().positive().optional(),
+  day_numbers: z.array(z.number().int().positive()).optional(),
+  day_start: z.number().int().positive().optional(),
+  day_end: z.number().int().positive().optional(),
+  sections: z.array(TripReadSectionSchema).optional(),
+  include_markdown_source: z.boolean().optional(),
+  allow_large: z
+    .boolean()
+    .optional()
+    .describe('Only true permits view=full because full trips can exceed agent token limits.'),
+} as const;
 export const GetTripInputSchema = z.object(GetTripInputShape).strict();
 
 export type GetTripInput = z.infer<typeof GetTripInputSchema>;

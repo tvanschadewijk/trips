@@ -26,6 +26,7 @@ import {
 } from '@/lib/accommodation-review-store';
 import {
   deleteDayItemInTripData,
+  formatTripForRead,
   upsertDayItemInTripData,
 } from '@/lib/trip-service';
 import { normalizeTripData } from '@/lib/trip-data-normalize';
@@ -41,6 +42,7 @@ import type {
 } from '@/lib/types';
 import {
   GetTripInputShape,
+  GetTripInputSchema,
   UpdateTripInputShape,
   UpdateTripInputSchema,
 } from './schema';
@@ -49,6 +51,7 @@ import { createBookingTools, BOOKING_TOOL_NAMES } from './booking-tools';
 export interface TripToolContext {
   tripId: string;
   supabase: SupabaseClient;
+  origin?: string;
   /** Called with the computed patch after a successful update, for diff logging. */
   onUpdateApplied?: (applied: {
     tool?: string;
@@ -660,18 +663,30 @@ const PromoteAccommodationCandidateInputShape = {
   message: z.string().optional(),
 } as const;
 
-const GET_TRIP_DESCRIPTION = `Read the full current state of the trip the user is editing.
+const GET_TRIP_DESCRIPTION = `Read the current trip the user is editing, with compact views by default.
 
-Use this when the edit needs fields outside the narrow list tools, or when you
-must update markdown_source alongside structural changes. Avoid it for
-accommodation-only questions or edits on long trips; list_accommodations plus
-update_accommodation/update_accommodation_detail can handle those without
-loading the full itinerary.
+Use this before answering trip-data questions. Do not ask the user to paste
+trip details until you have tried the smallest useful read:
 
-Returns the full TripData JSON: { trip: {...meta...}, days: [...day objects...] }.
+  - No args or { "view": "summary" } returns compact trip metadata, day titles,
+    item counts, accommodation names, markdown length/hash, and image status.
+    Start here for broad questions like "how can we make this better?" or
+    "come up with a plan".
+  - { "view": "day", "day_number": N } returns one complete day. Use this for
+    "today", a currently viewed day, exact drive/transport timing, meals, and
+    day-specific advice.
+  - { "view": "days", "day_start": A, "day_end": B } or "day_numbers" returns
+    selected complete days when a small range is needed.
+  - { "view": "sections", "sections": ["quality", "logistics"] } returns
+    focused audits without loading programme prose. Add sections such as
+    "trip", "route_points", "services", "notes", "transport", "accommodation",
+    "meals", "tips", or "stats" only when needed.
+  - { "view": "full", "allow_large": true } intentionally returns the full
+    TripData JSON. Use it only when narrow reads cannot support the edit,
+    especially structural update_trip work that must sync markdown_source.
 
-No arguments. The trip_id is pinned by the server to the trip the user is
-viewing — you cannot request a different trip.`;
+The trip_id is pinned by the server to the trip the user is viewing — you
+cannot request a different trip.`;
 
 const UPDATE_TRIP_DESCRIPTION = `Apply an edit to the current trip. The trip_id is pinned server-side.
 
@@ -789,8 +804,11 @@ external agent generated.
 
 Rules when editing a trip:
 
-  1. Call get_trip first. The returned JSON includes \`markdown_source\` if
-     present. Read it.
+  1. Call get_trip first with the smallest read that can support the edit. If
+     you need the source markdown text, intentionally request
+     \`{ "view": "full", "allow_large": true }\`. Compact reads may only show a
+     markdown_source present/length/hash summary, which is enough to know
+     markdown exists but not enough to rewrite it.
   2. If \`markdown_source\` is present:
        - Apply the user's edit to BOTH the structured fields AND the markdown.
        - Send the updated \`markdown_source\` in the SAME update_trip call as
@@ -1764,33 +1782,47 @@ export function createTripEditorMcpServer(
     'get_trip',
     GET_TRIP_DESCRIPTION,
     GetTripInputShape,
-    async () => {
+    async (rawArgs) => {
+      const parsed = GetTripInputSchema.safeParse(rawArgs ?? {});
+      if (!parsed.success) {
+        return textToolError(
+          `Invalid input: ${parsed.error.issues
+            .map((i) => `${i.path.join('.')}: ${i.message}`)
+            .join('; ')}`
+        );
+      }
+
       const { data, error } = await ctx.supabase
         .from('trips')
-        .select('data')
+        .select('id, share_id, name, share_mode, created_at, updated_at, data')
         .eq('id', ctx.tripId)
         .single();
 
       if (error || !data) {
-        return {
-          content: [
-            {
-              type: 'text' as const,
-              text: `Error reading trip: ${error?.message ?? 'not found'}`,
-            },
-          ],
-          isError: true,
-        };
+        return textToolError(`Error reading trip: ${error?.message ?? 'not found'}`);
       }
 
-      return {
-        content: [
-          {
-            type: 'text' as const,
-            text: JSON.stringify(normalizeTripData(data.data), null, 2),
-          },
-        ],
-      };
+      const input = parsed.data;
+      if (input.view === 'full') {
+        if (input.allow_large !== true) {
+          return textToolError(
+            'Full trip reads can exceed agent token limits. Use view=summary, view=day, view=days with day ranges, view=sections, or set allow_large=true intentionally.'
+          );
+        }
+        return jsonToolResponse(normalizeTripData(data.data));
+      }
+
+      try {
+        return jsonToolResponse(
+          formatTripForRead(
+            data as Record<string, unknown>,
+            input,
+            ctx.origin ?? ''
+          )
+        );
+      } catch (err) {
+        return textToolError(err instanceof Error ? err.message : String(err));
+      }
     }
   );
 

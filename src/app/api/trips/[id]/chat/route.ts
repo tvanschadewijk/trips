@@ -114,6 +114,7 @@ type ChatRequestBody = z.infer<typeof BodySchema>;
 interface RunAgentTurnArgs {
   tripId: string;
   userId: string;
+  origin: string;
   sessionRowId: string;                 // thread id (trip_chat_sessions.id)
   turnIndex: number;
   message: string;
@@ -357,6 +358,7 @@ export async function POST(
   const runArgs: RunAgentTurnArgs = {
     tripId,
     userId: access.userId,
+    origin: request.nextUrl.origin,
     sessionRowId,
     turnIndex,
     message: body.message,
@@ -418,6 +420,7 @@ async function runAgentTurn(args: RunAgentTurnArgs): Promise<void> {
   const mcpServer = createTripEditorMcpServer({
     tripId: args.tripId,
     supabase: admin,
+    origin: args.origin,
     onUpdateApplied: ({ tool, input }) => {
       toolCallsSummary.push({
         tool: tool ?? 'update_trip',
