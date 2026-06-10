@@ -4908,10 +4908,22 @@ button.day-brief-place:active {
 /* overline group labels. Component markup in TripChatPanel.tsx.       */
 /* ------------------------------------------------------------------ */
 
-.trip-chat-sheet.is-rail-open {
-  --trip-chat-sheet-width: 816px;
-  --trip-chat-sheet-max-height: min(56vh, 470px);
-  --trip-chat-sheet-height: var(--trip-chat-sheet-max-height);
+/* Opening the rail only ADDS the rail's width — the sheet's height and the
+   page-tuned width variable stay exactly as the surface defines them. */
+.trip-chat-sheet {
+  transition: width 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .trip-chat-sheet {
+    transition-duration: 1ms;
+  }
+}
+
+@media (min-width: 720px) {
+  .trip-chat-sheet.is-rail-open {
+    --trip-chat-rail-extra: 224px;
+  }
 }
 
 .trip-chat-body {
@@ -5123,10 +5135,6 @@ button.day-brief-place:active {
 }
 
 @media (max-width: 719px) {
-  .trip-chat-sheet.is-rail-open {
-    --trip-chat-sheet-width: 520px;
-  }
-
   .trip-chat-rail {
     position: absolute;
     top: 0;

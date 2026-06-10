@@ -1077,7 +1077,9 @@ const sheetStyle: React.CSSProperties = {
   bottom: 0,
   marginLeft: 'auto',
   marginRight: 'auto',
-  width: 'min(var(--trip-chat-sheet-width, 520px), 100vw)',
+  // --trip-chat-rail-extra is 0 unless the thread rail is docked open on
+  // desktop (preview.css) — the rail widens the sheet, never reshapes it.
+  width: 'min(calc(var(--trip-chat-sheet-width, 520px) + var(--trip-chat-rail-extra, 0px)), 100vw)',
   height: 'var(--trip-chat-sheet-height, auto)',
   maxHeight: 'var(--trip-chat-sheet-max-height, min(43vh, 360px))',
   background: '#FBF7F1',
