@@ -1396,13 +1396,14 @@
 }
 .day-brief-copy {
   min-width: 0;
-  font-family: var(--font-serif);
-  font-optical-sizing: auto;
-  font-size: 16px;
-  font-weight: 390;
-  line-height: 1.55;
+  /* Product card body: Inter, not small-size serif (DESIGN.md product
+     hierarchy — Fraunces is reserved for editorial display moments). */
+  font-family: var(--font-sans);
+  font-size: 15px;
+  font-weight: 450;
+  line-height: 1.6;
   letter-spacing: 0;
-  color: var(--color-text-primary);
+  color: var(--color-text-secondary);
 }
 .day-brief-label,
 .day-brief-emphasis {
@@ -1721,10 +1722,10 @@ button.day-brief-place:active {
 .options-list { display: grid; gap: 8px; margin-top: 8px; }
 .option-card { background: var(--color-accent-light); border: 1px solid rgba(193, 79, 42, 0.18); border-radius: 4px; padding: 12px 14px; }
 .option-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.option-label { font-family: var(--font-serif); font-optical-sizing: auto; font-size: 16px; font-weight: 420; color: var(--color-text-primary); }
+.option-label { font-family: var(--font-sans); font-size: 14px; font-weight: 620; color: var(--color-text-primary); }
 .option-duration { font-family: var(--font-mono); font-size: 11px; color: var(--color-accent-deep); background: rgba(193, 79, 42, 0.12); padding: 2px 8px; border-radius: 999px; flex-shrink: 0; }
 .option-desc { font-family: var(--font-sans); font-size: 13px; color: var(--color-text-secondary); margin: 4px 0 0; line-height: 1.5; }
-.option-note { font-family: var(--font-serif); font-optical-sizing: auto; font-size: 13px; color: var(--color-text-muted); margin: 4px 0 0; font-style: italic; }
+.option-note { font-family: var(--font-sans); font-size: 13px; font-weight: 450; line-height: 1.45; color: var(--color-text-muted); margin: 4px 0 0; }
 
 /* Transport */
 .transport-row {
@@ -3687,9 +3688,12 @@ button.day-brief-place:active {
     display: grid;
     gap: 0;
     max-width: min(860px, calc(100vw - var(--desktop-rail-width) - 280px));
-    font-family: var(--font-sans);
+    /* Same Fraunces voice as the cover and trip cards — the day view must
+       not switch the trip's name into UI sans (DESIGN.md: serif speaks,
+       Inter labels; Inter never exceeds weight 620). */
+    font-family: var(--font-serif);
+    font-optical-sizing: auto;
     font-size: 0;
-    font-weight: 600;
     line-height: 1;
     letter-spacing: 0;
     white-space: normal;
@@ -3700,10 +3704,10 @@ button.day-brief-place:active {
   .nav-bar .nav-trip-name {
     display: block;
     color: var(--color-text-primary);
-    font-size: 25px;
-    font-weight: 660;
+    font-size: 24px;
+    font-weight: 440;
     line-height: 1.12;
-    letter-spacing: 0;
+    letter-spacing: -0.012em;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
