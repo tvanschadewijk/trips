@@ -225,8 +225,17 @@ export async function POST(
       );
     }
     sessionRowId = created.id;
-    turnIndex = 0;
-    isNewThread = true;
+    if (created.reused) {
+      // Degraded reuse (pre-migration DB, or a transient insert failure):
+      // continue the existing conversation — its turn numbering and prior
+      // context included — instead of stomping turn 0 as if it were fresh.
+      turnIndex = await nextTurnIndex(admin, sessionRowId, created.turnCount);
+      threadTitle = created.existingTitle;
+      isNewThread = false;
+    } else {
+      turnIndex = 0;
+      isNewThread = true;
+    }
   }
 
   const priorTurns = isNewThread ? [] : await loadPriorTurns(admin, sessionRowId);
