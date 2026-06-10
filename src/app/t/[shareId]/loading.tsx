@@ -74,7 +74,6 @@ export default function LoadingTripPage() {
               width: '100%',
               height: '100%',
               objectFit: 'cover',
-              viewTransitionName: 'trip-hero',
             } as React.CSSProperties}
           />
         ) : (
@@ -83,7 +82,6 @@ export default function LoadingTripPage() {
               position: 'absolute',
               inset: 0,
               background: 'linear-gradient(135deg, #2A1F18 0%, #1A1410 100%)',
-              viewTransitionName: 'trip-hero',
             } as React.CSSProperties}
           />
         )}

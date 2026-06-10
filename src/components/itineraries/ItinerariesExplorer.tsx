@@ -74,9 +74,6 @@ export default function ItinerariesExplorer({ itineraries }: ItinerariesExplorer
     if (!startViewTransition) return;
 
     event.preventDefault();
-    const card = event.currentTarget.closest('.itinerary-card');
-    const frame = card?.querySelector('.itinerary-card-image-link') as HTMLElement | null;
-    if (frame) frame.style.viewTransitionName = 'trip-hero';
 
     startViewTransition.call(document, async () => {
       router.push(itinerary.canonicalPath);

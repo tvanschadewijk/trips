@@ -800,32 +800,8 @@
 .dash-onboard-demo-link svg { transition: transform 0.15s; }
 .dash-onboard-demo-link:hover svg { transform: translateX(3px); }
 
-/* ============================================
-   VIEW TRANSITIONS
-   ============================================ */
-@supports (view-transition-name: hero) {
-  ::view-transition-group(trip-hero) {
-    animation-duration: 0.32s;
-    animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
-    border-radius: 20px;
-    overflow: hidden;
-    will-change: transform;
-  }
-  ::view-transition-old(trip-hero),
-  ::view-transition-new(trip-hero) {
-    animation: none;
-    mix-blend-mode: normal;
-    height: 100%;
-    object-fit: cover;
-    overflow: clip;
-    border-radius: 20px;
-  }
-  /* Instant swap — only the hero morphs, no page-level crossfade */
-  ::view-transition-old(root),
-  ::view-transition-new(root) {
-    animation: none;
-  }
-}
+/* View transitions: the site-wide soft crossfade lives in globals.css
+   (::view-transition-*(root)). No per-surface overrides here. */
 .dash-empty h3 {
   font-family: 'Fraunces', 'Iowan Old Style', 'Palatino', 'Georgia', serif;
   font-optical-sizing: auto;
