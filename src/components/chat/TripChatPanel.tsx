@@ -232,6 +232,9 @@ export default function TripChatPanel({
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const sheetRef = useRef<HTMLDivElement | null>(null);
   const activeThreadIdRef = useRef<string | null>(activeThreadId);
+  // Distinguishes a real drag on the grabber from a plain click (a click
+  // should dismiss the sheet; releasing a half-drag should not).
+  const dragMovedRef = useRef(false);
   const dragControls = useDragControls();
 
   useEffect(() => {
@@ -690,19 +693,28 @@ export default function TripChatPanel({
               dragConstraints={{ top: 0, bottom: 0 }}
               dragElastic={{ top: 0, bottom: 0.4 }}
               onDragEnd={(_, info) => {
+                dragMovedRef.current = Math.abs(info.offset.y) > 8;
                 // Dismiss when the user flicks down or drags more than ~120px.
                 if (info.offset.y > 120 || info.velocity.y > 600) {
                   minimize();
                 }
               }}
             >
-              <div
+              <button
+                type="button"
                 style={grabberHitStyle}
                 onPointerDown={(e) => dragControls.start(e)}
-                aria-hidden="true"
+                onClick={() => {
+                  if (dragMovedRef.current) {
+                    dragMovedRef.current = false;
+                    return;
+                  }
+                  minimize();
+                }}
+                aria-label="Minimize chat"
               >
                 <div style={grabberStyle} />
-              </div>
+              </button>
               <header style={headerStyle}>
                 <button
                   type="button"
@@ -1105,6 +1117,8 @@ const grabberHitStyle: React.CSSProperties = {
   cursor: 'grab',
   touchAction: 'none',
   flexShrink: 0,
+  background: 'transparent',
+  border: 'none',
 };
 
 const grabberStyle: React.CSSProperties = {
