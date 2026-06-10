@@ -506,7 +506,10 @@ export default function DashboardPage() {
                         router.push(`/t/${trip.share_id}`);
                         await new Promise<void>((resolve) => {
                           (window as unknown as Record<string, unknown>).__tripTransitionResolve = resolve;
-                          setTimeout(resolve, 600);
+                          // Hold the dashboard long enough for warm loads to
+                          // fade STRAIGHT to the real cover; slower loads fade
+                          // to the cover-shaped skeleton instead.
+                          setTimeout(resolve, 1600);
                         });
                       });
                     }}
