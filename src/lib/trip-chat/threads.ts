@@ -89,14 +89,18 @@ export async function createThread(
   admin: SupabaseClient,
   { tripId, userId }: ThreadScope,
   title: string
-): Promise<{ id: string } | { error: string }> {
+): Promise<
+  | { id: string; reused: false }
+  | { id: string; reused: true; existingTitle: string | null; turnCount: number | null }
+  | { error: string }
+> {
   const { data, error } = await admin
     .from('trip_chat_sessions')
     .insert({ trip_id: tripId, user_id: userId, title })
     .select('id')
     .single();
   if (!error && data) {
-    return { id: data.id };
+    return { id: data.id, reused: false };
   }
 
   // Pre-migration database fallbacks (see migration 010), so a deploy that
@@ -110,11 +114,19 @@ export async function createThread(
     .select('id')
     .single();
   if (!legacyInsert.error && legacyInsert.data) {
-    return { id: legacyInsert.data.id };
+    return { id: legacyInsert.data.id, reused: false };
   }
   const existing = await latestThread(admin, { tripId, userId });
   if (existing) {
-    return { id: existing.id };
+    // CALLERS MUST TREAT THIS AS AN EXISTING THREAD: continue its turn
+    // numbering and prior context. Treating it as fresh once wrote a second
+    // exchange at turn_index 0, shadowing the original turn in prompt replay.
+    return {
+      id: existing.id,
+      reused: true,
+      existingTitle: existing.title ?? null,
+      turnCount: existing.turn_count,
+    };
   }
   return { error: error?.message ?? 'insert returned no row' };
 }
@@ -139,8 +151,19 @@ export async function findThread(
 export async function latestThread(
   admin: SupabaseClient,
   { tripId, userId }: ThreadScope
-): Promise<{ id: string; turn_count: number | null; updated_at: string } | null> {
+): Promise<{ id: string; turn_count: number | null; updated_at: string; title?: string | null } | null> {
   const { data } = await admin
+    .from('trip_chat_sessions')
+    .select('id, turn_count, updated_at, title')
+    .eq('trip_id', tripId)
+    .eq('user_id', userId)
+    .order('updated_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (data) return data;
+
+  // Pre-migration fallback: no title column yet.
+  const legacy = await admin
     .from('trip_chat_sessions')
     .select('id, turn_count, updated_at')
     .eq('trip_id', tripId)
@@ -148,7 +171,7 @@ export async function latestThread(
     .order('updated_at', { ascending: false })
     .limit(1)
     .maybeSingle();
-  return data ?? null;
+  return legacy.data ?? null;
 }
 
 /** Update a thread's title (user rename, or async LLM polish after creation). */
