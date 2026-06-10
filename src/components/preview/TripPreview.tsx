@@ -115,7 +115,6 @@ function renderRichDetail(detail?: RichDetail): string {
 }
 
 const MAX_VISIBLE_DOTS = 7;
-const TRIP_HERO_TRANSITION_NAME = 'trip-hero';
 const DETAIL_CLOSE_MS = 420;
 const NEARBY_SLIDE_RENDER_RADIUS = 1;
 
@@ -626,7 +625,6 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
   const [overviewFaded, setOverviewFaded] = useState(autoOpen ? true : false);
   const [showOverviewMap, setShowOverviewMap] = useState(false);
   const [isDesktopPreview, setIsDesktopPreview] = useState<boolean | null>(null);
-  const [transitionTripIndex, setTransitionTripIndex] = useState<number | null>(autoOpen ? 0 : null);
   const [showArchive, setShowArchive] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
@@ -857,19 +855,14 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     }, 520);
   }, [currentSlide, totalSlides]);
 
-  // Open trip with grow animation
-  const openTrip = useCallback((idx: number, cardEl: HTMLElement) => {
+  // Open trip with a soft crossfade (root view transition — no shared-element
+  // hero morph; the geometric card→cover transform read as jarring).
+  const openTrip = useCallback((idx: number) => {
     const td = trips[idx];
     if (!td.days.length) return;
 
-    const heroFrame = cardEl.querySelector('.trip-card-media') as HTMLElement | null;
-    if (heroFrame) {
-      heroFrame.style.viewTransitionName = TRIP_HERO_TRANSITION_NAME;
-    }
-
     startViewTransition(() => {
       flushSync(() => {
-        setTransitionTripIndex(idx);
         setActiveTripIndex(idx);
         setCurrentSlide(0);
         setOverviewFaded(true);
@@ -880,26 +873,13 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
   const closeTrip = useCallback(() => {
     if (activeTripIndex === null || autoOpen) return;
 
-    flushSync(() => {
-      setTransitionTripIndex(activeTripIndex);
-    });
-
-    const transition = startViewTransition(() => {
+    startViewTransition(() => {
       flushSync(() => {
         setOverviewFaded(false);
         setCurrentSlide(0);
         setActiveTripIndex(null);
       });
     });
-
-    if (transition) {
-      transition.finished.finally(() => {
-        setTransitionTripIndex(null);
-      });
-      return;
-    }
-
-    setTransitionTripIndex(null);
   }, [activeTripIndex, autoOpen, startViewTransition]);
 
   // Signal view transition readiness — wait for hero image decode so the
@@ -926,23 +906,6 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
       }
     });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Handle nav back
-  const handleBack = useCallback(() => {
-    if (currentSlide > 0) goTo(0);
-    else if (autoOpen) {
-      // Re-set vt-trip so the dashboard can apply viewTransitionName on the matching card
-      const seg = window.location.pathname.split('/').pop();
-      if (seg) sessionStorage.setItem('vt-trip', seg);
-      const vt = (document as unknown as { startViewTransition?: (cb: () => void) => void }).startViewTransition;
-      if (vt) {
-        vt.call(document, () => { window.history.back(); });
-      } else {
-        window.history.back();
-      }
-    }
-    else closeTrip();
-  }, [currentSlide, goTo, autoOpen, closeTrip]);
 
   // Save (clone) trip to user's account
   async function handleAddToTrips() {
@@ -1147,7 +1110,6 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
       if (today >= start && today <= end) {
         // Open the trip on the cover (slide 0). The cover renders a
         // 'Continue to today' CTA so the user gets context first.
-        setTransitionTripIndex(i);
         setActiveTripIndex(i);
         setOverviewFaded(true);
         break;
@@ -1544,12 +1506,9 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     return (
       <div key={origIdx} className="trip-card" role="button" tabIndex={0} aria-label={`${t.name} — ${t.subtitle}`} onClick={(e) => {
         if ((e.target as HTMLElement).closest('.trip-card-delete')) return;
-        openTrip(origIdx, e.currentTarget);
-      }} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openTrip(origIdx, e.currentTarget as HTMLElement); } }}>
-        <div
-          className="trip-card-media"
-          style={activeTripIndex === null && transitionTripIndex === origIdx ? { viewTransitionName: TRIP_HERO_TRANSITION_NAME } as React.CSSProperties : undefined}
-        >
+        openTrip(origIdx);
+      }} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openTrip(origIdx); } }}>
+        <div className="trip-card-media">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img className="trip-card-img" src={img} alt={t.name} style={{ opacity: brokenImages.has(img) ? 0 : 1 }} onError={() => onImgError(img)} loading="lazy" />
           <div className="trip-card-gradient" />
@@ -1879,7 +1838,6 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
         <div className="hero-slide">
           <div
             className={`hero-frame${desktopOverviewMapVisible ? ' is-map-visible' : ''}`}
-            style={activeTripIndex !== null && transitionTripIndex === activeTripIndex ? { viewTransitionName: TRIP_HERO_TRANSITION_NAME } as React.CSSProperties : undefined}
           >
             {desktopOverviewMapVisible && routeAtlas ? (
               <div className="hero-map-stage">
@@ -2775,11 +2733,6 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
               <img src="/brand/ourtrips-favicon-48.png" alt="" />
             </a>
             <div className="nav-title-group">
-              {isHero && (
-                <button className="nav-back" onClick={handleBack} aria-label="All trips">
-                  <Icon name="back" />
-                </button>
-              )}
               <div className="nav-title-text">
                 {!isHero && trip && (
                   <>
@@ -2789,19 +2742,16 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
                     <nav className="nav-breadcrumb" aria-label="Breadcrumb">
                       <ol>
                         <li>
-                          <a
+                          {/* Day view → trip cover. The brand mark already
+                              covers the path back to all trips. */}
+                          <button
+                            type="button"
                             className="nav-breadcrumb-link"
-                            href={homeHref}
-                            onClick={(event) => {
-                              if (!autoOpen) {
-                                event.preventDefault();
-                                closeTrip();
-                              }
-                            }}
+                            onClick={() => goTo(0)}
                           >
                             <Icon className="nav-breadcrumb-icon" name="back" size={14} strokeWidth={2.4} />
-                            <span>Trips overview</span>
-                          </a>
+                            <span>Trip overview</span>
+                          </button>
                         </li>
                       </ol>
                     </nav>

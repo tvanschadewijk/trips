@@ -195,6 +195,11 @@
   line-height: 1.25;
   letter-spacing: 0;
   text-decoration: none;
+  /* Rendered as a <button> (goes to the trip cover, not a page) */
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
 }
 .nav-breadcrumb-icon {
   flex: 0 0 auto;
@@ -3125,29 +3130,8 @@ button.day-brief-place:active {
    ============================================ */
 .trip-screen { position: absolute; inset: 0; z-index: 30; flex-direction: column; background: var(--color-surface); overflow: hidden; transition: transform var(--motion-sheet) var(--ease-standard), border-radius var(--motion-sheet) var(--ease-standard); color: var(--color-text-primary); }
 
-@supports (view-transition-name: hero) {
-  ::view-transition-group(trip-hero) {
-    animation-duration: 0.32s;
-    animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
-    border-radius: 20px;
-    overflow: hidden;
-    will-change: transform;
-  }
-  ::view-transition-old(trip-hero),
-  ::view-transition-new(trip-hero) {
-    animation: none;
-    mix-blend-mode: normal;
-    height: 100%;
-    object-fit: cover;
-    overflow: clip;
-    border-radius: 20px;
-  }
-  /* Instant swap — only the hero morphs, no page-level crossfade */
-  ::view-transition-old(root),
-  ::view-transition-new(root) {
-    animation: none;
-  }
-}
+/* View transitions: the site-wide soft crossfade lives in globals.css
+   (::view-transition-*(root)). No per-surface overrides here. */
 
 /* ============================================
    CONFIRM DIALOG

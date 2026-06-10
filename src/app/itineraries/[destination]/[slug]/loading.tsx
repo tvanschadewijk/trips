@@ -61,7 +61,6 @@ export default function LoadingPublicItineraryPage() {
               width: '100%',
               height: '100%',
               objectFit: 'cover',
-              viewTransitionName: 'trip-hero',
             } as CSSProperties}
           />
         ) : (
@@ -70,7 +69,6 @@ export default function LoadingPublicItineraryPage() {
               position: 'absolute',
               inset: 0,
               background: '#1A1410',
-              viewTransitionName: 'trip-hero',
             } as CSSProperties}
           />
         )}

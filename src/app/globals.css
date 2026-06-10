@@ -15,20 +15,29 @@ body {
   background: #1A1A1A;
   overflow: auto !important;
 }
-::view-transition-group(trip-hero) {
-  animation-duration: 560ms;
-  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+/* Soft crossfade for every view transition (trip open/close, dashboard →
+   trip cover, itinerary catalogue → trip). The old view holds fully opaque
+   underneath while the new one fades in with a barely-there scale settle —
+   no shared-element hero morph, no mid-fade brightness dip. */
+::view-transition-old(root) {
+  animation: none;
 }
-::view-transition-old(trip-hero),
-::view-transition-new(trip-hero) {
-  animation-duration: 560ms;
-  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
-  overflow: clip;
+::view-transition-new(root) {
+  animation: ot-vt-fade-in 300ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes ot-vt-fade-in {
+  from {
+    opacity: 0;
+    transform: scale(1.012);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 @media (prefers-reduced-motion: reduce) {
-  ::view-transition-group(trip-hero),
-  ::view-transition-old(trip-hero),
-  ::view-transition-new(trip-hero) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
     animation-duration: 1ms;
   }
 }

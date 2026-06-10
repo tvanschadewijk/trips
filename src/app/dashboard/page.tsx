@@ -80,10 +80,6 @@ export default function DashboardPage() {
     return true;
   });
   const [isAdmin, setIsAdmin] = useState(false);
-  const [vtTrip, setVtTrip] = useState<string | null>(() => {
-    if (typeof window !== 'undefined') return sessionStorage.getItem('vt-trip');
-    return null;
-  });
   const savedOfflineIds = useSavedTripIds();
   const online = useOnlineStatus();
   const personalTrips = trips.filter(t => !isPublicItineraryShareId(t.share_id));
@@ -190,13 +186,6 @@ export default function DashboardPage() {
     });
   }, [loadTrips]);
 
-  // Clear view-transition marker after the transition captures the new state
-  useEffect(() => {
-    if (vtTrip) {
-      const t = setTimeout(() => { sessionStorage.removeItem('vt-trip'); setVtTrip(null); }, 400);
-      return () => clearTimeout(t);
-    }
-  }, [vtTrip]);
 
   useEffect(() => {
     if (!cardMenuOpen) return;
@@ -495,7 +484,7 @@ export default function DashboardPage() {
                     onTouchStart={() => { const img = new window.Image(); img.src = overviewImage; }}
                     onClick={(e) => {
                       // Stash a snapshot of the overview photo so loading.tsx can
-                      // paint the same photo + title under the morphing hero.
+                      // paint the same photo + title while the trip page loads.
                       try {
                         sessionStorage.setItem(`vt-trip-${trip.share_id}`, JSON.stringify({
                           heroImage: overviewImage,
@@ -505,12 +494,14 @@ export default function DashboardPage() {
                           end: t.dates.end,
                         }));
                       } catch {}
+                      // Soft crossfade into the trip cover (no shared-element
+                      // morph — the card→hero transform read as jarring). The
+                      // awaited resolve keeps the old view up until the trip
+                      // page has painted its decoded hero, so the fade lands
+                      // on a finished cover instead of a placeholder.
                       const vt = (document as unknown as { startViewTransition?: (cb: () => Promise<void>) => void }).startViewTransition;
                       if (!vt) return; // let normal Link navigation happen
                       e.preventDefault();
-                      const frame = (e.currentTarget as HTMLElement).querySelector('.dash-card-hero-frame') as HTMLElement | null;
-                      if (frame) frame.style.viewTransitionName = 'trip-hero';
-                      sessionStorage.setItem('vt-trip', trip.share_id);
                       vt.call(document, async () => {
                         router.push(`/t/${trip.share_id}`);
                         await new Promise<void>((resolve) => {
@@ -521,7 +512,7 @@ export default function DashboardPage() {
                     }}
                   >
                     <div className="dash-card-hero">
-                      <div className="dash-card-hero-frame" style={vtTrip === trip.share_id ? { viewTransitionName: 'trip-hero' } as React.CSSProperties : undefined}>
+                      <div className="dash-card-hero-frame">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img src={overviewImage} alt={t.name} />
                         <div className="dash-card-hero-gradient" />
