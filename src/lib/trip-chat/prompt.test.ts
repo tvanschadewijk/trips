@@ -6,9 +6,11 @@ test('system prompt tells the agent to read trip context before route answers', 
   const prompt = buildSystemPrompt();
 
   assert.match(prompt, /Never tell the user you cannot access the trip file/);
+  assert.match(prompt, /mcp__trip_editor__get_date_ledger/);
+  assert.match(prompt, /call\s+`get_date_ledger`\s+first/);
   assert.match(prompt, /route-comparison questions/);
   assert.match(prompt, /view: "summary"/);
-  assert.match(prompt, /Ask a clarifying question only after the trip read/);
+  assert.match(prompt, /clarifying question only after the trip read/);
 });
 
 test('system prompt requires cascading review after accommodation location edits', () => {

@@ -19,6 +19,7 @@ import {
   deleteDayForUser,
   deleteDayItemForUser,
   formatTripForRead,
+  getTripLogisticsLedgerForUser,
   getTripImagePromptsForUser,
   getTripForUser,
   listTripsForUser,
@@ -55,7 +56,7 @@ const MCP_INSTRUCTIONS =
     'Accommodation shortlist contract: for each overnight stop without a booked hotel, create 2-4 private accommodation candidates, usually 3, with create_accommodation_candidate. Create exactly one candidate per hotel. Keep days[].accommodation as the booked/current stay or a clear placeholder such as "Hotel not confirmed yet"; never put hotel shortlists, slash-separated hotel names, or multiple hotel options into one public accommodation entry.',
     'Restaurant reservations belong in days[].meals[] as one meal per restaurant with detail.reservation or booking_status. Do not create trip.services entries for restaurants; trip.services is only for external logistics or providers not already rendered as transport, accommodation, meals, or activities.',
     'Every day should include at least one practical, place-specific tip with title and content. Omit tips only when there is truly nothing useful; never send empty tip objects.',
-    'Logistics contract: a day is one calendar itinerary date; a sleep/night is one overnight stay with check-in inclusive and check-out exclusive; a stay segment is one hotel across contiguous sleeps; a transport leg is one movement from an origin to a destination on a specific itinerary day. Run validate_trip_contract before saying a trip is complete.',
+    'Logistics contract: a day is one calendar itinerary date; a sleep/night is one overnight stay with check-in inclusive and check-out exclusive; a stay segment is one hotel across contiguous sleeps; a transport leg is one movement from an origin to a destination on a specific itinerary day. For any question or edit involving trip start/end dates, day count, nights, stays, route shape, or "how long are we in X", call get_trip_logistics_ledger before reasoning. Run validate_trip_contract before saying a trip is complete.',
     'Images are part of the MCP workflow: use search_trip_images and set_trip_image for real Unsplash trip/day hero images, then use get_trip_image_prompts plus save_trip_image_asset for externally generated cover/social assets. Check get_trip_image_status, validate_trip_contract, or verify_trip_public_data before saying the trip is done.',
     'Do not ask for an API key; OAuth is already authorized.',
   ].join(' ');
@@ -565,6 +566,7 @@ const TRIP_SCHEMA_REFERENCE = {
     rules: [
       'Use save_trip_v3 for new or substantially rewritten itineraries when exact dates, sleeps/nights, or transport requirements matter; it rejects hard logistics contradictions.',
       'Use save_trip_v2 only when you intentionally want quality/logistics warnings without a hard logistics gate.',
+      'Use get_trip_logistics_ledger before answering or editing trip start/end dates, day counts, nights/sleeps, stays, or how long travelers spend somewhere.',
       'Use get_trip summary/day/days/sections reads before full reads.',
       'Run validate_trip_contract before claiming the trip is complete.',
       'Map every visible named hotel, restaurant, activity site, and route stop with a specific name. Prefer place.name plus address or lat/lng when the exact place is known.',
@@ -697,6 +699,7 @@ const TRIP_SCHEMA_REFERENCE = {
       stay_segment: 'A contiguous allocation of one hotel/stay across one or more sleeps.',
       transport_leg: 'One atomic movement from an origin to a destination on a specific itinerary day.',
     },
+    ledger_tool: 'get_trip_logistics_ledger',
     validation_tool: 'validate_trip_contract',
     save_tool: 'save_trip_v3',
     hard_errors: [
@@ -831,6 +834,11 @@ const TRIP_TEMPLATE_REFERENCE = {
     tool: 'validate_trip_contract',
     input: { trip_id: 'uuid', response_mode: 'compact' },
   },
+  logistics_ledger: {
+    tool: 'get_trip_logistics_ledger',
+    input: { trip_id: 'uuid' },
+    use_for: 'Trip start/end dates, exact day count, scheduled sleeps/nights, stay segments, and "how long are we in X" questions.',
+  },
   replace_hotel: {
     tool: 'replace_accommodation',
     input: {
@@ -937,7 +945,7 @@ export function createOurTripsMcpServer(origin: string): McpServer {
         'Return compact examples for common OurTrips save, edit, image, and read workflows.',
       inputSchema: {
         template: z
-          .enum(['new_trip', 'new_trip_v2', 'new_trip_v3', 'validate_contract', 'replace_hotel', 'accommodation_shortlist', 'day_range_read', 'day_hero_image', 'generated_cover'])
+          .enum(['new_trip', 'new_trip_v2', 'new_trip_v3', 'logistics_ledger', 'validate_contract', 'replace_hotel', 'accommodation_shortlist', 'day_range_read', 'day_hero_image', 'generated_cover'])
           .optional()
           .describe('Optional template name. Omit to list all templates.'),
       },
@@ -1173,6 +1181,38 @@ export function createOurTripsMcpServer(origin: string): McpServer {
           trip_id
         );
         return jsonResult(formatTripForRead(trip, readInput, origin));
+      } catch (err) {
+        return errorResult(err);
+      }
+    }
+  );
+
+  server.registerTool(
+    'get_trip_logistics_ledger',
+    {
+      title: 'Get trip logistics ledger',
+      description:
+        'Return the compact canonical date/stay ledger for a saved trip. Use this before answering or editing anything about trip start/end dates, day count, nights, stays, route shape, or how long the traveler spends somewhere.',
+      inputSchema: {
+        trip_id: z.string().min(1).describe('The OurTrips trip id.'),
+      },
+      annotations: {
+        title: 'Get trip logistics ledger',
+        readOnlyHint: true,
+        destructiveHint: false,
+        openWorldHint: false,
+      },
+    },
+    async ({ trip_id }, extra) => {
+      try {
+        return jsonResult(
+          await getTripLogisticsLedgerForUser(
+            createAdminClient(),
+            userIdFromAuth(extra),
+            trip_id,
+            origin
+          )
+        );
       } catch (err) {
         return errorResult(err);
       }
