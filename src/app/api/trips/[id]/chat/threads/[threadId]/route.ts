@@ -13,8 +13,6 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { requireTripChatAccess } from '@/lib/trip-chat/access';
 import { deleteThread, findThread, renameThread } from '@/lib/trip-chat/threads';
 
-export const runtime = 'nodejs';
-
 const PatchSchema = z.object({
   title: z.string().min(1).max(80),
 });

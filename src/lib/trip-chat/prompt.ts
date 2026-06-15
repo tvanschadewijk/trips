@@ -2,7 +2,7 @@
  * Prompt construction for the trip-editing chat agent.
  *
  * Each API turn is a fresh Agent SDK session (the SDK's on-disk session store
- * doesn't survive Vercel function invocations, and the official guidance is
+ * doesn't survive short-lived server invocations, and the official guidance is
  * "capture what you need as application state and pass it in a fresh
  * session's prompt"). Prior conversation is conveyed to the agent via a
  * compact summary prefix inside the user prompt string.

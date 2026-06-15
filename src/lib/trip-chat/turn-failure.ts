@@ -30,7 +30,7 @@ const TRANSIENT_MESSAGE =
 
 const MESSAGES: Record<Exclude<TurnFailureKind, 'transient'>, string> = {
   auth_config:
-    "I couldn't reach the AI service: the server's Anthropic API key is missing or invalid, so retrying won't help. Site owner: update ANTHROPIC_API_KEY in the Vercel project settings and redeploy.",
+    "I couldn't reach the AI service: the server's Anthropic API key is missing or invalid, so retrying won't help. Site owner: update ANTHROPIC_API_KEY in the deployment settings and redeploy.",
   billing:
     'The AI service declined the request because the account is out of credits. Site owner: top up the Anthropic account billing, then try again.',
   prompt_too_long:

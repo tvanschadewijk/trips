@@ -1,0 +1,15 @@
+.git
+.next
+.open-next
+.wrangler
+node_modules
+npm-debug.log*
+.env*
+.dev.vars*
+*.log
+coverage
+dist
+build
+tmp
+temp
+.DS_Store

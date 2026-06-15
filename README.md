@@ -39,7 +39,7 @@ OAuth-authenticated MCP tools for external agents working across a user's trips.
 
 ## Release Process
 
-Work in feature branches and keep `main` as the production release branch. Vercel is configured to ignore pushes to non-`main` branches, so routine iteration should happen locally without creating preview deployments.
+Work in feature branches and keep `main` as the production release branch. Cloudflare deploys from pushes to `main`; routine iteration should happen locally or against Cloudflare preview URLs before merging.
 
 Before merging a release into `main`, update from the latest `main` and run the local release gate:
 
@@ -51,7 +51,7 @@ npm run verify
 npm run dev
 ```
 
-Review the app locally at [http://localhost:3000](http://localhost:3000). After the release looks good, merge the checked branch into `main` once. That single merge is the production deployment trigger.
+Review the app locally at [http://localhost:3000](http://localhost:3000). After the release looks good, merge the checked branch into `main` once. That single merge triggers the Cloudflare deployment workflow.
 
 ## Versioning
 
@@ -80,7 +80,7 @@ git commit -m "chore: update dependencies"
 npm run build
 ```
 
-## Cloudflare Preview
+## Cloudflare
 
-The Cloudflare/OpenNext migration workflow is documented in
-[docs/cloudflare-migration.md](/Users/thijsvanschadewijk/Documents/Development/Trips/docs/cloudflare-migration.md).
+The Cloudflare/OpenNext workflow is documented in
+[docs/cloudflare-migration.md](docs/cloudflare-migration.md).
