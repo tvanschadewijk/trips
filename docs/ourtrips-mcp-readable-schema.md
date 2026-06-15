@@ -23,6 +23,7 @@ Core expectations:
 - Use `save_trip_v3` for new or substantially rewritten trips when exact dates, sleeps/nights, hotel stay segments, or transport requirements matter.
 - Use `save_trip_v2` only when you intentionally want quality/logistics warnings without the hard logistics gate.
 - Use `get_trip_schema` or `get_trip_template` when unsure about structure.
+- Use `get_trip_logistics_ledger` before answering questions about trip start/end dates, day count, nights/sleeps, where the traveler stays, or how long they spend somewhere.
 - Use `validate_trip_contract` before claiming the trip is complete.
 - Use smaller reads first: `summary`, `day`, `days`, or `sections`.
 - Avoid full-trip reads unless intentionally requested with `allow_large`.
@@ -143,7 +144,9 @@ Hard logistics errors include:
 - A scheduled, booked, or required transport leg is missing `from` or `to`.
 - A booked scheduled transport leg is missing `depart`.
 
-Use `validate_trip_contract` to get the compact repair report: hard errors, warnings, open questions, and a canonical ledger of days, stay segments, and transport legs.
+Use `get_trip_logistics_ledger` for compact date and stay answers: start date, end date, inclusive day count, scheduled sleeps, day-by-day sleep location, and nights by stay.
+
+Use `validate_trip_contract` to get the compact repair report: hard errors, warnings, open questions, and the full logistics audit.
 
 ## Programme Blocks
 
@@ -635,6 +638,7 @@ Strict quality mode:
 | `save_trip` | Legacy save flow. | `trip`, `days`, optional `markdown_source`, optional `trip_id`. |
 | `list_trips` | Finding saved trips for the authenticated user. | No inputs. |
 | `get_trip` | Reading a saved trip. Prefer smaller views. | `trip_id`, `view`, optional day filters, optional sections, optional markdown inclusion, optional `allow_large`. |
+| `get_trip_logistics_ledger` | Reading the compact canonical date/stay ledger before date, night, stay, or route-shape reasoning. | `trip_id`. |
 | `validate_trip_contract` | Checking exact dates, sleeps/nights, stay segments, transport legs, and quality before claiming completion. | `trip_id`, optional `response_mode`. |
 
 ### Trip Editing

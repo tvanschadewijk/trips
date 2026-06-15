@@ -18,7 +18,7 @@ OurTrips exposes two custom agent toolsets.
 
 Trip-scoped MCP tools for the in-app chat agent. They are pinned to the current trip and let the agent read/edit itinerary data, manage accommodation review candidates, research place policies, and generate booking links.
 
-- Reads and validation: `get_trip`, `get_logistics_audit`, `list_accommodations`, `list_accommodation_review`
+- Reads and validation: `get_trip`, `get_date_ledger`, `get_logistics_audit`, `list_accommodations`, `list_accommodation_review`
 - Trip edits: `update_trip`, `update_accommodation`, `update_accommodation_detail`
 - Day item edits: `upsert_activity`, `delete_activity`, `upsert_meal`, `delete_meal`, `upsert_transport`, `delete_transport`
 - Policy research: `research_place_policy`
@@ -30,7 +30,7 @@ Trip-scoped MCP tools for the in-app chat agent. They are pinned to the current 
 OAuth-authenticated MCP tools for external agents working across a user's trips. They let agents create, edit, validate, image-populate, and verify OurTrips itineraries.
 
 - Schema/help: `get_trip_schema`, `get_trip_template`
-- Trip lifecycle: `save_trip`, `save_trip_v2`, `save_trip_v3`, `list_trips`, `get_trip`, `validate_trip_contract`, `patch_trip`
+- Trip lifecycle: `save_trip`, `save_trip_v2`, `save_trip_v3`, `list_trips`, `get_trip`, `get_trip_logistics_ledger`, `validate_trip_contract`, `patch_trip`
 - Accommodation reviewer: `list_accommodation_review`, `create_accommodation_candidate`, `update_accommodation_candidate`, `move_accommodation_candidate`, `promote_accommodation_candidate`, `replace_booked_accommodation_candidate`
 - Focused edits: `upsert_meal`, `delete_meal`, `upsert_accommodation`, `delete_accommodation`, `replace_accommodation`, `upsert_transport`, `delete_transport`, `upsert_activity`, `delete_activity`
 - Day edits: `replace_day_section`, `replace_day`, `delete_day`, `truncate_days_after`
@@ -79,3 +79,8 @@ git commit -m "chore: update dependencies"
 ```bash
 npm run build
 ```
+
+## Cloudflare Preview
+
+The Cloudflare/OpenNext migration workflow is documented in
+[docs/cloudflare-migration.md](/Users/thijsvanschadewijk/Documents/Development/Trips/docs/cloudflare-migration.md).

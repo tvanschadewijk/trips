@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   deleteDayItemInTripData,
+  formatTripLogisticsLedgerForRead,
   formatTripForRead,
   hashMarkdownSource,
   patchTripForUserWithResult,
@@ -119,6 +120,22 @@ test('formatTripForRead guards accidental full reads and supports day ranges', (
     'subtitle',
     'title',
   ]);
+});
+
+test('formatTripLogisticsLedgerForRead wraps the canonical ledger with trip metadata', () => {
+  const ledger = formatTripLogisticsLedgerForRead(
+    fixtureRecord(),
+    'https://ourtrips.to'
+  );
+
+  assert.equal(ledger.trip_id, 'trip-1');
+  assert.equal(ledger.url, 'https://ourtrips.to/t/abc123');
+  assert.equal(ledger.trip_name, 'London by Rail');
+  assert.equal(ledger.direct_answers.trip_starts_on, '2026-07-01');
+  assert.equal(ledger.direct_answers.trip_ends_on, '2026-07-03');
+  assert.equal(ledger.direct_answers.expected_itinerary_day_count, 3);
+  assert.equal(ledger.direct_answers.itinerary_day_count, 2);
+  assert.equal(ledger.status, 'needs_repair');
 });
 
 test('upsertDayItemInTripData updates train journeys without replacing the transport array', () => {
