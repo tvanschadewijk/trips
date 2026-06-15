@@ -123,6 +123,24 @@ test('stored route_points override derived geocoding when present', () => {
   assert.equal(atlas.legs[0].mode, 'flight');
 });
 
+test('stored route_points accept name aliases and skip malformed entries', () => {
+  const atlas = buildTripRouteAtlas({
+    ...baseTrip([]),
+    trip: {
+      ...baseTrip([]).trip,
+      route_points: [
+        { name: 'Mumbai', lat: 19.076, lng: 72.8777, role: 'home' },
+        { title: 'Jaipur', lat: 26.9124, lng: 75.7873, mode: 'flight', role: 'stay' },
+        { label: undefined, lat: 0, lng: 0 },
+      ] as unknown as TripData['trip']['route_points'],
+    },
+  });
+
+  assert.ok(atlas);
+  assert.deepEqual(atlas.points.map((point) => point.label), ['Mumbai', 'Jaipur']);
+  assert.equal(atlas.legs[0].mode, 'flight');
+});
+
 test('lookupRoutePlace handles known spelling variants', () => {
   assert.equal(lookupRoutePlace('Bridge of Orkey')?.label, 'Bridge of Orchy');
   assert.equal(lookupRoutePlace('Lago Maggiore')?.label, 'Lake Maggiore');

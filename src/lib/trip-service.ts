@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { trySyncAccommodationReviewForTrip } from '@/lib/accommodation-review-store';
-import { normalizeTripData } from '@/lib/trip-data-normalize';
+import { normalizeTripData, normalizeTripDataWithWarnings } from '@/lib/trip-data-normalize';
 import { buildTripLogisticsLedger } from '@/lib/trip-logistics-ledger';
 import { auditTripLogistics, type TripLogisticsAudit } from '@/lib/trip-logistics';
 import {
@@ -256,6 +256,7 @@ export type TripSaveResult = {
   url: string;
   status: 'created' | 'updated';
   day_count: number;
+  warnings: string[];
   image_status: TripImageStatus;
   quality?: TripQualityReport;
   logistics?: TripLogisticsAudit;
@@ -411,7 +412,11 @@ function assertMarkdownSize(markdownSource: unknown): asserts markdownSource is 
   }
 }
 
-function buildTripBody(input: SaveTripInput): { tripBody: TripData; quality?: TripQualityReport } {
+function buildTripBody(input: SaveTripInput): {
+  tripBody: TripData;
+  quality?: TripQualityReport;
+  warnings: string[];
+} {
   assertMarkdownSize(input.markdown_source);
 
   if (!input.trip?.name) {
@@ -431,16 +436,18 @@ function buildTripBody(input: SaveTripInput): { tripBody: TripData; quality?: Tr
     tripBody.markdown_source = input.markdown_source;
   }
 
+  const normalizedInput = normalizeTripDataWithWarnings(tripBody);
+
   if (input.trip_schema_version === 2) {
-    const normalized = normalizeTripForQualityContract(tripBody);
+    const normalized = normalizeTripForQualityContract(normalizedInput.data);
     const quality = validateItineraryQuality(normalized);
     if (input.strict_quality && quality.errors.length > 0) {
       throw new TripServiceError(quality.errors.join(' '), 422);
     }
-    return { tripBody: normalized, quality };
+    return { tripBody: normalized, quality, warnings: normalizedInput.warnings };
   }
 
-  return { tripBody: normalizeTripData(tripBody) };
+  return { tripBody: normalizedInput.data, warnings: normalizedInput.warnings };
 }
 
 export async function saveTripForUser(
@@ -449,7 +456,7 @@ export async function saveTripForUser(
   input: SaveTripInput,
   origin: string
 ): Promise<TripSaveResult> {
-  const { tripBody, quality } = buildTripBody(input);
+  const { tripBody, quality, warnings } = buildTripBody(input);
   const logistics = quality?.logistics ?? auditTripLogistics(tripBody);
   const tripName = String(input.trip?.name);
 
@@ -487,6 +494,7 @@ export async function saveTripForUser(
         url: `${origin}/t/${existing.share_id}`,
         status: 'updated',
         day_count: Array.isArray(tripBody.days) ? tripBody.days.length : 0,
+        warnings: unique(warnings),
         image_status: summarizeTripImages(tripBody),
         quality,
         logistics,
@@ -545,6 +553,7 @@ export async function saveTripForUser(
       url: `${origin}/t/${existingByName.share_id}`,
       status: 'updated',
       day_count: Array.isArray(tripBody.days) ? tripBody.days.length : 0,
+      warnings: unique(warnings),
       image_status: summarizeTripImages(tripBody),
       quality,
       logistics,
@@ -579,6 +588,7 @@ export async function saveTripForUser(
     url: `${origin}/t/${newTrip.share_id}`,
     status: 'created',
     day_count: Array.isArray(tripBody.days) ? tripBody.days.length : 0,
+    warnings: unique(warnings),
     image_status: summarizeTripImages(tripBody),
     quality,
     logistics,

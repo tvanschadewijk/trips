@@ -52,7 +52,7 @@ const MCP_INSTRUCTIONS =
     'Use OurTrips to save and edit travel itineraries for the authenticated user. This MCP connector is self-contained; rely on this connector\'s tools and schema guidance.',
     'Use save_trip_v3 for new or substantially rewritten itineraries when exact dates, sleeps/nights, or transport requirements matter; it rejects hard logistics contradictions. Use save_trip_v2 only when you intentionally want warnings without a hard logistics gate. Use get_trip_schema or get_trip_template when you need structure. Use get_trip summary/day/days/sections reads first; full reads require allow_large=true because large trips can exceed agent token limits.',
     'Use focused upsert/delete tools for meals, hotels, transport, and activities. For route rewrites, hotel swaps, removed stops, or stale nested fields, use replace_day, replace_day_section, replace_accommodation with mode=replace, delete_day, truncate_days_after, replace_paths, or delete_paths instead of deep merge.',
-    'Map contract: every visible named hotel, restaurant, activity site, and route stop must be represented once with a specific name and, when known, place/address/lat/lng context. Do not combine several restaurants or hotels into one title, provider, note, or service.',
+    'Map contract: every visible named hotel, restaurant, activity site, and route stop must be represented once with a specific name and, when known, place/address/lat/lng context. For trip.route_points[], use label, lat, and lng; do not use name or title for route point labels. Do not combine several restaurants or hotels into one title, provider, note, or service.',
     'Accommodation shortlist contract: for each overnight stop without a booked hotel, create 2-4 private accommodation candidates, usually 3, with create_accommodation_candidate. Create exactly one candidate per hotel. Keep days[].accommodation as the booked/current stay or a clear placeholder such as "Hotel not confirmed yet"; never put hotel shortlists, slash-separated hotel names, or multiple hotel options into one public accommodation entry.',
     'Restaurant reservations belong in days[].meals[] as one meal per restaurant with detail.reservation or booking_status. Do not create trip.services entries for restaurants; trip.services is only for external logistics or providers not already rendered as transport, accommodation, meals, or activities.',
     'Every day should include at least one practical, place-specific tip with title and content. Omit tips only when there is truly nothing useful; never send empty tip objects.',
@@ -62,6 +62,16 @@ const MCP_INSTRUCTIONS =
   ].join(' ');
 
 const JsonObjectSchema = z.record(z.string(), z.unknown());
+const TripRoutePointSchema = z
+  .object({
+    label: z.string().min(1).describe('Visible route point label. Use label, not name or title.'),
+    lat: z.number().min(-90).max(90).describe('Latitude.'),
+    lng: z.number().min(-180).max(180).describe('Longitude.'),
+    day: z.number().int().positive().optional().describe('Related itinerary day number.'),
+    mode: z.string().optional().describe('Travel mode or route context from the previous point.'),
+    role: z.enum(['home', 'stop', 'stay', 'excursion', 'trail', 'return']).optional(),
+  })
+  .passthrough();
 const IsoDateSchema = z
   .string()
   .regex(ISO_DATE_RE, 'Use ISO 8601 YYYY-MM-DD.')
@@ -404,7 +414,7 @@ const TripMetaV2Schema = z
     summary: z.string().min(1),
     hero_image: z.string().min(1),
     overview_image: z.string().optional(),
-    route_points: z.array(JsonObjectSchema).optional(),
+    route_points: z.array(TripRoutePointSchema).optional(),
     notes: z.array(JsonObjectSchema).optional(),
   })
   .passthrough();
@@ -665,6 +675,7 @@ const TRIP_SCHEMA_REFERENCE = {
     required: ['label', 'lat', 'lng'],
     optional: ['day', 'mode', 'role'],
     roles: ['home', 'stop', 'stay', 'excursion', 'trail', 'return'],
+    rules: ['Use label for the visible route point label; do not use name or title.'],
   },
   image_assets: {
     section: 'trip.image_assets',

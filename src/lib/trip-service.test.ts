@@ -8,6 +8,7 @@ import {
   patchTripForUserWithResult,
   replaceDayInTripData,
   replaceDaySectionInTripData,
+  saveTripForUser,
   saveTripImageAssetInTripData,
   setTripHeroImageForUser,
   summarizeTripImages,
@@ -83,6 +84,71 @@ function fixtureRecord() {
     data: fixtureData(),
   };
 }
+
+test('saveTripForUser normalizes route point aliases and returns ingestion warnings', async () => {
+  let insertedTripData: Record<string, unknown> | null = null;
+  const admin = {
+    from(table: string) {
+      if (table === 'trip_accommodation_reviews') {
+        return {
+          select() { return this; },
+          eq() { return this; },
+          maybeSingle: async () => ({ data: null, error: null }),
+          upsert: async () => ({ error: null }),
+        };
+      }
+
+      assert.equal(table, 'trips');
+      let inserted = false;
+      return {
+        select() { return this; },
+        eq() { return this; },
+        insert(payload: Record<string, unknown>) {
+          insertedTripData = payload.data as Record<string, unknown>;
+          inserted = true;
+          return this;
+        },
+        single: async () => (
+          inserted
+            ? { data: { id: 'trip-new', share_id: 'share-new' }, error: null }
+            : { data: null, error: null }
+        ),
+      };
+    },
+  };
+
+  const result = await saveTripForUser(
+    admin as never,
+    'user-1',
+    {
+      trip: {
+        name: 'India',
+        subtitle: 'Grand circuit',
+        dates: { start: '2026-12-29', end: '2027-01-27' },
+        travelers: [],
+        summary: 'Rajasthan, Kerala, Goa, and Mumbai.',
+        hero_image: 'https://example.com/india.jpg',
+        route_points: [
+          { name: 'Mumbai', lat: 19.076, lng: 72.8777 },
+          { title: 'Jaipur', lat: 26.9124, lng: 75.7873 },
+          { label: 'Broken stop', lat: 0 },
+        ],
+      },
+      days: [],
+    },
+    'https://ourtrips.to'
+  );
+
+  assert.deepEqual(result.warnings, [
+    'trip.route_points[0].name was converted to label.',
+    'trip.route_points[1].title was converted to label.',
+    'trip.route_points[2] was skipped because label, lat, or lng was missing.',
+  ]);
+  assert.deepEqual(
+    ((insertedTripData?.trip as Record<string, unknown>).route_points as Array<{ label: string }>).map((point) => point.label),
+    ['Mumbai', 'Jaipur']
+  );
+});
 
 test('formatTripForRead returns compact summaries without full markdown by default', () => {
   const summary = formatTripForRead(fixtureRecord(), { view: 'summary' }, 'https://ourtrips.to');

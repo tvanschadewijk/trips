@@ -443,6 +443,10 @@ Route points live in `trip.route_points[]`.
 
 They support route maps and trip geography.
 
+Use `label` for the visible route point label. Do not use `name` or `title`
+in `trip.route_points[]`; strict save tools reject route points that omit
+`label`, `lat`, or `lng`.
+
 | Field | Required | Meaning |
 |---|---:|---|
 | `label` | Yes | Visible route point label. |
