@@ -10,8 +10,8 @@ For all UI and design work, follow the design system in `DESIGN.md`. It defines 
 
 ## Local Dev Servers and Deploys
 
-Prefer local verification over pushing to production. For UI work, finish with the local dev server running and the app open in a local browser for review. If the dev server cannot start, investigate it, restart or fix it when possible, and report the outcome.
+Prefer local verification before pushing when practical. For UI work, finish with the local dev server running and the app open in a local browser for review. If the dev server cannot start, investigate it, restart or fix it when possible, and report the outcome.
 
-Do not push routine changes to `main`. Push to `main` only when the user explicitly asks for a live release. Favor incidental releases over repeated production pushes during iteration.
+The app now deploys through Cloudflare. After each completed update, commit and push to `main` automatically unless the user explicitly asks not to, the work is incomplete, or verification reveals a blocking issue. Do not hold routine updates on feature branches just to avoid production deploys.
 
-After pushing live, always explicitly confirm that the commit was pushed to `main` and include the commit hash.
+After pushing, always explicitly confirm that the commit was pushed to `main` and include the commit hash.

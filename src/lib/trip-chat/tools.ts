@@ -29,6 +29,7 @@ import {
   formatTripForRead,
   upsertDayItemInTripData,
 } from '@/lib/trip-service';
+import { buildTripLogisticsLedger } from '@/lib/trip-logistics-ledger';
 import { normalizeTripData } from '@/lib/trip-data-normalize';
 import { auditTripLogistics, ISO_DATE_RE, isIsoDateString } from '@/lib/trip-logistics';
 import type {
@@ -94,6 +95,11 @@ Use this for precise hotel updates such as dog_note, parking, phone, check-in,
 wifi, or policy-source notes. Prefer this over update_trip when only one hotel
 detail field changes because update_trip has to replace the full days array.
 
+If this changes the accommodation address or another stay-location field, you
+must follow the returned cascade_review instructions: read the changed day(s)
+and the next day, then repair stale activities, meals, transport, tips, map
+places, or day copy before replying that the edit is complete.
+
 If the trip has markdown_source, this tool also maintains a small deterministic
 "OurTrips agent notes" section in that markdown so external agents like Claude
 Co-work can continue from the same hotel-policy context. It preserves the
@@ -111,6 +117,11 @@ accommodation card text on a long trip. For repeated nights of the same stay,
 set match to "same_current_name" so the same patch applies to every day whose
 current accommodation name matches the path's accommodation name. This avoids
 the large update_trip days-array replacement that can exceed context limits.
+
+If this changes the stay name, treat it as a possible location/base change. You
+must follow the returned cascade_review instructions: read the changed day(s)
+and the next day, then repair stale activities, meals, transport, tips, map
+places, or day copy before replying that the edit is complete.
 
 Visible accommodation cards should represent one booked or confirmed hotel.
 Pending accommodation entries may exist only as single destination markers for
@@ -188,14 +199,16 @@ Legacy states are still accepted for older data:
 
 When a candidate is moved to booked, this tool also promotes the clean stay
 into the trip's day accommodation cards and records a reviewer event, so future
-agent turns know the hotel has been booked.`;
+agent turns know the hotel has been booked. A booked promotion may change the
+trip base; follow any returned cascade_review instructions before replying.`;
 
 const PROMOTE_ACCOMMODATION_CANDIDATE_DESCRIPTION = `Mark an accommodation-review candidate as booked and promote it into the itinerary.
 
 Use when the user says a hotel is booked, confirms a booking, or asks you to
 make a selected candidate the stay for that destination. This updates both the
 private Accommodations Reviewer and the public trip accommodation cards for the matching
-destination days.`;
+destination days. A booked promotion may change the trip base; follow any
+returned cascade_review instructions before replying.`;
 
 const GET_LOGISTICS_AUDIT_DESCRIPTION = `Run the strict OurTrips logistics contract for this trip.
 
@@ -203,6 +216,20 @@ Use this before claiming an edit is complete when exact dates, hotel
 sleeps/nights, stay segments, or transport requirements changed. The audit
 returns hard errors, warnings, open questions, and a canonical ledger of days,
 stay segments, and transport legs.`;
+
+const GET_DATE_LEDGER_DESCRIPTION = `Return the compact canonical date/stay ledger for this trip.
+
+Use this before answering or editing anything about:
+- when the trip starts or ends
+- how many itinerary days there are
+- how many nights/sleeps are scheduled
+- where the traveler sleeps on each day
+- how many days or nights are spent at each stay
+- route-shape questions that depend on dates, stays, or transport days
+
+This is derived from the structured trip JSON and logistics audit. It is the
+first source of truth for date reasoning. No arguments. The trip_id is pinned
+by the server.`;
 
 const UPSERT_ACTIVITY_DESCRIPTION = `Add or update one day programme item without loading or replacing the full itinerary.
 
@@ -1204,6 +1231,93 @@ function upsertDayItemAgentNote(
   return `${markdownSource.trimEnd()}\n\n${section}`;
 }
 
+type AccommodationCascadeReview = {
+  required: true;
+  reason: string;
+  changed_day_numbers: number[];
+  review_day_numbers: number[];
+  changed_fields: string[];
+  required_actions: string[];
+};
+
+function compactComparableString(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const compact = value.replace(/\s+/g, ' ').trim();
+  return compact.length > 0 ? compact : null;
+}
+
+function accommodationLocationSnapshot(day: TripData['days'][number] | undefined) {
+  const accommodation = day?.accommodation;
+  const detail = accommodation?.detail;
+  return {
+    name: compactComparableString(accommodation?.name),
+    address: compactComparableString(detail?.address),
+  };
+}
+
+function orderedExistingDayNumbers(trip: TripData, dayNumbers: Iterable<number>): number[] {
+  const wanted = new Set(dayNumbers);
+  return trip.days
+    .map((day) => day.day_number)
+    .filter((dayNumber) => wanted.has(dayNumber));
+}
+
+function dayNumbersForCascadeReview(trip: TripData, changedDayNumbers: number[]): number[] {
+  const existing = new Set(trip.days.map((day) => day.day_number));
+  const review = new Set<number>();
+  for (const dayNumber of changedDayNumbers) {
+    if (existing.has(dayNumber)) review.add(dayNumber);
+    if (existing.has(dayNumber + 1)) review.add(dayNumber + 1);
+  }
+  return orderedExistingDayNumbers(trip, review);
+}
+
+function buildAccommodationCascadeReview(
+  before: TripData,
+  after: TripData
+): AccommodationCascadeReview | null {
+  const beforeByDayNumber = new Map(before.days.map((day) => [day.day_number, day]));
+  const changedDayNumbers: number[] = [];
+  const changedFields: string[] = [];
+
+  for (const afterDay of after.days) {
+    const beforeDay = beforeByDayNumber.get(afterDay.day_number);
+    const beforeLocation = accommodationLocationSnapshot(beforeDay);
+    const afterLocation = accommodationLocationSnapshot(afterDay);
+    const dayChangedFields: string[] = [];
+
+    if (beforeLocation.name !== afterLocation.name) {
+      dayChangedFields.push(`days[day_number=${afterDay.day_number}].accommodation.name`);
+    }
+    if (beforeLocation.address !== afterLocation.address) {
+      dayChangedFields.push(`days[day_number=${afterDay.day_number}].accommodation.detail.address`);
+    }
+
+    if (dayChangedFields.length > 0) {
+      changedDayNumbers.push(afterDay.day_number);
+      changedFields.push(...dayChangedFields);
+    }
+  }
+
+  if (changedDayNumbers.length === 0) return null;
+
+  const reviewDayNumbers = dayNumbersForCascadeReview(after, changedDayNumbers);
+  return {
+    required: true,
+    reason:
+      'Accommodation identity or address changed; nearby itinerary items may still assume the old hotel base.',
+    changed_day_numbers: orderedExistingDayNumbers(after, changedDayNumbers),
+    review_day_numbers: reviewDayNumbers,
+    changed_fields: changedFields,
+    required_actions: [
+      `Call get_trip with view="days" and day_numbers=${JSON.stringify(reviewDayNumbers)} before your final reply.`,
+      'Review each affected whole day and the following day for stale neighbourhood references, impossible routing, old hotel names, old meeting points, and meals or activities that no longer fit the new base.',
+      'Repair the structured itinerary with focused tools or update_trip. If the new base is unclear, ask one focused question instead of claiming the edit is complete.',
+      'In the final reply, mention whether the surrounding days were adjusted or checked with no further changes needed.',
+    ],
+  };
+}
+
 export function collectAccommodations(trip: TripData) {
   return trip.days.flatMap((day, dayIndex) => {
     if (!day.accommodation) return [];
@@ -1244,6 +1358,7 @@ export function applyAccommodationDetailPatch(
       next: TripData;
       dayNumber: number;
       name: string;
+      cascadeReview: AccommodationCascadeReview | null;
       markdownSourceUpdated: boolean;
     }
   | { ok: false; error: string } {
@@ -1289,6 +1404,7 @@ export function applyAccommodationDetailPatch(
     next,
     dayNumber: day.day_number,
     name: day.accommodation.name,
+    cascadeReview: buildAccommodationCascadeReview(existing, next),
     markdownSourceUpdated: next.markdown_source !== existing.markdown_source,
   };
 }
@@ -1306,6 +1422,7 @@ export function applyAccommodationPatch(
       previousName: string;
       name: string;
       updatedCount: number;
+      cascadeReview: AccommodationCascadeReview | null;
       markdownSourceUpdated: boolean;
     }
   | { ok: false; error: string } {
@@ -1382,6 +1499,7 @@ export function applyAccommodationPatch(
     previousName,
     name: accommodationPatch.name ?? previousName,
     updatedCount: updatedDayNumbers.length,
+    cascadeReview: buildAccommodationCascadeReview(existing, next),
     markdownSourceUpdated: next.markdown_source !== existing.markdown_source,
   };
 }
@@ -1848,6 +1966,20 @@ export function createTripEditorMcpServer(
     }
   );
 
+  const getDateLedger = tool(
+    'get_date_ledger',
+    GET_DATE_LEDGER_DESCRIPTION,
+    {},
+    async () => {
+      try {
+        const trip = await readTripData(ctx);
+        return jsonToolResponse(buildTripLogisticsLedger(trip));
+      } catch (err) {
+        return textToolError(err instanceof Error ? err.message : String(err));
+      }
+    }
+  );
+
   const listAccommodations = tool(
     'list_accommodations',
     LIST_ACCOMMODATIONS_DESCRIPTION,
@@ -1932,6 +2064,7 @@ export function createTripEditorMcpServer(
 
       const before = normalizeTripData(read.data.data);
       const after = mergeTrip(before, input);
+      const cascadeReview = buildAccommodationCascadeReview(before, after);
 
       // 2. Write back. The service-role client is trusted (admin route has
       //    already checked role); we update only the JSONB column + bump
@@ -1974,11 +2107,17 @@ export function createTripEditorMcpServer(
         input.markdown_source !== undefined ? 'markdown_source' : null,
       ].filter(Boolean);
 
+      const cascadeReviewText = cascadeReview
+        ? ` Cascade review required: call get_trip with view="days" and day_numbers=${JSON.stringify(
+            cascadeReview.review_day_numbers
+          )}; repair stale day copy, activities, meals, transport, tips, and map places before your final reply.`
+        : '';
+
       return {
         content: [
           {
             type: 'text' as const,
-            text: `Applied edit. Updated: ${touched.join(', ')}. Accommodation review sync: ${accommodationReviewSync}. Call get_trip if you need the new state.`,
+            text: `Applied edit. Updated: ${touched.join(', ')}. Accommodation review sync: ${accommodationReviewSync}.${cascadeReviewText} Call get_trip if you need the new state.`,
           },
         ],
       };
@@ -2057,6 +2196,7 @@ export function createTripEditorMcpServer(
         day_numbers: result.dayNumbers,
         updated_count: result.updatedCount,
         accommodation_keys: Object.keys(parsed.data.accommodation_patch),
+        cascade_review: result.cascadeReview,
         markdown_source_updated: result.markdownSourceUpdated,
         accommodation_review_sync: accommodationReviewSync,
       });
@@ -2131,6 +2271,7 @@ export function createTripEditorMcpServer(
         day_number: result.dayNumber,
         accommodation: result.name,
         detail_keys: Object.keys(parsed.data.detail_patch),
+        cascade_review: result.cascadeReview,
         markdown_source_updated: result.markdownSourceUpdated,
         accommodation_review_sync: accommodationReviewSync,
       });
@@ -2482,6 +2623,9 @@ export function createTripEditorMcpServer(
           candidate_id: parsed.data.candidate_id,
           lane: parsed.data.lane,
           promoted_to_trip: parsed.data.lane === 'booked',
+          cascade_review: afterTrip
+            ? buildAccommodationCascadeReview(beforeTrip, afterTrip)
+            : null,
           accommodation_review_sync: accommodationReviewSync,
           review: summarizeAccommodationReview(nextReview),
         });
@@ -2551,6 +2695,7 @@ export function createTripEditorMcpServer(
           ok: true,
           candidate_id: parsed.data.candidate_id,
           promoted_to_trip: true,
+          cascade_review: buildAccommodationCascadeReview(beforeTrip, afterTrip),
           accommodation_review_sync: accommodationReviewSync,
           review: summarizeAccommodationReview(nextReview),
         });
@@ -2566,6 +2711,7 @@ export function createTripEditorMcpServer(
     tools: [
       getTrip,
       getLogisticsAudit,
+      getDateLedger,
       listAccommodations,
       listAccommodationReview,
       updateTrip,
@@ -2594,6 +2740,7 @@ export function createTripEditorMcpServer(
 export const TRIP_EDITOR_TOOL_NAMES = [
   'mcp__trip_editor__get_trip',
   'mcp__trip_editor__get_logistics_audit',
+  'mcp__trip_editor__get_date_ledger',
   'mcp__trip_editor__list_accommodations',
   'mcp__trip_editor__list_accommodation_review',
   'mcp__trip_editor__update_trip',
@@ -2616,6 +2763,7 @@ export const TRIP_EDITOR_TOOL_NAMES = [
 export const _internal = {
   applyAccommodationPatch,
   applyAccommodationDetailPatch,
+  buildAccommodationCascadeReview,
   buildPolicySearchQuery,
   collectAccommodations,
   CreateAccommodationCandidateInputShape,

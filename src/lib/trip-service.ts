@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { trySyncAccommodationReviewForTrip } from '@/lib/accommodation-review-store';
 import { normalizeTripData } from '@/lib/trip-data-normalize';
+import { buildTripLogisticsLedger } from '@/lib/trip-logistics-ledger';
 import { auditTripLogistics, type TripLogisticsAudit } from '@/lib/trip-logistics';
 import {
   normalizeTripForQualityContract,
@@ -104,6 +105,16 @@ export type TripReadInput = {
   sections?: TripReadSection[];
   include_markdown_source?: boolean;
   allow_large?: boolean;
+};
+
+export type TripLogisticsLedgerRead = ReturnType<typeof buildTripLogisticsLedger> & {
+  trip_id: unknown;
+  share_id: unknown;
+  url: string;
+  name: unknown;
+  share_mode: unknown;
+  created_at: unknown;
+  updated_at: unknown;
 };
 
 export type DayItemKind = 'meal' | 'transport' | 'activity' | 'accommodation';
@@ -1621,6 +1632,27 @@ function tripReadBase(record: Record<string, unknown>, origin: string) {
     created_at: record.created_at,
     updated_at: record.updated_at,
   };
+}
+
+export function formatTripLogisticsLedgerForRead(
+  record: Record<string, unknown>,
+  origin: string
+): TripLogisticsLedgerRead {
+  const data = isRecord(record.data) ? record.data : {};
+  return {
+    ...tripReadBase(record, origin),
+    ...buildTripLogisticsLedger(data),
+  };
+}
+
+export async function getTripLogisticsLedgerForUser(
+  admin: AdminClient,
+  userId: string,
+  tripId: string,
+  origin: string
+): Promise<TripLogisticsLedgerRead> {
+  const trip = await getTripForUser(admin, userId, tripId);
+  return formatTripLogisticsLedgerForRead(trip as Record<string, unknown>, origin);
 }
 
 function selectDaySections(
