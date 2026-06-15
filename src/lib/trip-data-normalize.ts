@@ -1,6 +1,17 @@
-import type { Accommodation, Block, Day, Meal, Tip, Transport, TripData, TripMeta } from './types';
+import type {
+  Accommodation,
+  Block,
+  Day,
+  Meal,
+  Tip,
+  Transport,
+  TripData,
+  TripMeta,
+  TripRoutePoint,
+} from './types';
 
 type UnknownRecord = Record<string, unknown>;
+type NormalizationWarningCollector = (warning: string) => void;
 
 function isRecord(value: unknown): value is UnknownRecord {
   return Boolean(value && typeof value === 'object' && !Array.isArray(value));
@@ -28,6 +39,47 @@ function normalizeStringList(value: unknown): string[] {
     .split(',')
     .map((item) => item.trim())
     .filter(Boolean);
+}
+
+function normalizeRoutePoints(
+  value: unknown,
+  warn?: NormalizationWarningCollector
+): TripRoutePoint[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+
+  const points = value
+    .filter(isRecord)
+    .map((point, index) => {
+      const explicitLabel = text(point.label);
+      const nameAlias = text(point.name);
+      const titleAlias = text(point.title);
+      const label = explicitLabel || nameAlias || titleAlias;
+      const lat = numberValue(point.lat);
+      const lng = numberValue(point.lng);
+      if (!label || lat === undefined || lng === undefined) {
+        warn?.(`trip.route_points[${index}] was skipped because label, lat, or lng was missing.`);
+        return null;
+      }
+
+      if (!explicitLabel && nameAlias) {
+        warn?.(`trip.route_points[${index}].name was converted to label.`);
+      } else if (!explicitLabel && titleAlias) {
+        warn?.(`trip.route_points[${index}].title was converted to label.`);
+      }
+
+      const day = numberValue(point.day);
+      return {
+        ...point,
+        label,
+        lat,
+        lng,
+        ...(day !== undefined ? { day } : {}),
+        ...(text(point.mode) ? { mode: text(point.mode) } : {}),
+      } as TripRoutePoint;
+    })
+    .filter((point): point is TripRoutePoint => Boolean(point));
+
+  return points.length ? points : undefined;
 }
 
 function inferDates(meta: UnknownRecord, days: Day[]): TripMeta['dates'] {
@@ -183,7 +235,11 @@ function normalizeDay(value: UnknownRecord, index: number): Day {
   return day as unknown as Day;
 }
 
-function normalizeTripMeta(value: UnknownRecord, days: Day[]): TripMeta {
+function normalizeTripMeta(
+  value: UnknownRecord,
+  days: Day[],
+  warn?: NormalizationWarningCollector
+): TripMeta {
   return {
     ...value,
     name: text(value.name) || 'Untitled trip',
@@ -192,19 +248,28 @@ function normalizeTripMeta(value: UnknownRecord, days: Day[]): TripMeta {
     travelers: normalizeStringList(value.travelers),
     summary: text(value.summary),
     hero_image: text(value.hero_image) || text(value.overview_image),
+    route_points: normalizeRoutePoints(value.route_points, warn),
   } as TripMeta;
 }
 
-export function normalizeTripData(data: unknown): TripData {
+export function normalizeTripDataWithWarnings(data: unknown): { data: TripData; warnings: string[] } {
+  const warnings: string[] = [];
   const root = isRecord(data) ? data : {};
   const sourceDays = Array.isArray(root.days) ? root.days.filter(isRecord) : [];
   const days = sourceDays.map(normalizeDay);
-  const trip = normalizeTripMeta(isRecord(root.trip) ? root.trip : {}, days);
+  const trip = normalizeTripMeta(isRecord(root.trip) ? root.trip : {}, days, (warning) => warnings.push(warning));
 
   return {
-    ...root,
-    trip,
-    days,
-    ...(typeof root.markdown_source === 'string' ? { markdown_source: root.markdown_source } : {}),
-  } as TripData;
+    data: {
+      ...root,
+      trip,
+      days,
+      ...(typeof root.markdown_source === 'string' ? { markdown_source: root.markdown_source } : {}),
+    } as TripData,
+    warnings,
+  };
+}
+
+export function normalizeTripData(data: unknown): TripData {
+  return normalizeTripDataWithWarnings(data).data;
 }

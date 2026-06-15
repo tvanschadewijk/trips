@@ -184,6 +184,14 @@ function sanitizeMode(mode?: string): string {
   return normalized.split(' ')[0] ?? 'route';
 }
 
+function routePointText(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function routePointNumber(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+}
+
 function inferDayMode(day: Day): string | undefined {
   const text = normalizePlace([
     day.title,
@@ -261,14 +269,17 @@ function deriveRoutePoints(days: Day[]): CandidatePoint[] {
   return points;
 }
 
-function fromStoredPoint(point: TripRoutePoint, index: number): CandidatePoint | undefined {
-  if (!point.label.trim()) return undefined;
-  if (!Number.isFinite(point.lat) || !Number.isFinite(point.lng)) return undefined;
-  if (point.lat < -90 || point.lat > 90 || point.lng < -180 || point.lng > 180) return undefined;
+function fromStoredPoint(point: TripRoutePoint): CandidatePoint | undefined {
+  const rawPoint = point as TripRoutePoint & { name?: unknown; title?: unknown };
+  const label = routePointText(rawPoint.label) || routePointText(rawPoint.name) || routePointText(rawPoint.title);
+  const lat = routePointNumber(rawPoint.lat);
+  const lng = routePointNumber(rawPoint.lng);
+  if (!label || lat === undefined || lng === undefined) return undefined;
+  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return undefined;
   return {
-    label: point.label.trim(),
-    lat: point.lat,
-    lng: point.lng,
+    label,
+    lat,
+    lng,
     day: point.day,
     modeFromPrevious: sanitizeMode(point.mode),
     role: point.role,
