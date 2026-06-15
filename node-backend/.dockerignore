@@ -1,0 +1,11 @@
+.git
+.next
+.open-next
+.wrangler
+.vercel
+node_modules
+npm-debug.log*
+.env*
+.dev.vars*
+cloudflare-env.d.ts
+*.tsbuildinfo

@@ -1,0 +1,64 @@
+name: cloudflare-chat-backend-deploy
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - node-backend/**
+      - wrangler.chat-backend.jsonc
+      - package.json
+      - package-lock.json
+      - .github/workflows/cloudflare-chat-backend-deploy.yml
+  workflow_dispatch:
+
+concurrency:
+  group: cloudflare-chat-backend-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: "22"
+  CLOUDFLARE_ACCOUNT_ID: 57c92cc47ff63b8d75f9e6477f92abda
+  CHAT_BACKEND_IMAGE: ourtrips-chat-backend:amd64
+
+jobs:
+  deploy:
+    name: Deploy chat backend container
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck backend
+        run: |
+          npm run chat:backend:typecheck
+          npm run chat:backend:worker:typecheck
+
+      - name: Build backend image
+        run: >
+          docker build
+          --platform linux/amd64
+          --file node-backend/Dockerfile
+          --tag "${CHAT_BACKEND_IMAGE}"
+          .
+
+      - name: Push backend image to Cloudflare
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: npx wrangler containers push "${CHAT_BACKEND_IMAGE}"
+
+      - name: Deploy backend Worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: npx wrangler deploy --config wrangler.chat-backend.jsonc --containers-rollout gradual

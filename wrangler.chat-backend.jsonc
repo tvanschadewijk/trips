@@ -1,0 +1,44 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "ourtrips-chat-backend",
+  "main": "node-backend/container-worker.ts",
+  "compatibility_date": "2026-06-01",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "containers": [
+    {
+      "class_name": "ChatBackend",
+      "image": "registry.cloudflare.com/57c92cc47ff63b8d75f9e6477f92abda/ourtrips-chat-backend:amd64",
+      "instance_type": "basic",
+      "max_instances": 1,
+      "rollout_active_grace_period": 600
+    }
+  ],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "CHAT_BACKEND",
+        "class_name": "ChatBackend"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": [
+        "ChatBackend"
+      ]
+    }
+  ],
+  "secrets": {
+    "required": [
+      "NEXT_PUBLIC_SUPABASE_URL",
+      "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "UNSPLASH_ACCESS_KEY",
+      "ANTHROPIC_API_KEY",
+      "OURTRIPS_CHAT_BACKEND_SECRET"
+    ]
+  }
+}

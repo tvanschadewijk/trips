@@ -9,8 +9,6 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { requireTripChatAccess } from '@/lib/trip-chat/access';
 import { listThreads } from '@/lib/trip-chat/threads';
 
-export const runtime = 'nodejs';
-
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
