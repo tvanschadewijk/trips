@@ -1883,10 +1883,11 @@ export async function searchTripImages(
   url.searchParams.set('per_page', '3');
   url.searchParams.set('orientation', orientation);
 
-  const response = await fetch(url.toString(), {
+  const requestInit: RequestInit & { next?: { revalidate: number } } = {
     headers: { Authorization: `Client-ID ${key}` },
     next: { revalidate: 86400 },
-  });
+  };
+  const response = await fetch(url.toString(), requestInit);
 
   if (!response.ok) {
     const body = await response.text();
