@@ -108,13 +108,13 @@ export type TripReadInput = {
 };
 
 export type TripLogisticsLedgerRead = ReturnType<typeof buildTripLogisticsLedger> & {
-  trip_id: unknown;
-  share_id: unknown;
+  trip_id: string;
+  share_id: string;
   url: string;
-  name: unknown;
-  share_mode: unknown;
-  created_at: unknown;
-  updated_at: unknown;
+  name: string;
+  share_mode: string;
+  created_at: string;
+  updated_at: string;
 };
 
 export type DayItemKind = 'meal' | 'transport' | 'activity' | 'accommodation';
@@ -1633,14 +1633,15 @@ function compactTripDataSummary(data: unknown) {
 }
 
 function tripReadBase(record: Record<string, unknown>, origin: string) {
+  const shareId = String(record.share_id ?? '');
   return {
-    trip_id: record.id,
-    share_id: record.share_id,
-    url: tripUrl(origin, String(record.share_id ?? '')),
-    name: record.name,
-    share_mode: record.share_mode,
-    created_at: record.created_at,
-    updated_at: record.updated_at,
+    trip_id: String(record.id ?? ''),
+    share_id: shareId,
+    url: tripUrl(origin, shareId),
+    name: String(record.name ?? ''),
+    share_mode: String(record.share_mode ?? ''),
+    created_at: String(record.created_at ?? ''),
+    updated_at: String(record.updated_at ?? ''),
   };
 }
 
