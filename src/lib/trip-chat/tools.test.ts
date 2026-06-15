@@ -7,6 +7,7 @@ import { _internal } from './tools';
 const {
   applyAccommodationPatch,
   applyAccommodationDetailPatch,
+  buildAccommodationCascadeReview,
   buildPolicySearchQuery,
   collectAccommodations,
   CreateAccommodationCandidateInputShape,
@@ -246,7 +247,24 @@ test('applyAccommodationDetailPatch deep-merges one hotel detail without touchin
     result.next.days[0].accommodation?.detail?.dog_note,
     'Not checked yet.'
   );
+  assert.equal(result.cascadeReview, null);
   assert.equal(result.markdownSourceUpdated, false);
+});
+
+test('applyAccommodationDetailPatch requires cascade review when address changes', () => {
+  const result = applyAccommodationDetailPatch(sampleTrip, 'days[0].accommodation', {
+    address: '99 Gordon Street, Glasgow',
+  });
+
+  assert.equal(result.ok, true);
+  if (!result.ok) return;
+
+  assert.deepEqual(result.cascadeReview?.changed_day_numbers, [1]);
+  assert.deepEqual(result.cascadeReview?.review_day_numbers, [1, 2]);
+  assert.deepEqual(result.cascadeReview?.changed_fields, [
+    'days[day_number=1].accommodation.detail.address',
+  ]);
+  assert.match(result.cascadeReview?.reason ?? '', /old hotel base/);
 });
 
 test('applyAccommodationDetailPatch adds an agent note when markdown_source exists', () => {
@@ -287,6 +305,8 @@ test('applyAccommodationPatch renames repeated stay cards without replacing unre
   if (!result.ok) return;
 
   assert.deepEqual(result.dayNumbers, [1, 2]);
+  assert.deepEqual(result.cascadeReview?.changed_day_numbers, [1, 2]);
+  assert.deepEqual(result.cascadeReview?.review_day_numbers, [1, 2, 3]);
   assert.equal(result.updatedCount, 2);
   assert.equal(result.previousName, 'Grasshopper Hotel Glasgow');
   assert.equal(result.next.days[0].accommodation?.name, 'voco Grand Central Glasgow');
@@ -305,8 +325,35 @@ test('applyAccommodationPatch can patch only the addressed stay', () => {
   if (!result.ok) return;
 
   assert.deepEqual(result.dayNumbers, [2]);
+  assert.equal(result.cascadeReview, null);
   assert.equal(result.next.days[0].accommodation?.note, undefined);
   assert.equal(result.next.days[1].accommodation?.note, 'Late checkout requested.');
+});
+
+test('buildAccommodationCascadeReview detects itinerary-wide accommodation replacements', () => {
+  const nextTrip: TripData = {
+    ...sampleTrip,
+    days: sampleTrip.days.map((day) =>
+      day.day_number === 3
+        ? {
+            ...day,
+            accommodation: {
+              name: 'Forest Lodge',
+              detail: { address: 'Glen Orchy, Argyll' },
+            },
+          }
+        : day
+    ),
+  };
+
+  const cascadeReview = buildAccommodationCascadeReview(sampleTrip, nextTrip);
+
+  assert.deepEqual(cascadeReview?.changed_day_numbers, [3]);
+  assert.deepEqual(cascadeReview?.review_day_numbers, [3]);
+  assert.deepEqual(cascadeReview?.changed_fields, [
+    'days[day_number=3].accommodation.name',
+    'days[day_number=3].accommodation.detail.address',
+  ]);
 });
 
 test('applyAccommodationPatch adds agent notes for visible stay-card changes', () => {

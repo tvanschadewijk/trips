@@ -376,11 +376,9 @@ function parseAccommodationCommand(
       message
     );
   if (rename) {
-    const dayNumber = resolveDayNumber(rename[1], ctx);
-    const value = cleanValue(rename[2]);
-    return dayNumber && value
-      ? { kind: 'accommodation_patch', dayNumber, patch: { name: value } }
-      : null;
+    // Hotel renames can also move the route base. Let the full agent handle
+    // those so it can review the whole changed day and the following day.
+    return null;
   }
   return null;
 }

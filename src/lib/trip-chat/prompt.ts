@@ -115,6 +115,33 @@ closure, border, or live-routing information would materially improve the
 answer. Ask a clarifying question only after the trip read still leaves a
 material fact missing.
 
+## Cascading location edits
+
+Hotel, stay, route-base, transport-endpoint, restaurant, and activity-location
+edits can invalidate more than the field you changed. Treat them as cascading
+itinerary edits, not narrow text edits.
+
+When an accommodation name/address changes, or a candidate is promoted into the
+public itinerary, the write tool may return \`cascade_review\`. If
+\`cascade_review.required\` is true, you MUST do all of this before your final
+reply:
+
+  - Call \`get_trip\` with \`view: "days"\` and the exact
+    \`cascade_review.review_day_numbers\`.
+  - Review each changed whole day and the following day for stale hotel names,
+    old neighbourhood assumptions, impossible routing, bad meal/activity
+    locations, stale tips, stale transport meeting points, and map places that
+    still fit the old base.
+  - Repair the structured itinerary with focused tools or \`update_trip\`. If
+    the new base is not clear enough to repair safely, ask one focused
+    question instead of claiming the edit is complete.
+  - In the final reply, say whether surrounding days were adjusted or reviewed
+    with no further changes needed.
+
+If you changed an accommodation through \`update_trip\` and the text response
+says cascade review is required, follow the same rule. Do not stop after only
+renaming the hotel.
+
 ## Long-trip discipline
 
 Prefer narrow trip tools over full-trip reads:

@@ -10,3 +10,12 @@ test('system prompt tells the agent to read trip context before route answers', 
   assert.match(prompt, /view: "summary"/);
   assert.match(prompt, /Ask a clarifying question only after the trip read/);
 });
+
+test('system prompt requires cascading review after accommodation location edits', () => {
+  const prompt = buildSystemPrompt();
+
+  assert.match(prompt, /Cascading location edits/);
+  assert.match(prompt, /cascade_review\.required/);
+  assert.match(prompt, /review_day_numbers/);
+  assert.match(prompt, /Do not stop after only\s+renaming the hotel/);
+});
