@@ -12,6 +12,10 @@
  * system-prompt prefix across turns and users.
  */
 import { z } from 'zod';
+import {
+  formatAgentKnowledgeContext,
+  routeAgentKnowledge,
+} from '../agent-knowledge';
 import { UpdateTripInputSchema } from './schema';
 
 /**
@@ -598,8 +602,14 @@ export function buildTurnPrompt(
   priorTurns: PriorTurn[],
   newUserMessage: string
 ): string {
-  const intentLedger = formatTurnIntentLedger(detectTurnIntentLedger(newUserMessage));
-  const currentMessage = [intentLedger, newUserMessage.trim()].filter(Boolean).join('\n');
+  const intentLedgerItems = detectTurnIntentLedger(newUserMessage);
+  const intentLedger = formatTurnIntentLedger(intentLedgerItems);
+  const knowledgeContext = formatAgentKnowledgeContext(
+    routeAgentKnowledge({ message: newUserMessage, intents: intentLedgerItems })
+  );
+  const currentMessage = [intentLedger, knowledgeContext, newUserMessage.trim()]
+    .filter(Boolean)
+    .join('\n');
 
   if (priorTurns.length === 0) {
     return currentMessage;
