@@ -16,6 +16,10 @@ permissions:
 env:
   NODE_VERSION: "22"
   CLOUDFLARE_ACCOUNT_ID: 57c92cc47ff63b8d75f9e6477f92abda
+  NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+  NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: ${{ secrets.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY }}
+  NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID: ${{ secrets.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID }}
 
 jobs:
   deploy:
@@ -41,6 +45,22 @@ jobs:
 
       - name: Test
         run: npm run test
+
+      - name: Validate public build environment
+        run: |
+          missing=0
+          for name in \
+            NEXT_PUBLIC_SUPABASE_URL \
+            NEXT_PUBLIC_SUPABASE_ANON_KEY \
+            NEXT_PUBLIC_GOOGLE_MAPS_API_KEY \
+            NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID
+          do
+            if [ -z "${!name}" ]; then
+              echo "::error title=Missing build variable::$name is required before building the Cloudflare Worker"
+              missing=1
+            fi
+          done
+          exit "$missing"
 
       - name: Build Cloudflare Worker
         run: npm run cf:build
