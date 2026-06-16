@@ -109,14 +109,15 @@ const UPDATE_ACCOMMODATION_DESCRIPTION = `Patch top-level fields for one accommo
 
 Use the path returned by list_accommodations, for example
 "days[3].accommodation". This updates small visible stay-card fields such as
-name, price, rating, status, nights, and note while preserving the detail
-object and every other trip field.
+name, price, rating, status, booking_status, nights, and note while preserving
+the detail object and every other trip field.
 
-Use this when the user asks to rename a hotel/stay or fix visible
-accommodation card text on a long trip. For repeated nights of the same stay,
-set match to "same_current_name" so the same patch applies to every day whose
-current accommodation name matches the path's accommodation name. This avoids
-the large update_trip days-array replacement that can exceed context limits.
+Use this when the user asks to rename a hotel/stay, mark a stay booked/open, or
+fix visible accommodation card text on a long trip. For repeated nights of the
+same stay, set match to "same_current_name" so the same patch applies to every
+day whose current accommodation name matches the path's accommodation name.
+This avoids the large update_trip days-array replacement that can exceed
+context limits.
 
 If this changes the stay name, treat it as a possible location/base change. You
 must follow the returned cascade_review instructions: read the changed day(s)
@@ -320,6 +321,7 @@ const AccommodationPatchSchema = z
     price: z.string().optional(),
     rating: z.string().optional(),
     status: z.string().optional(),
+    booking_status: z.string().optional(),
     nights: z.number().optional(),
     note: z.string().optional(),
   })
@@ -340,7 +342,7 @@ const UpdateAccommodationInputShape = {
 } as const;
 
 type AccommodationPatch = Partial<
-  Pick<Accommodation, 'name' | 'price' | 'rating' | 'status' | 'nights' | 'note'>
+  Pick<Accommodation, 'name' | 'price' | 'rating' | 'status' | 'booking_status' | 'nights' | 'note'>
 >;
 
 const DayNumberSchema = z.number().int().positive();
@@ -1412,7 +1414,7 @@ export function applyAccommodationDetailPatch(
 export function applyAccommodationPatch(
   existing: TripData,
   path: string,
-  accommodationPatch: Partial<Pick<Accommodation, 'name' | 'price' | 'rating' | 'status' | 'nights' | 'note'>>,
+  accommodationPatch: AccommodationPatch,
   match: 'path_only' | 'same_current_name' = 'path_only'
 ):
   | {
@@ -1441,6 +1443,23 @@ export function applyAccommodationPatch(
     return { ok: false, error: 'Provide at least one accommodation field to patch.' };
   }
 
+  const normalizedPatch: AccommodationPatch = { ...accommodationPatch };
+  const normalizedStatus =
+    typeof normalizedPatch.status === 'string'
+      ? normalizedPatch.status.trim().toLowerCase()
+      : '';
+  if (
+    normalizedPatch.booking_status === undefined &&
+    (normalizedStatus === 'booked' || normalizedStatus === 'confirmed')
+  ) {
+    normalizedPatch.booking_status = 'booked';
+  } else if (
+    normalizedPatch.booking_status === undefined &&
+    (normalizedStatus === 'open' || normalizedStatus === 'pending')
+  ) {
+    normalizedPatch.booking_status = 'open';
+  }
+
   const previousName = day.accommodation.name;
   const updatedDayNumbers: number[] = [];
   const updatedNotes: Array<{
@@ -1460,7 +1479,7 @@ export function applyAccommodationPatch(
 
     const nextAccommodation = {
       ...candidate.accommodation,
-      ...accommodationPatch,
+      ...normalizedPatch,
     };
     updatedDayNumbers.push(candidate.day_number);
     updatedNotes.push({
@@ -1485,7 +1504,7 @@ export function applyAccommodationPatch(
           date: note.date,
           name: note.name,
           path: `days[${note.index}].accommodation`,
-          accommodationPatch,
+          accommodationPatch: normalizedPatch,
           previousName: note.previousName,
         }),
       existing.markdown_source
@@ -1497,7 +1516,7 @@ export function applyAccommodationPatch(
     next,
     dayNumbers: updatedDayNumbers,
     previousName,
-    name: accommodationPatch.name ?? previousName,
+    name: normalizedPatch.name ?? previousName,
     updatedCount: updatedDayNumbers.length,
     cascadeReview: buildAccommodationCascadeReview(existing, next),
     markdownSourceUpdated: next.markdown_source !== existing.markdown_source,

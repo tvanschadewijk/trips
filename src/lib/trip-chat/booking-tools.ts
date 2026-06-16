@@ -17,34 +17,79 @@ const ISO_DATE = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'YYYY-MM-DD');
 const ISO_TIME = z.string().regex(/^\d{2}:\d{2}$/, 'HH:MM');
 
 // ─── Restaurant ─────────────────────────────────────────────────────────
-const RESTAURANT_DESCRIPTION = `Generate a booking deeplink for a restaurant.
+const RESTAURANT_DESCRIPTION = `Generate a reservation link for a restaurant.
 
 Use AFTER picking a specific venue (typically via WebSearch). For "find me
 a place" / "what's good", use WebSearch first.
 
-Returns an OpenTable search URL prefilled with the venue, party size, and
-date/time when supplied. If the restaurant likely isn't on OpenTable,
-falls back to Google Maps with a "reservation" qualifier.
+Prefer a verified direct reservation URL from the restaurant's official site
+or booking page. Only set opentable_verified=true when WebSearch/source
+evidence confirms that the exact venue is on OpenTable. Do not infer OpenTable
+support from the city or cuisine.
+
+If no direct URL or verified OpenTable listing is supplied, returns a Google
+Maps reservation search URL and marks verified=false.
 
 Reply to the user with the URL as a markdown link (e.g.
-"[Book on OpenTable](https://...)"). Optionally also call update_trip to
-attach the URL to the matching meal entry.`;
+"[Reserve](https://...)"). If verified=false, say the booking channel is
+unverified instead of naming a booking platform as supported. Optionally also
+call update_trip/upsert_meal to attach the verified URL or booking note to the
+matching meal entry.`;
 
 const RestaurantInput = {
   name: z.string().min(1).describe('Venue name'),
   city: z.string().optional().describe('City or neighbourhood, helps disambiguate'),
+  country: z.string().optional().describe('Country, helps avoid unsupported platform assumptions'),
   date: ISO_DATE.optional().describe('Date of the reservation, YYYY-MM-DD'),
   time: ISO_TIME.optional().describe('24h time, e.g. 19:30'),
   party_size: z.number().int().min(1).max(20).optional().describe('Number of guests'),
+  direct_reservation_url: z
+    .string()
+    .url()
+    .optional()
+    .describe('Verified direct reservation URL from the official restaurant site or current booking page'),
+  opentable_verified: z
+    .boolean()
+    .optional()
+    .describe('Set true only after verifying this exact venue has an OpenTable listing'),
 } as const;
 
 function buildRestaurantUrl(args: {
   name: string;
   city?: string;
+  country?: string;
   date?: string;
   time?: string;
   party_size?: number;
-}): { url: string; platform: string } {
+  direct_reservation_url?: string;
+  opentable_verified?: boolean;
+}): { url: string; platform: string; verified: boolean; note?: string } {
+  if (args.direct_reservation_url) {
+    return {
+      url: args.direct_reservation_url,
+      platform: 'direct',
+      verified: true,
+      note: 'Direct reservation URL supplied from current source evidence.',
+    };
+  }
+
+  if (!args.opentable_verified) {
+    const query = [
+      args.name,
+      args.city,
+      args.country,
+      'reservation',
+    ]
+      .filter(Boolean)
+      .join(' ');
+    return {
+      url: `https://www.google.com/maps/search/${encodeURIComponent(query)}`,
+      platform: 'google-maps',
+      verified: false,
+      note: 'No verified direct reservation URL or OpenTable listing was supplied.',
+    };
+  }
+
   const aid = process.env.OPENTABLE_AFFILIATE_ID;
   const params = new URLSearchParams();
   params.set('term', args.city ? `${args.name} ${args.city}` : args.name);
@@ -55,6 +100,8 @@ function buildRestaurantUrl(args: {
   return {
     url: `https://www.opentable.com/s?${params.toString()}`,
     platform: 'opentable',
+    verified: true,
+    note: 'OpenTable listing was marked verified by the agent from source evidence.',
   };
 }
 
