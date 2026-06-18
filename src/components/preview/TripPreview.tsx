@@ -2837,10 +2837,12 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
                     onClick={() => { if (!dateStripDragged.current) goTo(slideIndex); }}
                     aria-current={currentSlide === slideIndex ? 'date' : undefined}
                     aria-label={`Day ${tripDayNumber}, ${date.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}`}>
-                    <span className="date-btn-wd">{wd}</span>
                     <span className="date-btn-number-row">
                       <span className="date-btn-trip-day">{tripDayNumber}</span>
-                      <span className="date-btn-d">{d}</span>
+                      <span className="date-btn-date-stack">
+                        <span className="date-btn-wd">{wd}</span>
+                        <span className="date-btn-d">{d}</span>
+                      </span>
                     </span>
                   </button>
                 );

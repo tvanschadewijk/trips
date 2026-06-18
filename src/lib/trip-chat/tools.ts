@@ -47,7 +47,8 @@ import {
   UpdateTripInputShape,
   UpdateTripInputSchema,
 } from './schema';
-import { createBookingTools, BOOKING_TOOL_NAMES } from './booking-tools';
+import { createBookingTools } from './booking-tools';
+import { TRIP_EDITOR_TOOL_NAMES } from './tool-names';
 
 export interface TripToolContext {
   tripId: string;
@@ -66,6 +67,17 @@ const TOOL_JSON_INDENT = 2;
 const POLICY_FETCH_TIMEOUT_MS = 8000;
 const POLICY_TEXT_LIMIT = 200_000;
 const POLICY_CANDIDATE_LIMIT = 5;
+
+type ToolValidationIssue = {
+  path: readonly PropertyKey[];
+  message: string;
+};
+
+function formatZodIssues(error: { issues: readonly ToolValidationIssue[] }): string {
+  return error.issues
+    .map((issue) => `${issue.path.map(String).join('.')}: ${issue.message}`)
+    .join('; ');
+}
 
 const ACCOMMODATION_PATH_RE = /^days\[(\d+)\]\.accommodation$/;
 const AGENT_NOTES_START = '<!-- OURTRIPS_AGENT_NOTES_START -->';
@@ -326,7 +338,7 @@ const AccommodationPatchSchema = z
     note: z.string().optional(),
   })
   .strict()
-  .refine((value) => Object.keys(value).length > 0, {
+  .refine((value: Record<string, unknown>) => Object.keys(value).length > 0, {
     message: 'Provide at least one accommodation field to patch.',
   });
 
@@ -365,7 +377,7 @@ const ItemMatchSchema = z
   })
   .strict()
   .refine(
-    (value) =>
+    (value: Record<string, unknown>) =>
       Object.values(value).some((item) =>
         typeof item === 'number' || (typeof item === 'string' && item.trim().length > 0)
       ),
@@ -610,7 +622,7 @@ const AccommodationCandidatePatchSchema = z
     createdBy: z.enum(['agent', 'user', 'import', 'system']).optional(),
   })
   .strict()
-  .refine((value) => Object.keys(value).length > 0, {
+  .refine((value: Record<string, unknown>) => Object.keys(value).length > 0, {
     message: 'Provide at least one candidate field to patch.',
   });
 
@@ -1922,11 +1934,7 @@ export function createTripEditorMcpServer(
     async (rawArgs) => {
       const parsed = GetTripInputSchema.safeParse(rawArgs ?? {});
       if (!parsed.success) {
-        return textToolError(
-          `Invalid input: ${parsed.error.issues
-            .map((i) => `${i.path.join('.')}: ${i.message}`)
-            .join('; ')}`
-        );
+        return textToolError(`Invalid input: ${formatZodIssues(parsed.error)}`);
       }
 
       const { data, error } = await ctx.supabase
@@ -2051,9 +2059,7 @@ export function createTripEditorMcpServer(
           content: [
             {
               type: 'text' as const,
-              text: `Invalid input: ${parsed.error.issues
-                .map((i) => `${i.path.join('.')}: ${i.message}`)
-                .join('; ')}`,
+              text: `Invalid input: ${formatZodIssues(parsed.error)}`,
             },
           ],
           isError: true,
@@ -2150,11 +2156,7 @@ export function createTripEditorMcpServer(
     async (rawArgs) => {
       const parsed = z.object(UpdateAccommodationInputShape).safeParse(rawArgs);
       if (!parsed.success) {
-        return textToolError(
-          `Invalid input: ${parsed.error.issues
-            .map((i) => `${i.path.join('.')}: ${i.message}`)
-            .join('; ')}`
-        );
+        return textToolError(`Invalid input: ${formatZodIssues(parsed.error)}`);
       }
 
       const read = await ctx.supabase
@@ -2229,11 +2231,7 @@ export function createTripEditorMcpServer(
     async (rawArgs) => {
       const parsed = z.object(UpdateAccommodationDetailInputShape).safeParse(rawArgs);
       if (!parsed.success) {
-        return textToolError(
-          `Invalid input: ${parsed.error.issues
-            .map((i) => `${i.path.join('.')}: ${i.message}`)
-            .join('; ')}`
-        );
+        return textToolError(`Invalid input: ${formatZodIssues(parsed.error)}`);
       }
 
       const read = await ctx.supabase
@@ -2304,11 +2302,7 @@ export function createTripEditorMcpServer(
     async (rawArgs) => {
       const parsed = z.object(UpsertActivityInputShape).safeParse(rawArgs);
       if (!parsed.success) {
-        return textToolError(
-          `Invalid input: ${parsed.error.issues
-            .map((i) => `${i.path.join('.')}: ${i.message}`)
-            .join('; ')}`
-        );
+        return textToolError(`Invalid input: ${formatZodIssues(parsed.error)}`);
       }
 
       try {
@@ -2336,11 +2330,7 @@ export function createTripEditorMcpServer(
     async (rawArgs) => {
       const parsed = z.object(DeleteActivityInputShape).safeParse(rawArgs);
       if (!parsed.success) {
-        return textToolError(
-          `Invalid input: ${parsed.error.issues
-            .map((i) => `${i.path.join('.')}: ${i.message}`)
-            .join('; ')}`
-        );
+        return textToolError(`Invalid input: ${formatZodIssues(parsed.error)}`);
       }
 
       try {
@@ -2365,11 +2355,7 @@ export function createTripEditorMcpServer(
     async (rawArgs) => {
       const parsed = z.object(UpsertMealInputShape).safeParse(rawArgs);
       if (!parsed.success) {
-        return textToolError(
-          `Invalid input: ${parsed.error.issues
-            .map((i) => `${i.path.join('.')}: ${i.message}`)
-            .join('; ')}`
-        );
+        return textToolError(`Invalid input: ${formatZodIssues(parsed.error)}`);
       }
 
       try {
@@ -2397,11 +2383,7 @@ export function createTripEditorMcpServer(
     async (rawArgs) => {
       const parsed = z.object(DeleteMealInputShape).safeParse(rawArgs);
       if (!parsed.success) {
-        return textToolError(
-          `Invalid input: ${parsed.error.issues
-            .map((i) => `${i.path.join('.')}: ${i.message}`)
-            .join('; ')}`
-        );
+        return textToolError(`Invalid input: ${formatZodIssues(parsed.error)}`);
       }
 
       try {
@@ -2426,11 +2408,7 @@ export function createTripEditorMcpServer(
     async (rawArgs) => {
       const parsed = z.object(UpsertTransportInputShape).safeParse(rawArgs);
       if (!parsed.success) {
-        return textToolError(
-          `Invalid input: ${parsed.error.issues
-            .map((i) => `${i.path.join('.')}: ${i.message}`)
-            .join('; ')}`
-        );
+        return textToolError(`Invalid input: ${formatZodIssues(parsed.error)}`);
       }
 
       try {
@@ -2458,11 +2436,7 @@ export function createTripEditorMcpServer(
     async (rawArgs) => {
       const parsed = z.object(DeleteTransportInputShape).safeParse(rawArgs);
       if (!parsed.success) {
-        return textToolError(
-          `Invalid input: ${parsed.error.issues
-            .map((i) => `${i.path.join('.')}: ${i.message}`)
-            .join('; ')}`
-        );
+        return textToolError(`Invalid input: ${formatZodIssues(parsed.error)}`);
       }
 
       try {
@@ -2494,11 +2468,7 @@ export function createTripEditorMcpServer(
     async (rawArgs) => {
       const parsed = z.object(UpdateAccommodationCandidateInputShape).safeParse(rawArgs);
       if (!parsed.success) {
-        return textToolError(
-          `Invalid input: ${parsed.error.issues
-            .map((i) => `${i.path.join('.')}: ${i.message}`)
-            .join('; ')}`
-        );
+        return textToolError(`Invalid input: ${formatZodIssues(parsed.error)}`);
       }
 
       try {
@@ -2541,11 +2511,7 @@ export function createTripEditorMcpServer(
     async (rawArgs) => {
       const parsed = z.object(CreateAccommodationCandidateInputShape).safeParse(rawArgs);
       if (!parsed.success) {
-        return textToolError(
-          `Invalid input: ${parsed.error.issues
-            .map((i) => `${i.path.join('.')}: ${i.message}`)
-            .join('; ')}`
-        );
+        return textToolError(`Invalid input: ${formatZodIssues(parsed.error)}`);
       }
 
       try {
@@ -2587,11 +2553,7 @@ export function createTripEditorMcpServer(
     async (rawArgs) => {
       const parsed = z.object(MoveAccommodationCandidateInputShape).safeParse(rawArgs);
       if (!parsed.success) {
-        return textToolError(
-          `Invalid input: ${parsed.error.issues
-            .map((i) => `${i.path.join('.')}: ${i.message}`)
-            .join('; ')}`
-        );
+        return textToolError(`Invalid input: ${formatZodIssues(parsed.error)}`);
       }
 
       try {
@@ -2661,11 +2623,7 @@ export function createTripEditorMcpServer(
     async (rawArgs) => {
       const parsed = z.object(PromoteAccommodationCandidateInputShape).safeParse(rawArgs);
       if (!parsed.success) {
-        return textToolError(
-          `Invalid input: ${parsed.error.issues
-            .map((i) => `${i.path.join('.')}: ${i.message}`)
-            .join('; ')}`
-        );
+        return textToolError(`Invalid input: ${formatZodIssues(parsed.error)}`);
       }
 
       try {
@@ -2752,32 +2710,7 @@ export function createTripEditorMcpServer(
   });
 }
 
-/**
- * Tool names the agent is allowed to use, in the SDK's MCP-qualified form.
- * The server name above (`trip_editor`) must match the prefix.
- */
-export const TRIP_EDITOR_TOOL_NAMES = [
-  'mcp__trip_editor__get_trip',
-  'mcp__trip_editor__get_logistics_audit',
-  'mcp__trip_editor__get_date_ledger',
-  'mcp__trip_editor__list_accommodations',
-  'mcp__trip_editor__list_accommodation_review',
-  'mcp__trip_editor__update_trip',
-  'mcp__trip_editor__update_accommodation',
-  'mcp__trip_editor__update_accommodation_detail',
-  'mcp__trip_editor__upsert_activity',
-  'mcp__trip_editor__delete_activity',
-  'mcp__trip_editor__upsert_meal',
-  'mcp__trip_editor__delete_meal',
-  'mcp__trip_editor__upsert_transport',
-  'mcp__trip_editor__delete_transport',
-  'mcp__trip_editor__research_place_policy',
-  'mcp__trip_editor__create_accommodation_candidate',
-  'mcp__trip_editor__update_accommodation_candidate',
-  'mcp__trip_editor__move_accommodation_candidate',
-  'mcp__trip_editor__promote_accommodation_candidate',
-  ...BOOKING_TOOL_NAMES,
-] as const;
+export { TRIP_EDITOR_TOOL_NAMES };
 
 export const _internal = {
   applyAccommodationPatch,

@@ -21,7 +21,9 @@ import type {
   HookCallback,
   PreToolUseHookInput,
 } from '@anthropic-ai/claude-agent-sdk';
-import { TRIP_EDITOR_TOOL_NAMES } from './tools';
+import type { ChatProgressUpdate } from './progress';
+import { getToolProgressUpdate } from './progress';
+import { TRIP_EDITOR_TOOL_NAMES } from './tool-names';
 
 const UPDATE_TRIP_TOOL_NAME = 'mcp__trip_editor__update_trip';
 
@@ -38,6 +40,20 @@ export interface HookContext {
   turnIndex: number;
   /** Incremented by the tools each time update_trip is invoked. */
   toolCallCounter: { count: number };
+  /** Best-effort user-facing progress update for long-running turns. */
+  onProgress?: (update: ChatProgressUpdate) => void | Promise<void>;
+}
+
+async function emitToolProgress(
+  ctx: HookContext,
+  toolName: string
+): Promise<void> {
+  if (!ctx.onProgress) return;
+  try {
+    await ctx.onProgress(getToolProgressUpdate(toolName));
+  } catch {
+    // Progress updates are advisory and must never block a tool call.
+  }
 }
 
 /**
@@ -50,17 +66,19 @@ export function buildPreToolUseHook(ctx: HookContext): HookCallback {
     }
     const pt = input as PreToolUseHookInput;
 
-    // Only act on our custom tools. Built-in tools like AskUserQuestion fall
-    // through untouched.
-    if (
-      !TRIP_EDITOR_TOOL_NAMES.includes(
-        pt.tool_name as (typeof TRIP_EDITOR_TOOL_NAMES)[number]
-      )
-    ) {
+    const toolName = pt.tool_name;
+    const isTripEditorTool = TRIP_EDITOR_TOOL_NAMES.includes(
+      toolName as (typeof TRIP_EDITOR_TOOL_NAMES)[number]
+    );
+
+    if (!isTripEditorTool) {
+      if (toolName === 'WebSearch' || toolName === 'AskUserQuestion') {
+        await emitToolProgress(ctx, toolName);
+      }
       return { continue: true };
     }
 
-    if (pt.tool_name === UPDATE_TRIP_TOOL_NAME) {
+    if (toolName === UPDATE_TRIP_TOOL_NAME) {
       const toolInput = (pt.tool_input ?? {}) as Record<string, unknown>;
       const keys = Object.keys(toolInput);
       const disallowed = keys.filter((k) => !ALLOWED_UPDATE_TRIP_KEYS.has(k));
@@ -88,6 +106,8 @@ export function buildPreToolUseHook(ctx: HookContext): HookCallback {
         };
       }
     }
+
+    await emitToolProgress(ctx, toolName);
 
     return { continue: true };
   };

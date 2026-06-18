@@ -7,6 +7,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { buildPreToolUseHook } from './hooks';
+import type { ChatProgressUpdate } from './progress';
 
 // Minimal stub just to give the hook a shape-compatible context. The Supabase
 // client isn't exercised in this test — we only care about the permission
@@ -103,4 +104,35 @@ test('PreToolUse lets non-trip-editor tools through untouched', async () => {
   );
   const obj = result as { continue?: boolean };
   assert.equal(obj.continue, true);
+});
+
+test('PreToolUse emits progress for allowed tools', async () => {
+  const updates: ChatProgressUpdate[] = [];
+  const hook = buildPreToolUseHook({
+    ...stubContext(),
+    onProgress: (update) => {
+      updates.push(update);
+    },
+  });
+  const result = await hook(
+    {
+      hook_event_name: 'PreToolUse',
+      tool_name: 'mcp__trip_editor__get_date_ledger',
+      tool_input: {},
+      tool_use_id: 'test-127',
+      session_id: 'test-session',
+      cwd: '/tmp',
+      transcript_path: '/tmp/transcript',
+    },
+    undefined,
+    { signal: new AbortController().signal }
+  );
+
+  assert.equal((result as { continue?: boolean }).continue, true);
+  assert.deepEqual(updates, [
+    {
+      stage: 'checking',
+      message: 'Checking the date and stay ledger...',
+    },
+  ]);
 });

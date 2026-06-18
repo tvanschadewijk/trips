@@ -41,6 +41,7 @@ import type { ToolCallSummary } from '@/lib/trip-chat/prompt';
 import {
   DEFAULT_CHAT_STATUS_PHASES,
   getChatStatusPhases,
+  type ChatProgressEvent,
 } from '@/lib/trip-chat/progress';
 import {
   groupThreadsByRecency,
@@ -98,6 +99,12 @@ type ChatTurnResponse = {
 type ChatHistoryResponse = {
   messages: ChatMessage[];
   thread_id?: string | null;
+  progress?: ChatProgressEvent[];
+};
+
+type ChatHistoryPayload = {
+  messages: ChatMessage[];
+  progress: ChatProgressEvent[];
 };
 
 type ThreadListResponse = {
@@ -133,13 +140,18 @@ function notifyTripEditApplied(tripId: string) {
   );
 }
 
-async function fetchChatHistory(
+async function fetchChatHistoryPayload(
   tripId: string,
-  threadId: string | null
-): Promise<ChatMessage[]> {
+  threadId: string | null,
+  progressTurnIndex?: number
+): Promise<ChatHistoryPayload> {
   const threadParam = threadId ? `&thread_id=${encodeURIComponent(threadId)}` : '';
+  const progressParam =
+    progressTurnIndex !== undefined
+      ? `&turn_index=${encodeURIComponent(String(progressTurnIndex))}`
+      : '';
   const res = await fetch(
-    `/api/trips/${tripId}/chat?limit=${CHAT_HISTORY_LIMIT}${threadParam}`,
+    `/api/trips/${tripId}/chat?limit=${CHAT_HISTORY_LIMIT}${threadParam}${progressParam}`,
     { cache: 'no-store' }
   );
   if (!res.ok) {
@@ -148,7 +160,17 @@ async function fetchChatHistory(
     throw new Error(body.detail ? `${headline} — ${body.detail}` : headline);
   }
   const json = (await res.json()) as ChatHistoryResponse;
-  return json.messages;
+  return {
+    messages: json.messages,
+    progress: json.progress ?? [],
+  };
+}
+
+async function fetchChatHistory(
+  tripId: string,
+  threadId: string | null
+): Promise<ChatMessage[]> {
+  return (await fetchChatHistoryPayload(tripId, threadId)).messages;
 }
 
 async function fetchThreads(tripId: string): Promise<ChatThreadSummary[]> {
@@ -161,15 +183,22 @@ async function fetchThreads(tripId: string): Promise<ChatThreadSummary[]> {
 async function pollForAssistant(
   tripId: string,
   threadId: string,
-  turnIndex: number
+  turnIndex: number,
+  onProgress?: (progress: ChatProgressEvent[]) => void
 ): Promise<{ messages: ChatMessage[]; assistant: ChatMessage }> {
   const started = Date.now();
   let lastMessages: ChatMessage[] | null = null;
+  let lastProgress: ChatProgressEvent[] = [];
 
   while (Date.now() - started < CHAT_POLL_TIMEOUT_MS) {
     try {
-      const messages = await fetchChatHistory(tripId, threadId);
+      const payload = await fetchChatHistoryPayload(tripId, threadId, turnIndex);
+      const { messages, progress } = payload;
       lastMessages = messages;
+      if (progress.length > 0) {
+        lastProgress = progress;
+        onProgress?.(progress);
+      }
       const assistant = messages.find(
         (m) => m.role === 'assistant' && m.turn_index === turnIndex
       );
@@ -189,7 +218,11 @@ async function pollForAssistant(
   }
 
   throw new Error(
-    'The travel expert is taking longer than expected. Reopen this trip in a moment; if it finishes, the answer will appear here.'
+    `The travel expert is taking longer than expected. ${
+      lastProgress.length
+        ? `Last update: ${lastProgress[lastProgress.length - 1].message} `
+        : ''
+    }Reopen this trip in a moment; if it finishes, the answer will appear here.`
   );
 }
 
@@ -227,6 +260,7 @@ export default function TripChatPanel({
   const [statusPhases, setStatusPhases] = useState<readonly string[]>(
     DEFAULT_CHAT_STATUS_PHASES
   );
+  const [turnProgress, setTurnProgress] = useState<ChatProgressEvent[]>([]);
   const [unread, setUnread] = useState(false);
   const [keyboardInset, setKeyboardInset] = useState(0);
   const scrollerRef = useRef<HTMLDivElement | null>(null);
@@ -336,6 +370,7 @@ export default function TripChatPanel({
   const startNewChat = useCallback(() => {
     setActiveThreadId(null);
     setMessages([]);
+    setTurnProgress([]);
     setError(null);
     setConfirmDeleteId(null);
     setRenamingId(null);
@@ -392,6 +427,7 @@ export default function TripChatPanel({
         const threadMessages = await fetchChatHistory(tripId, threadId);
         setActiveThreadId(threadId);
         setMessages(threadMessages);
+        setTurnProgress([]);
         if (isMobileRail()) setRailOpen(false);
         inputRef.current?.focus();
       } catch (err) {
@@ -415,6 +451,7 @@ export default function TripChatPanel({
         if (activeThreadIdRef.current === threadId) {
           setActiveThreadId(null);
           setMessages([]);
+          setTurnProgress([]);
         }
       } catch (err) {
         setError(userFacingChatError(err));
@@ -458,6 +495,7 @@ export default function TripChatPanel({
       if (activeThreadIdRef.current === threadId) {
         setMessages(serverMessages);
       }
+      setTurnProgress([]);
 
       // If the user collapsed mid-turn, mark unread.
       setState((s) => {
@@ -494,6 +532,15 @@ export default function TripChatPanel({
       tool_calls_json: null,
     };
     setMessages((prev) => [...prev, optimisticUser]);
+    setTurnProgress([
+      {
+        id: `local-progress-${Date.now()}`,
+        turn_index: nextTurnIndex,
+        stage: 'queued',
+        message: 'Queued your request...',
+        created_at: new Date().toISOString(),
+      },
+    ]);
     setInput('');
     setLoading(true);
 
@@ -552,7 +599,12 @@ export default function TripChatPanel({
         if (!threadId) {
           throw new Error('The server did not return a thread for this conversation.');
         }
-        const completed = await pollForAssistant(tripId, threadId, json.turn_index);
+        const completed = await pollForAssistant(
+          tripId,
+          threadId,
+          json.turn_index,
+          setTurnProgress
+        );
         finishTurn(threadId, completed.messages, completed.assistant);
         return;
       }
@@ -568,6 +620,7 @@ export default function TripChatPanel({
       if (activeThreadIdRef.current === threadId || !threadIdAtSend) {
         setMessages((prev) => [...prev, assistant]);
       }
+      setTurnProgress([]);
       setState((s) => {
         if (s === 'minimized') setUnread(true);
         return s;
@@ -580,7 +633,12 @@ export default function TripChatPanel({
     } catch (err) {
       if (isLikelyDroppedFetch(err) && threadIdAtSend) {
         try {
-          const completed = await pollForAssistant(tripId, threadIdAtSend, nextTurnIndex);
+          const completed = await pollForAssistant(
+            tripId,
+            threadIdAtSend,
+            nextTurnIndex,
+            setTurnProgress
+          );
           finishTurn(threadIdAtSend, completed.messages, completed.assistant);
           return;
         } catch (pollErr) {
@@ -606,6 +664,14 @@ export default function TripChatPanel({
   if (!online) return null;
 
   const threadGroups = groupThreadsByRecency(threads);
+  const latestProgress = turnProgress[turnProgress.length - 1];
+  const activeStatusText =
+    loading && latestProgress && latestProgress.stage !== 'done'
+      ? latestProgress.message
+      : statusPhases[statusIdx] ?? statusPhases[statusPhases.length - 1];
+  const visibleProgress = turnProgress
+    .filter((event) => event.stage !== 'done')
+    .slice(-4);
 
   return (
     <>
@@ -649,7 +715,7 @@ export default function TripChatPanel({
               <>
                 <TypingDots />
                 <span style={{ marginLeft: 10, fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic' }}>
-                  {statusPhases[statusIdx] ?? statusPhases[statusPhases.length - 1]}
+                  {activeStatusText}
                 </span>
               </>
             ) : (
@@ -885,17 +951,20 @@ export default function TripChatPanel({
                         <TypingDots />
                         <AnimatePresence mode="wait">
                           <motion.span
-                            key={statusIdx}
+                            key={activeStatusText}
                             initial={{ opacity: 0, y: 4 }}
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: -4 }}
                             transition={{ duration: 0.25 }}
                             style={statusTextStyle}
                           >
-                            {statusPhases[statusIdx] ?? statusPhases[statusPhases.length - 1]}
+                            {activeStatusText}
                           </motion.span>
                         </AnimatePresence>
                       </motion.div>
+                    )}
+                    {loading && visibleProgress.length > 1 && (
+                      <ProgressTrail progress={visibleProgress} />
                     )}
                     {error && (
                       <div style={errorStyle} role="alert">
@@ -960,6 +1029,24 @@ function TypingDots() {
         transition={{ duration: 1.05, repeat: Infinity, ease: 'easeInOut', delay: 0.32 }}
       />
     </span>
+  );
+}
+
+function ProgressTrail({ progress }: { progress: ChatProgressEvent[] }) {
+  return (
+    <motion.ol
+      initial={{ opacity: 0, y: 4 }}
+      animate={{ opacity: 1, y: 0 }}
+      style={progressTrailStyle}
+      aria-label="Recent agent activity"
+    >
+      {progress.map((event) => (
+        <li key={event.id} style={progressTrailItemStyle}>
+          <span style={progressTrailDotStyle} aria-hidden="true" />
+          {event.message}
+        </li>
+      ))}
+    </motion.ol>
   );
 }
 
@@ -1204,6 +1291,33 @@ const statusTextStyle: React.CSSProperties = {
   fontWeight: 380,
   color: '#A03E1F',
   letterSpacing: 0,
+};
+
+const progressTrailStyle: React.CSSProperties = {
+  margin: '-4px 0 2px 28px',
+  padding: 0,
+  listStyle: 'none',
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 4,
+  color: '#6B6157',
+  fontSize: 12,
+  lineHeight: 1.45,
+};
+
+const progressTrailItemStyle: React.CSSProperties = {
+  position: 'relative',
+  paddingLeft: 12,
+};
+
+const progressTrailDotStyle: React.CSSProperties = {
+  position: 'absolute',
+  left: 0,
+  top: '0.62em',
+  width: 4,
+  height: 4,
+  borderRadius: 999,
+  background: '#D4C8B4',
 };
 
 const typingDotsStyle: React.CSSProperties = {

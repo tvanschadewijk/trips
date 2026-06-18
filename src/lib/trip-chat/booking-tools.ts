@@ -12,6 +12,7 @@
  */
 import { z } from 'zod';
 import { tool } from '@anthropic-ai/claude-agent-sdk';
+export { BOOKING_TOOL_NAMES } from './tool-names';
 
 const ISO_DATE = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'YYYY-MM-DD');
 const ISO_TIME = z.string().regex(/^\d{2}:\d{2}$/, 'HH:MM');
@@ -264,13 +265,6 @@ export function createBookingTools() {
 
   return [restaurant, hotel, flight, activity];
 }
-
-export const BOOKING_TOOL_NAMES = [
-  'mcp__trip_editor__booking_link_restaurant',
-  'mcp__trip_editor__booking_link_hotel',
-  'mcp__trip_editor__booking_link_flight',
-  'mcp__trip_editor__booking_link_activity',
-] as const;
 
 // Exposed for unit tests
 export const _internal = {

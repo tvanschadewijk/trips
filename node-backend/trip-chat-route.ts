@@ -67,6 +67,11 @@ import {
   recordTurnUsage,
 } from '@/lib/trip-chat/hooks';
 import {
+  getAppliedToolProgressUpdate,
+  type ChatProgressEvent,
+  type ChatProgressUpdate,
+} from '@/lib/trip-chat/progress';
+import {
   FIXED_SDK_OPTIONS,
   resolveTripChatModel,
 } from '@/lib/trip-chat/sdk-options';
@@ -128,6 +133,11 @@ interface UiChatMessage {
   tool_calls_json: ToolCallSummary[] | null;
 }
 
+type TurnProgressScope = Pick<
+  RunAgentTurnArgs,
+  'sessionRowId' | 'tripId' | 'userId' | 'turnIndex'
+>;
+
 const CHAT_HISTORY_TURNS_REPLAYED = 12; // last N user+assistant exchanges summarized in prompt
 const DEFAULT_CHAT_HISTORY_LIMIT = 50;
 
@@ -164,8 +174,13 @@ export async function GET(
   const messages = threadId
     ? await loadThreadMessages(admin, threadId, limit)
     : [];
+  const progressTurnIndex = parseTurnIndex(requestUrl.searchParams.get('turn_index'));
+  const progress =
+    threadId && progressTurnIndex !== null
+      ? await loadTurnProgress(admin, threadId, progressTurnIndex)
+      : [];
 
-  return json({ messages, thread_id: threadId }, undefined, access.headers);
+  return json({ messages, thread_id: threadId, progress }, undefined, access.headers);
 }
 
 export async function POST(
@@ -278,6 +293,16 @@ export async function POST(
       access.headers
     );
   }
+
+  await insertTurnProgress(admin, {
+    sessionRowId,
+    tripId,
+    userId: access.userId,
+    turnIndex,
+  }, {
+    stage: 'queued',
+    message: 'Queued your request...',
+  });
 
   // New threads get an async title polish (small Messages API call, falls
   // back silently to the heuristic title if the key is broken or slow).
@@ -429,6 +454,78 @@ function scheduleBackground(task: () => Promise<void>): void {
   });
 }
 
+function parseTurnIndex(value: string | null): number | null {
+  if (!value) return null;
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 0) return null;
+  return parsed;
+}
+
+function createTurnProgressReporter(
+  admin: ReturnType<typeof createAdminClient>,
+  scope: TurnProgressScope
+): (update: ChatProgressUpdate) => Promise<void> {
+  let lastKey = '';
+  return async (update) => {
+    const key = `${update.stage}:${update.message}`;
+    if (key === lastKey) return;
+    lastKey = key;
+    await insertTurnProgress(admin, scope, update);
+  };
+}
+
+async function insertTurnProgress(
+  admin: ReturnType<typeof createAdminClient>,
+  scope: TurnProgressScope,
+  update: ChatProgressUpdate
+): Promise<void> {
+  const { error } = await admin.from('trip_chat_progress_events').insert({
+    session_id: scope.sessionRowId,
+    trip_id: scope.tripId,
+    user_id: scope.userId,
+    turn_index: scope.turnIndex,
+    stage: update.stage,
+    message: update.message.slice(0, 240),
+  });
+
+  if (error) {
+    // Older local/prod databases may not have the progress table yet. Progress
+    // is helpful, not load-bearing; the turn must continue either way.
+    if (!/trip_chat_progress_events|schema cache|relation .* does not exist/i.test(error.message)) {
+      console.error('trip-chat: failed to record progress', error.message);
+    }
+  }
+}
+
+async function loadTurnProgress(
+  admin: ReturnType<typeof createAdminClient>,
+  threadId: string,
+  turnIndex: number
+): Promise<ChatProgressEvent[]> {
+  const { data, error } = await admin
+    .from('trip_chat_progress_events')
+    .select('id, turn_index, stage, message, created_at')
+    .eq('session_id', threadId)
+    .eq('turn_index', turnIndex)
+    .order('created_at', { ascending: true })
+    .limit(30);
+
+  if (error) {
+    if (!/trip_chat_progress_events|schema cache|relation .* does not exist/i.test(error.message)) {
+      console.error('trip-chat: failed to load progress', error.message);
+    }
+    return [];
+  }
+
+  return (data ?? []).map((row) => ({
+    id: String(row.id),
+    turn_index: Number(row.turn_index),
+    stage: row.stage as ChatProgressEvent['stage'],
+    message: String(row.message ?? ''),
+    created_at: String(row.created_at ?? ''),
+  }));
+}
+
 async function requireTripChatAccess(
   request: Request,
   tripId: string
@@ -536,6 +633,11 @@ function serializeCookie(name: string, value: string, options: CookieOptions = {
 
 async function runAgentTurn(args: RunAgentTurnArgs): Promise<void> {
   const admin = createAdminClient();
+  const progress = createTurnProgressReporter(admin, args);
+  await progress({
+    stage: 'starting',
+    message: 'Starting the travel agent...',
+  });
 
   // Compose the user message with a small "currently viewing" prefix so
   // the agent knows whether the user is asking about a specific day.
@@ -556,13 +658,14 @@ async function runAgentTurn(args: RunAgentTurnArgs): Promise<void> {
     tripId: args.tripId,
     supabase: admin,
     origin: args.origin,
-    onUpdateApplied: ({ tool, input }) => {
+    onUpdateApplied: async ({ tool, input }) => {
       toolCallsSummary.push({
         tool: tool ?? 'update_trip',
         ok: true,
         input_keys: Object.keys(input as Record<string, unknown>),
       });
       toolCallCounter.count += 1;
+      await progress(getAppliedToolProgressUpdate(tool));
     },
   });
 
@@ -576,6 +679,7 @@ async function runAgentTurn(args: RunAgentTurnArgs): Promise<void> {
     userId: args.userId,
     turnIndex: args.turnIndex,
     toolCallCounter,
+    onProgress: progress,
   };
 
   // Ensure CLAUDE_CONFIG_DIR lands on a writable path on serverless.
@@ -632,12 +736,20 @@ async function runAgentTurn(args: RunAgentTurnArgs): Promise<void> {
     turnIndex: args.turnIndex,
     msgLen: args.message.length,
   });
+  await progress({
+    stage: 'thinking',
+    message: 'Planning the next step...',
+  });
   try {
     const stream = query({ prompt, options });
     for await (const msg of stream) {
       console.log('trip-chat: stream msg', msg.type, `+${Date.now() - t0}ms`);
       if (msg.type === 'system' && 'session_id' in msg && !sdkSessionId) {
         sdkSessionId = (msg as { session_id: string }).session_id;
+        await progress({
+          stage: 'starting',
+          message: 'Connected to the agent session...',
+        });
       }
       if (msg.type === 'assistant') {
         // Accumulate the last assistant text turn. The agent may emit multiple
@@ -647,6 +759,10 @@ async function runAgentTurn(args: RunAgentTurnArgs): Promise<void> {
         const textBlocks = m.message.content.filter((c) => c.type === 'text');
         if (textBlocks.length > 0) {
           assistantText = textBlocks.map((c) => c.text ?? '').join('').trim();
+          await progress({
+            stage: 'writing',
+            message: 'Drafting the reply...',
+          });
         }
       }
       if (msg.type === 'result') {
@@ -666,6 +782,15 @@ async function runAgentTurn(args: RunAgentTurnArgs): Promise<void> {
         }
         if (r.subtype !== 'success') {
           resultError = `agent stopped: ${r.subtype}`;
+          await progress({
+            stage: 'error',
+            message: 'The agent stopped early; saving what happened...',
+          });
+        } else {
+          await progress({
+            stage: 'reviewing',
+            message: 'Reviewing the result...',
+          });
         }
         if (!assistantText && r.result) {
           assistantText = r.result.trim();
@@ -688,7 +813,14 @@ async function runAgentTurn(args: RunAgentTurnArgs): Promise<void> {
       tripId: args.tripId,
       turnIndex: args.turnIndex,
     });
-    assistantText = failure.userMessage;
+    await progress({
+      stage: 'error',
+      message: 'The agent hit an error; saving a truthful status...',
+    });
+    assistantText =
+      failure.kind === 'transient' && toolCallCounter.count > 0
+        ? 'I saved some changes, then hit a connection problem while writing the final reply. The itinerary may already be updated; review it before retrying.'
+        : failure.userMessage;
     errorDetail = `${failure.kind}: ${failure.detail}`;
   }
 
@@ -702,6 +834,11 @@ async function runAgentTurn(args: RunAgentTurnArgs): Promise<void> {
     assistantText = 'Done.';
   }
 
+  await progress({
+    stage: 'writing',
+    message: 'Saving the response...',
+  });
+
   await admin.from('trip_chat_messages').insert({
     session_id: args.sessionRowId,
     trip_id: args.tripId,
@@ -710,6 +847,11 @@ async function runAgentTurn(args: RunAgentTurnArgs): Promise<void> {
     role: 'assistant',
     content: assistantText,
     tool_calls_json: toolCallsSummary.length ? toolCallsSummary : null,
+  });
+
+  await progress({
+    stage: 'done',
+    message: 'Done.',
   });
 
   await admin
@@ -736,6 +878,10 @@ async function persistAssistantFallback(
   cause?: unknown
 ): Promise<void> {
   const admin = createAdminClient();
+  await insertTurnProgress(admin, args, {
+    stage: 'error',
+    message: 'The background turn stopped before it could finish.',
+  });
   const { data: existingAssistant } = await admin
     .from('trip_chat_messages')
     .select('id')

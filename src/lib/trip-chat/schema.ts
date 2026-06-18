@@ -407,7 +407,7 @@ export const UpdateTripInputSchema = z
   .object(UpdateTripInputShape)
   .strict()
   .refine(
-    (obj) =>
+    (obj: { trip?: unknown; days?: unknown; markdown_source?: unknown }) =>
       obj.trip !== undefined ||
       obj.days !== undefined ||
       obj.markdown_source !== undefined,
