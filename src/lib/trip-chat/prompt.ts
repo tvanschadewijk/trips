@@ -32,6 +32,186 @@ export interface PriorTurn {
   tool_calls?: ToolCallSummary[];       // compact summary of tools used this turn
 }
 
+export type TurnIntentKind =
+  | 'confirm_accommodation_booking'
+  | 'restaurant_recommendation'
+  | 'restaurant_reservation_channel'
+  | 'selected_restaurant'
+  | 'date_change'
+  | 'research_request';
+
+export interface TurnIntentLedgerItem {
+  id: string;
+  kind: TurnIntentKind;
+  confidence: 'high' | 'medium';
+  evidence: string;
+  expected_action: string;
+  day_number?: number;
+  place_name?: string;
+  city?: string;
+}
+
+const VIEW_DAY_RE = /\bcurrently viewing Day\s+(\d{1,3})\b/i;
+const CITY_CONTEXT_RE =
+  /\b(?:in|near|around)\s+([A-Z][\p{L}\p{M}'’.-]+(?:\s+[A-Z][\p{L}\p{M}'’.-]+){0,3})/u;
+const BOOKED_ACCOMMODATION_RE =
+  /\b(?:we|i)\s+(?:have\s+|just\s+|already\s+)?(?:booked|reserved|confirmed)\s+(.+?)(?=(?:\s+for\s+(?:this\s+day|today|tonight|\d)|\s+on\s+this\s+day|\s+in\s+[A-Z]|\s+from\s+|[.!?]|$))/iu;
+const RESTAURANT_REQUEST_RE =
+  /\b(?:find|recommend|suggest|pick|choose)\b[\s\S]{0,160}\b(?:restaurant|dinner|lunch|table|place to eat)\b|\b(?:restaurant|dinner|lunch|table)\b[\s\S]{0,160}\b(?:find|recommend|suggest|pick|choose)\b/iu;
+const RESERVATION_REQUEST_RE =
+  /\b(?:book|booking|reserve|reservation|table|reservable)\b|\bcan\s+book\b|\bif\s+we\s+need\s+to\s+book\b/iu;
+const SELECTED_RESTAURANT_RE =
+  /\b(?:book|reserve|add|choose|pick)\s+(?:a\s+table\s+at\s+|restaurant\s+)?([A-Z][\p{L}\p{M}'’&.-]+(?:\s+[A-Z0-9][\p{L}\p{M}'’&.-]+){0,5})/u;
+const DATE_CHANGE_RE =
+  /\b(?:change|move|shift|extend|shorten|start|end|arrive|depart|leave)\b[\s\S]{0,80}\b(?:date|dates|day|days|night|nights|tomorrow|today|\d{4}-\d{2}-\d{2})\b/iu;
+const RESEARCH_REQUEST_RE =
+  /\b(?:find|research|check|confirm|look up|verify)\b/iu;
+
+function stripViewContextPrefix(message: string): string {
+  return message.replace(/^\[[\s\S]*?\]\s*/u, '').trim();
+}
+
+function currentViewDay(message: string): number | undefined {
+  const match = VIEW_DAY_RE.exec(message);
+  if (!match) return undefined;
+  const parsed = Number(match[1]);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : undefined;
+}
+
+function cleanDetectedPlaceName(value: string): string {
+  return value
+    .replace(/\s+/g, ' ')
+    .replace(/^[\s"'“”‘’]+|[\s"'“”‘’.,;:!?]+$/g, '')
+    .replace(/^(?:the\s+)?(?:hotel|stay|accommodation)\s+(?=hotel\s+)/i, '')
+    .trim();
+}
+
+function detectCity(message: string): string | undefined {
+  const match = CITY_CONTEXT_RE.exec(message);
+  return match ? match[1].trim() : undefined;
+}
+
+function pushIntent(
+  items: TurnIntentLedgerItem[],
+  item: Omit<TurnIntentLedgerItem, 'id'>
+) {
+  items.push({ id: `intent_${items.length + 1}`, ...item });
+}
+
+export function detectTurnIntentLedger(newUserMessage: string): TurnIntentLedgerItem[] {
+  const raw = stripViewContextPrefix(newUserMessage);
+  if (!raw) return [];
+
+  const items: TurnIntentLedgerItem[] = [];
+  const day_number = currentViewDay(newUserMessage);
+  const city = detectCity(raw);
+  const bookedAccommodation = BOOKED_ACCOMMODATION_RE.exec(raw);
+
+  if (bookedAccommodation) {
+    const place_name = cleanDetectedPlaceName(bookedAccommodation[1]);
+    if (place_name) {
+      pushIntent(items, {
+        kind: 'confirm_accommodation_booking',
+        confidence: 'high',
+        evidence: bookedAccommodation[0].trim(),
+        expected_action:
+          'Treat this as a committed hotel fact: update or promote the accommodation as booked for the scoped day/stay before answering unrelated requests.',
+        ...(day_number ? { day_number } : {}),
+        place_name,
+        ...(city ? { city } : {}),
+      });
+    }
+  }
+
+  if (RESTAURANT_REQUEST_RE.test(raw)) {
+    pushIntent(items, {
+      kind: 'restaurant_recommendation',
+      confidence: 'high',
+      evidence: raw.match(RESTAURANT_REQUEST_RE)?.[0]?.trim() ?? 'restaurant request',
+      expected_action:
+        'Use WebSearch for current restaurant options; recommend one clear fit or a concise shortlist, and save one meal only when the user asked to add/save it.',
+      ...(day_number ? { day_number } : {}),
+      ...(city ? { city } : {}),
+    });
+  }
+
+  if (RESTAURANT_REQUEST_RE.test(raw) && RESERVATION_REQUEST_RE.test(raw)) {
+    pushIntent(items, {
+      kind: 'restaurant_reservation_channel',
+      confidence: 'high',
+      evidence: raw.match(RESERVATION_REQUEST_RE)?.[0]?.trim() ?? 'booking request',
+      expected_action:
+        'Do not assume OpenTable or any third-party platform. Verify an official reservation channel/current platform first; otherwise say the booking channel is unverified and offer official site, phone, or Google Maps.',
+      ...(day_number ? { day_number } : {}),
+      ...(city ? { city } : {}),
+    });
+  }
+
+  const selectedRestaurant = SELECTED_RESTAURANT_RE.exec(raw);
+  if (selectedRestaurant && /\b(?:restaurant|dinner|lunch|table|book|reserve)\b/i.test(raw)) {
+    const place_name = cleanDetectedPlaceName(selectedRestaurant[1]);
+    if (place_name && !/^hotel\b/i.test(place_name)) {
+      pushIntent(items, {
+        kind: 'selected_restaurant',
+        confidence: 'medium',
+        evidence: selectedRestaurant[0].trim(),
+        expected_action:
+          'If this is a restaurant selection, attach it to the matching meal row and verify the reservation channel before linking.',
+        ...(day_number ? { day_number } : {}),
+        place_name,
+        ...(city ? { city } : {}),
+      });
+    }
+  }
+
+  if (DATE_CHANGE_RE.test(raw)) {
+    pushIntent(items, {
+      kind: 'date_change',
+      confidence: 'medium',
+      evidence: raw.match(DATE_CHANGE_RE)?.[0]?.trim() ?? 'date change',
+      expected_action:
+        'Use the date ledger before date/stay arithmetic, then run the logistics audit before claiming the edit is complete.',
+      ...(day_number ? { day_number } : {}),
+      ...(city ? { city } : {}),
+    });
+  }
+
+  if (RESEARCH_REQUEST_RE.test(raw) && items.length === 0) {
+    pushIntent(items, {
+      kind: 'research_request',
+      confidence: 'medium',
+      evidence: raw.match(RESEARCH_REQUEST_RE)?.[0]?.trim() ?? 'research request',
+      expected_action:
+        'Use WebSearch or the relevant trip tool before answering with current real-world claims.',
+      ...(day_number ? { day_number } : {}),
+      ...(city ? { city } : {}),
+    });
+  }
+
+  return items;
+}
+
+export function formatTurnIntentLedger(items: TurnIntentLedgerItem[]): string {
+  if (items.length === 0) return '';
+
+  const lines = items.map((item) => {
+    const context = [
+      item.day_number ? `day=${item.day_number}` : null,
+      item.place_name ? `place="${item.place_name}"` : null,
+      item.city ? `city="${item.city}"` : null,
+    ]
+      .filter(Boolean)
+      .join(', ');
+    return `- ${item.id}: ${item.kind} (${item.confidence}${context ? `; ${context}` : ''})\n  evidence: ${item.evidence}\n  expected_action: ${item.expected_action}`;
+  });
+
+  return `[Deterministic intent ledger - complete every applicable item before the final reply]
+${lines.join('\n')}
+
+Completion rule: reconcile this ledger against the tools you used before replying. Do not let a later recommendation or research request cancel an earlier committed trip fact. In the final reply, mention each completed item briefly, or state exactly which item is blocked and why.
+`;
+}
+
 /**
  * Build the static system prompt. The output of this function should be
  * byte-identical across all turns of all users so the prompt-cache prefix
@@ -57,7 +237,7 @@ You have these tools:
   - \`mcp__trip_editor__list_accommodations\` — list only the trip's hotels/stays with day numbers, dates, location hints, existing dog_note fields, and JSON paths. Use this instead of \`get_trip\` for "all hotels", accommodation policy, check-in, parking, pet, or stay-specific questions.
   - \`mcp__trip_editor__list_accommodation_review\` — list the private Accommodations Reviewer board: destinations, hotel candidates, review states, and recent reviewer events. Use this when the user is in the Accommodations Reviewer surface or asks about proposed / booked hotel options. Destinations are derived from the canonical trip itinerary.
   - \`mcp__trip_editor__update_trip\` — apply an edit. Merge-patch semantics: top-level \`trip\` is deep-merged into \`data.trip\`; \`days\`, if provided, replaces \`data.days\` wholesale.
-  - \`mcp__trip_editor__update_accommodation\` — patch top-level accommodation card fields (\`name\`, \`price\`, \`rating\`, \`status\`, \`nights\`, \`note\`) using a path from \`list_accommodations\`. Use this for hotel/stay renames or visible stay-card fixes on long trips instead of replacing the full \`days\` array; when markdown exists, it also maintains the "OurTrips agent notes" section.
+  - \`mcp__trip_editor__update_accommodation\` — patch top-level accommodation card fields (\`name\`, \`price\`, \`rating\`, \`status\`, \`booking_status\`, \`nights\`, \`note\`) using a path from \`list_accommodations\`. Use this for hotel/stay renames, booking-status fixes, or visible stay-card fixes on long trips instead of replacing the full \`days\` array; when markdown exists, it also maintains the "OurTrips agent notes" section.
   - \`mcp__trip_editor__update_accommodation_detail\` — patch one accommodation's \`detail\` object using a path from \`list_accommodations\`. Use this for precise hotel notes like \`dog_note\`, \`parking\`, \`phone\`, \`wifi\`, and policy source fields without resending the full days array.
   - \`mcp__trip_editor__upsert_activity\` — add or update one day programme item without replacing the full \`days\` array. Use this for museums, galleries, beaches, viewpoints, walks, excursions, markets, neighbourhood time, and similar activity rows.
   - \`mcp__trip_editor__delete_activity\` — remove one day programme item by index, title, time label, type, or content match.
@@ -81,7 +261,7 @@ You have these tools:
         Tripadvisor / Google Reviews scores, and source caveats
     Do NOT use it for general trivia your training already covers, or for anything you can answer from the trip data itself. Cite where claims came from briefly in the reply (e.g. "per the official site"), but don't dump URLs.
 
-  - \`mcp__trip_editor__booking_link_restaurant\` — generate an OpenTable booking deeplink for a chosen restaurant. Use AFTER picking the venue (typically via WebSearch). Pass venue name, optional city/date/time/party_size.
+  - \`mcp__trip_editor__booking_link_restaurant\` — generate a restaurant reservation link for a chosen restaurant. Use AFTER picking the venue (typically via WebSearch). Do not assume OpenTable. Pass a verified direct reservation URL when you found one, or set \`opentable_verified: true\` only when WebSearch/source evidence confirms that exact venue is on OpenTable. If neither is verified, the tool returns a neutral Google Maps reservation search instead of pretending a platform is supported.
 
   - \`mcp__trip_editor__booking_link_hotel\` — generate a Booking.com search deeplink for a chosen hotel or area. Pass query (city or hotel name), check_in, check_out, guests, rooms.
 
@@ -92,8 +272,8 @@ You have these tools:
   How to use the booking tools:
     1. The user asks something like "book La Trompette for Friday at 7" or "find me a hotel in Glasgow for the Saturday night".
     2. If the venue / area / route isn't specified yet, WebSearch first to find candidates and propose them via AskUserQuestion when the choice is non-obvious.
-    3. Call the matching booking_link_* tool with the resolved arguments. It returns { url, platform }.
-    4. Reply to the user with the URL as a markdown link, e.g. "[Book on OpenTable →](https://...)". Don't dump the JSON.
+    3. Call the matching booking_link_* tool with the resolved arguments. It returns { url, platform, verified?, note? }.
+    4. Reply to the user with the verified URL as a markdown link. If the restaurant booking channel is unverified, say so plainly and offer the official site, phone, or Google Maps link returned by the tool. Don't dump the JSON.
     5. If appropriate, ALSO call update_trip to attach the URL to the relevant transport / accommodation / meal entry (e.g. add it as a 'note' or in the booking_platform field) so the link is durable on the trip page.
 
 You have NO access to the filesystem, shell, raw web fetches, or any other tools.
@@ -118,6 +298,27 @@ need more route context. Use \`WebSearch\` only when fresh road, ferry, closure,
 border, or live-routing information would materially improve the answer. Ask a
 clarifying question only after the trip read still leaves a material fact
 missing.
+
+## Intent ledger discipline
+
+Some turns contain multiple instructions in one sentence. The user may give a
+committed trip fact first ("We booked Hotel Pupin for this day") and then ask a
+research question ("find us a restaurant"). Treat those as separate intents:
+complete the committed edit and the research/answer before your final reply.
+If the turn prompt contains a deterministic intent ledger, use it as a
+checklist. Before replying, reconcile every item against the tools you used.
+Do not let a later restaurant, activity, or research request cause you to
+ignore an earlier hotel, date, transport, or booking-status update.
+
+When the user says they booked/reserved/confirmed a hotel or stay:
+
+  - Read the scoped day or accommodation list first.
+  - If the named hotel matches an accommodation-review candidate, use
+    \`promote_accommodation_candidate\` or move that candidate to \`booked\`.
+  - If there is no matching candidate, update the visible accommodation with
+    \`update_accommodation\`, setting \`name\`, \`status: "booked"\`, and
+    \`booking_status: "booked"\` for the scoped stay.
+  - Then continue with any other requested restaurant/research work.
 
 ## Cascading location edits
 
@@ -194,6 +395,9 @@ Prefer narrow trip tools over full-trip reads:
   - If a user says an accommodation candidate is booked, use
     \`promote_accommodation_candidate\` or move that candidate to \`booked\`.
     This records the booking event and updates the itinerary's clean stay card.
+    If the user gives a booked hotel name that is not already a candidate,
+    update the scoped public accommodation instead with \`status\` and
+    \`booking_status\` set to \`"booked"\`.
   - Keep unconfirmed hotel search state out of public day programme copy.
     A pending \`days[].accommodation\` may exist only as a single destination
     marker so the UI can show "Hotel not confirmed yet"; actual hotel names
@@ -233,7 +437,7 @@ Prefer narrow trip tools over full-trip reads:
     maintains an "OurTrips agent notes" section in the markdown so external
     agents can continue with the same hotel-policy context.
   - For visible accommodation card fixes such as hotel/stay \`name\`, \`price\`,
-    \`rating\`, \`status\`, \`nights\`, or \`note\`: call
+    \`rating\`, \`status\`, \`booking_status\`, \`nights\`, or \`note\`: call
     \`update_accommodation\` with the path returned by \`list_accommodations\`.
     For repeated nights of the same stay, use \`match: "same_current_name"\`
     so the rename/fix applies to all matching stay cards without loading or
@@ -394,8 +598,11 @@ export function buildTurnPrompt(
   priorTurns: PriorTurn[],
   newUserMessage: string
 ): string {
+  const intentLedger = formatTurnIntentLedger(detectTurnIntentLedger(newUserMessage));
+  const currentMessage = [intentLedger, newUserMessage.trim()].filter(Boolean).join('\n');
+
   if (priorTurns.length === 0) {
-    return newUserMessage.trim();
+    return currentMessage;
   }
 
   const history = priorTurns
@@ -425,5 +632,5 @@ export function buildTurnPrompt(
 ${history}
 
 [Current message]
-${newUserMessage.trim()}`;
+${currentMessage}`;
 }

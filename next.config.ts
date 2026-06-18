@@ -39,25 +39,6 @@ const nextConfig: NextConfig = {
         : []),
     ],
   },
-  // Force-include only the Linux x64 Claude CLI executable for the chat route.
-  // Including the whole native package pushes the function over Vercel's
-  // 250 MB unzipped limit.
-  outputFileTracingExcludes: {
-    '/api/trips/[id]/chat': [
-      './node_modules/@anthropic-ai/claude-agent-sdk-darwin-*/**',
-      './node_modules/@anthropic-ai/claude-agent-sdk-win32-*/**',
-      './node_modules/@anthropic-ai/claude-agent-sdk-linux-arm64*/**',
-      './node_modules/@anthropic-ai/claude-agent-sdk-linux-x64-musl/**',
-    ],
-  },
-  outputFileTracingIncludes: {
-    // Next 16 normalizes App Router route-handler trace keys differently than
-    // the public route path; matching the stable segment keeps this scoped to
-    // /api/trips/[id]/chat without falling back to a global include.
-    'chat': [
-      './node_modules/@anthropic-ai/claude-agent-sdk-linux-x64/claude',
-    ],
-  },
 };
 
 export default nextConfig;

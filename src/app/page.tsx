@@ -8,6 +8,8 @@ import LogoSuffix from '@/components/ui/LogoSuffix';
 import { publicItineraries } from '@/lib/public-itineraries';
 import '@/styles/landing.css';
 
+export const dynamic = 'force-dynamic';
+
 export const metadata: Metadata = {
   title: 'OurTrips — AI Travel Itineraries, Beautifully Presented',
   description:

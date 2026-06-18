@@ -1,0 +1,18 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "types": ["node"]
+  },
+  "include": [
+    "../next-env.d.ts",
+    "./server.ts",
+    "./trip-chat-route.ts"
+  ],
+  "exclude": [
+    "../node_modules",
+    "../src/**/*.test.ts",
+    "../.next/**",
+    "../.open-next/**"
+  ]
+}

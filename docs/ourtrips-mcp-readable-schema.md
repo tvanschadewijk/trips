@@ -28,7 +28,7 @@ Core expectations:
 - Use smaller reads first: `summary`, `day`, `days`, or `sections`.
 - Avoid full-trip reads unless intentionally requested with `allow_large`.
 - Treat the connector as self-contained. The agent should rely on the MCP tools and schema guidance from this connector.
-- Do not ask the user for an API key. OAuth is already handled.
+- OAuth failure handling: Do not ask the user for an API key. If an OurTrips update, RtwebSync, or any tool call reports OAuth authorization required, expired, missing, or not logged in, stop retrying that connector call. Do not skip the update, mark the live preview stale, or spend more turns searching for auth tools as the resolution. Tell the user the connector needs OAuth authorization and explicitly propose the next user action: reconnect or sign in to OurTrips, then ask them to confirm when done so you can retry.
 - Use focused editing tools for one meal, hotel, transport leg, or activity.
 - Use replacement tools when old nested data must disappear.
 - Represent every visible named hotel, restaurant, activity site, and route stop as a specific item.
@@ -442,6 +442,10 @@ Quality expectations:
 Route points live in `trip.route_points[]`.
 
 They support route maps and trip geography.
+
+Use `label` for the visible route point label. Do not use `name` or `title`
+in `trip.route_points[]`; strict save tools reject route points that omit
+`label`, `lat`, or `lng`.
 
 | Field | Required | Meaning |
 |---|---:|---|

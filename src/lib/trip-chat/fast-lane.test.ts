@@ -165,18 +165,13 @@ test('fast lane treats setting a hotel to booked as a status edit, not a rename'
   assert.equal(result.next.days[1].accommodation?.booking_status, 'booked');
 });
 
-test('fast lane renames repeated accommodation cards for the same stay', () => {
+test('fast lane declines hotel renames so the deep agent can review nearby days', () => {
   const result = applyFastLaneEdit(sampleTrip, 'rename hotel to voco Grand Central Glasgow', {
     slideKind: 'day',
     day_number: 1,
   });
 
-  assert.equal(result?.ok, true);
-  if (!result || !result.ok) return;
-
-  assert.equal(result.next.days[0].accommodation?.name, 'voco Grand Central Glasgow');
-  assert.equal(result.next.days[1].accommodation?.name, 'voco Grand Central Glasgow');
-  assert.match(result.next.markdown_source ?? '', /Hotel\/stay: Grasshopper Hotel Glasgow -> voco Grand Central Glasgow/);
+  assert.equal(result, null);
 });
 
 test('fast lane declines broad editorial rewrites so the deep agent can handle them', () => {

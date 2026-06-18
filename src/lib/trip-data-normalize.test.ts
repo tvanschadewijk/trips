@@ -1,6 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeTripData } from './trip-data-normalize';
+import {
+  normalizeTripData,
+  normalizeTripDataWithWarnings,
+} from './trip-data-normalize';
 
 test('normalizes legacy trip metadata into the current preview schema', () => {
   const trip = normalizeTripData({
@@ -136,4 +139,46 @@ test('drops empty tip placeholders and normalizes useful legacy tip fields', () 
     { icon: 'info', title: 'Map sanity', content: 'Use Antwerp in map searches for restaurant names.', label: 'Map sanity', note: 'Use Antwerp in map searches for restaurant names.' },
   ]);
   assert.equal(trip.days[1].tips, undefined);
+});
+
+test('normalizeTripData accepts route point name/title aliases as labels', () => {
+  const data = normalizeTripData({
+    trip: {
+      name: 'India',
+      route_points: [
+        { name: 'Mumbai', lat: 19.076, lng: 72.8777 },
+        { title: 'Jaipur', lat: 26.9124, lng: 75.7873 },
+      ],
+    },
+    days: [],
+  });
+
+  assert.deepEqual(
+    data.trip.route_points?.map((point) => point.label),
+    ['Mumbai', 'Jaipur']
+  );
+});
+
+test('normalizeTripDataWithWarnings reports route point aliases and malformed entries', () => {
+  const result = normalizeTripDataWithWarnings({
+    trip: {
+      name: 'India',
+      route_points: [
+        { name: 'Mumbai', lat: 19.076, lng: 72.8777 },
+        { title: 'Jaipur', lat: 26.9124, lng: 75.7873 },
+        { label: 'Broken stop', lat: 0 },
+      ],
+    },
+    days: [],
+  });
+
+  assert.deepEqual(
+    result.data.trip.route_points?.map((point) => point.label),
+    ['Mumbai', 'Jaipur']
+  );
+  assert.deepEqual(result.warnings, [
+    'trip.route_points[0].name was converted to label.',
+    'trip.route_points[1].title was converted to label.',
+    'trip.route_points[2] was skipped because label, lat, or lng was missing.',
+  ]);
 });

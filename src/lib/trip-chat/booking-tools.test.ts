@@ -10,31 +10,64 @@ import { _internal } from './booking-tools';
 
 const { buildRestaurantUrl, buildHotelUrl, buildFlightUrl, buildActivityUrl } = _internal;
 
-test('restaurant: includes name + party size + datetime', () => {
+test('restaurant: defaults to unverified Google Maps reservation search', () => {
+  const out = buildRestaurantUrl({
+    name: 'Sokače',
+    city: 'Novi Sad',
+    country: 'Serbia',
+    date: '2026-07-26',
+    time: '19:30',
+    party_size: 4,
+  });
+  assert.equal(out.platform, 'google-maps');
+  assert.equal(out.verified, false);
+  assert.match(out.url, /google\.com\/maps\/search/);
+  assert.match(decodeURIComponent(out.url), /Sokače Novi Sad Serbia reservation/);
+  assert.doesNotMatch(out.url, /opentable/i);
+});
+
+test('restaurant: uses OpenTable only when the venue was verified there', () => {
   const out = buildRestaurantUrl({
     name: 'La Trompette',
     city: 'London',
     date: '2026-04-25',
     time: '19:30',
     party_size: 4,
+    opentable_verified: true,
   });
   assert.equal(out.platform, 'opentable');
+  assert.equal(out.verified, true);
   assert.match(out.url, /opentable\.com\/s/);
   assert.match(out.url, /covers=4/);
   assert.match(out.url, /dateTime=2026-04-25T19%3A30%3A00/);
   assert.match(out.url, /term=La\+Trompette\+London/);
 });
 
-test('restaurant: defaults dateTime to 19:00 when only date given', () => {
-  const out = buildRestaurantUrl({ name: 'Miga', date: '2026-04-25' });
+test('restaurant: defaults OpenTable dateTime to 19:00 when only date given', () => {
+  const out = buildRestaurantUrl({
+    name: 'Miga',
+    date: '2026-04-25',
+    opentable_verified: true,
+  });
   assert.match(out.url, /dateTime=2026-04-25T19%3A00%3A00/);
 });
 
-test('restaurant: includes affiliate when env set', () => {
+test('restaurant: includes affiliate when verified OpenTable env set', () => {
   process.env.OPENTABLE_AFFILIATE_ID = 'aff-123';
-  const out = buildRestaurantUrl({ name: 'X' });
+  const out = buildRestaurantUrl({ name: 'X', opentable_verified: true });
   assert.match(out.url, /ref=aff-123/);
   delete process.env.OPENTABLE_AFFILIATE_ID;
+});
+
+test('restaurant: returns verified direct reservation URL when supplied', () => {
+  const out = buildRestaurantUrl({
+    name: 'Example Bistro',
+    city: 'Paris',
+    direct_reservation_url: 'https://example.com/reserve',
+  });
+  assert.equal(out.platform, 'direct');
+  assert.equal(out.verified, true);
+  assert.equal(out.url, 'https://example.com/reserve');
 });
 
 test('hotel: requires check_in/out, defaults guests + rooms', () => {

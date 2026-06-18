@@ -16,6 +16,7 @@
 # next.js
 /.next/
 /.next.backup-*/
+/.open-next/
 /out/
 
 # production
@@ -33,6 +34,14 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+.dev.vars*
+!.dev.vars.example
+
+# cloudflare
+cloudflare-env.d.ts
+.wrangler/
+.wrangler.chat-backend.tmp.jsonc
+.wrangler.chat-backend.*.tmp.jsonc
 
 # vercel
 .vercel
@@ -41,6 +50,7 @@ yarn-error.log*
 /.claude/
 /trips/
 /videos/
+.local-mint-session.mjs
 preview.html
 agent-sdk-for-ourtrips-brief.md
 claude-code-brief-ourtrips-chat.md
@@ -48,6 +58,7 @@ supabase/.temp/
 **/* 2.ts
 **/* 2.tsx
 **/* 2.skill
+**/* 2/
 
 # typescript
 *.tsbuildinfo

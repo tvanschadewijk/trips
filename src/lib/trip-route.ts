@@ -184,6 +184,14 @@ function sanitizeMode(mode?: string): string {
   return normalized.split(' ')[0] ?? 'route';
 }
 
+function routePointText(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function routePointNumber(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+}
+
 function inferDayMode(day: Day): string | undefined {
   const text = normalizePlace([
     day.title,
@@ -261,14 +269,17 @@ function deriveRoutePoints(days: Day[]): CandidatePoint[] {
   return points;
 }
 
-function fromStoredPoint(point: TripRoutePoint, index: number): CandidatePoint | undefined {
-  if (!point.label.trim()) return undefined;
-  if (!Number.isFinite(point.lat) || !Number.isFinite(point.lng)) return undefined;
-  if (point.lat < -90 || point.lat > 90 || point.lng < -180 || point.lng > 180) return undefined;
+function fromStoredPoint(point: TripRoutePoint): CandidatePoint | undefined {
+  const rawPoint = point as TripRoutePoint & { name?: unknown; title?: unknown };
+  const label = routePointText(rawPoint.label) || routePointText(rawPoint.name) || routePointText(rawPoint.title);
+  const lat = routePointNumber(rawPoint.lat);
+  const lng = routePointNumber(rawPoint.lng);
+  if (!label || lat === undefined || lng === undefined) return undefined;
+  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return undefined;
   return {
-    label: point.label.trim(),
-    lat: point.lat,
-    lng: point.lng,
+    label,
+    lat,
+    lng,
     day: point.day,
     modeFromPrevious: sanitizeMode(point.mode),
     role: point.role,
@@ -318,6 +329,108 @@ function buildLegs(points: TripRouteAtlasPoint[]): TripRouteAtlasLeg[] {
     day: point.day,
     label: point.label,
   }));
+}
+
+const ACCESS_ENDPOINT_ROLES = new Set<TripRoutePointRole | undefined>(['home', 'return']);
+
+function isAccessEndpoint(point: TripRouteAtlasPoint): boolean {
+  if (ACCESS_ENDPOINT_ROLES.has(point.role)) return true;
+  return lookupRoutePlace(point.label)?.role === 'home';
+}
+
+function endpointLeg(atlas: TripRouteAtlas, index: number): TripRouteAtlasLeg | undefined {
+  const lastIndex = atlas.points.length - 1;
+  if (index === 0) return atlas.legs.find((leg) => leg.from === 0 && leg.to === 1);
+  if (index === lastIndex) return atlas.legs.find((leg) => leg.from === lastIndex - 1 && leg.to === lastIndex);
+  return undefined;
+}
+
+function isFlightMode(mode: string | undefined): boolean {
+  return sanitizeMode(mode) === 'flight';
+}
+
+function dayTextMatchesPoint(values: Array<string | undefined>, point: TripRouteAtlasPoint): boolean {
+  return routePlaceTextMatches(values.filter(Boolean).join(' '), point.label);
+}
+
+function dayHasSubstantiveContentAtPoint(day: Day, point: TripRouteAtlasPoint): boolean {
+  if (day.accommodation && dayTextMatchesPoint([
+    day.accommodation.name,
+    day.accommodation.detail?.title,
+    day.accommodation.detail?.address,
+  ], point)) {
+    return true;
+  }
+
+  if ((day.meals ?? []).some((meal) => dayTextMatchesPoint([
+    meal.name,
+    meal.detail?.title,
+    meal.detail?.address,
+    meal.note,
+  ], point))) {
+    return true;
+  }
+
+  return (day.blocks ?? []).some((block) => {
+    const blockType = normalizePlace(block.type);
+    const isTransportOnly = ['transport', 'transfer', 'flight', 'airport', 'train', 'ferry', 'drive', 'route']
+      .some((type) => blockType.includes(type));
+    if (isTransportOnly) return false;
+
+    return dayTextMatchesPoint([
+      block.place?.name,
+      block.place?.address,
+      block.content,
+      block.detail?.title,
+      block.detail?.body,
+      block.detail?.why,
+    ], point);
+  });
+}
+
+function endpointHasTripSubstance(point: TripRouteAtlasPoint, days: Day[]): boolean {
+  if (!point.day) return false;
+  return days
+    .filter((day) => day.day_number === point.day)
+    .some((day) => dayHasSubstantiveContentAtPoint(day, point));
+}
+
+function shouldHideAccessEndpointFromOverview(
+  atlas: TripRouteAtlas,
+  index: number,
+  days: Day[]
+): boolean {
+  const point = atlas.points[index];
+  if (!point || !isAccessEndpoint(point)) return false;
+
+  const lastIndex = atlas.points.length - 1;
+  if (index !== 0 && index !== lastIndex) return false;
+
+  const leg = endpointLeg(atlas, index);
+  if (!isFlightMode(leg?.mode ?? point.modeFromPrevious ?? point.mode)) return false;
+
+  return !endpointHasTripSubstance(point, days);
+}
+
+function atlasFromPoints(points: TripRouteAtlasPoint[]): TripRouteAtlas {
+  const reindexed = points.map((point, index) => ({
+    ...point,
+    index,
+  }));
+  const legs = buildLegs(reindexed);
+
+  return {
+    points: reindexed,
+    legs,
+    modes: [...new Set(legs.map((leg) => leg.mode))],
+    bounds: boundsFor(reindexed),
+  };
+}
+
+export function buildTripOverviewRouteAtlas(atlas: TripRouteAtlas, days: Day[] = []): TripRouteAtlas {
+  const points = atlas.points.filter((_, index) => !shouldHideAccessEndpointFromOverview(atlas, index, days));
+  if (points.length === 0 || points.length === atlas.points.length) return atlas;
+  return atlasFromPoints(points);
 }
 
 export function buildTripRouteAtlas(data: TripData): TripRouteAtlas | undefined {
