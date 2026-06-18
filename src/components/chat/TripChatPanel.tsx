@@ -49,6 +49,7 @@ import {
 } from '@/lib/trip-chat/thread-utils';
 import { useOnlineStatus } from '@/lib/online-status';
 import { renderTripMarkdown } from '@/lib/render-trip-markdown';
+import { shouldSubmitChatMessageKey } from './chat-input-keys';
 
 export interface ChatMessage {
   id: string;
@@ -594,9 +595,9 @@ export default function TripChatPanel({
   }
 
   function onKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+    if (shouldSubmitChatMessageKey(e)) {
       e.preventDefault();
-      send();
+      void send();
     }
   }
 
