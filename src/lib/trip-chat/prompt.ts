@@ -2,7 +2,7 @@
  * Prompt construction for the trip-editing chat agent.
  *
  * Each API turn is a fresh Agent SDK session (the SDK's on-disk session store
- * doesn't survive Vercel function invocations, and the official guidance is
+ * doesn't survive short-lived server invocations, and the official guidance is
  * "capture what you need as application state and pass it in a fresh
  * session's prompt"). Prior conversation is conveyed to the agent via a
  * compact summary prefix inside the user prompt string.
@@ -12,6 +12,10 @@
  * system-prompt prefix across turns and users.
  */
 import { z } from 'zod';
+import {
+  formatAgentKnowledgeContext,
+  routeAgentKnowledge,
+} from '../agent-knowledge';
 import { UpdateTripInputSchema } from './schema';
 
 /**
@@ -598,8 +602,14 @@ export function buildTurnPrompt(
   priorTurns: PriorTurn[],
   newUserMessage: string
 ): string {
-  const intentLedger = formatTurnIntentLedger(detectTurnIntentLedger(newUserMessage));
-  const currentMessage = [intentLedger, newUserMessage.trim()].filter(Boolean).join('\n');
+  const intentLedgerItems = detectTurnIntentLedger(newUserMessage);
+  const intentLedger = formatTurnIntentLedger(intentLedgerItems);
+  const knowledgeContext = formatAgentKnowledgeContext(
+    routeAgentKnowledge({ message: newUserMessage, intents: intentLedgerItems })
+  );
+  const currentMessage = [intentLedger, knowledgeContext, newUserMessage.trim()]
+    .filter(Boolean)
+    .join('\n');
 
   if (priorTurns.length === 0) {
     return currentMessage;

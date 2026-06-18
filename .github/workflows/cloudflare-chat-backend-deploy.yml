@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - node-backend/**
+      - src/lib/**
       - wrangler.chat-backend.jsonc
       - package.json
       - package-lock.json

@@ -1,6 +1,6 @@
 # Cloudflare Migration Runbook
 
-This app is being moved from Vercel to Cloudflare Workers through OpenNext.
+This app deploys to Cloudflare Workers through OpenNext.
 Routine iteration should use local preview and Cloudflare preview URLs, not
 repeated production pushes to `main`.
 
@@ -130,5 +130,5 @@ Do not change DNS until the worker preview URL has been checked for:
 - Chat history, thread list, and a full chat turn through the Node backend
 - OAuth well-known routes and MCP endpoints
 
-After cutover, keep the old Vercel deployment available until the DNS change has
-settled and the Cloudflare worker has handled real traffic successfully.
+Vercel Git deployments are disabled in `vercel.json`; production deploys now
+come from the Cloudflare GitHub Actions workflows.

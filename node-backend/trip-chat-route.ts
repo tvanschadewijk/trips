@@ -35,8 +35,8 @@
  *     without a prompt (there's no human available to respond to a prompt
  *     in a serverless handler).
  *
- *   - `CLAUDE_CONFIG_DIR` pointed at /tmp on Vercel so the SDK's local-disk
- *     writes land on a writable tmpfs within the invocation lifetime.
+ *   - `CLAUDE_CONFIG_DIR` pointed at /tmp so the SDK's local-disk writes land
+ *     on a writable tmpfs within the invocation lifetime.
  *
  *   - Failed turns persist a TRUTHFUL assistant message (see turn-failure.ts)
  *     and record the raw cause in trip_chat_usage.error_detail. The June 2026
@@ -798,21 +798,13 @@ async function resolveClaudeExecutable(): Promise<{
   pathToClaudeCodeExecutable: string | undefined;
   resolveDiagnostic: string;
 }> {
-  // The SDK normally locates this on its own in local development. On Vercel,
-  // Next's bundling can hide the optional platform package from that resolver,
-  // so we pass the traced executable path directly without dynamic require/fs
-  // lookups that make Turbopack trace the whole project into this function.
+  // The SDK normally locates this on its own in local development. In the
+  // Cloudflare backend container we resolve the installed Linux executable
+  // directly when possible.
   if (process.env.CLAUDE_CODE_EXECUTABLE) {
     return {
       pathToClaudeCodeExecutable: process.env.CLAUDE_CODE_EXECUTABLE,
       resolveDiagnostic: 'resolved via CLAUDE_CODE_EXECUTABLE',
-    };
-  }
-
-  if (process.env.VERCEL === '1') {
-    return {
-      pathToClaudeCodeExecutable: '/var/task/node_modules/@anthropic-ai/claude-agent-sdk-linux-x64/claude',
-      resolveDiagnostic: 'using traced Vercel linux-x64 executable',
     };
   }
 

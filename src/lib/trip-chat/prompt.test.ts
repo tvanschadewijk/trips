@@ -74,8 +74,13 @@ We booked Hotel Pupin in Novi Sad for this day. Find us a restaurant we can book
   );
 
   assert.match(prompt, /Deterministic intent ledger/);
+  assert.match(prompt, /Routed task knowledge/);
   assert.match(prompt, /confirm_accommodation_booking/);
   assert.match(prompt, /restaurant_recommendation/);
   assert.match(prompt, /restaurant_reservation_channel/);
+  assert.match(prompt, /Accommodation Confirmation/);
+  assert.match(prompt, /Restaurant Reservations/);
+  assert.match(prompt, /Restaurant Reservation Platforms - Serbia/);
+  assert.match(prompt, /no_opentable_assumption/);
   assert.match(prompt, /Completion rule/);
 });
