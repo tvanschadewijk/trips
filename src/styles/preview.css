@@ -709,12 +709,11 @@
   height: 112%;
 }
 
-/* Ask-your-travel-expert entry pill. Secondary style next to Explore:
-   white sheet, hair-thin warm border, ink content + terracotta icon
-   accent. The same pill is used on the cover and day slides. */
+/* Ask Travel Agent entry pill. Centered fixed anchor, Preppy-style,
+   with Motion owning the translateX/y/scale transform. */
 .trip-ask-entry {
   position: fixed;
-  left: max(20px, env(safe-area-inset-left));
+  left: 50%;
   bottom: calc(10px + env(safe-area-inset-bottom));
   display: inline-flex;
   align-items: center;
@@ -729,7 +728,8 @@
   cursor: pointer;
   box-shadow: rgba(26, 20, 16, 0.06) 0 6px 16px -4px, rgba(26, 20, 16, 0.04) 0 1px 0 0;
   z-index: 30;
-  transition: width 0.18s ease, padding 0.18s ease, background 0.15s ease, border-color 0.15s ease;
+  white-space: nowrap;
+  transition: padding 0.18s ease, background 0.15s ease, border-color 0.15s ease;
   -webkit-tap-highlight-color: transparent;
   line-height: 1;
 }
@@ -3514,7 +3514,6 @@ button.day-brief-place:active {
     background: rgba(193, 79, 42, 0.16);
   }
   .trip-ask-entry {
-    left: calc(50% - (var(--app-max-width) / 2) + 20px);
     bottom: calc(30px + env(safe-area-inset-bottom));
   }
 }
@@ -4622,12 +4621,10 @@ button.day-brief-place:active {
   }
 
   .trip-ask-entry {
-    left: calc(var(--desktop-rail-width) + var(--desktop-page-gutter));
     bottom: calc(32px + env(safe-area-inset-bottom));
   }
 
   body.trip-on-cover .trip-ask-entry {
-    left: 220px;
     bottom: calc(34px + env(safe-area-inset-bottom));
   }
 
@@ -4732,9 +4729,6 @@ button.day-brief-place:active {
     left: 72px;
   }
 
-  body.trip-on-cover .trip-ask-entry {
-    left: 240px;
-  }
 }
 
 @media (min-width: 1800px) {

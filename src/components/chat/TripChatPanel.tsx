@@ -122,7 +122,7 @@ function isLikelyDroppedFetch(err: unknown): boolean {
 
 function userFacingChatError(err: unknown): string {
   if (isLikelyDroppedFetch(err)) {
-    return 'The connection dropped while the travel expert was working. Reopen this trip in a moment; if the answer finished, it will appear here.';
+    return 'The connection dropped while the travel agent was working. Reopen this trip in a moment; if the answer finished, it will appear here.';
   }
   return err instanceof Error ? err.message : String(err);
 }
@@ -218,7 +218,7 @@ async function pollForAssistant(
   }
 
   throw new Error(
-    `The travel expert is taking longer than expected. ${
+    `The travel agent is taking longer than expected. ${
       lastProgress.length
         ? `Last update: ${lastProgress[lastProgress.length - 1].message} `
         : ''
@@ -675,7 +675,7 @@ export default function TripChatPanel({
 
   return (
     <>
-      {/* Closed: entry pill bottom-left */}
+      {/* Closed: centered entry pill */}
       <AnimatePresence>
         {state === 'closed' && (
           <motion.button
@@ -683,20 +683,20 @@ export default function TripChatPanel({
             type="button"
             onClick={openPanel}
             className="trip-ask-entry"
-            aria-label="Ask your travel expert"
-            initial={{ opacity: 0, y: 12, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 12, scale: 0.95 }}
+            aria-label="Ask Travel Agent"
+            initial={{ opacity: 0, x: '-50%', y: 12, scale: 0.95 }}
+            animate={{ opacity: 1, x: '-50%', y: 0, scale: 1 }}
+            exit={{ opacity: 0, x: '-50%', y: 12, scale: 0.95 }}
             transition={overlaySpring}
             whileTap={{ scale: 0.96 }}
           >
             <MessageCircle className="trip-ask-entry-icon" aria-hidden="true" />
-            <span className="trip-ask-entry-label">Ask</span>
+            <span className="trip-ask-entry-label">Ask Travel Agent</span>
           </motion.button>
         )}
       </AnimatePresence>
 
-      {/* Minimized: status pill bottom-left */}
+      {/* Minimized: centered status pill */}
       <AnimatePresence>
         {state === 'minimized' && (
           <motion.button
@@ -704,10 +704,10 @@ export default function TripChatPanel({
             type="button"
             onClick={openPanel}
             style={minimizedPillStyle}
-            aria-label="Reopen travel expert chat"
-            initial={{ opacity: 0, y: 12, scale: 0.94 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 12, scale: 0.94 }}
+            aria-label="Reopen Travel Agent chat"
+            initial={{ opacity: 0, x: '-50%', y: 12, scale: 0.94 }}
+            animate={{ opacity: 1, x: '-50%', y: 0, scale: 1 }}
+            exit={{ opacity: 0, x: '-50%', y: 12, scale: 0.94 }}
             transition={overlaySpring}
             whileTap={{ scale: 0.96 }}
           >
@@ -721,7 +721,7 @@ export default function TripChatPanel({
             ) : (
               <>
                 <span style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic' }}>
-                  Ask your travel expert
+                  Ask Travel Agent
                 </span>
                 {unread && <span style={unreadBadgeStyle} aria-label="New message">1</span>}
               </>
@@ -747,7 +747,7 @@ export default function TripChatPanel({
               key="sheet"
               ref={sheetRef}
               role="dialog"
-              aria-label="Ask your travel expert"
+              aria-label="Ask Travel Agent"
               className={`trip-chat-sheet${railOpen ? ' is-rail-open' : ''}`}
               style={{ ...sheetStyle, bottom: keyboardInset }}
               initial={{ y: '100%' }}
@@ -797,7 +797,7 @@ export default function TripChatPanel({
                   )}
                 </button>
                 <div style={chatTitleStyle}>
-                  Ask your travel expert
+                  Ask Travel Agent
                 </div>
                 <button
                   type="button"
@@ -1126,8 +1126,8 @@ function MessageBubble({ m }: { m: ChatMessage }) {
 
 const minimizedPillStyle: React.CSSProperties = {
   position: 'fixed',
-  left: 24,
-  bottom: 24,
+  left: '50%',
+  bottom: 'calc(24px + env(safe-area-inset-bottom))',
   padding: '10px 18px',
   background: '#FFFFFF',
   border: '1px solid #E8E1D6',
