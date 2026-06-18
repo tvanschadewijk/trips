@@ -13,7 +13,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { UpdateTripInputSchema } from './schema';
+import { GetTripInputSchema, UpdateTripInputSchema } from './schema';
 
 test('accepts a realistic trip-meta edit', () => {
   const result = UpdateTripInputSchema.safeParse({
@@ -146,6 +146,50 @@ test('accepts structured route points for the editorial atlas', () => {
     },
   });
   assert.equal(result.success, true, result.success ? '' : JSON.stringify(result.error.issues));
+});
+
+test('get_trip reads default to a compact summary view', () => {
+  const result = GetTripInputSchema.safeParse({});
+  assert.equal(result.success, true, result.success ? '' : JSON.stringify(result.error.issues));
+  if (!result.success) return;
+
+  assert.equal(result.data.view, 'summary');
+});
+
+test('get_trip supports focused day and sections reads', () => {
+  const day = GetTripInputSchema.safeParse({
+    view: 'day',
+    day_number: 3,
+  });
+  assert.equal(day.success, true, day.success ? '' : JSON.stringify(day.error.issues));
+
+  const sections = GetTripInputSchema.safeParse({
+    view: 'sections',
+    sections: ['quality', 'logistics'],
+  });
+  assert.equal(
+    sections.success,
+    true,
+    sections.success ? '' : JSON.stringify(sections.error.issues)
+  );
+});
+
+test('get_trip rejects unknown read sections and arbitrary keys', () => {
+  assert.equal(
+    GetTripInputSchema.safeParse({
+      view: 'sections',
+      sections: ['secrets'],
+    }).success,
+    false
+  );
+
+  assert.equal(
+    GetTripInputSchema.safeParse({
+      view: 'summary',
+      trip_id: 'other-trip',
+    }).success,
+    false
+  );
 });
 
 test('rejects non-ISO date at trip.dates.start', () => {

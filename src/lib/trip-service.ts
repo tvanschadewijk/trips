@@ -1634,6 +1634,7 @@ function compactTripDataSummary(data: unknown) {
 
 function tripReadBase(record: Record<string, unknown>, origin: string) {
   const shareId = String(record.share_id ?? '');
+
   return {
     trip_id: String(record.id ?? ''),
     share_id: shareId,
@@ -1883,11 +1884,10 @@ export async function searchTripImages(
   url.searchParams.set('per_page', '3');
   url.searchParams.set('orientation', orientation);
 
-  const requestInit: RequestInit & { next?: { revalidate: number } } = {
+  const response = await fetch(url.toString(), {
     headers: { Authorization: `Client-ID ${key}` },
     next: { revalidate: 86400 },
-  };
-  const response = await fetch(url.toString(), requestInit);
+  });
 
   if (!response.ok) {
     const body = await response.text();
