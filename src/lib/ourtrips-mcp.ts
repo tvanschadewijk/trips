@@ -58,7 +58,7 @@ const MCP_INSTRUCTIONS =
     'Every day should include at least one practical, place-specific tip with title and content. Omit tips only when there is truly nothing useful; never send empty tip objects.',
     'Logistics contract: a day is one calendar itinerary date; a sleep/night is one overnight stay with check-in inclusive and check-out exclusive; a stay segment is one hotel across contiguous sleeps; a transport leg is one movement from an origin to a destination on a specific itinerary day. For any question or edit involving trip start/end dates, day count, nights, stays, route shape, or "how long are we in X", call get_trip_logistics_ledger before reasoning. Run validate_trip_contract before saying a trip is complete.',
     'Images are part of the MCP workflow: use search_trip_images and set_trip_image for real Unsplash trip/day hero images, then use get_trip_image_prompts plus save_trip_image_asset for externally generated cover/social assets. Check get_trip_image_status, validate_trip_contract, or verify_trip_public_data before saying the trip is done.',
-    'Do not ask for an API key; OAuth is already authorized.',
+    'OAuth failure handling: Do not ask for an API key. If an OurTrips update, RtwebSync, or any tool call reports OAuth authorization required, expired, missing, or not logged in, stop retrying that connector call. Do not skip the update, mark the live preview stale, or spend more turns searching for auth tools as the resolution. Tell the user the connector needs OAuth authorization and explicitly propose the next user action: reconnect or sign in to OurTrips, then ask them to confirm when done so you can retry.',
   ].join(' ');
 
 const JsonObjectSchema = z.record(z.string(), z.unknown());

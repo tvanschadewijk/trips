@@ -9,6 +9,14 @@ test('MCP instructions name the save flow without requiring API keys', () => {
   assert.match(ourTripsMcpInstructions, /validate_trip_contract/);
   assert.match(ourTripsMcpInstructions, /OAuth/);
   assert.match(ourTripsMcpInstructions, /Do not ask for an API key/);
+  assert.match(ourTripsMcpInstructions, /OAuth authorization required/);
+  assert.match(ourTripsMcpInstructions, /RtwebSync/);
+  assert.match(ourTripsMcpInstructions, /stop retrying that connector call/);
+  assert.match(ourTripsMcpInstructions, /Do not skip the update/);
+  assert.match(ourTripsMcpInstructions, /mark the live preview stale/);
+  assert.match(ourTripsMcpInstructions, /searching for auth tools/);
+  assert.match(ourTripsMcpInstructions, /explicitly propose the next user action/);
+  assert.match(ourTripsMcpInstructions, /reconnect or sign in to OurTrips/);
   assert.match(ourTripsMcpInstructions, /self-contained/);
   assert.match(ourTripsMcpInstructions, /get_trip_schema/);
   assert.match(ourTripsMcpInstructions, /search_trip_images/);
