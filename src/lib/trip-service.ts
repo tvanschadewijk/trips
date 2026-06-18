@@ -1862,6 +1862,10 @@ function booleanStatus(values: Array<boolean | undefined>): 'ok' | 'failed' {
 }
 
 const UNSPLASH_API = 'https://api.unsplash.com/search/photos';
+type NextFetchRequestInit = RequestInit & {
+  next?: { revalidate?: number };
+};
+
 export async function searchTripImages(
   query: string,
   orientation: TripImageSearchOrientation = 'landscape'
@@ -1884,10 +1888,12 @@ export async function searchTripImages(
   url.searchParams.set('per_page', '3');
   url.searchParams.set('orientation', orientation);
 
-  const response = await fetch(url.toString(), {
+  const requestInit: NextFetchRequestInit = {
     headers: { Authorization: `Client-ID ${key}` },
     next: { revalidate: 86400 },
-  });
+  };
+
+  const response = await fetch(url.toString(), requestInit);
 
   if (!response.ok) {
     const body = await response.text();
