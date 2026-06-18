@@ -150,7 +150,9 @@ function normalizeMapFocusLabel(value: string | undefined): string {
 }
 
 function trimDisplayText(value: unknown): string {
-  return typeof value === 'string' ? value.trim() : '';
+  if (typeof value !== 'string') return '';
+  const trimmed = value.trim();
+  return trimmed.toLowerCase() === 'undefined' ? '' : trimmed;
 }
 
 function isEditableKeyboardTarget(target: EventTarget | null): boolean {
@@ -663,6 +665,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
   const activeTripData = activeTripIndex !== null ? trips[activeTripIndex] : undefined;
   const trip = activeTripData?.trip ?? null;
   const days = useMemo(() => activeTripData?.days ?? [], [activeTripData]);
+  const displayableTripNotes = (trip?.notes ?? []).filter((note) => trimDisplayText(note.content));
   const markdownSource = activeTripData?.markdown_source;
   const totalSlides = 1 + days.length;
   const routeAtlases = useMemo(
@@ -1979,20 +1982,24 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
                 <Icon name="arrow-right" />
               </button>
             )}
-            {trip.notes?.length ? (
+            {displayableTripNotes.length ? (
               <div className="hero-notes">
                 <button className="hero-note-btn" onClick={() => {
-                  const notesHtml = trip.notes!.map(note =>
-                    `<div class="detail-info-section">
-                      <div class="detail-info-section-title"><span class="text-section-title">${note.title}</span></div>
-                      <div class="detail-tip-body"><p class="detail-tip-text">${note.content}</p></div>
-                    </div>`
-                  ).join('');
+                  const notesHtml = displayableTripNotes.map(note => {
+                    const title = trimDisplayText(note.title) || 'Note';
+                    const content = trimDisplayText(note.content);
+                    return (
+                      `<div class="detail-info-section">
+                        <div class="detail-info-section-title"><span class="text-section-title">${escapeHtml(title)}</span></div>
+                        <div class="detail-tip-body"><p class="detail-tip-text">${escapeHtml(content)}</p></div>
+                      </div>`
+                    );
+                  }).join('');
                   showDetail({ title: 'Trip Notes', html: notesHtml });
                 }}>
                   <span className="hero-note-icon"><Icon name="info" /></span>
                   <span className="hero-note-label">Trip Notes</span>
-                  <span className="hero-note-count">{trip.notes.length}</span>
+                  <span className="hero-note-count">{displayableTripNotes.length}</span>
                   <Icon name="chevron" />
                 </button>
               </div>

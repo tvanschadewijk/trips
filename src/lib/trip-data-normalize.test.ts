@@ -141,6 +141,39 @@ test('drops empty tip placeholders and normalizes useful legacy tip fields', () 
   assert.equal(trip.days[1].tips, undefined);
 });
 
+test('drops trip notes with missing or undefined-like content', () => {
+  const result = normalizeTripDataWithWarnings({
+    trip: {
+      name: 'India',
+      dates: { start: '2026-12-29', end: '2027-01-27' },
+      travelers: [],
+      notes: [
+        { title: 'Comfort-first route' },
+        { title: 'OurTrips sync note', content: undefined },
+        { title: 'Literal placeholder', content: 'undefined' },
+        { title: 'Keep this', icon: 'undefined', content: 'Private drivers replace long rail legs.' },
+        { label: 'Legacy body', body: 'Use slower transfer days around Varanasi.' },
+      ],
+    },
+    days: [],
+  });
+
+  assert.deepEqual(result.data.trip.notes, [
+    { title: 'Keep this', content: 'Private drivers replace long rail legs.' },
+    {
+      label: 'Legacy body',
+      body: 'Use slower transfer days around Varanasi.',
+      title: 'Legacy body',
+      content: 'Use slower transfer days around Varanasi.',
+    },
+  ]);
+  assert.deepEqual(result.warnings, [
+    'trip.notes[0] was skipped because content was missing.',
+    'trip.notes[1] was skipped because content was missing.',
+    'trip.notes[2] was skipped because content was missing.',
+  ]);
+});
+
 test('normalizeTripData accepts route point name/title aliases as labels', () => {
   const data = normalizeTripData({
     trip: {

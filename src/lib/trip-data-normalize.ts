@@ -7,6 +7,7 @@ import type {
   Transport,
   TripData,
   TripMeta,
+  TripNote,
   TripRoutePoint,
 } from './types';
 
@@ -17,7 +18,35 @@ function isRecord(value: unknown): value is UnknownRecord {
   return Boolean(value && typeof value === 'object' && !Array.isArray(value));
 }
 
+function isUndefinedLike(value: unknown): boolean {
+  return value === undefined || (typeof value === 'string' && value.trim().toLowerCase() === 'undefined');
+}
+
+function stripUndefinedLikeFields(value: unknown): unknown {
+  if (isUndefinedLike(value)) return undefined;
+
+  if (Array.isArray(value)) {
+    return value
+      .map(stripUndefinedLikeFields)
+      .filter((item) => item !== undefined);
+  }
+
+  if (!isRecord(value)) return value;
+
+  const cleaned: UnknownRecord = {};
+  for (const [key, entryValue] of Object.entries(value)) {
+    const cleanedValue = stripUndefinedLikeFields(entryValue);
+    if (cleanedValue !== undefined) cleaned[key] = cleanedValue;
+  }
+  return cleaned;
+}
+
+function stripUndefinedLikeRecord(value: UnknownRecord): UnknownRecord {
+  return stripUndefinedLikeFields(value) as UnknownRecord;
+}
+
 function text(value: unknown): string {
+  if (isUndefinedLike(value)) return '';
   return typeof value === 'string' ? value.trim() : '';
 }
 
@@ -173,6 +202,40 @@ function normalizeTips(value: unknown): Tip[] | undefined {
   return tips.length ? tips : undefined;
 }
 
+function normalizeTripNotes(
+  value: unknown,
+  warn?: NormalizationWarningCollector
+): TripNote[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+
+  const notes = value
+    .filter(isRecord)
+    .map((note, index) => {
+      const cleaned = stripUndefinedLikeRecord(note);
+      const content = text(cleaned.content) || text(cleaned.body) || text(cleaned.note);
+      if (!content) {
+        warn?.(`trip.notes[${index}] was skipped because content was missing.`);
+        return null;
+      }
+
+      const title = text(cleaned.title) || text(cleaned.label) || 'Note';
+      const icon = text(cleaned.icon);
+      const normalized: UnknownRecord = {
+        ...cleaned,
+        title,
+        content,
+      };
+
+      if (icon) normalized.icon = icon;
+      else delete normalized.icon;
+
+      return normalized as unknown as TripNote;
+    })
+    .filter((note): note is TripNote => Boolean(note));
+
+  return notes.length ? notes : undefined;
+}
+
 function normalizeAccommodation(value: unknown): Accommodation | null | undefined {
   if (value === null) return null;
 
@@ -206,7 +269,7 @@ function normalizeTransport(value: unknown): Transport[] | undefined {
 function normalizeDay(value: UnknownRecord, index: number): Day {
   const dayNumber = numberValue(value.day_number) ?? index + 1;
   const day: UnknownRecord = {
-    ...value,
+    ...stripUndefinedLikeRecord(value),
     day_number: dayNumber,
     date: text(value.date),
     title: text(value.title) || `Day ${dayNumber}`,
@@ -240,32 +303,41 @@ function normalizeTripMeta(
   days: Day[],
   warn?: NormalizationWarningCollector
 ): TripMeta {
-  return {
-    ...value,
+  const routePoints = normalizeRoutePoints(value.route_points, warn);
+  const notes = normalizeTripNotes(value.notes, warn);
+  const meta: UnknownRecord = {
+    ...stripUndefinedLikeRecord(value),
     name: text(value.name) || 'Untitled trip',
     subtitle: text(value.subtitle),
     dates: inferDates(value, days),
     travelers: normalizeStringList(value.travelers),
     summary: text(value.summary),
     hero_image: text(value.hero_image) || text(value.overview_image),
-    route_points: normalizeRoutePoints(value.route_points, warn),
-  } as TripMeta;
+  };
+
+  if (routePoints) meta.route_points = routePoints;
+  else delete meta.route_points;
+
+  if (notes) meta.notes = notes;
+  else delete meta.notes;
+
+  return meta as unknown as TripMeta;
 }
 
 export function normalizeTripDataWithWarnings(data: unknown): { data: TripData; warnings: string[] } {
   const warnings: string[] = [];
-  const root = isRecord(data) ? data : {};
+  const root = isRecord(data) ? stripUndefinedLikeRecord(data) : {};
   const sourceDays = Array.isArray(root.days) ? root.days.filter(isRecord) : [];
   const days = sourceDays.map(normalizeDay);
   const trip = normalizeTripMeta(isRecord(root.trip) ? root.trip : {}, days, (warning) => warnings.push(warning));
 
   return {
-    data: {
+    data: stripUndefinedLikeFields({
       ...root,
       trip,
       days,
       ...(typeof root.markdown_source === 'string' ? { markdown_source: root.markdown_source } : {}),
-    } as TripData,
+    }) as TripData,
     warnings,
   };
 }
