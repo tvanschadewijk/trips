@@ -50,6 +50,7 @@ cloudflare-env.d.ts
 /.claude/
 /trips/
 /videos/
+.local-mint-session.mjs
 preview.html
 agent-sdk-for-ourtrips-brief.md
 claude-code-brief-ourtrips-chat.md
@@ -57,6 +58,7 @@ supabase/.temp/
 **/* 2.ts
 **/* 2.tsx
 **/* 2.skill
+**/* 2/
 
 # typescript
 *.tsbuildinfo

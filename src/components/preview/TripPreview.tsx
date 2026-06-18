@@ -11,7 +11,7 @@ import ItineraryMap, { type ItineraryMapFocusRequest, type ItineraryMapViewAllRe
 import AccommodationReviewBoard from './AccommodationReviewBoard';
 import { renderTripMarkdown } from '@/lib/render-trip-markdown';
 import { normalizeTripData } from '@/lib/trip-data-normalize';
-import { buildTripRouteAtlas } from '@/lib/trip-route';
+import { buildTripOverviewRouteAtlas, buildTripRouteAtlas } from '@/lib/trip-route';
 import {
   buildDayMapDataByNumber,
   EMPTY_DAY_MAP_ATLAS,
@@ -55,6 +55,12 @@ function formatNightLabel(nights: number | null | undefined): string | null {
   const count = normalizedNightCount(nights);
   if (!count) return null;
   return `${count} ${count === 1 ? 'night' : 'nights'}`;
+}
+
+function routeStopCountFor(atlas: ReturnType<typeof buildTripRouteAtlas>): number {
+  if (!atlas) return 0;
+  const tripStops = atlas.points.filter((point) => point.role !== 'home' && point.role !== 'return');
+  return tripStops.length || atlas.points.length;
 }
 
 function formatBriefDateRange(dateStr: string, nights: number | null | undefined): string {
@@ -624,6 +630,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
   const [transitionAnchorSlide, setTransitionAnchorSlide] = useState<number | null>(null);
   const [overviewFaded, setOverviewFaded] = useState(autoOpen ? true : false);
   const [showOverviewMap, setShowOverviewMap] = useState(false);
+  const [showFullJourneyMap, setShowFullJourneyMap] = useState(false);
   const [isDesktopPreview, setIsDesktopPreview] = useState<boolean | null>(null);
   const [showArchive, setShowArchive] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -663,15 +670,28 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     [trips]
   );
   const routeAtlas = activeTripIndex !== null ? routeAtlases[activeTripIndex] : undefined;
-  const routePointDetails = useMemo(
-    () => mapPointDetailsForTrip(routeAtlas, days),
+  const tripGeographyAtlas = useMemo(
+    () => routeAtlas ? buildTripOverviewRouteAtlas(routeAtlas, days) : undefined,
     [routeAtlas, days]
+  );
+  const overviewMapHidesAccess = Boolean(
+    routeAtlas && tripGeographyAtlas && tripGeographyAtlas.points.length < routeAtlas.points.length
+  );
+  const overviewMapAtlas = showFullJourneyMap && routeAtlas ? routeAtlas : tripGeographyAtlas;
+  const overviewRoutePointDetails = useMemo(
+    () => mapPointDetailsForTrip(overviewMapAtlas, days),
+    [overviewMapAtlas, days]
   );
 
   useEffect(() => {
     setShowOverviewMap(false);
+    setShowFullJourneyMap(false);
     setTransitionAnchorSlide(null);
   }, [activeTripIndex]);
+
+  useEffect(() => {
+    if (!overviewMapHidesAccess) setShowFullJourneyMap(false);
+  }, [overviewMapHidesAccess]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -1828,10 +1848,11 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     if (!trip) return null;
     const heroImage = getTripOverviewImageUrl(trip);
     const heroImageIsBroken = brokenImages.has(heroImage);
-    const routeStopCount = routeAtlas
-      ? routeAtlas.points.filter((point) => point.role !== 'home').length || routeAtlas.points.length
-      : 0;
-    const desktopOverviewMapVisible = Boolean(showOverviewMap && routeAtlas && isDesktopPreview);
+    const routeStopCount = routeStopCountFor(overviewMapAtlas);
+    const desktopOverviewMapVisible = Boolean(showOverviewMap && overviewMapAtlas && isDesktopPreview);
+    const overviewMapScopeAria = showFullJourneyMap
+      ? 'Hide access legs from overview map'
+      : 'Show full journey on overview map';
 
     return (
       <div key="cover" className={`slide ${currentSlide === 0 ? 'active' : ''}`}>
@@ -1839,19 +1860,19 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
           <div
             className={`hero-frame${desktopOverviewMapVisible ? ' is-map-visible' : ''}`}
           >
-            {desktopOverviewMapVisible && routeAtlas ? (
+            {desktopOverviewMapVisible && overviewMapAtlas ? (
               <div className="hero-map-stage">
                 <ItineraryMap
-                  atlas={routeAtlas}
+                  atlas={overviewMapAtlas}
                   title={`${trip.name} itinerary map`}
                   variant="overview-card"
                   interactive
-                  pointDetails={routePointDetails}
+                  pointDetails={overviewRoutePointDetails}
                   showLines
                   enabled={currentSlide === 0 && desktopOverviewMapVisible}
                   loadingLabel="Loading overview map"
                   loadingHint={routeStopCount >= 12 ? 'This might take a minute with this many stops.' : undefined}
-                  fallback={<TripRouteAtlas atlas={routeAtlas} />}
+                  fallback={<TripRouteAtlas atlas={overviewMapAtlas} />}
                 />
               </div>
             ) : (
@@ -1869,7 +1890,20 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
                 <div className="hero-overlay" />
               </>
             )}
-            {routeAtlas ? (
+            {desktopOverviewMapVisible && overviewMapHidesAccess ? (
+              <button
+                type="button"
+                className="hero-map-scope-toggle"
+                onClick={() => setShowFullJourneyMap((value) => !value)}
+                aria-pressed={showFullJourneyMap}
+                aria-label={overviewMapScopeAria}
+                title={overviewMapScopeAria}
+              >
+                <span aria-hidden="true"><Icon name="plane" /></span>
+                <span>Full journey</span>
+              </button>
+            ) : null}
+            {overviewMapAtlas ? (
               <button
                 type="button"
                 className="hero-map-toggle"
@@ -1894,24 +1928,39 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
                 <div><div className="hero-stat-val">{formatDate(trip.dates.end, { day: 'numeric', month: 'short' })}</div><div className="hero-stat-lbl">end</div></div>
               </div>
             </div>
-            {routeAtlas ? (
+            {overviewMapAtlas ? (
               <div className="hero-route-map-card">
                 <div className="hero-route-map-header">
                   <span className="text-section-title"><span className="section-icon"><Icon name="route" /></span>Itinerary map</span>
-                  <span className="hero-route-map-count">{routeStopCount} stop{routeStopCount === 1 ? '' : 's'}</span>
+                  <span className="hero-route-map-actions">
+                    {overviewMapHidesAccess ? (
+                      <button
+                        type="button"
+                        className="hero-route-map-scope"
+                        onClick={() => setShowFullJourneyMap((value) => !value)}
+                        aria-pressed={showFullJourneyMap}
+                        aria-label={overviewMapScopeAria}
+                        title={overviewMapScopeAria}
+                      >
+                        <Icon name="plane" />
+                        <span>Full journey</span>
+                      </button>
+                    ) : null}
+                    <span className="hero-route-map-count">{routeStopCount} stop{routeStopCount === 1 ? '' : 's'}</span>
+                  </span>
                 </div>
                 <div className="hero-route-map-frame">
                   <ItineraryMap
-                    atlas={routeAtlas}
+                    atlas={overviewMapAtlas}
                     title={`${trip.name} itinerary map`}
                     variant="overview-card"
                     interactive
-                    pointDetails={routePointDetails}
+                    pointDetails={overviewRoutePointDetails}
                     showLines={false}
                     enabled={currentSlide === 0 && isDesktopPreview === false}
                     loadingLabel="Loading overview map"
                     loadingHint={routeStopCount >= 12 ? 'This might take a minute with this many stops.' : undefined}
-                    fallback={<TripRouteAtlas atlas={routeAtlas} />}
+                    fallback={<TripRouteAtlas atlas={overviewMapAtlas} />}
                   />
                 </div>
               </div>
@@ -2774,14 +2823,18 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
                 const date = new Date(day.date + 'T12:00:00');
                 const wd = date.toLocaleDateString('en-GB', { weekday: 'short' }).toUpperCase();
                 const d = date.getDate();
+                const tripDayNumber = dayIndex + 1;
                 const slideIndex = dayIndex + 1;
                 return (
                   <button key={day.day_number} className={`date-btn ${currentSlide === slideIndex ? 'active' : ''}`}
                     onClick={() => { if (!dateStripDragged.current) goTo(slideIndex); }}
                     aria-current={currentSlide === slideIndex ? 'date' : undefined}
-                    aria-label={`Day ${day.day_number}, ${date.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}`}>
+                    aria-label={`Day ${tripDayNumber}, ${date.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}`}>
                     <span className="date-btn-wd">{wd}</span>
-                    <span className="date-btn-d">{d}</span>
+                    <span className="date-btn-number-row">
+                      <span className="date-btn-trip-day">{tripDayNumber}</span>
+                      <span className="date-btn-d">{d}</span>
+                    </span>
                   </button>
                 );
               })}

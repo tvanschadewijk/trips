@@ -16,6 +16,8 @@ import {
 } from '@/lib/public-itineraries';
 import type { TripData } from '@/lib/types';
 
+export const dynamic = 'force-dynamic';
+
 interface Props {
   params: Promise<{ shareId: string }>;
 }

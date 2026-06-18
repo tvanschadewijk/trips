@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   buildDayRouteMapSearchText,
+  buildTripOverviewRouteAtlas,
   buildTripRouteAtlas,
   lookupRoutePlace,
   routePlaceTextMatches,
@@ -139,6 +140,96 @@ test('stored route_points accept name aliases and skip malformed entries', () =>
   assert.ok(atlas);
   assert.deepEqual(atlas.points.map((point) => point.label), ['Mumbai', 'Jaipur']);
   assert.equal(atlas.legs[0].mode, 'flight');
+});
+
+test('trip overview route atlas hides flight-only home endpoints', () => {
+  const trip = {
+    ...baseTrip([]),
+    trip: {
+      ...baseTrip([]).trip,
+      route_points: [
+        { label: 'Amsterdam', lat: 52.3676, lng: 4.9041, role: 'home' },
+        { label: 'Mumbai', lat: 19.076, lng: 72.8777, day: 1, mode: 'flight', role: 'stay' },
+        { label: 'Jaipur', lat: 26.9124, lng: 75.7873, day: 3, mode: 'car', role: 'stay' },
+        { label: 'Kochi', lat: 9.9312, lng: 76.2673, day: 8, mode: 'flight', role: 'stay' },
+        { label: 'Amsterdam', lat: 52.3676, lng: 4.9041, mode: 'flight' },
+      ],
+    },
+  } satisfies TripData;
+
+  const atlas = buildTripRouteAtlas(trip);
+  assert.ok(atlas);
+
+  const overview = buildTripOverviewRouteAtlas(atlas, trip.days);
+
+  assert.deepEqual(
+    overview.points.map((point) => point.label),
+    ['Mumbai', 'Jaipur', 'Kochi']
+  );
+  assert.deepEqual(overview.points.map((point) => point.index), [0, 1, 2]);
+  assert.ok(overview.bounds.maxLat < 30);
+  assert.deepEqual(overview.legs.map((leg) => leg.mode), ['car', 'flight']);
+});
+
+test('trip overview route atlas keeps home when the first leg is a road-trip leg', () => {
+  const trip = baseTrip([
+    {
+      day_number: 1,
+      date: '2026-06-01',
+      title: 'Amsterdam -> Lake Como',
+      blocks: [],
+      transport: [{ mode: 'car', label: 'Self-drive', from: 'Amsterdam', to: 'Lake Como' }],
+    },
+    {
+      day_number: 2,
+      date: '2026-06-02',
+      title: 'Lake Como -> Ravenna',
+      blocks: [],
+      transport: [{ mode: 'car', label: 'Self-drive', from: 'Lake Como', to: 'Ravenna' }],
+    },
+  ]);
+  const atlas = buildTripRouteAtlas(trip);
+  assert.ok(atlas);
+
+  const overview = buildTripOverviewRouteAtlas(atlas, trip.days);
+
+  assert.deepEqual(
+    overview.points.map((point) => point.label),
+    ['Amsterdam', 'Lake Como', 'Ravenna']
+  );
+});
+
+test('trip overview route atlas keeps a flight endpoint with local itinerary substance', () => {
+  const trip = {
+    ...baseTrip([
+      {
+        day_number: 1,
+        date: '2026-06-01',
+        title: 'Amsterdam -> Jaipur',
+        blocks: [
+          {
+            time_label: 'Morning',
+            type: 'activity',
+            content: 'A slow breakfast and canal walk in Amsterdam before the evening flight.',
+          },
+        ],
+        transport: [{ mode: 'flight', label: 'Flight to India', from: 'Amsterdam', to: 'Jaipur' }],
+      },
+    ]),
+    trip: {
+      ...baseTrip([]).trip,
+      route_points: [
+        { label: 'Amsterdam', lat: 52.3676, lng: 4.9041, day: 1, role: 'home' },
+        { label: 'Jaipur', lat: 26.9124, lng: 75.7873, day: 1, mode: 'flight', role: 'stay' },
+      ],
+    },
+  } satisfies TripData;
+  const atlas = buildTripRouteAtlas(trip);
+  assert.ok(atlas);
+
+  const overview = buildTripOverviewRouteAtlas(atlas, trip.days);
+
+  assert.deepEqual(overview.points.map((point) => point.label), ['Amsterdam', 'Jaipur']);
 });
 
 test('lookupRoutePlace handles known spelling variants', () => {
