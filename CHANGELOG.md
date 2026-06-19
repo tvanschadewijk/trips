@@ -4,6 +4,49 @@ Selected product updates for OurTrips.
 
 ## Unreleased
 
+## 2026-06-18 — Cloudflare hardening and trip chat feedback
+
+### Added
+- Added visible trip chat progress states and centered the travel-agent entry point so chat feels clearer while responses are in flight.
+
+### Improved
+- Hardened the Cloudflare release path with cleaner Tailwind/PostCSS install behavior and build compatibility across the frontend and chat backend.
+- Refined trip overview maps so flight-only home access legs stay hidden by default, with a full-journey toggle when those legs are available.
+
+### Fixed
+- Fixed OAuth-required agent flows so the product now tells travelers to reconnect or sign in instead of retrying connector calls indefinitely.
+- Fixed chat input so pressing Enter submits messages reliably.
+- Fixed cases where undefined trip notes could leak into trip previews.
+- Fixed the post-release backend type mismatch in `src/lib/trip-service.ts` that broke the first chat-backend deploy after the Cloudflare hardening pass.
+
+## 2026-06-16 — Agent knowledge routing and booking-intent fixes
+
+### Added
+- Added a routed agent knowledge system with filesystem-backed travel playbooks, tool-use context, and country-specific restaurant reservation guidance.
+
+### Improved
+- Improved trip chat so booked-hotel facts, restaurant research requests, reservation-channel requests, and date changes are tracked deterministically before the agent responds.
+
+### Fixed
+- Fixed booking-link behavior so OpenTable links only appear when support is directly verified for the exact venue.
+- Fixed the Cloudflare production build so public Supabase and Google Maps configuration is available at build time, restoring the intended login experience.
+
+## 2026-06-15 — Cloudflare production rollout
+
+### Added
+- Moved production deploys to Cloudflare with dedicated frontend and chat-backend GitHub Actions, OpenNext/Wrangler configuration, and build-time generated blog and changelog content.
+- Added a trip logistics ledger and admin logistics view for auditing itinerary dates, nights, and route shape.
+
+### Improved
+- Required deeper cascade review after hotel changes that can shift the route base or downstream day planning.
+- Tightened route-point contracts so trip maps use explicit `label`, `lat`, and `lng` data more consistently.
+- Disabled Vercel Git deployments so Cloudflare is the only production release path.
+
+### Fixed
+- Fixed the Cloudflare home page runtime error by rendering `/` dynamically when request headers and cookies are needed.
+- Fixed the first Cloudflare chat-backend deploy failure by typing shared fetch options for both Next.js and the Node backend.
+- Fixed logistics-ledger metadata typing so the admin logistics UI renders typed values instead of unknown fields.
+
 ## 2026-05-29 — Map previews and accommodation review sync
 
 ### Added
