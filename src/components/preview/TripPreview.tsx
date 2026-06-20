@@ -11,7 +11,7 @@ import ItineraryMap, { type ItineraryMapFocusRequest, type ItineraryMapViewAllRe
 import AccommodationReviewBoard from './AccommodationReviewBoard';
 import { renderTripMarkdown } from '@/lib/render-trip-markdown';
 import { normalizeTripData } from '@/lib/trip-data-normalize';
-import { buildTripOverviewRouteAtlas, buildTripRouteAtlas } from '@/lib/trip-route';
+import { buildTripOverviewRouteAtlas, buildTripRouteAtlas, type TripRouteAtlas } from '@/lib/trip-route';
 import {
   buildDayMapDataByNumber,
   EMPTY_DAY_MAP_ATLAS,
@@ -61,6 +61,240 @@ function routeStopCountFor(atlas: ReturnType<typeof buildTripRouteAtlas>): numbe
   if (!atlas) return 0;
   const tripStops = atlas.points.filter((point) => point.role !== 'home' && point.role !== 'return');
   return tripStops.length || atlas.points.length;
+}
+
+type OverviewRouteGroups = {
+  outbound: string[];
+  returnVia: string[];
+};
+
+type OverviewHighlight = {
+  icon: string;
+  label: string;
+};
+
+type OverviewMetric = {
+  icon: string;
+  value: string;
+  label: string;
+};
+
+function formatHeroDateRange(startStr: string, endStr: string): string {
+  const start = new Date(`${startStr}T12:00:00`);
+  const end = new Date(`${endStr}T12:00:00`);
+  const sameYear = start.getFullYear() === end.getFullYear();
+  const sameMonth = sameYear && start.getMonth() === end.getMonth();
+
+  if (sameMonth) {
+    return `${start.toLocaleDateString('en-GB', { day: 'numeric' })} – ${end.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+  }
+
+  if (sameYear) {
+    return `${start.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} – ${end.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+  }
+
+  return `${start.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })} – ${end.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+}
+
+function tripNightCount(startStr: string, endStr: string): number {
+  const start = new Date(`${startStr}T12:00:00`);
+  const end = new Date(`${endStr}T12:00:00`);
+  return Math.max(0, Math.round((end.getTime() - start.getTime()) / 86400000));
+}
+
+function cleanedRouteLabel(value: unknown): string {
+  const text = trimDisplayText(value)
+    .replace(/\s*\([A-Z]{3}\)\s*/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!text) return '';
+
+  return text
+    .replace(/\b(?:airport|terminal|station|centraal|central)\b/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim() || text;
+}
+
+function addUniqueText(list: string[], value: unknown, max = Number.POSITIVE_INFINITY): void {
+  if (list.length >= max) return;
+  const label = cleanedRouteLabel(value);
+  if (!label) return;
+  const key = normalizeMapFocusLabel(label);
+  if (!key || list.some((item) => normalizeMapFocusLabel(item) === key)) return;
+  list.push(label);
+}
+
+function destinationFromDayTitle(title: string): string {
+  const parts = title
+    .replace(/[–—]/g, '→')
+    .split('→')
+    .map((part) => part.trim())
+    .filter(Boolean);
+  return cleanedRouteLabel(parts[parts.length - 1] || title);
+}
+
+function fallbackRouteLabels(days: Day[]): string[] {
+  const labels: string[] = [];
+  for (const day of days) {
+    for (const transport of day.transport ?? []) {
+      addUniqueText(labels, transport.from, 8);
+      addUniqueText(labels, transport.to, 8);
+    }
+    addUniqueText(labels, destinationFromDayTitle(day.title), 8);
+  }
+  return labels;
+}
+
+function overviewRouteGroups(atlas: TripRouteAtlas | undefined, days: Day[]): OverviewRouteGroups {
+  const points = atlas?.points ?? [];
+  if (!points.length) return { outbound: fallbackRouteLabels(days).slice(0, 6), returnVia: [] };
+
+  const firstLabel = cleanedRouteLabel(points[0]?.label);
+  const firstKey = normalizeMapFocusLabel(firstLabel);
+  let returnStartIndex = points.findIndex((point, index) => index > 0 && point.role === 'return');
+
+  if (returnStartIndex < 0 && firstKey && points.length > 5) {
+    const lastKey = normalizeMapFocusLabel(points[points.length - 1]?.label);
+    if (lastKey === firstKey) returnStartIndex = Math.max(2, Math.ceil((points.length - 1) / 2));
+  }
+
+  const outboundPoints = returnStartIndex >= 0 ? points.slice(0, returnStartIndex) : points;
+  const returnPoints = returnStartIndex >= 0 ? points.slice(returnStartIndex) : [];
+  const outbound: string[] = [];
+  const returnVia: string[] = [];
+
+  for (const point of outboundPoints) addUniqueText(outbound, point.label, 7);
+  for (const point of returnPoints) {
+    const key = normalizeMapFocusLabel(point.label);
+    if (key && key === firstKey) continue;
+    addUniqueText(returnVia, point.label, 6);
+  }
+
+  if (!outbound.length) return { outbound: fallbackRouteLabels(days).slice(0, 6), returnVia };
+  return { outbound, returnVia };
+}
+
+function overviewHighlightIcon(label: string): string {
+  const normalized = normalizeMapFocusLabel(label);
+  if (/\b(wine|vineyard|winery)\b/.test(normalized)) return 'wine';
+  if (/\b(lake|coast|beach|sea|river|island)\b/.test(normalized)) return 'map';
+  if (/\b(mountain|peak|trail|park|forest|glen|valley|way)\b/.test(normalized)) return 'mountain';
+  if (/\b(restaurant|dinner|lunch|food|market|cafe|bakery)\b/.test(normalized)) return 'fork';
+  if (/\b(hotel|stay|camp|lodge)\b/.test(normalized)) return 'hotel';
+  return 'binoculars';
+}
+
+function overviewHighlights(atlas: TripRouteAtlas | undefined, days: Day[]): OverviewHighlight[] {
+  const labels: string[] = [];
+  const routePoints = (atlas?.points ?? []).filter((point) => point.role !== 'home' && point.role !== 'return');
+  for (const point of routePoints) addUniqueText(labels, point.label, 6);
+
+  for (const day of days) {
+    addUniqueText(labels, day.description_title, 6);
+    addUniqueText(labels, day.subtitle, 6);
+    addUniqueText(labels, destinationFromDayTitle(day.title), 6);
+
+    for (const block of day.blocks ?? []) {
+      addUniqueText(labels, block.place?.name, 6);
+      addUniqueText(labels, block.detail?.title, 6);
+    }
+  }
+
+  return labels.slice(0, 6).map((label) => ({
+    label,
+    icon: overviewHighlightIcon(label),
+  }));
+}
+
+function dominantTransportSummary(days: Day[]): { icon: string; label: string } {
+  const text = days
+    .flatMap((day) => day.transport ?? [])
+    .flatMap((transport) => [transport.mode, transport.label])
+    .map(trimDisplayText)
+    .join(' ')
+    .toLowerCase();
+
+  if (/\b(car|drive|driving|self[-\s]?drive|road)\b/.test(text)) return { icon: 'car', label: 'Self-drive' };
+  if (/\b(train|rail|eurostar)\b/.test(text)) return { icon: 'train', label: 'Rail' };
+  if (/\b(ferry|ship|boat)\b/.test(text)) return { icon: 'ferry', label: 'Ferry' };
+  if (/\b(plane|flight|air)\b/.test(text)) return { icon: 'plane', label: 'Flights' };
+  if (/\b(walk|hike|trail)\b/.test(text)) return { icon: 'walk', label: 'Walking' };
+  return { icon: 'route', label: 'Route' };
+}
+
+function distanceKmFromText(value: unknown): number {
+  const text = trimDisplayText(value).replace(/,/g, '');
+  if (!text) return 0;
+  return [...text.matchAll(/(\d+(?:\.\d+)?)\s*(?:km|kilomet(?:er|re)s?)\b/gi)]
+    .reduce((sum, match) => sum + Number(match[1]), 0);
+}
+
+function formatKm(value: number): string {
+  if (value >= 1000) return `~${Math.round(value / 100) * 100}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  if (value > 0) return `~${Math.round(value)}`;
+  return '';
+}
+
+function overviewMetrics(days: Day[], atlas: TripRouteAtlas | undefined, nights: number): OverviewMetric[] {
+  const hotelNames: string[] = [];
+  const natureLabels: string[] = [];
+  let distanceKm = 0;
+
+  for (const day of days) {
+    const accommodationName = trimDisplayText(day.accommodation?.name);
+    if (accommodationName && !isPlaceholderAccommodationName(accommodationName)) addUniqueText(hotelNames, accommodationName);
+
+    const natureText = [
+      day.title,
+      day.subtitle,
+      day.description_title,
+      day.description,
+      ...(day.blocks ?? []).flatMap((block) => [block.content, block.detail?.title]),
+    ].join(' ');
+    if (/\b(?:national park|park|lake|mountain|trail|forest|coast|beach|island|valley|glen|way)\b/i.test(natureText)) {
+      addUniqueText(natureLabels, destinationFromDayTitle(day.title));
+    }
+
+    for (const transport of day.transport ?? []) {
+      distanceKm += distanceKmFromText(transport.distance);
+    }
+  }
+
+  const routeStops = routeStopCountFor(atlas);
+  const metrics: OverviewMetric[] = [];
+
+  if (hotelNames.length) {
+    metrics.push({ icon: 'hotel', value: String(hotelNames.length), label: hotelNames.length === 1 ? 'Hotel' : 'Hotels' });
+  } else {
+    metrics.push({ icon: 'moon', value: String(nights), label: nights === 1 ? 'Night' : 'Nights' });
+  }
+
+  metrics.push({
+    icon: 'mountain',
+    value: String(natureLabels.length || Math.max(1, days.filter((day) => day.blocks?.length || day.meals?.length).length)),
+    label: natureLabels.length ? 'Nature stops' : 'Planned days',
+  });
+
+  metrics.push({
+    icon: 'map',
+    value: String(routeStops || days.length),
+    label: routeStops === 1 ? 'Route stop' : 'Route stops',
+  });
+
+  metrics.push({
+    icon: dominantTransportSummary(days).icon,
+    value: formatKm(distanceKm) || String(days.length),
+    label: distanceKm > 0 ? 'km logged' : 'days planned',
+  });
+
+  return metrics;
+}
+
+function overviewSummaryText(summary: string | undefined): string {
+  const text = trimDisplayText(summary);
+  if (!text) return 'All the details about the route, stays, reservations and important notes.';
+  if (text.length <= 120) return text;
+  return `${text.slice(0, 117).replace(/\s+\S*$/, '')}...`;
 }
 
 function formatBriefDateRange(dateStr: string, nights: number | null | undefined): string {
@@ -1846,12 +2080,123 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     return { html: `<div class="detail-info-section">${header}${rows}</div>`, hasData: true, allDone };
   }
 
+  function buildOverviewSections(): {
+    icon: string;
+    label: string;
+    html: string;
+    hasData: boolean;
+    node?: ReactNode;
+  }[] {
+    const logistics = buildLogisticsHtml();
+    const accommodation = buildAccommodationHtml();
+    const activities = buildActivitiesHtml();
+    const dining = buildDiningHtml();
+    const thingsToDo = buildThingsToDoHtml();
+    const accommodationSection = tripId && activeTripData
+      ? {
+          icon: 'hotel',
+          label: 'Accommodations',
+          html: '',
+          hasData: true,
+          node: (
+            <AccommodationReviewBoard
+              tripId={tripId}
+              tripData={activeTripData}
+              onTripDataUpdated={handleTripDataUpdated}
+            />
+          ),
+        }
+      : { icon: 'bed', label: 'Accommodation', ...accommodation };
+    const sections: {
+      icon: string;
+      label: string;
+      html: string;
+      hasData: boolean;
+      node?: ReactNode;
+    }[] = [
+      { icon: 'route', label: 'Logistics', ...logistics },
+      accommodationSection,
+      { icon: 'mountain', label: 'Activities', ...activities },
+      { icon: 'fork', label: 'Restaurants', ...dining },
+      { icon: thingsToDo.allDone ? 'check' : 'warning', label: thingsToDo.allDone ? 'Ready to Go' : 'Action Items', ...thingsToDo },
+    ];
+    if (markdownSource) {
+      sections.push({
+        icon: 'doc',
+        label: 'Original plan',
+        html: renderTripMarkdown(markdownSource),
+        hasData: true,
+      });
+    }
+    return sections;
+  }
+
+  function openTripOverview(sections: ReturnType<typeof buildOverviewSections>) {
+    const visible = sections.filter((section) => section.hasData);
+    if (!visible.length) {
+      showDetail({
+        title: 'Trip Overview',
+        html: `<div class="detail-tip-body"><p class="detail-tip-text">${escapeHtml(overviewSummaryText(trip?.summary))}</p></div>`,
+      });
+      return;
+    }
+
+    showDetail({
+      title: 'Trip Overview',
+      html: '',
+      node: (
+        <div className="trip-overview-detail-list">
+          {visible.map((section, index) => (
+            <button
+              key={`${section.label}-${index}`}
+              type="button"
+              className="trip-overview-detail-item"
+              onClick={() => showDetail({
+                title: section.label,
+                html: section.html,
+                node: section.node,
+              })}
+            >
+              <span className="trip-overview-detail-icon"><Icon name={section.icon} /></span>
+              <span className="trip-overview-detail-copy">
+                <span>{section.label}</span>
+                <small>{section.node ? 'Review and update this section.' : 'Open the full details.'}</small>
+              </span>
+              <Icon name="chevron" />
+            </button>
+          ))}
+        </div>
+      ),
+    });
+  }
+
+  function renderOverviewRouteFlow(labels: string[]) {
+    return labels.map((label, index) => (
+      <span className="trip-overview-route-part" key={`${label}-${index}`}>
+        <span>{label}</span>
+        {index < labels.length - 1 ? <span className="trip-overview-route-arrow">→</span> : null}
+      </span>
+    ));
+  }
+
   // Render hero slide
   function renderHeroSlide() {
     if (!trip) return null;
     const heroImage = getTripOverviewImageUrl(trip);
     const heroImageIsBroken = brokenImages.has(heroImage);
     const routeStopCount = routeStopCountFor(overviewMapAtlas);
+    const nights = tripNightCount(trip.dates.start, trip.dates.end);
+    const routeGroups = overviewRouteGroups(routeAtlas, days);
+    const displayRouteGroups = routeGroups.outbound.length
+      ? routeGroups
+      : { outbound: [trip.name], returnVia: [] };
+    const highlights = overviewHighlights(overviewMapAtlas ?? routeAtlas, days);
+    const displayHighlights = highlights.length
+      ? highlights
+      : [{ icon: 'info', label: trimDisplayText(trip.subtitle) || overviewSummaryText(trip.summary) || trip.name }];
+    const metrics = overviewMetrics(days, overviewMapAtlas ?? routeAtlas, nights);
+    const transportSummary = dominantTransportSummary(days);
+    const overviewSections = buildOverviewSections();
     const desktopOverviewMapVisible = Boolean(showOverviewMap && overviewMapAtlas && isDesktopPreview);
     const overviewMapScopeAria = showFullJourneyMap
       ? 'Hide access legs from overview map'
@@ -1921,19 +2266,90 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
           </div>
           <div className="hero-body">
             <h1 className="text-hero-title">{trip.name}</h1>
-            <div className="hero-paper">
-              <p className="text-hero-subtitle">{trip.subtitle}</p>
-              <div className="hero-divider" />
-              <p className="text-hero-summary">{trip.summary}</p>
-              <div className="hero-stats">
-                <div><div className="hero-stat-val">{days.length > 0 ? days.length - 1 : '?'}</div><div className="hero-stat-lbl">nights</div></div>
-                <div><div className="hero-stat-val">{formatDate(trip.dates.start, { day: 'numeric', month: 'short' })}</div><div className="hero-stat-lbl">start</div></div>
-                <div><div className="hero-stat-val">{formatDate(trip.dates.end, { day: 'numeric', month: 'short' })}</div><div className="hero-stat-lbl">end</div></div>
+            <p className="hero-date-range">{formatHeroDateRange(trip.dates.start, trip.dates.end)}</p>
+            <div className="hero-meta-chips" aria-label="Trip highlights">
+              <span className="hero-meta-chip"><Icon name="moon" />{nights} {nights === 1 ? 'Night' : 'Nights'}</span>
+              <span className="hero-meta-chip"><Icon name="route" />{routeStopCount || days.length} {routeStopCount === 1 ? 'Stop' : 'Stops'}</span>
+              <span className="hero-meta-chip"><Icon name={transportSummary.icon} />{transportSummary.label}</span>
+            </div>
+
+            <div className="trip-overview-dossier">
+              <div className="trip-overview-dossier-main">
+                <section className="trip-overview-route" aria-label="Route">
+                  <h2>Route</h2>
+                  <div className="trip-overview-route-flow">
+                    {renderOverviewRouteFlow(displayRouteGroups.outbound)}
+                  </div>
+                  {displayRouteGroups.returnVia.length ? (
+                    <>
+                      <div className="trip-overview-return-rule" />
+                      <p className="trip-overview-return-label">Return via</p>
+                      <div className="trip-overview-route-flow trip-overview-route-flow-return">
+                        {renderOverviewRouteFlow(displayRouteGroups.returnVia)}
+                      </div>
+                    </>
+                  ) : null}
+                </section>
+
+                <section className="trip-overview-highlights" aria-label="Highlights">
+                  <h2>Highlights</h2>
+                  <ul>
+                    {displayHighlights.map((highlight) => (
+                      <li key={highlight.label}>
+                        <span className="trip-overview-highlight-icon"><Icon name={highlight.icon} /></span>
+                        <span>{highlight.label}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              </div>
+
+              <div className="trip-overview-metrics" aria-label="Trip metrics">
+                {metrics.map((metric) => (
+                  <div className="trip-overview-metric" key={`${metric.label}-${metric.value}`}>
+                    <span className="trip-overview-metric-icon"><Icon name={metric.icon} /></span>
+                    <strong>{metric.value}</strong>
+                    <span>{metric.label}</span>
+                  </div>
+                ))}
               </div>
             </div>
+
+            <button
+              type="button"
+              className="trip-overview-action"
+              onClick={() => openTripOverview(overviewSections)}
+              aria-label="Open trip overview details"
+            >
+              <span className="trip-overview-action-icon"><Icon name="doc" /></span>
+              <span className="trip-overview-action-copy">
+                <span>Trip overview</span>
+                <small>{overviewSummaryText(trip.summary)}</small>
+              </span>
+              <Icon name="chevron" />
+            </button>
+
             {totalSlides > 1 && (
-              <button className="hero-day-by-day-cta" onClick={() => goTo(1)} aria-label="Open day by day itinerary">
-                <span>Day by Day</span>
+              <>
+                <button className="hero-day-by-day-cta" type="button" onClick={() => goTo(1)} aria-label="Open day by day itinerary">
+                  <span className="hero-day-by-day-icon"><Icon name="calendar" /></span>
+                  <span>View day-by-day itinerary</span>
+                  <Icon name="chevron" />
+                </button>
+                <p className="hero-day-by-day-helper">See the full plan, driving times, stays and activities for each day.</p>
+              </>
+            )}
+            {todayInfo && (
+              <button
+                className="hero-today-cta"
+                onClick={() => goTo(todayInfo.dayIdx + 1)}
+                aria-label={`Continue to today, day ${todayInfo.dayNumber}, ${todayInfo.dateLabel}`}
+              >
+                <span className="hero-today-cta-eyebrow">Today</span>
+                <span className="hero-today-cta-label">
+                  Continue to Day {todayInfo.dayNumber}
+                  <span className="hero-today-cta-date"> · {todayInfo.dateLabel}</span>
+                </span>
                 <Icon name="chevron" />
               </button>
             )}
@@ -1974,20 +2390,6 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
                 </div>
               </div>
             ) : null}
-            {todayInfo && (
-              <button
-                className="hero-today-cta"
-                onClick={() => goTo(todayInfo.dayIdx + 1)}
-                aria-label={`Continue to today, day ${todayInfo.dayNumber}, ${todayInfo.dateLabel}`}
-              >
-                <span className="hero-today-cta-eyebrow">Today</span>
-                <span className="hero-today-cta-label">
-                  Continue to Day {todayInfo.dayNumber}
-                  <span className="hero-today-cta-date"> · {todayInfo.dateLabel}</span>
-                </span>
-                <Icon name="arrow-right" />
-              </button>
-            )}
             {displayableTripNotes.length ? (
               <div className="hero-notes">
                 <button className="hero-note-btn" onClick={() => {
@@ -2010,69 +2412,6 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
                 </button>
               </div>
             ) : null}
-            {(() => {
-              const logistics = buildLogisticsHtml();
-              const accommodation = buildAccommodationHtml();
-              const activities = buildActivitiesHtml();
-              const dining = buildDiningHtml();
-              const thingsToDo = buildThingsToDoHtml();
-              const accommodationSection = tripId && activeTripData
-                ? {
-                    icon: 'hotel',
-                    label: 'Accommodations',
-                    html: '',
-                    hasData: true,
-                    node: (
-                      <AccommodationReviewBoard
-                        tripId={tripId}
-                        tripData={activeTripData}
-                        onTripDataUpdated={handleTripDataUpdated}
-                      />
-                    ),
-                  }
-                : { icon: 'bed', label: 'Accommodation', ...accommodation };
-              const sections: {
-                icon: string;
-                label: string;
-                html: string;
-                hasData: boolean;
-                node?: ReactNode;
-              }[] = [
-                { icon: 'route', label: 'Logistics', ...logistics },
-                accommodationSection,
-                { icon: 'mountain', label: 'Activities', ...activities },
-                { icon: 'fork', label: 'Restaurants', ...dining },
-                { icon: thingsToDo.allDone ? 'check' : 'warning', label: thingsToDo.allDone ? 'Ready to Go' : 'Action Items', ...thingsToDo },
-              ];
-              if (markdownSource) {
-                sections.push({
-                  icon: 'doc',
-                  label: 'Original plan',
-                  html: renderTripMarkdown(markdownSource),
-                  hasData: true,
-                });
-              }
-              const visible = sections.filter(s => s.hasData);
-              if (!visible.length) return null;
-              return (
-                <div className="hero-overview-btns">
-                  <div className="hero-overview-label">Overview</div>
-                  {visible.map((s, i) => (
-                    <button key={i} className="hero-note-btn" onClick={() => {
-                      showDetail({
-                        title: s.label,
-                        html: s.html,
-                        node: s.node,
-                      });
-                    }}>
-                      <span className="hero-note-icon"><Icon name={s.icon} /></span>
-                      <span className="hero-note-label">{s.label}</span>
-                      <Icon name="chevron" />
-                    </button>
-                  ))}
-                </div>
-              );
-            })()}
           </div>
         </div>
       </div>
