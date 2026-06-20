@@ -1931,6 +1931,12 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
                 <div><div className="hero-stat-val">{formatDate(trip.dates.end, { day: 'numeric', month: 'short' })}</div><div className="hero-stat-lbl">end</div></div>
               </div>
             </div>
+            {totalSlides > 1 && (
+              <button className="hero-day-by-day-cta" onClick={() => goTo(1)} aria-label="Open day by day itinerary">
+                <span>Day by Day</span>
+                <Icon name="chevron" />
+              </button>
+            )}
             {overviewMapAtlas ? (
               <div className="hero-route-map-card">
                 <div className="hero-route-map-header">
@@ -2863,19 +2869,13 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
             </div>
           </div>
 
-          {/* Bottom drawer — sticky chrome holding swipe-dots and the
-              Explore CTA on the cover. Content above scrolls behind it. */}
-          <div className={`trip-bottom-drawer ${currentSlide === 0 ? 'on-hero' : ''}`}>
-            {currentSlide !== 0 && (
+          {/* Bottom drawer — sticky chrome holding swipe-dots on day slides.
+              The cover's Day by Day CTA lives in the trip overview content. */}
+          {currentSlide !== 0 && (
+            <div className="trip-bottom-drawer">
               <SwipeDots total={totalSlides} current={currentSlide} onDotClick={goTo} />
-            )}
-            {currentSlide === 0 && totalSlides > 1 && (
-              <button className="hero-hint" onClick={() => goTo(1)} aria-label="Open day by day itinerary">
-                Day by Day
-                <Icon name="chevron" />
-              </button>
-            )}
-          </div>
+            </div>
+          )}
 
         </div>
       )}
