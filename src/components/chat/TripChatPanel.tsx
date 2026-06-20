@@ -40,6 +40,7 @@ import {
 import type { ToolCallSummary } from '@/lib/trip-chat/prompt';
 import {
   DEFAULT_CHAT_STATUS_PHASES,
+  INITIAL_CHAT_PROGRESS_MESSAGE,
   getChatStatusPhases,
   type ChatProgressEvent,
 } from '@/lib/trip-chat/progress';
@@ -537,7 +538,7 @@ export default function TripChatPanel({
         id: `local-progress-${Date.now()}`,
         turn_index: nextTurnIndex,
         stage: 'queued',
-        message: 'Queued your request...',
+        message: INITIAL_CHAT_PROGRESS_MESSAGE,
         created_at: new Date().toISOString(),
       },
     ]);

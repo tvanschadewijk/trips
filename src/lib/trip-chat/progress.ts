@@ -1,3 +1,5 @@
+export const INITIAL_CHAT_PROGRESS_MESSAGE = 'Processing your request...';
+
 export const DEFAULT_CHAT_STATUS_PHASES = [
   'Reading the trip...',
   'Planning the next step...',
