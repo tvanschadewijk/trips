@@ -2,11 +2,16 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   DEFAULT_CHAT_STATUS_PHASES,
+  INITIAL_CHAT_PROGRESS_MESSAGE,
   POLICY_RESEARCH_STATUS_PHASES,
   getAppliedToolProgressUpdate,
   getChatStatusPhases,
   getToolProgressUpdate,
 } from './progress';
+
+test('initial chat progress copy describes active processing', () => {
+  assert.equal(INITIAL_CHAT_PROGRESS_MESSAGE, 'Processing your request...');
+});
 
 test('getChatStatusPhases uses research copy for hotel policy questions', () => {
   assert.deepEqual(
