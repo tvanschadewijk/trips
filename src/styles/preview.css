@@ -737,6 +737,9 @@
 @media (hover: hover) {
   .trip-ask-entry:hover { background: var(--color-surface-deep); border-color: var(--color-border-strong); }
 }
+body.trip-on-cover .trip-ask-entry {
+  bottom: calc(64px + env(safe-area-inset-bottom));
+}
 .trip-ask-entry-icon {
   width: 14px;
   height: 14px;
