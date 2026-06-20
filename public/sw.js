@@ -1,8 +1,8 @@
 // OurTrips — Service Worker
 // Caches trip pages, assets, and images for offline viewing.
-// v5: flush cached image assets after the brand icon refresh.
+// v6: flush cached trip HTML after the trip overview redesign.
 
-const CACHE_VERSION = 'v5';
+const CACHE_VERSION = 'v6';
 const STATIC_CACHE = `ourtrips-static-${CACHE_VERSION}`;
 const TRIP_CACHE = `ourtrips-trips-${CACHE_VERSION}`;
 const TRIP_DATA_CACHE = `ourtrips-trip-data-${CACHE_VERSION}`;
