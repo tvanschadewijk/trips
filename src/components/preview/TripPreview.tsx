@@ -11,7 +11,7 @@ import ItineraryMap, { type ItineraryMapFocusRequest, type ItineraryMapViewAllRe
 import AccommodationReviewBoard from './AccommodationReviewBoard';
 import { renderTripMarkdown } from '@/lib/render-trip-markdown';
 import { normalizeTripData } from '@/lib/trip-data-normalize';
-import { buildTripOverviewRouteAtlas, buildTripRouteAtlas, type TripRouteAtlas } from '@/lib/trip-route';
+import { buildTripOverviewRouteAtlas, buildTripRouteAtlas, type TripRouteAtlas as TripRouteAtlasData } from '@/lib/trip-route';
 import {
   buildDayMapDataByNumber,
   EMPTY_DAY_MAP_ATLAS,
@@ -145,7 +145,7 @@ function fallbackRouteLabels(days: Day[]): string[] {
   return labels;
 }
 
-function overviewRouteGroups(atlas: TripRouteAtlas | undefined, days: Day[]): OverviewRouteGroups {
+function overviewRouteGroups(atlas: TripRouteAtlasData | undefined, days: Day[]): OverviewRouteGroups {
   const points = atlas?.points ?? [];
   if (!points.length) return { outbound: fallbackRouteLabels(days).slice(0, 6), returnVia: [] };
 
@@ -184,7 +184,7 @@ function overviewHighlightIcon(label: string): string {
   return 'binoculars';
 }
 
-function overviewHighlights(atlas: TripRouteAtlas | undefined, days: Day[]): OverviewHighlight[] {
+function overviewHighlights(atlas: TripRouteAtlasData | undefined, days: Day[]): OverviewHighlight[] {
   const labels: string[] = [];
   const routePoints = (atlas?.points ?? []).filter((point) => point.role !== 'home' && point.role !== 'return');
   for (const point of routePoints) addUniqueText(labels, point.label, 6);
@@ -235,7 +235,7 @@ function formatKm(value: number): string {
   return '';
 }
 
-function overviewMetrics(days: Day[], atlas: TripRouteAtlas | undefined, nights: number): OverviewMetric[] {
+function overviewMetrics(days: Day[], atlas: TripRouteAtlasData | undefined, nights: number): OverviewMetric[] {
   const hotelNames: string[] = [];
   const natureLabels: string[] = [];
   let distanceKm = 0;
