@@ -176,8 +176,44 @@
 
 /* Header */
 .dash-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
   margin-bottom: 36px;
 }
+.dash-header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.dash-new-trip-btn,
+.dash-profile-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 38px;
+  border-radius: 999px;
+  padding: 9px 14px;
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 580;
+  line-height: 1;
+  white-space: nowrap;
+}
+.dash-new-trip-btn {
+  background: #C14F2A;
+  color: #FBF7F1;
+}
+.dash-new-trip-btn:hover { background: #A03E1F; }
+.dash-profile-link {
+  background: #F4EDE2;
+  color: #1A1410;
+}
+.dash-profile-link:hover { background: #E8E1D6; }
 .dash-title {
   font-family: 'Fraunces', 'Iowan Old Style', 'Palatino', 'Georgia', serif;
   font-optical-sizing: auto;
@@ -750,6 +786,21 @@
   font-family: 'JetBrains Mono', ui-monospace, monospace;
   font-size: 12px;
 }
+.dash-onboard-action-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  width: fit-content;
+  margin-top: 10px;
+  color: #A03E1F;
+  text-decoration: none;
+  border-bottom: 1px solid #C14F2A;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 580;
+  line-height: 1.4;
+}
+.dash-onboard-action-link:hover { color: #C14F2A; }
 
 /* Compatibility note */
 .dash-onboard-compat {
@@ -824,6 +875,17 @@
 /* ============================================
    DESKTOP RESPONSIVE
    ============================================ */
+@media (max-width: 640px) {
+  .dash-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .dash-header-actions {
+    justify-content: flex-start;
+    width: 100%;
+  }
+}
+
 @media (min-width: 768px) {
   .dash-nav-inner { padding: 0 40px; height: 68px; }
   .dash-logo { font-size: 22px; }

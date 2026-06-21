@@ -1,0 +1,373 @@
+.trip-create-page {
+  min-height: 100dvh;
+  background: #FBF7F1;
+  color: #1A1410;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-feature-settings: 'cv11' on, 'ss01' on;
+  padding-bottom: 80px;
+}
+
+.trip-create-nav {
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  border-bottom: 1px solid #E8E1D6;
+  background: rgba(251, 247, 241, 0.86);
+  backdrop-filter: blur(14px) saturate(140%);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+.trip-create-logo {
+  color: #1A1410;
+  text-decoration: none;
+  font-family: 'Fraunces', 'Iowan Old Style', 'Palatino', 'Georgia', serif;
+  font-optical-sizing: auto;
+  font-size: 20px;
+  font-weight: 420;
+  letter-spacing: -0.012em;
+}
+
+.trip-create-logo .logo-to {
+  color: #C14F2A;
+  font-style: italic;
+  font-weight: 380;
+}
+
+.trip-create-logo .logo-suffix {
+  color: #6B6157;
+  font-style: italic;
+  font-weight: 380;
+}
+
+.trip-create-nav-link {
+  color: #3D352E;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 520;
+}
+
+.trip-create-nav-link:hover {
+  color: #1A1410;
+}
+
+.trip-create-header {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 72px 24px 36px;
+}
+
+.trip-create-eyebrow {
+  color: #C14F2A;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  line-height: 1;
+  text-transform: uppercase;
+  margin-bottom: 14px;
+}
+
+.trip-create-header h1 {
+  font-family: 'Fraunces', 'Iowan Old Style', 'Palatino', 'Georgia', serif;
+  font-optical-sizing: auto;
+  font-size: clamp(42px, 8vw, 72px);
+  line-height: 0.98;
+  font-weight: 360;
+  letter-spacing: -0.018em;
+  margin: 0 0 18px;
+}
+
+.trip-create-header p:not(.trip-create-eyebrow) {
+  max-width: 640px;
+  color: #3D352E;
+  font-size: 17px;
+  line-height: 1.65;
+}
+
+.trip-create-shell {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 0 24px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 24px;
+  align-items: start;
+}
+
+.trip-create-main,
+.trip-create-status {
+  background: #FFFFFF;
+  border: 1px solid #E8E1D6;
+  border-radius: 16px;
+  box-shadow: rgba(26, 20, 16, 0.04) 0 1px 0 0, rgba(26, 20, 16, 0.06) 0 4px 16px -4px;
+}
+
+.trip-create-main {
+  padding: 22px;
+}
+
+.trip-create-form {
+  display: grid;
+  gap: 18px;
+}
+
+.trip-create-section-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.trip-create-section-heading svg {
+  color: #C14F2A;
+  margin-top: 2px;
+}
+
+.trip-create-section-heading h2 {
+  font-size: 18px;
+  line-height: 1.3;
+  font-weight: 620;
+  letter-spacing: 0;
+  margin: 0 0 2px;
+}
+
+.trip-create-section-heading p {
+  color: #6B6157;
+  font-size: 13px;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.trip-create-notice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 18px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #F5E4DA;
+  color: #3D352E;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.trip-create-notice svg {
+  color: #9B4F2E;
+  flex: 0 0 auto;
+}
+
+.trip-create-notice a,
+.trip-create-error a {
+  color: #A03E1F;
+  text-decoration: none;
+  border-bottom: 1px solid #C14F2A;
+}
+
+.trip-create-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.trip-create-field {
+  display: grid;
+  gap: 8px;
+}
+
+.trip-create-field span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #1A1410;
+  font-size: 13px;
+  font-weight: 620;
+  line-height: 1.35;
+}
+
+.trip-create-field input,
+.trip-create-field select,
+.trip-create-field textarea {
+  width: 100%;
+  border: 1px solid #E8E1D6;
+  border-radius: 12px;
+  background: #FFFFFF;
+  color: #1A1410;
+  font: inherit;
+  font-size: 15px;
+  line-height: 1.45;
+  padding: 12px 14px;
+  outline: none;
+}
+
+.trip-create-field textarea {
+  resize: vertical;
+  min-height: 88px;
+}
+
+.trip-create-field input:focus,
+.trip-create-field select:focus,
+.trip-create-field textarea:focus {
+  border-color: #1A1410;
+  box-shadow: 0 0 0 3px rgba(26, 20, 16, 0.06);
+}
+
+.trip-create-field input::placeholder,
+.trip-create-field textarea::placeholder {
+  color: #9B9087;
+}
+
+.trip-create-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.trip-create-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  border: 0;
+  border-radius: 999px;
+  background: #C14F2A;
+  color: #FBF7F1;
+  padding: 13px 20px;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 14px;
+  font-weight: 580;
+  cursor: pointer;
+}
+
+.trip-create-primary:hover {
+  background: #A03E1F;
+}
+
+.trip-create-primary:disabled {
+  cursor: wait;
+  opacity: 0.72;
+}
+
+.trip-create-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #F5E4DA;
+  color: #3D352E;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.trip-create-error svg {
+  color: #9B4F2E;
+  flex: 0 0 auto;
+  margin-top: 2px;
+}
+
+.trip-create-error div {
+  display: grid;
+  gap: 6px;
+}
+
+.trip-create-error strong {
+  font-weight: 620;
+}
+
+.trip-create-status {
+  position: sticky;
+  top: 88px;
+  padding: 18px;
+}
+
+.trip-create-steps {
+  list-style: none;
+  display: grid;
+  gap: 10px;
+  margin: 18px 0;
+}
+
+.trip-create-step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #6B6157;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.trip-create-step span {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #F4EDE2;
+  color: #6B6157;
+}
+
+.trip-create-step.is-active {
+  color: #1A1410;
+}
+
+.trip-create-step.is-active span {
+  color: #C14F2A;
+}
+
+.trip-create-step.is-done {
+  color: #2F6B4A;
+}
+
+.trip-create-step.is-done span {
+  background: #E8F1EA;
+  color: #2F6B4A;
+}
+
+.trip-create-step.is-active span svg {
+  animation: trip-create-spin 1.1s linear infinite;
+}
+
+.trip-create-status-text {
+  color: #3D352E;
+  font-family: 'Fraunces', 'Iowan Old Style', 'Palatino', 'Georgia', serif;
+  font-optical-sizing: auto;
+  font-style: italic;
+  font-size: 16px;
+  line-height: 1.55;
+}
+
+@keyframes trip-create-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 860px) {
+  .trip-create-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .trip-create-status {
+    position: static;
+  }
+}
+
+@media (max-width: 640px) {
+  .trip-create-header {
+    padding: 48px 20px 28px;
+  }
+
+  .trip-create-shell {
+    padding: 0 20px;
+  }
+
+  .trip-create-main {
+    padding: 18px;
+  }
+
+  .trip-create-grid {
+    grid-template-columns: 1fr;
+  }
+}
