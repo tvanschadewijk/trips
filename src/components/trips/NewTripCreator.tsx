@@ -1,18 +1,29 @@
 'use client';
 
-import { useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   AlertCircle,
+  ArrowLeft,
   ArrowRight,
-  CalendarDays,
   Check,
   CircleDashed,
+  Clock3,
+  IdCard,
   MapPinned,
+  MessageCircle,
+  Minus,
   Sparkles,
+  UserPlus,
+  Users,
 } from 'lucide-react';
-import type { TravelProfilePreferences } from '@/lib/travel-profile';
+import {
+  createBlankTravelerProfile,
+  summarizeTravelerProfiles,
+  type TravelerProfile,
+  type TravelProfilePreferences,
+} from '@/lib/travel-profile';
 
 type Props = {
   initialPreferences: TravelProfilePreferences;
@@ -24,6 +35,7 @@ type FormState = {
   start_date: string;
   end_date: string;
   travelers: string;
+  traveler_profiles: TravelerProfile[];
   origin: string;
   must_do: string;
   known_bookings: string;
@@ -63,22 +75,121 @@ type ChatHistoryResponse = {
   thread_id?: string | null;
 };
 
+type BriefQuestion =
+  | 'destination'
+  | 'dates'
+  | 'travelers'
+  | 'origin'
+  | 'style'
+  | 'must_do'
+  | 'known_bookings'
+  | 'notes'
+  | 'review';
+
+type GenerationStep = 'idle' | 'draft' | 'agent' | 'poll' | 'done' | 'error';
+
 const POLL_INTERVAL_MS = 2400;
 const POLL_TIMEOUT_MS = 305_000;
+const questionOrder: BriefQuestion[] = [
+  'destination',
+  'dates',
+  'travelers',
+  'origin',
+  'style',
+  'must_do',
+  'known_bookings',
+  'notes',
+  'review',
+];
+
+const weekdayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-function addDaysIso(value: string, days: number): string {
+function parseIsoDate(value: string): Date {
   const [year, month, day] = value.split('-').map(Number);
-  const date = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
-  date.setUTCDate(date.getUTCDate() + days);
+  return new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
+}
+
+function formatIsoDate(date: Date): string {
   return date.toISOString().slice(0, 10);
+}
+
+function addDaysIso(value: string, days: number): string {
+  const date = parseIsoDate(value);
+  date.setUTCDate(date.getUTCDate() + days);
+  return formatIsoDate(date);
+}
+
+function addMonthsIso(value: string, months: number): string {
+  const date = parseIsoDate(value);
+  date.setUTCMonth(date.getUTCMonth() + months, 1);
+  return formatIsoDate(date);
+}
+
+function monthStartIso(value: string): string {
+  const date = parseIsoDate(value);
+  date.setUTCDate(1);
+  return formatIsoDate(date);
+}
+
+function compareIsoDates(a: string, b: string): number {
+  return a.localeCompare(b);
+}
+
+function inclusiveDayCount(startDate: string, endDate: string): number {
+  const start = parseIsoDate(startDate).getTime();
+  const end = parseIsoDate(endDate).getTime();
+  return Math.round((end - start) / 86_400_000) + 1;
 }
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function formatDisplayDate(value: string): string {
+  return parseIsoDate(value).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    timeZone: 'UTC',
+  });
+}
+
+function formatMonth(value: string): string {
+  return parseIsoDate(value).toLocaleDateString('en-US', {
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'UTC',
+  });
+}
+
+function formatElapsed(totalSeconds: number): string {
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  if (minutes === 0) return `${seconds}s`;
+  return `${minutes}m ${seconds.toString().padStart(2, '0')}s`;
+}
+
+function clampEndAfterStart(startDate: string, endDate: string): string {
+  if (compareIsoDates(startDate, endDate) < 0) return endDate;
+  return addDaysIso(startDate, 5);
+}
+
+function travelerSummary(profiles: TravelerProfile[]): string {
+  return summarizeTravelerProfiles(profiles) || 'No travelers selected';
+}
+
+function generationEstimate(dayCount: number, elapsedSeconds: number): string {
+  const expectedSeconds = dayCount > 14 ? 300 : 210;
+  const remainingSeconds = Math.max(0, expectedSeconds - elapsedSeconds);
+  if (remainingSeconds === 0) {
+    return 'This is taking longer than the usual window, but it can still finish normally.';
+  }
+  const remainingMinutes = Math.max(1, Math.ceil(remainingSeconds / 60));
+  return `Trips this size usually take ${dayCount > 14 ? '4-6' : '3-5'} minutes. Roughly ${remainingMinutes} minute${remainingMinutes === 1 ? '' : 's'} may remain.`;
 }
 
 async function updateGeneration(
@@ -122,11 +233,16 @@ export default function NewTripCreator({ initialPreferences, profileComplete }: 
   const router = useRouter();
   const defaultStart = useMemo(() => addDaysIso(todayIso(), 60), []);
   const defaultEnd = useMemo(() => addDaysIso(defaultStart, 5), [defaultStart]);
+  const initialTravelers = useMemo(
+    () => initialPreferences.traveler_profiles.filter((profile) => profile.full_name.trim()),
+    [initialPreferences.traveler_profiles]
+  );
   const [form, setForm] = useState<FormState>({
     destination: '',
     start_date: defaultStart,
     end_date: defaultEnd,
-    travelers: initialPreferences.travelers,
+    travelers: summarizeTravelerProfiles(initialTravelers),
+    traveler_profiles: initialTravelers,
     origin: initialPreferences.home_base,
     must_do: '',
     known_bookings: '',
@@ -134,32 +250,87 @@ export default function NewTripCreator({ initialPreferences, profileComplete }: 
     pace: 'from_profile',
     notes: '',
   });
+  const [activeQuestion, setActiveQuestion] = useState<BriefQuestion>('destination');
+  const [completedQuestions, setCompletedQuestions] = useState<BriefQuestion[]>([]);
   const [busy, setBusy] = useState(false);
-  const [step, setStep] = useState<'idle' | 'draft' | 'agent' | 'poll' | 'done' | 'error'>('idle');
+  const [generationStep, setGenerationStep] = useState<GenerationStep>('idle');
   const [statusText, setStatusText] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [draftUrl, setDraftUrl] = useState<string | null>(null);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+
+  const currentQuestionIndex = questionOrder.indexOf(activeQuestion);
+  const dayCount = inclusiveDayCount(form.start_date, form.end_date);
+  const working = generationStep !== 'idle' && generationStep !== 'error';
+
+  useEffect(() => {
+    if (!busy) return;
+    setElapsedSeconds(0);
+    const timer = window.setInterval(() => {
+      setElapsedSeconds((current) => current + 1);
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [busy]);
 
   function setField<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((current) => ({ ...current, [key]: value }));
   }
 
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  function setTravelerProfiles(profiles: TravelerProfile[]) {
+    const namedProfiles = profiles;
+    setForm((current) => ({
+      ...current,
+      traveler_profiles: namedProfiles,
+      travelers: summarizeTravelerProfiles(namedProfiles),
+    }));
+  }
+
+  function completeQuestion(question: BriefQuestion, next: BriefQuestion) {
+    setCompletedQuestions((current) => (
+      current.includes(question) ? current : [...current, question]
+    ));
+    setActiveQuestion(next);
+  }
+
+  function goBack() {
+    const index = questionOrder.indexOf(activeQuestion);
+    if (index <= 0 || busy) return;
+    setActiveQuestion(questionOrder[index - 1]);
+  }
+
+  function isVisible(question: BriefQuestion) {
+    const index = questionOrder.indexOf(question);
+    return index <= currentQuestionIndex || completedQuestions.includes(question);
+  }
+
+  function isComplete(question: BriefQuestion) {
+    return completedQuestions.includes(question);
+  }
+
+  async function createTrip() {
     if (busy) return;
+
+    const travelers = summarizeTravelerProfiles(form.traveler_profiles);
+    const payload = {
+      ...form,
+      travelers,
+      traveler_profiles: form.traveler_profiles.filter((profile) => profile.full_name.trim()),
+      end_date: clampEndAfterStart(form.start_date, form.end_date),
+    };
 
     let draft: DraftResponse | null = null;
     setBusy(true);
     setError(null);
     setDraftUrl(null);
+    setElapsedSeconds(0);
 
     try {
-      setStep('draft');
-      setStatusText('Creating the trip workspace...');
+      setGenerationStep('draft');
+      setStatusText('Creating the trip workspace and saving your brief...');
       const draftRes = await fetch('/api/trips/create-draft', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload),
       });
       const draftBody = await draftRes.json().catch(() => ({}));
       if (!draftRes.ok) {
@@ -168,8 +339,8 @@ export default function NewTripCreator({ initialPreferences, profileComplete }: 
       draft = draftBody as DraftResponse;
       setDraftUrl(`/t/${draft.share_id}`);
 
-      setStep('agent');
-      setStatusText('Asking the travel agent to build the itinerary...');
+      setGenerationStep('agent');
+      setStatusText('Starting the travel agent with the destination, dates, travelers, and profile context...');
       const chatRes = await fetch(`/api/trips/${draft.trip_id}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -200,13 +371,13 @@ export default function NewTripCreator({ initialPreferences, profileComplete }: 
       });
 
       if (turn.status === 'queued') {
-        setStep('poll');
-        setStatusText('Building days, meals, stays, and practical notes...');
+        setGenerationStep('poll');
+        setStatusText('The agent is replacing placeholder days with a complete itinerary, then checking quality and logistics...');
         await pollForAssistant(draft.trip_id, threadId, turn.turn_index);
       }
 
-      setStep('done');
-      setStatusText('Opening your trip...');
+      setGenerationStep('done');
+      setStatusText('Opening your completed first draft...');
       await updateGeneration(draft.generation_session_id, {
         status: 'completed',
         chat_thread_id: threadId,
@@ -214,7 +385,7 @@ export default function NewTripCreator({ initialPreferences, profileComplete }: 
       });
       router.replace(`/t/${draft.share_id}`);
     } catch (err) {
-      setStep('error');
+      setGenerationStep('error');
       const message = err instanceof Error ? err.message : 'Failed to create trip';
       setError(message);
       if (draft) {
@@ -228,11 +399,9 @@ export default function NewTripCreator({ initialPreferences, profileComplete }: 
     }
   }
 
-  const working = step !== 'idle' && step !== 'error';
-
   return (
     <div className="trip-create-shell">
-      <section className="trip-create-main">
+      <section className="trip-create-main trip-agent-panel">
         {!profileComplete && (
           <div className="trip-create-notice">
             <AlertCircle size={16} aria-hidden="true" />
@@ -241,155 +410,714 @@ export default function NewTripCreator({ initialPreferences, profileComplete }: 
           </div>
         )}
 
-        <form className="trip-create-form" onSubmit={submit}>
+        <div className="trip-agent-header">
           <div className="trip-create-section-heading">
-            <MapPinned size={18} aria-hidden="true" />
+            <MessageCircle size={18} aria-hidden="true" />
             <div>
-              <h2>Trip brief</h2>
-              <p>The first draft is built from these details.</p>
+              <h2>Travel agent</h2>
+              <p>The trip starts here, one answer at a time.</p>
             </div>
           </div>
+          <button
+            className="trip-agent-back"
+            type="button"
+            disabled={activeQuestion === 'destination' || busy}
+            onClick={goBack}
+            aria-label="Go back to the previous question"
+          >
+            <ArrowLeft size={16} aria-hidden="true" />
+          </button>
+        </div>
 
-          <label className="trip-create-field">
-            <span>Destination</span>
-            <input
+        <div className="trip-agent-chat" data-trip-agent-chat>
+          <AgentBubble>
+            I will gather the brief in the same place the trip gets built. Once the basics are clear, I will start the travel agent and keep you posted while it works.
+          </AgentBubble>
+
+          <QuestionBlock
+            visible={isVisible('destination')}
+            complete={isComplete('destination')}
+            active={activeQuestion === 'destination'}
+            question="Where are we going?"
+            answer={form.destination || 'Destination not set'}
+          >
+            <TextAnswerControl
               value={form.destination}
-              onChange={(event) => setField('destination', event.target.value)}
               placeholder="Japan, Sicily, Patagonia"
-              required
+              buttonLabel="Set destination"
+              disabled={busy}
+              requiredLength={2}
+              onChange={(value) => setField('destination', value)}
+              onSubmit={() => completeQuestion('destination', 'dates')}
             />
-          </label>
+          </QuestionBlock>
 
-          <div className="trip-create-grid">
-            <label className="trip-create-field">
-              <span><CalendarDays size={14} aria-hidden="true" /> Start</span>
-              <input
-                type="date"
-                value={form.start_date}
-                onChange={(event) => setField('start_date', event.target.value)}
-                required
-              />
-            </label>
-            <label className="trip-create-field">
-              <span><CalendarDays size={14} aria-hidden="true" /> End</span>
-              <input
-                type="date"
-                value={form.end_date}
-                onChange={(event) => setField('end_date', event.target.value)}
-                required
-              />
-            </label>
-          </div>
+          <QuestionBlock
+            visible={isVisible('dates')}
+            complete={isComplete('dates')}
+            active={activeQuestion === 'dates'}
+            question="When should the trip start and end?"
+            answer={`${formatDisplayDate(form.start_date)} to ${formatDisplayDate(form.end_date)} (${dayCount} days)`}
+          >
+            <DateRangePicker
+              startDate={form.start_date}
+              endDate={form.end_date}
+              minDate={todayIso()}
+              disabled={busy}
+              onChange={(startDate, endDate) => {
+                setForm((current) => ({
+                  ...current,
+                  start_date: startDate,
+                  end_date: clampEndAfterStart(startDate, endDate),
+                }));
+              }}
+              onSubmit={() => completeQuestion('dates', 'travelers')}
+            />
+          </QuestionBlock>
 
-          <div className="trip-create-grid">
-            <label className="trip-create-field">
-              <span>Travelers</span>
-              <input
-                value={form.travelers}
-                onChange={(event) => setField('travelers', event.target.value)}
-                placeholder="Alex, Thijs"
-              />
-            </label>
-            <label className="trip-create-field">
-              <span>Origin</span>
-              <input
-                value={form.origin}
-                onChange={(event) => setField('origin', event.target.value)}
-                placeholder="Amsterdam"
-              />
-            </label>
-          </div>
+          <QuestionBlock
+            visible={isVisible('travelers')}
+            complete={isComplete('travelers')}
+            active={activeQuestion === 'travelers'}
+            question="Who is traveling?"
+            answer={travelerSummary(form.traveler_profiles)}
+          >
+            <TravelerAnswerControl
+              profiles={form.traveler_profiles}
+              disabled={busy}
+              onChange={setTravelerProfiles}
+              onSubmit={() => completeQuestion('travelers', 'origin')}
+            />
+          </QuestionBlock>
 
-          <div className="trip-create-grid">
-            <label className="trip-create-field">
-              <span>Budget</span>
-              <input
-                value={form.budget}
-                onChange={(event) => setField('budget', event.target.value)}
-                placeholder="Mid-range, with one splurge hotel"
-              />
-            </label>
-            <label className="trip-create-field">
-              <span>Pace</span>
-              <select
-                value={form.pace}
-                onChange={(event) => setField('pace', event.target.value as FormState['pace'])}
-              >
-                <option value="from_profile">Use profile</option>
-                <option value="relaxed">Relaxed</option>
-                <option value="balanced">Balanced</option>
-                <option value="full">Full</option>
-              </select>
-            </label>
-          </div>
+          <QuestionBlock
+            visible={isVisible('origin')}
+            complete={isComplete('origin')}
+            active={activeQuestion === 'origin'}
+            question="Where should the trip start from?"
+            answer={form.origin || 'No origin specified'}
+          >
+            <TextAnswerControl
+              value={form.origin}
+              placeholder="Amsterdam"
+              buttonLabel="Set origin"
+              skipLabel="Skip origin"
+              disabled={busy}
+              onChange={(value) => setField('origin', value)}
+              onSubmit={() => completeQuestion('origin', 'style')}
+              onSkip={() => completeQuestion('origin', 'style')}
+            />
+          </QuestionBlock>
 
-          <label className="trip-create-field">
-            <span>Must-do or must-see</span>
-            <textarea
+          <QuestionBlock
+            visible={isVisible('style')}
+            complete={isComplete('style')}
+            active={activeQuestion === 'style'}
+            question="What budget and pace should I assume?"
+            answer={`${form.budget || 'Use profile budget'} / ${form.pace.replace(/_/g, ' ')}`}
+          >
+            <StyleAnswerControl
+              budget={form.budget}
+              pace={form.pace}
+              disabled={busy}
+              onBudgetChange={(value) => setField('budget', value)}
+              onPaceChange={(value) => setField('pace', value)}
+              onSubmit={() => completeQuestion('style', 'must_do')}
+            />
+          </QuestionBlock>
+
+          <QuestionBlock
+            visible={isVisible('must_do')}
+            complete={isComplete('must_do')}
+            active={activeQuestion === 'must_do'}
+            question="Any must-do or must-see items?"
+            answer={form.must_do || 'No must-dos added'}
+          >
+            <TextAreaAnswerControl
               value={form.must_do}
-              onChange={(event) => setField('must_do', event.target.value)}
-              rows={3}
               placeholder="A ryokan night, Naoshima, no more than one temple-heavy day"
+              buttonLabel="Save must-dos"
+              skipLabel="No must-dos"
+              disabled={busy}
+              onChange={(value) => setField('must_do', value)}
+              onSubmit={() => completeQuestion('must_do', 'known_bookings')}
+              onSkip={() => completeQuestion('must_do', 'known_bookings')}
             />
-          </label>
+          </QuestionBlock>
 
-          <label className="trip-create-field">
-            <span>Known bookings</span>
-            <textarea
+          <QuestionBlock
+            visible={isVisible('known_bookings')}
+            complete={isComplete('known_bookings')}
+            active={activeQuestion === 'known_bookings'}
+            question="Is anything already booked?"
+            answer={form.known_bookings || 'No bookings added'}
+          >
+            <TextAreaAnswerControl
               value={form.known_bookings}
-              onChange={(event) => setField('known_bookings', event.target.value)}
-              rows={3}
               placeholder="Flights, hotels, dinner reservations, tickets"
+              buttonLabel="Save bookings"
+              skipLabel="Nothing booked yet"
+              disabled={busy}
+              onChange={(value) => setField('known_bookings', value)}
+              onSubmit={() => completeQuestion('known_bookings', 'notes')}
+              onSkip={() => completeQuestion('known_bookings', 'notes')}
             />
-          </label>
+          </QuestionBlock>
 
-          <label className="trip-create-field">
-            <span>Notes</span>
-            <textarea
+          <QuestionBlock
+            visible={isVisible('notes')}
+            complete={isComplete('notes')}
+            active={activeQuestion === 'notes'}
+            question="Anything else I should know before I build it?"
+            answer={form.notes || 'No extra notes'}
+          >
+            <TextAreaAnswerControl
               value={form.notes}
-              onChange={(event) => setField('notes', event.target.value)}
-              rows={4}
               placeholder="Season, weather tolerance, routing ideas, things to avoid"
+              buttonLabel="Save notes"
+              skipLabel="No extra notes"
+              disabled={busy}
+              onChange={(value) => setField('notes', value)}
+              onSubmit={() => completeQuestion('notes', 'review')}
+              onSkip={() => completeQuestion('notes', 'review')}
             />
-          </label>
+          </QuestionBlock>
 
-          {error && (
-            <div className="trip-create-error">
-              <AlertCircle size={16} aria-hidden="true" />
-              <div>
-                <strong>{error}</strong>
-                {draftUrl && <Link href={draftUrl}>Open draft trip</Link>}
-              </div>
+          {isVisible('review') && (
+            <div className="trip-agent-turn">
+              <AgentBubble>
+                I have enough to create the workspace and ask the travel agent for the first complete draft. Generation can take a few minutes, so I will keep the progress panel moving while it works.
+              </AgentBubble>
+              <ReviewBrief
+                form={form}
+                dayCount={dayCount}
+                busy={busy}
+                error={error}
+                draftUrl={draftUrl}
+                onCreate={createTrip}
+              />
             </div>
           )}
-
-          <div className="trip-create-actions">
-            <button className="trip-create-primary" type="submit" disabled={busy}>
-              {busy ? 'Creating...' : 'Create trip'}
-              <ArrowRight size={16} aria-hidden="true" />
-            </button>
-          </div>
-        </form>
+        </div>
       </section>
 
-      <aside className="trip-create-status">
+      <aside className="trip-create-status trip-agent-status">
         <div className="trip-create-section-heading">
           <Sparkles size={18} aria-hidden="true" />
           <div>
-            <h2>Generation</h2>
-            <p>Saved directly into OurTrips.</p>
+            <h2>Progress</h2>
+            <p>{busy ? `Working for ${formatElapsed(elapsedSeconds)}` : 'Agent-led setup'}</p>
           </div>
         </div>
+
         <ol className="trip-create-steps">
-          <StatusStep active={working && step === 'draft'} done={['agent', 'poll', 'done'].includes(step)} label="Create workspace" />
-          <StatusStep active={step === 'agent'} done={['poll', 'done'].includes(step)} label="Start travel agent" />
-          <StatusStep active={step === 'poll'} done={step === 'done'} label="Build itinerary" />
-          <StatusStep active={step === 'done'} done={step === 'done'} label="Open trip" />
+          <StatusStep active={!busy && activeQuestion !== 'review'} done={activeQuestion === 'review' || busy} label="Gather brief" />
+          <StatusStep active={working && generationStep === 'draft'} done={['agent', 'poll', 'done'].includes(generationStep)} label="Create workspace" />
+          <StatusStep active={generationStep === 'agent'} done={['poll', 'done'].includes(generationStep)} label="Start travel agent" />
+          <StatusStep active={generationStep === 'poll'} done={generationStep === 'done'} label="Build and check draft" />
+          <StatusStep active={generationStep === 'done'} done={generationStep === 'done'} label="Open trip" />
         </ol>
-        <p className="trip-create-status-text">
-          {statusText || 'Your first version will open as soon as the itinerary is saved.'}
-        </p>
+
+        <div className="trip-generation-now">
+          <Clock3 size={16} aria-hidden="true" />
+          <div>
+            <strong>{statusText || 'I am asking for the details needed to create the trip.'}</strong>
+            <p>
+              {busy
+                ? generationEstimate(dayCount, elapsedSeconds)
+                : 'Once generation starts, this panel will show what the agent is doing and how long it may still take.'}
+            </p>
+          </div>
+        </div>
+
+        <BriefSnapshot form={form} dayCount={dayCount} />
       </aside>
+    </div>
+  );
+}
+
+function AgentBubble({ children }: { children: ReactNode }) {
+  return (
+    <div className="trip-agent-bubble trip-agent-bubble-assistant">
+      <span className="trip-agent-avatar">
+        <Sparkles size={15} aria-hidden="true" />
+      </span>
+      <div>{children}</div>
+    </div>
+  );
+}
+
+function UserChoiceBubble({ children }: { children: ReactNode }) {
+  return (
+    <div className="trip-agent-bubble trip-agent-bubble-user">
+      <div>{children}</div>
+    </div>
+  );
+}
+
+function QuestionBlock({
+  visible,
+  complete,
+  active,
+  question,
+  answer,
+  children,
+}: {
+  visible: boolean;
+  complete: boolean;
+  active: boolean;
+  question: string;
+  answer: string;
+  children: ReactNode;
+}) {
+  if (!visible) return null;
+
+  return (
+    <div className={`trip-agent-turn ${active ? 'is-active' : ''}`}>
+      <AgentBubble>{question}</AgentBubble>
+      {complete ? <UserChoiceBubble>{answer}</UserChoiceBubble> : children}
+    </div>
+  );
+}
+
+function TextAnswerControl({
+  value,
+  placeholder,
+  buttonLabel,
+  skipLabel,
+  requiredLength = 0,
+  disabled,
+  onChange,
+  onSubmit,
+  onSkip,
+}: {
+  value: string;
+  placeholder: string;
+  buttonLabel: string;
+  skipLabel?: string;
+  requiredLength?: number;
+  disabled: boolean;
+  onChange: (value: string) => void;
+  onSubmit: () => void;
+  onSkip?: () => void;
+}) {
+  const canSubmit = value.trim().length >= requiredLength;
+  return (
+    <div className="trip-agent-control">
+      <input
+        value={value}
+        placeholder={placeholder}
+        disabled={disabled}
+        onChange={(event) => onChange(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' && canSubmit && !disabled) onSubmit();
+        }}
+      />
+      <div className="trip-agent-control-actions">
+        {onSkip && (
+          <button className="trip-agent-secondary" type="button" disabled={disabled} onClick={onSkip}>
+            {skipLabel ?? 'Skip'}
+          </button>
+        )}
+        <button className="trip-create-primary" type="button" disabled={disabled || !canSubmit} onClick={onSubmit}>
+          {buttonLabel}
+          <ArrowRight size={16} aria-hidden="true" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function TextAreaAnswerControl({
+  value,
+  placeholder,
+  buttonLabel,
+  skipLabel,
+  disabled,
+  onChange,
+  onSubmit,
+  onSkip,
+}: {
+  value: string;
+  placeholder: string;
+  buttonLabel: string;
+  skipLabel: string;
+  disabled: boolean;
+  onChange: (value: string) => void;
+  onSubmit: () => void;
+  onSkip: () => void;
+}) {
+  return (
+    <div className="trip-agent-control">
+      <textarea
+        value={value}
+        placeholder={placeholder}
+        rows={4}
+        disabled={disabled}
+        onChange={(event) => onChange(event.target.value)}
+      />
+      <div className="trip-agent-control-actions">
+        <button className="trip-agent-secondary" type="button" disabled={disabled} onClick={onSkip}>
+          {skipLabel}
+        </button>
+        <button className="trip-create-primary" type="button" disabled={disabled} onClick={onSubmit}>
+          {buttonLabel}
+          <ArrowRight size={16} aria-hidden="true" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function StyleAnswerControl({
+  budget,
+  pace,
+  disabled,
+  onBudgetChange,
+  onPaceChange,
+  onSubmit,
+}: {
+  budget: string;
+  pace: FormState['pace'];
+  disabled: boolean;
+  onBudgetChange: (value: string) => void;
+  onPaceChange: (value: FormState['pace']) => void;
+  onSubmit: () => void;
+}) {
+  const paceOptions: Array<{ value: FormState['pace']; label: string }> = [
+    { value: 'from_profile', label: 'Use profile' },
+    { value: 'relaxed', label: 'Relaxed' },
+    { value: 'balanced', label: 'Balanced' },
+    { value: 'full', label: 'Full' },
+  ];
+
+  return (
+    <div className="trip-agent-control">
+      <input
+        value={budget}
+        placeholder="Mid-range, with one splurge hotel"
+        disabled={disabled}
+        onChange={(event) => onBudgetChange(event.target.value)}
+      />
+      <div className="trip-agent-segmented" role="radiogroup" aria-label="Trip pace">
+        {paceOptions.map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            role="radio"
+            aria-checked={pace === option.value}
+            className={pace === option.value ? 'is-selected' : ''}
+            disabled={disabled}
+            onClick={() => onPaceChange(option.value)}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+      <div className="trip-agent-control-actions">
+        <button className="trip-create-primary" type="button" disabled={disabled} onClick={onSubmit}>
+          Continue
+          <ArrowRight size={16} aria-hidden="true" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function TravelerAnswerControl({
+  profiles,
+  disabled,
+  onChange,
+  onSubmit,
+}: {
+  profiles: TravelerProfile[];
+  disabled: boolean;
+  onChange: (profiles: TravelerProfile[]) => void;
+  onSubmit: () => void;
+}) {
+  function addTraveler() {
+    onChange([...profiles, createBlankTravelerProfile()]);
+  }
+
+  function updateTraveler(index: number, patch: Partial<TravelerProfile>) {
+    onChange(profiles.map((profile, profileIndex) => (
+      profileIndex === index ? { ...profile, ...patch } : profile
+    )));
+  }
+
+  function removeTraveler(index: number) {
+    onChange(profiles.filter((_, profileIndex) => profileIndex !== index));
+  }
+
+  return (
+    <div className="trip-agent-control trip-agent-travelers">
+      {profiles.length > 0 && (
+        <div className="trip-agent-traveler-list">
+          {profiles.map((profile, index) => (
+            <article className="trip-agent-traveler" key={profile.id || index}>
+              <div className="trip-agent-traveler-fields">
+                <label>
+                  <span>Traveler {index + 1}</span>
+                  <input
+                    value={profile.full_name}
+                    placeholder="Full name"
+                    disabled={disabled}
+                    onChange={(event) => updateTraveler(index, { full_name: event.target.value })}
+                  />
+                </label>
+                <label>
+                  <span>Date of birth</span>
+                  <input
+                    type="date"
+                    value={profile.date_of_birth}
+                    disabled={disabled}
+                    onChange={(event) => updateTraveler(index, { date_of_birth: event.target.value })}
+                  />
+                </label>
+              </div>
+              <div className="trip-agent-traveler-meta">
+                {profile.passport_country || profile.passport_expiry || profile.passport_number ? (
+                  <span><IdCard size={13} aria-hidden="true" /> Passport details on profile</span>
+                ) : (
+                  <span><Users size={13} aria-hidden="true" /> Trip traveler</span>
+                )}
+                <button
+                  type="button"
+                  disabled={disabled}
+                  aria-label={`Remove ${profile.full_name || `traveler ${index + 1}`}`}
+                  onClick={() => removeTraveler(index)}
+                >
+                  <Minus size={14} aria-hidden="true" />
+                </button>
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
+
+      <div className="trip-agent-control-actions">
+        <button className="trip-agent-secondary" type="button" disabled={disabled} onClick={addTraveler}>
+          <UserPlus size={15} aria-hidden="true" />
+          Add traveler
+        </button>
+        <button className="trip-create-primary" type="button" disabled={disabled} onClick={onSubmit}>
+          Continue
+          <ArrowRight size={16} aria-hidden="true" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function DateRangePicker({
+  startDate,
+  endDate,
+  minDate,
+  disabled,
+  onChange,
+  onSubmit,
+}: {
+  startDate: string;
+  endDate: string;
+  minDate: string;
+  disabled: boolean;
+  onChange: (startDate: string, endDate: string) => void;
+  onSubmit: () => void;
+}) {
+  const [activeField, setActiveField] = useState<'start' | 'end'>('start');
+  const [displayMonth, setDisplayMonth] = useState(monthStartIso(startDate));
+
+  useEffect(() => {
+    setDisplayMonth(monthStartIso(startDate));
+  }, [startDate]);
+
+  const cells = useMemo(() => {
+    const monthDate = parseIsoDate(displayMonth);
+    const firstDay = new Date(Date.UTC(monthDate.getUTCFullYear(), monthDate.getUTCMonth(), 1, 12, 0, 0));
+    const mondayOffset = (firstDay.getUTCDay() + 6) % 7;
+    const gridStart = new Date(firstDay);
+    gridStart.setUTCDate(firstDay.getUTCDate() - mondayOffset);
+
+    return Array.from({ length: 42 }, (_, index) => {
+      const date = new Date(gridStart);
+      date.setUTCDate(gridStart.getUTCDate() + index);
+      const iso = formatIsoDate(date);
+      const isCurrentMonth = date.getUTCMonth() === monthDate.getUTCMonth();
+      const disabledByField = activeField === 'start'
+        ? compareIsoDates(iso, minDate) < 0
+        : compareIsoDates(iso, addDaysIso(startDate, 1)) < 0;
+      return {
+        iso,
+        day: date.getUTCDate(),
+        isCurrentMonth,
+        disabled: disabledByField,
+        isStart: iso === startDate,
+        isEnd: iso === endDate,
+        isInRange: compareIsoDates(startDate, iso) < 0 && compareIsoDates(iso, endDate) < 0,
+      };
+    });
+  }, [activeField, displayMonth, endDate, minDate, startDate]);
+
+  function selectDate(iso: string, isDisabled: boolean) {
+    if (disabled || isDisabled) return;
+    if (activeField === 'start') {
+      onChange(iso, clampEndAfterStart(iso, endDate));
+      setActiveField('end');
+      setDisplayMonth(monthStartIso(iso));
+      return;
+    }
+    if (compareIsoDates(startDate, iso) < 0) {
+      onChange(startDate, iso);
+    }
+  }
+
+  return (
+    <div className="trip-agent-control trip-date-range">
+      <div className="trip-date-linked-fields" aria-label="Trip date range">
+        <button
+          type="button"
+          className={activeField === 'start' ? 'is-active' : ''}
+          disabled={disabled}
+          onClick={() => {
+            setActiveField('start');
+            setDisplayMonth(monthStartIso(startDate));
+          }}
+        >
+          <span>Start</span>
+          <strong>{formatDisplayDate(startDate)}</strong>
+        </button>
+        <span className="trip-date-link-line" aria-hidden="true" />
+        <button
+          type="button"
+          className={activeField === 'end' ? 'is-active' : ''}
+          disabled={disabled}
+          onClick={() => {
+            setActiveField('end');
+            setDisplayMonth(monthStartIso(startDate));
+          }}
+        >
+          <span>End</span>
+          <strong>{formatDisplayDate(endDate)}</strong>
+        </button>
+      </div>
+
+      <div className="trip-date-calendar">
+        <div className="trip-date-calendar-header">
+          <button
+            type="button"
+            disabled={disabled || compareIsoDates(addMonthsIso(displayMonth, -1), monthStartIso(minDate)) < 0}
+            onClick={() => setDisplayMonth((current) => addMonthsIso(current, -1))}
+            aria-label="Previous month"
+          >
+            <ArrowLeft size={15} aria-hidden="true" />
+          </button>
+          <strong>{formatMonth(displayMonth)}</strong>
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={() => setDisplayMonth((current) => addMonthsIso(current, 1))}
+            aria-label="Next month"
+          >
+            <ArrowRight size={15} aria-hidden="true" />
+          </button>
+        </div>
+        <div className="trip-date-weekdays">
+          {weekdayLabels.map((label) => <span key={label}>{label}</span>)}
+        </div>
+        <div className="trip-date-grid">
+          {cells.map((cell) => (
+            <button
+              key={cell.iso}
+              type="button"
+              disabled={disabled || cell.disabled}
+              className={[
+                cell.isCurrentMonth ? '' : 'is-muted',
+                cell.isStart ? 'is-start' : '',
+                cell.isEnd ? 'is-end' : '',
+                cell.isInRange ? 'is-range' : '',
+              ].filter(Boolean).join(' ')}
+              onClick={() => selectDate(cell.iso, cell.disabled)}
+            >
+              {cell.day}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="trip-agent-control-actions">
+        <span className="trip-date-helper">
+          End stays linked to the start month and must be after start.
+        </span>
+        <button className="trip-create-primary" type="button" disabled={disabled} onClick={onSubmit}>
+          Use these dates
+          <ArrowRight size={16} aria-hidden="true" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ReviewBrief({
+  form,
+  dayCount,
+  busy,
+  error,
+  draftUrl,
+  onCreate,
+}: {
+  form: FormState;
+  dayCount: number;
+  busy: boolean;
+  error: string | null;
+  draftUrl: string | null;
+  onCreate: () => void;
+}) {
+  return (
+    <div className="trip-agent-review">
+      <BriefSnapshot form={form} dayCount={dayCount} />
+      {error && (
+        <div className="trip-create-error">
+          <AlertCircle size={16} aria-hidden="true" />
+          <div>
+            <strong>{error}</strong>
+            {draftUrl && <Link href={draftUrl}>Open draft trip</Link>}
+          </div>
+        </div>
+      )}
+      <div className="trip-agent-control-actions">
+        <button className="trip-create-primary" type="button" disabled={busy || !form.destination.trim()} onClick={onCreate}>
+          {busy ? 'Creating trip...' : 'Create trip'}
+          <Sparkles size={16} aria-hidden="true" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function BriefSnapshot({ form, dayCount }: { form: FormState; dayCount: number }) {
+  const items = [
+    ['Destination', form.destination || 'Not set'],
+    ['Dates', `${formatDisplayDate(form.start_date)} to ${formatDisplayDate(form.end_date)}`],
+    ['Length', `${dayCount} days`],
+    ['Travelers', travelerSummary(form.traveler_profiles)],
+    ['Origin', form.origin || 'Not specified'],
+    ['Style', `${form.budget || 'Profile budget'} / ${form.pace.replace(/_/g, ' ')}`],
+  ];
+
+  return (
+    <div className="trip-brief-snapshot">
+      <div className="trip-brief-snapshot-title">
+        <MapPinned size={15} aria-hidden="true" />
+        <strong>Gathered brief</strong>
+      </div>
+      <dl>
+        {items.map(([label, value]) => (
+          <div key={label}>
+            <dt>{label}</dt>
+            <dd>{value}</dd>
+          </div>
+        ))}
+      </dl>
     </div>
   );
 }

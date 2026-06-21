@@ -1,7 +1,13 @@
 import { z } from 'zod';
 import { ISO_DATE_RE, isIsoDateString } from './trip-logistics';
 import type { SaveTripInput } from './trip-service';
-import { compactTravelProfileForPrompt, type TravelProfileRecord } from './travel-profile';
+import {
+  TravelerProfileSchema,
+  compactTravelProfileForPrompt,
+  legacyTravelersToProfiles,
+  type TravelerProfile,
+  type TravelProfileRecord,
+} from './travel-profile';
 
 const IsoDateSchema = z
   .string()
@@ -16,6 +22,7 @@ export const TripCreationBriefSchema = z
     start_date: IsoDateSchema,
     end_date: IsoDateSchema,
     travelers: BriefTextField,
+    traveler_profiles: z.array(TravelerProfileSchema).max(24).default([]),
     origin: BriefTextField,
     must_do: BriefTextField,
     known_bookings: BriefTextField,
@@ -24,8 +31,8 @@ export const TripCreationBriefSchema = z
     notes: BriefTextField,
   })
   .strict()
-  .refine((brief) => compareIsoDates(brief.start_date, brief.end_date) <= 0, {
-    message: 'End date must be on or after start date.',
+  .refine((brief) => compareIsoDates(brief.start_date, brief.end_date) < 0, {
+    message: 'End date must be after start date.',
     path: ['end_date'],
   });
 
@@ -78,6 +85,19 @@ function splitTravelers(value: string): string[] {
     .filter(Boolean);
 }
 
+function getBriefTravelerProfiles(brief: TripCreationBrief): TravelerProfile[] {
+  const structured = brief.traveler_profiles.filter((profile) => profile.full_name.trim());
+  if (structured.length) return structured;
+  return legacyTravelersToProfiles(brief.travelers);
+}
+
+function getBriefTravelerNames(brief: TripCreationBrief): string[] {
+  const names = getBriefTravelerProfiles(brief)
+    .map((profile) => profile.full_name.trim())
+    .filter(Boolean);
+  return names.length ? names : splitTravelers(brief.travelers);
+}
+
 function starterDayTitle(destination: string, dayNumber: number, dayCount: number): string {
   if (dayNumber === 1) return `${destination} arrival`;
   if (dayNumber === dayCount) return `${destination} departure`;
@@ -91,7 +111,7 @@ export function buildStarterTripInput(
   assertBriefDateRange(brief);
   const dayCount = inclusiveDayCount(brief.start_date, brief.end_date);
   const nights = Math.max(0, dayCount - 1);
-  const travelers = splitTravelers(brief.travelers);
+  const travelers = getBriefTravelerNames(brief);
 
   return {
     trip_schema_version: 2,
@@ -157,6 +177,37 @@ function briefLine(label: string, value: string): string | null {
   return value.trim() ? `- ${label}: ${value.trim()}` : null;
 }
 
+function genderLabel(profile: TravelerProfile): string | null {
+  if (!profile.gender) return null;
+  if (profile.gender === 'self_describe') return profile.gender_self_description.trim() || 'self-described';
+  if (profile.gender === 'prefer_not_to_say') return 'prefer not to say';
+  return profile.gender.replace(/_/g, ' ');
+}
+
+function travelerBriefLines(brief: TripCreationBrief): string[] {
+  const profiles = getBriefTravelerProfiles(brief);
+  if (!profiles.length) {
+    const line = briefLine('Travelers', brief.travelers);
+    return line ? [line] : [];
+  }
+
+  const lines = ['- Travelers:'];
+  profiles.forEach((profile) => {
+    const details = [
+      profile.date_of_birth ? `date of birth ${profile.date_of_birth}` : null,
+      genderLabel(profile) ? `gender ${genderLabel(profile)}` : null,
+      profile.passport_country.trim() ? `passport country ${profile.passport_country.trim()}` : null,
+      profile.passport_expiry ? `passport expires ${profile.passport_expiry}` : null,
+      profile.passport_number.trim() ? 'passport number on file for booking forms' : null,
+      profile.notes.trim() ? `traveler notes: ${profile.notes.trim()}` : null,
+    ].filter((item): item is string => Boolean(item));
+
+    lines.push(`  - ${profile.full_name.trim()}${details.length ? ` - ${details.join('; ')}` : ''}`);
+  });
+
+  return lines;
+}
+
 export function buildTripGenerationAgentMessage(
   brief: TripCreationBrief,
   profile: TravelProfileRecord | null | undefined
@@ -166,7 +217,7 @@ export function buildTripGenerationAgentMessage(
   const briefLines = [
     `- Destination: ${brief.destination}`,
     `- Dates: ${brief.start_date} to ${brief.end_date} inclusive (${dayCount} day${dayCount === 1 ? '' : 's'})`,
-    briefLine('Travelers', brief.travelers),
+    ...travelerBriefLines(brief),
     briefLine('Origin', brief.origin),
     briefLine('Must-do or must-see', brief.must_do),
     briefLine('Known bookings', brief.known_bookings),

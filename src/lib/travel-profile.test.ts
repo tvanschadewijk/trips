@@ -13,6 +13,10 @@ test('normalizes travel profile preferences with defaults', () => {
   });
 
   assert.equal(preferences.travelers, 'Alex, Thijs');
+  assert.deepEqual(
+    preferences.traveler_profiles.map((profile) => profile.full_name),
+    ['Alex', 'Thijs']
+  );
   assert.equal(preferences.pace, 'balanced');
   assert.equal(preferences.budget, 'mid_range');
   assert.deepEqual(preferences.lodging, ['Boutique hotels']);
@@ -20,7 +24,17 @@ test('normalizes travel profile preferences with defaults', () => {
 
 test('builds compact travel reference markdown from preferences', () => {
   const preferences = normalizeTravelProfilePreferences({
-    travelers: 'Alex, Thijs',
+    traveler_profiles: [
+      {
+        full_name: 'Alex',
+        date_of_birth: '1990-03-12',
+        gender: 'female',
+        passport_number: 'NLD1234567',
+        passport_country: 'Netherlands',
+        passport_expiry: '2031-04-20',
+      },
+      { full_name: 'Thijs' },
+    ],
     home_base: 'Amsterdam',
     pace: 'relaxed',
     budget: 'upscale',
@@ -30,7 +44,8 @@ test('builds compact travel reference markdown from preferences', () => {
 
   const markdown = buildTravelReferenceMarkdown(preferences);
   assert.match(markdown, /^# Travel Profile/);
-  assert.match(markdown, /Travelers: Alex, Thijs/);
+  assert.match(markdown, /- Travelers:\n  - Alex - date of birth 1990-03-12; gender female; passport Netherlands \*\*\*\* 4567; passport expires 2031-04-20\n  - Thijs/);
+  assert.doesNotMatch(markdown, /NLD1234567/);
   assert.match(markdown, /Preferred pace: relaxed/);
   assert.match(markdown, /Food preferences: Local food, Markets/);
   assert.match(markdown, /Avoid: Long driving days/);

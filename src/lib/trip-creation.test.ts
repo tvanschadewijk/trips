@@ -48,6 +48,30 @@ test('builds a valid starter trip input for the existing save service', () => {
   assert.equal(days[5].accommodation, null);
 });
 
+test('uses structured traveler profiles when present', () => {
+  const structuredBrief = TripCreationBriefSchema.parse({
+    ...brief,
+    travelers: 'Fallback',
+    traveler_profiles: [
+      {
+        full_name: 'Alex Morgan',
+        date_of_birth: '1990-03-12',
+        gender: 'female',
+        passport_number: 'NLD1234567',
+        passport_country: 'Netherlands',
+        passport_expiry: '2031-04-20',
+      },
+    ],
+  });
+
+  const input = buildStarterTripInput(structuredBrief, 'Japan Trip');
+  const message = buildTripGenerationAgentMessage(structuredBrief, null);
+
+  assert.deepEqual(input.trip.travelers, ['Alex Morgan']);
+  assert.match(message, /Alex Morgan - date of birth 1990-03-12; gender female; passport country Netherlands; passport expires 2031-04-20; passport number on file/);
+  assert.doesNotMatch(message, /NLD1234567/);
+});
+
 test('builds a scratch-generation agent message with hard date requirements', () => {
   const message = buildTripGenerationAgentMessage(brief, {
     user_id: 'user-1',
@@ -61,6 +85,17 @@ test('builds a scratch-generation agent message with hard date requirements', ()
   assert.match(message, /Keep trip\.dates\.start exactly 2026-09-01/);
   assert.match(message, /create exactly 6 calendar days/);
   assert.match(message, /Preferred pace: relaxed/);
+});
+
+test('rejects a trip that ends on the start date', () => {
+  assert.throws(
+    () => TripCreationBriefSchema.parse({
+      ...brief,
+      start_date: '2026-09-01',
+      end_date: '2026-09-01',
+    }),
+    /End date must be after start date/
+  );
 });
 
 test('rejects ranges that are too long for ShipNow generation', () => {

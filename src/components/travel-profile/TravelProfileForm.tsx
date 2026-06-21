@@ -6,17 +6,24 @@ import {
   Accessibility,
   ArrowRight,
   BedDouble,
+  CalendarDays,
   FileText,
   Gauge,
+  IdCard,
   Map,
   PawPrint,
   Plane,
   Trash2,
   UploadCloud,
   Utensils,
+  UserPlus,
+  Users,
 } from 'lucide-react';
 import {
   buildTravelReferenceMarkdown,
+  createBlankTravelerProfile,
+  summarizeTravelerProfiles,
+  type TravelerProfile,
   type TravelProfileSourceReference,
   type TravelProfilePreferences,
 } from '@/lib/travel-profile';
@@ -31,6 +38,14 @@ const lodgingOptions = ['Boutique hotels', 'Apartments', 'Design stays', 'Family
 const foodOptions = ['Local food', 'Reservations', 'Street food', 'Vegetarian', 'Fine dining', 'Markets'];
 const interestOptions = ['Architecture', 'Nature', 'Museums', 'Beaches', 'Hiking', 'Shopping', 'Wine', 'History'];
 const transportOptions = ['Train', 'Self-drive', 'Flights', 'Walkable bases', 'Public transit', 'Private transfers'];
+const genderOptions: Array<{ value: TravelerProfile['gender']; label: string }> = [
+  { value: '', label: 'Not specified' },
+  { value: 'female', label: 'Female' },
+  { value: 'male', label: 'Male' },
+  { value: 'non_binary', label: 'Non-binary' },
+  { value: 'self_describe', label: 'Self describe' },
+  { value: 'prefer_not_to_say', label: 'Prefer not to say' },
+];
 
 function safeNextHref(value: string): string {
   if (!value.startsWith('/') || value.startsWith('//')) return '/trips/new';
@@ -69,6 +84,33 @@ export default function TravelProfileForm({ initialPreferences, initialSources, 
           : [...existing, value],
       };
     });
+  }
+
+  function setTravelerProfiles(travelerProfiles: TravelerProfile[]) {
+    setPreferences((current) => ({
+      ...current,
+      traveler_profiles: travelerProfiles,
+      travelers: summarizeTravelerProfiles(travelerProfiles),
+    }));
+  }
+
+  function addTraveler() {
+    setTravelerProfiles([...preferences.traveler_profiles, createBlankTravelerProfile()]);
+  }
+
+  function updateTraveler<K extends keyof TravelerProfile>(
+    index: number,
+    key: K,
+    value: TravelerProfile[K]
+  ) {
+    const next = preferences.traveler_profiles.map((traveler, travelerIndex) => (
+      travelerIndex === index ? { ...traveler, [key]: value } : traveler
+    ));
+    setTravelerProfiles(next);
+  }
+
+  function removeTraveler(index: number) {
+    setTravelerProfiles(preferences.traveler_profiles.filter((_, travelerIndex) => travelerIndex !== index));
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -161,15 +203,14 @@ export default function TravelProfileForm({ initialPreferences, initialSources, 
           </div>
         </div>
 
+        <TravelerProfilesEditor
+          profiles={preferences.traveler_profiles}
+          onAdd={addTraveler}
+          onChange={updateTraveler}
+          onRemove={removeTraveler}
+        />
+
         <div className="profile-grid-two">
-          <label className="profile-field">
-            <span>Travelers</span>
-            <input
-              value={preferences.travelers}
-              onChange={(event) => setField('travelers', event.target.value)}
-              placeholder="Alex, Thijs"
-            />
-          </label>
           <label className="profile-field">
             <span>Home base</span>
             <input
@@ -178,16 +219,15 @@ export default function TravelProfileForm({ initialPreferences, initialSources, 
               placeholder="Amsterdam"
             />
           </label>
+          <label className="profile-field">
+            <span>Preferred airports or stations</span>
+            <input
+              value={preferences.preferred_airports}
+              onChange={(event) => setField('preferred_airports', event.target.value)}
+              placeholder="AMS, Rotterdam Centraal"
+            />
+          </label>
         </div>
-
-        <label className="profile-field">
-          <span>Preferred airports or stations</span>
-          <input
-            value={preferences.preferred_airports}
-            onChange={(event) => setField('preferred_airports', event.target.value)}
-            placeholder="AMS, Rotterdam Centraal"
-          />
-        </label>
 
         <div className="profile-grid-two">
           <label className="profile-field">
@@ -349,6 +389,141 @@ export default function TravelProfileForm({ initialPreferences, initialSources, 
         <pre>{referencePreview}</pre>
       </aside>
     </form>
+  );
+}
+
+function TravelerProfilesEditor({
+  profiles,
+  onAdd,
+  onChange,
+  onRemove,
+}: {
+  profiles: TravelerProfile[];
+  onAdd: () => void;
+  onChange: <K extends keyof TravelerProfile>(index: number, key: K, value: TravelerProfile[K]) => void;
+  onRemove: (index: number) => void;
+}) {
+  return (
+    <section className="profile-travelers">
+      <div className="profile-travelers-heading">
+        <div>
+          <span><Users size={15} aria-hidden="true" /> Travelers</span>
+          <p>Booking details kept with your profile.</p>
+        </div>
+        <button type="button" onClick={onAdd}>
+          <UserPlus size={15} aria-hidden="true" />
+          Add traveler
+        </button>
+      </div>
+
+      {profiles.length === 0 ? (
+        <div className="profile-empty-travelers">
+          <Users size={17} aria-hidden="true" />
+          <span>No travelers added yet.</span>
+        </div>
+      ) : (
+        <div className="profile-traveler-list">
+          {profiles.map((profile, index) => (
+            <article className="profile-traveler-card" key={profile.id || index}>
+              <div className="profile-traveler-card-header">
+                <strong>{profile.full_name.trim() || `Traveler ${index + 1}`}</strong>
+                <button
+                  type="button"
+                  aria-label={`Remove ${profile.full_name || `traveler ${index + 1}`}`}
+                  onClick={() => onRemove(index)}
+                >
+                  <Trash2 size={14} aria-hidden="true" />
+                </button>
+              </div>
+
+              <div className="profile-grid-two">
+                <label className="profile-field">
+                  <span>Full name</span>
+                  <input
+                    value={profile.full_name}
+                    onChange={(event) => onChange(index, 'full_name', event.target.value)}
+                    placeholder="Alex Morgan"
+                    autoComplete="name"
+                  />
+                </label>
+                <label className="profile-field">
+                  <span><CalendarDays size={14} aria-hidden="true" /> Date of birth</span>
+                  <input
+                    type="date"
+                    value={profile.date_of_birth}
+                    onChange={(event) => onChange(index, 'date_of_birth', event.target.value)}
+                    autoComplete="bday"
+                  />
+                </label>
+              </div>
+
+              <div className="profile-grid-two">
+                <label className="profile-field">
+                  <span>Gender</span>
+                  <select
+                    value={profile.gender}
+                    onChange={(event) => onChange(index, 'gender', event.target.value as TravelerProfile['gender'])}
+                  >
+                    {genderOptions.map((option) => (
+                      <option key={option.value || 'blank'} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="profile-field">
+                  <span>Self-described gender</span>
+                  <input
+                    value={profile.gender_self_description}
+                    onChange={(event) => onChange(index, 'gender_self_description', event.target.value)}
+                    disabled={profile.gender !== 'self_describe'}
+                  />
+                </label>
+              </div>
+
+              <div className="profile-grid-two">
+                <label className="profile-field">
+                  <span><IdCard size={14} aria-hidden="true" /> Passport number</span>
+                  <input
+                    value={profile.passport_number}
+                    onChange={(event) => onChange(index, 'passport_number', event.target.value)}
+                    autoComplete="off"
+                  />
+                </label>
+                <label className="profile-field">
+                  <span>Passport country</span>
+                  <input
+                    value={profile.passport_country}
+                    onChange={(event) => onChange(index, 'passport_country', event.target.value)}
+                    placeholder="Netherlands"
+                    autoComplete="country-name"
+                  />
+                </label>
+              </div>
+
+              <div className="profile-grid-two">
+                <label className="profile-field">
+                  <span><CalendarDays size={14} aria-hidden="true" /> Passport expiry</span>
+                  <input
+                    type="date"
+                    value={profile.passport_expiry}
+                    onChange={(event) => onChange(index, 'passport_expiry', event.target.value)}
+                  />
+                </label>
+                <label className="profile-field">
+                  <span>Traveler notes</span>
+                  <input
+                    value={profile.notes}
+                    onChange={(event) => onChange(index, 'notes', event.target.value)}
+                    placeholder="Seat, meal, mobility, visa notes"
+                  />
+                </label>
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
+    </section>
   );
 }
 
