@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { ArrowLeft, ExternalLink } from 'lucide-react';
+import { ArrowLeft, DollarSign, ExternalLink } from 'lucide-react';
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
@@ -132,12 +132,18 @@ export default async function AdminLogisticsPage({
             <span className="admin-nav-title">Trip Logistics</span>
             <span className="admin-nav-badge">Admin</span>
           </div>
-          {ledger ? (
-            <Link href={`/t/${ledger.share_id}`} className="admin-logistics-trip-link">
-              Open trip
-              <ExternalLink size={14} aria-hidden="true" />
+          <div className="admin-nav-links">
+            <Link href="/admin/costs" className="admin-logistics-trip-link">
+              <DollarSign size={14} aria-hidden="true" />
+              Costs
             </Link>
-          ) : null}
+            {ledger ? (
+              <Link href={`/t/${ledger.share_id}`} className="admin-logistics-trip-link">
+                Open trip
+                <ExternalLink size={14} aria-hidden="true" />
+              </Link>
+            ) : null}
+          </div>
         </div>
       </nav>
 

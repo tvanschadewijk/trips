@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Ban, CalendarDays } from 'lucide-react';
+import { ArrowLeft, Ban, CalendarDays, DollarSign } from 'lucide-react';
 import {
   AreaChart,
   Area,
@@ -220,10 +220,16 @@ export default function AdminPage() {
             <span className="admin-nav-title">Analytics</span>
             <span className="admin-nav-badge">Admin</span>
           </div>
-          <Link href="/admin/logistics" className="admin-nav-side-link">
-            <CalendarDays size={15} aria-hidden="true" />
-            Trip logistics
-          </Link>
+          <div className="admin-nav-links">
+            <Link href="/admin/costs" className="admin-nav-side-link">
+              <DollarSign size={15} aria-hidden="true" />
+              Costs
+            </Link>
+            <Link href="/admin/logistics" className="admin-nav-side-link">
+              <CalendarDays size={15} aria-hidden="true" />
+              Trip logistics
+            </Link>
+          </div>
         </div>
       </nav>
 
