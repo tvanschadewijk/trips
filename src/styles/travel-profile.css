@@ -179,6 +179,130 @@
   color: #9B9087;
 }
 
+.profile-field input:disabled {
+  background: #F4EDE2;
+  color: #9B9087;
+  cursor: not-allowed;
+}
+
+.profile-travelers {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 14px;
+  background: #F4EDE2;
+}
+
+.profile-travelers-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.profile-travelers-heading span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #1A1410;
+  font-size: 13px;
+  font-weight: 620;
+  line-height: 1.35;
+}
+
+.profile-travelers-heading span svg {
+  color: #C14F2A;
+}
+
+.profile-travelers-heading p {
+  margin: 3px 0 0;
+  color: #6B6157;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.profile-travelers-heading button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 0;
+  border-radius: 999px;
+  background: #1A1410;
+  color: #FBF7F1;
+  padding: 8px 12px;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 580;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.profile-empty-travelers {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 48px;
+  border: 1px dashed #D4C8B4;
+  border-radius: 12px;
+  color: #6B6157;
+  font-size: 13px;
+  line-height: 1.4;
+  padding: 12px;
+}
+
+.profile-empty-travelers svg {
+  color: #C14F2A;
+}
+
+.profile-traveler-list {
+  display: grid;
+  gap: 12px;
+}
+
+.profile-traveler-card {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 12px;
+  background: #FFFFFF;
+  box-shadow: rgba(26, 20, 16, 0.04) 0 1px 0 0;
+}
+
+.profile-traveler-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 2px;
+}
+
+.profile-traveler-card-header strong {
+  min-width: 0;
+  color: #1A1410;
+  font-size: 15px;
+  font-weight: 620;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.profile-traveler-card-header button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 999px;
+  background: #F4EDE2;
+  color: #6B6157;
+  cursor: pointer;
+}
+
+.profile-traveler-card-header button:hover {
+  color: #A03E1F;
+}
+
 .profile-options {
   border: 0;
   padding: 0;
@@ -410,6 +534,14 @@
 
   .profile-grid-two {
     grid-template-columns: 1fr;
+  }
+
+  .profile-travelers-heading {
+    display: grid;
+  }
+
+  .profile-travelers-heading button {
+    justify-self: start;
   }
 
   .profile-panel-main {

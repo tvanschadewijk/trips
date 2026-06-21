@@ -3,10 +3,39 @@ import { z } from 'zod';
 const StringField = z.string().trim().max(1200).default('');
 const ShortStringField = z.string().trim().max(400).default('');
 const StringListField = z.array(z.string().trim().min(1).max(80)).max(24).default([]);
+const DateOrEmptyField = z
+  .string()
+  .trim()
+  .max(10)
+  .refine((value) => !value || /^\d{4}-\d{2}-\d{2}$/u.test(value), 'Use YYYY-MM-DD.')
+  .default('');
 
-export const TravelProfilePreferencesSchema = z
+export const TravelerProfileGenderSchema = z
+  .enum(['', 'female', 'male', 'non_binary', 'prefer_not_to_say', 'self_describe'])
+  .default('');
+
+export const TravelerProfileSchema = z
+  .object({
+    id: z.string().trim().max(80).default(''),
+    full_name: ShortStringField,
+    date_of_birth: DateOrEmptyField,
+    gender: TravelerProfileGenderSchema,
+    gender_self_description: ShortStringField,
+    passport_number: ShortStringField,
+    passport_country: ShortStringField,
+    passport_expiry: DateOrEmptyField,
+    notes: StringField,
+  })
+  .strict();
+
+export type TravelerProfile = z.infer<typeof TravelerProfileSchema>;
+
+const TravelerProfileListField = z.array(TravelerProfileSchema).max(24).default([]);
+
+const TravelProfilePreferencesObjectSchema = z
   .object({
     travelers: ShortStringField,
+    traveler_profiles: TravelerProfileListField,
     home_base: ShortStringField,
     preferred_airports: ShortStringField,
     pace: z.enum(['relaxed', 'balanced', 'full', 'varies']).default('balanced'),
@@ -21,6 +50,32 @@ export const TravelProfilePreferencesSchema = z
     notes: StringField,
   })
   .strict();
+
+export const TravelProfilePreferencesSchema = z.preprocess((input) => {
+  const source = input && typeof input === 'object' && !Array.isArray(input)
+    ? { ...(input as Record<string, unknown>) }
+    : {};
+
+  const hasTravelerProfiles = Object.prototype.hasOwnProperty.call(source, 'traveler_profiles');
+  const parsedProfiles = TravelerProfileListField.safeParse(source.traveler_profiles);
+  const profiles = parsedProfiles.success ? parsedProfiles.data : [];
+  const travelerProfiles = hasTravelerProfiles
+    ? source.traveler_profiles
+    : legacyTravelersToProfiles(typeof source.travelers === 'string' ? source.travelers : '');
+
+  const legacySummary = typeof source.travelers === 'string' ? source.travelers.trim() : '';
+  const travelerSummary = profiles.length
+    ? summarizeTravelerProfiles(profiles)
+    : hasTravelerProfiles
+      ? ''
+      : legacySummary;
+
+  return {
+    ...source,
+    travelers: travelerSummary,
+    traveler_profiles: travelerProfiles,
+  };
+}, TravelProfilePreferencesObjectSchema);
 
 export type TravelProfilePreferences = z.infer<typeof TravelProfilePreferencesSchema>;
 
@@ -47,6 +102,31 @@ export function normalizeTravelProfilePreferences(input: unknown): TravelProfile
   return TravelProfilePreferencesSchema.parse(input ?? {});
 }
 
+export function createBlankTravelerProfile(): TravelerProfile {
+  return TravelerProfileSchema.parse({
+    id: `traveler-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+  });
+}
+
+export function legacyTravelersToProfiles(value: string): TravelerProfile[] {
+  return value
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .slice(0, 24)
+    .map((name, index) => TravelerProfileSchema.parse({
+      id: `legacy-${index + 1}-${name.toLowerCase().replace(/[^a-z0-9]+/gu, '-').replace(/^-|-$/gu, '') || 'traveler'}`,
+      full_name: name,
+    }));
+}
+
+export function summarizeTravelerProfiles(profiles: TravelerProfile[]): string {
+  return profiles
+    .map((profile) => profile.full_name.trim())
+    .filter(Boolean)
+    .join(', ');
+}
+
 function listLine(label: string, values: string[]): string | null {
   return values.length ? `- ${label}: ${values.join(', ')}` : null;
 }
@@ -57,6 +137,41 @@ function valueLine(label: string, value: string): string | null {
 
 function enumLabel(value: string): string {
   return value.replace(/_/g, ' ');
+}
+
+function genderLabel(profile: TravelerProfile): string {
+  if (profile.gender === 'self_describe') return profile.gender_self_description.trim() || 'self-described';
+  if (profile.gender === 'prefer_not_to_say') return 'prefer not to say';
+  return enumLabel(profile.gender);
+}
+
+function maskPassportNumber(value: string): string {
+  const compact = value.replace(/\s+/gu, '');
+  if (!compact) return '';
+  if (compact.length <= 4) return 'on file';
+  return `**** ${compact.slice(-4)}`;
+}
+
+function travelerReferenceLines(profiles: TravelerProfile[]): string[] {
+  const usableProfiles = profiles.filter((profile) => profile.full_name.trim());
+  if (!usableProfiles.length) return [];
+
+  const lines = ['- Travelers:'];
+  usableProfiles.forEach((profile) => {
+    const details = [
+      profile.date_of_birth ? `date of birth ${profile.date_of_birth}` : null,
+      profile.gender ? `gender ${genderLabel(profile)}` : null,
+      profile.passport_number
+        ? `passport ${[profile.passport_country, maskPassportNumber(profile.passport_number)].filter(Boolean).join(' ')}`
+        : null,
+      profile.passport_expiry ? `passport expires ${profile.passport_expiry}` : null,
+      profile.notes.trim() ? `notes: ${profile.notes.trim()}` : null,
+    ].filter((item): item is string => Boolean(item));
+
+    lines.push(`  - ${profile.full_name.trim()}${details.length ? ` - ${details.join('; ')}` : ''}`);
+  });
+
+  return lines;
 }
 
 function sourceTitle(source: TravelProfileSourceReference, index: number): string {
@@ -147,7 +262,10 @@ export function buildTravelReferenceMarkdown(
     'Use this as durable preference context when planning a new OurTrips itinerary. It reflects user-stated preferences, not hard constraints unless phrased as must/avoid.',
     '',
     '## Core',
-    valueLine('Travelers', preferences.travelers),
+    ...travelerReferenceLines(preferences.traveler_profiles),
+    preferences.traveler_profiles.some((profile) => profile.full_name.trim())
+      ? null
+      : valueLine('Travelers', preferences.travelers),
     valueLine('Home base', preferences.home_base),
     valueLine('Preferred airports or stations', preferences.preferred_airports),
     `- Preferred pace: ${enumLabel(preferences.pace)}`,
