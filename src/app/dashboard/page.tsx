@@ -7,14 +7,14 @@ import {
   ArrowRight,
   ChartLine,
   Check,
-  Copy,
   Ellipsis,
-  Info,
   Link as LinkIcon,
   LogOut,
   Map as MapIcon,
+  Plus,
   Settings,
   Trash2,
+  UserRound,
   WifiOff,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
@@ -69,7 +69,6 @@ export default function DashboardPage() {
     return null;
   });
   const [copied, setCopied] = useState<string | null>(null);
-  const [connectionCopied, setConnectionCopied] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [cardMenuOpen, setCardMenuOpen] = useState<string | null>(null);
   const cardMenuRef = useRef<HTMLDivElement | null>(null);
@@ -80,6 +79,7 @@ export default function DashboardPage() {
     return true;
   });
   const [isAdmin, setIsAdmin] = useState(false);
+  const [travelProfileComplete, setTravelProfileComplete] = useState(false);
   const savedOfflineIds = useSavedTripIds();
   const online = useOnlineStatus();
   const personalTrips = trips.filter(t => !isPublicItineraryShareId(t.share_id));
@@ -117,6 +117,7 @@ export default function DashboardPage() {
       const localTrips = getLocalPreviewTrips();
       setTrips(localTrips);
       setEmail('local-preview@example.com');
+      setTravelProfileComplete(true);
       sessionStorage.setItem('dash-email', 'local-preview@example.com');
       sessionStorage.setItem('dash-trips', JSON.stringify(localTrips));
       setLoading(false);
@@ -141,6 +142,13 @@ export default function DashboardPage() {
       .eq('id', user.id)
       .single();
     if (profile?.role === 'admin') setIsAdmin(true);
+
+    const { data: travelProfile } = await supabase
+      .from('travel_profiles')
+      .select('onboarding_completed_at')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    setTravelProfileComplete(Boolean(travelProfile?.onboarding_completed_at));
 
     // Try with share_mode (post-migration). If the column doesn't exist
     // yet, retry without it and default every trip to 'companion' — keeps
@@ -330,6 +338,12 @@ export default function DashboardPage() {
                       Analytics
                     </Link>
                   )}
+                  {online && (
+                    <Link href="/onboarding?next=/dashboard" className="dash-settings-item" onClick={() => setSettingsOpen(false)}>
+                      <UserRound size={16} aria-hidden="true" />
+                      Travel profile
+                    </Link>
+                  )}
                   <button
                     className="dash-settings-item"
                     onClick={() => { if (!online) return; setSettingsOpen(false); handleSignOut(); }}
@@ -365,9 +379,23 @@ export default function DashboardPage() {
             <p className="dash-subtitle">
               {online
                 ? (trips.length === 0 ? 'You have no trips planned' : `${trips.length} trip${trips.length !== 1 ? 's' : ''}`)
-                : (visibleTrips.length === 0 ? 'No saved trips yet' : `${visibleTrips.length} saved trip${visibleTrips.length !== 1 ? 's' : ''}`)}
+              : (visibleTrips.length === 0 ? 'No saved trips yet' : `${visibleTrips.length} saved trip${visibleTrips.length !== 1 ? 's' : ''}`)}
             </p>
           </div>
+          {online && (
+            <div className="dash-header-actions">
+              {!travelProfileComplete && (
+                <Link href="/onboarding?next=/trips/new" className="dash-profile-link">
+                  <UserRound size={15} aria-hidden="true" />
+                  Travel profile
+                </Link>
+              )}
+              <Link href="/trips/new" className="dash-new-trip-btn">
+                <Plus size={16} aria-hidden="true" />
+                New trip
+              </Link>
+            </div>
+          )}
         </div>
 
         {visibleTrips.length === 0 && !online ? (
@@ -382,53 +410,30 @@ export default function DashboardPage() {
                 <MapIcon aria-hidden="true" />
               </div>
               <h3>Create your first trip</h3>
-              <p>Turn any conversation with Claude or Codex into a beautiful, pocket-friendly itinerary. Here&apos;s how:</p>
+              <p>Build a complete OurTrips itinerary here, then refine it with the travel agent on the trip page.</p>
             </div>
 
             <div className="dash-onboard-steps">
-              <div className="dash-onboard-step dash-onboard-step-with-aside">
-                <div className="dash-onboard-step-main">
-                  <div className="dash-onboard-step-num">1</div>
-                  <div className="dash-onboard-step-body">
-                    <div className="dash-onboard-step-title">Open Claude or Codex</div>
-                    <p className="dash-onboard-step-desc">
-                      Use Claude CoWork, Claude Desktop, Codex CLI, or the Codex desktop app.
-                    </p>
-                  </div>
-                </div>
-                <div className="dash-onboard-compat">
-                  <Info size={14} aria-hidden="true" />
-                  <p>The remote connector uses OAuth, so you do not need to paste an API key into your chat.</p>
+              <div className="dash-onboard-step">
+                <div className="dash-onboard-step-num">1</div>
+                <div className="dash-onboard-step-body">
+                  <div className="dash-onboard-step-title">Create your travel profile</div>
+                  <p className="dash-onboard-step-desc">
+                    Set pace, food, lodging, transport, and practical preferences once.
+                  </p>
+                  <Link href="/onboarding?next=/trips/new" className="dash-onboard-action-link">
+                    {travelProfileComplete ? 'Review profile' : 'Start profile'}
+                    <ArrowRight size={14} aria-hidden="true" />
+                  </Link>
                 </div>
               </div>
 
               <div className="dash-onboard-step">
                 <div className="dash-onboard-step-num">2</div>
                 <div className="dash-onboard-step-body">
-                  <div className="dash-onboard-step-title">Connect OurTrips</div>
+                  <div className="dash-onboard-step-title">Brief the trip</div>
                   <p className="dash-onboard-step-desc">
-                    Add this remote MCP server as a custom connector, then sign in:
-                  </p>
-                  <div className="dash-onboard-code">
-                    <code>https://ourtrips.to/mcp</code>
-                    <button
-                      className={`dash-onboard-copy-btn ${connectionCopied ? 'copied' : ''}`}
-                      onClick={() => {
-                        navigator.clipboard.writeText('https://ourtrips.to/mcp');
-                        setConnectionCopied(true);
-                        setTimeout(() => setConnectionCopied(false), 2000);
-                      }}
-                      title="Copy to clipboard"
-                    >
-                      {connectionCopied ? (
-                        <Check size={14} aria-hidden="true" />
-                      ) : (
-                        <Copy size={14} aria-hidden="true" />
-                      )}
-                    </button>
-                  </div>
-                  <p className="dash-onboard-step-note">
-                    Codex users can run <code>codex mcp add ourtrips --url https://ourtrips.to/mcp</code>. <Link href="/guide">Full guide</Link>
+                    Add dates, destination, travelers, must-dos, known bookings, and routing notes.
                   </p>
                 </div>
               </div>
@@ -436,27 +441,17 @@ export default function DashboardPage() {
               <div className="dash-onboard-step">
                 <div className="dash-onboard-step-num">3</div>
                 <div className="dash-onboard-step-body">
-                  <div className="dash-onboard-step-title">Plan your trip with Claude</div>
+                  <div className="dash-onboard-step-title">Open the generated itinerary</div>
                   <p className="dash-onboard-step-desc">
-                    Talk about where you&apos;re going, what you want to do, where you&apos;re staying &mdash; anything. Your agent will help you shape a full itinerary.
-                  </p>
-                </div>
-              </div>
-
-              <div className="dash-onboard-step">
-                <div className="dash-onboard-step-num">4</div>
-                <div className="dash-onboard-step-body">
-                  <div className="dash-onboard-step-title">Say &ldquo;Send it to OurTrips&rdquo;</div>
-                  <p className="dash-onboard-step-desc">
-                    When you&apos;re happy with the plan, just ask Claude to send it. Your trip will appear right here &mdash; ready to share or pull up on your phone while traveling.
+                    OurTrips saves the draft, opens the trip page, and keeps the travel agent ready for edits.
                   </p>
                 </div>
               </div>
             </div>
 
             <div className="dash-onboard-footer">
-              <Link href="/itineraries" className="dash-onboard-demo-link">
-                See what a finished trip looks like
+              <Link href={travelProfileComplete ? '/trips/new' : '/onboarding?next=/trips/new'} className="dash-onboard-demo-link">
+                {travelProfileComplete ? 'Create a trip' : 'Create travel profile'}
                 <ArrowRight size={14} aria-hidden="true" />
               </Link>
             </div>

@@ -303,6 +303,19 @@ border, or live-routing information would materially improve the answer. Ask a
 clarifying question only after the trip read still leaves a material fact
 missing.
 
+## Scratch trip creation
+
+Sometimes the current trip is a starter draft created inside OurTrips so the
+user can build a new trip without an external agent. If the user asks you to
+"create this new itinerary", "build the trip from scratch", or the prompt says
+the current trip is only a starter draft, treat placeholder titles, empty
+programme arrays, and "Hotel not confirmed yet" rows as scaffolding, not as
+facts to preserve. Read the current trip summary, then use \`update_trip\` to
+replace \`data.trip\` fields and the complete ordered \`days\` array with a
+finished first draft. Preserve exact requested start/end dates and day count.
+Prefer a complete, useful itinerary with explicit assumptions over asking
+follow-up questions, unless a missing fact makes the route impossible.
+
 ## Intent ledger discipline
 
 Some turns contain multiple instructions in one sentence. The user may give a
