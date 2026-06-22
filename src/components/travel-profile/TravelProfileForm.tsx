@@ -65,7 +65,140 @@ const dateMonths = [
   'November',
   'December',
 ];
-const dateInputPlaceholder = 'YYYY-MM-DD';
+
+type DateOrder = 'month-first' | 'day-first';
+
+const usStateNames = [
+  'alabama',
+  'alaska',
+  'arizona',
+  'arkansas',
+  'california',
+  'colorado',
+  'connecticut',
+  'delaware',
+  'florida',
+  'georgia',
+  'hawaii',
+  'idaho',
+  'illinois',
+  'indiana',
+  'iowa',
+  'kansas',
+  'kentucky',
+  'louisiana',
+  'maine',
+  'maryland',
+  'massachusetts',
+  'michigan',
+  'minnesota',
+  'mississippi',
+  'missouri',
+  'montana',
+  'nebraska',
+  'nevada',
+  'new hampshire',
+  'new jersey',
+  'new mexico',
+  'new york',
+  'north carolina',
+  'north dakota',
+  'ohio',
+  'oklahoma',
+  'oregon',
+  'pennsylvania',
+  'rhode island',
+  'south carolina',
+  'south dakota',
+  'tennessee',
+  'texas',
+  'utah',
+  'vermont',
+  'virginia',
+  'washington',
+  'west virginia',
+  'wisconsin',
+  'wyoming',
+];
+const usStateCodes = [
+  'AL',
+  'AK',
+  'AZ',
+  'AR',
+  'CA',
+  'CO',
+  'CT',
+  'DE',
+  'FL',
+  'GA',
+  'HI',
+  'ID',
+  'IL',
+  'IN',
+  'IA',
+  'KS',
+  'KY',
+  'LA',
+  'ME',
+  'MD',
+  'MA',
+  'MI',
+  'MN',
+  'MS',
+  'MO',
+  'MT',
+  'NE',
+  'NV',
+  'NH',
+  'NJ',
+  'NM',
+  'NY',
+  'NC',
+  'ND',
+  'OH',
+  'OK',
+  'OR',
+  'PA',
+  'RI',
+  'SC',
+  'SD',
+  'TN',
+  'TX',
+  'UT',
+  'VT',
+  'VA',
+  'WA',
+  'WV',
+  'WI',
+  'WY',
+];
+const usCityNames = [
+  'atlanta',
+  'austin',
+  'boston',
+  'charlotte',
+  'chicago',
+  'dallas',
+  'denver',
+  'houston',
+  'las vegas',
+  'los angeles',
+  'miami',
+  'minneapolis',
+  'nashville',
+  'new orleans',
+  'new york',
+  'orlando',
+  'philadelphia',
+  'phoenix',
+  'portland',
+  'san diego',
+  'san francisco',
+  'seattle',
+  'tampa',
+  'washington dc',
+  'washington d.c.',
+];
 
 function safeNextHref(value: string): string {
   if (!value.startsWith('/') || value.startsWith('//')) return '/trips/new';
@@ -92,7 +225,51 @@ function isoFromParts(year: number, month: number, day: number): string | null {
   return date.toISOString().slice(0, 10);
 }
 
-function parseManualDate(value: string): string | null {
+function containsLocationWord(value: string, word: string): boolean {
+  const escapedWord = word.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
+  return new RegExp(`(^|[^a-z])${escapedWord}([^a-z]|$)`, 'iu').test(value);
+}
+
+function dateOrderForHomeBase(homeBase: string): DateOrder {
+  const normalized = homeBase.trim().toLowerCase();
+  if (!normalized) return 'day-first';
+
+  if (/\b(u\.?s\.?a?|united states|america)\b/iu.test(normalized)) {
+    return 'month-first';
+  }
+
+  if (usStateNames.some((state) => containsLocationWord(normalized, state))) {
+    return 'month-first';
+  }
+
+  const stateCodePattern = new RegExp(`(^|[\\s,])(${usStateCodes.join('|')})([\\s,]|$)`, 'u');
+  if (stateCodePattern.test(homeBase.toUpperCase())) {
+    return 'month-first';
+  }
+
+  if (usCityNames.some((city) => containsLocationWord(normalized, city))) {
+    return 'month-first';
+  }
+
+  return 'day-first';
+}
+
+function dateInputPlaceholder(dateOrder: DateOrder): string {
+  return dateOrder === 'month-first' ? 'MM/DD/YYYY' : 'DD/MM/YYYY';
+}
+
+function formatDateForInput(value: string, dateOrder: DateOrder): string {
+  if (!value) return '';
+
+  const [year, month, day] = value.split('-');
+  if (!year || !month || !day) return value;
+
+  return dateOrder === 'month-first'
+    ? `${month}/${day}/${year}`
+    : `${day}/${month}/${year}`;
+}
+
+function parseManualDate(value: string, dateOrder: DateOrder = 'day-first'): string | null {
   const trimmed = value.trim();
   if (!trimmed) return '';
 
@@ -107,8 +284,11 @@ function parseManualDate(value: string): string | null {
   const first = Number(dayOrMonthFirst[1]);
   const second = Number(dayOrMonthFirst[2]);
   const year = Number(dayOrMonthFirst[3]);
-  const month = first > 12 && second <= 12 ? second : first;
-  const day = first > 12 && second <= 12 ? first : second;
+  const firstMustBeDay = first > 12 && second <= 12;
+  const secondMustBeDay = second > 12 && first <= 12;
+  const isMonthFirst = secondMustBeDay || dateOrder === 'month-first';
+  const month = firstMustBeDay ? second : isMonthFirst ? first : second;
+  const day = firstMustBeDay ? first : isMonthFirst ? second : first;
 
   return isoFromParts(year, month, day);
 }
@@ -295,6 +475,8 @@ export default function TravelProfileForm({ initialPreferences, initialSources, 
     }
   }
 
+  const dateOrder = dateOrderForHomeBase(preferences.home_base);
+
   return (
     <form className="profile-form" onSubmit={submit}>
       <section className="profile-panel profile-panel-main">
@@ -311,6 +493,7 @@ export default function TravelProfileForm({ initialPreferences, initialSources, 
           onAdd={addTraveler}
           onChange={updateTraveler}
           onRemove={removeTraveler}
+          dateOrder={dateOrder}
         />
 
         <div className="profile-grid-two">
@@ -500,11 +683,13 @@ function TravelerProfilesEditor({
   onAdd,
   onChange,
   onRemove,
+  dateOrder,
 }: {
   profiles: TravelerProfile[];
   onAdd: () => void;
   onChange: <K extends keyof TravelerProfile>(index: number, key: K, value: TravelerProfile[K]) => void;
   onRemove: (index: number) => void;
+  dateOrder: DateOrder;
 }) {
   return (
     <section className="profile-travelers">
@@ -557,6 +742,7 @@ function TravelerProfilesEditor({
                     autoComplete="bday"
                     ariaLabel={`${profile.full_name || `Traveler ${index + 1}`} date of birth`}
                     defaultDisplayDate="1990-01-01"
+                    dateOrder={dateOrder}
                     minDate="1900-01-01"
                     maxDate={todayIso()}
                   />
@@ -616,6 +802,7 @@ function TravelerProfilesEditor({
                     autoComplete="off"
                     ariaLabel={`${profile.full_name || `Traveler ${index + 1}`} passport expiry`}
                     defaultDisplayDate={todayIso()}
+                    dateOrder={dateOrder}
                   />
                 </div>
                 <label className="profile-field">
@@ -641,6 +828,7 @@ function ProfileDateInput({
   ariaLabel,
   autoComplete,
   defaultDisplayDate,
+  dateOrder,
   minDate,
   maxDate,
 }: {
@@ -649,24 +837,25 @@ function ProfileDateInput({
   ariaLabel: string;
   autoComplete?: string;
   defaultDisplayDate: string;
+  dateOrder: DateOrder;
   minDate?: string;
   maxDate?: string;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [open, setOpen] = useState(false);
-  const [inputValue, setInputValue] = useState(value);
+  const [inputValue, setInputValue] = useState(formatDateForInput(value, dateOrder));
   const [invalid, setInvalid] = useState(false);
   const [displayMonth, setDisplayMonth] = useState(
     clampMonthToBounds(value || defaultDisplayDate, minDate, maxDate)
   );
 
   useEffect(() => {
-    setInputValue(value);
+    setInputValue(formatDateForInput(value, dateOrder));
     setInvalid(false);
     if (value) {
       setDisplayMonth(clampMonthToBounds(value, minDate, maxDate));
     }
-  }, [defaultDisplayDate, maxDate, minDate, value]);
+  }, [dateOrder, defaultDisplayDate, maxDate, minDate, value]);
 
   useEffect(() => {
     if (!open) return;
@@ -728,7 +917,7 @@ function ProfileDateInput({
   }, [maxDate, minDate, selectedMonth, selectedYear, today, value]);
 
   function commitInput(rawValue: string): boolean {
-    const parsed = parseManualDate(rawValue);
+    const parsed = parseManualDate(rawValue, dateOrder);
     if (parsed === '') {
       setInputValue('');
       setInvalid(false);
@@ -737,7 +926,7 @@ function ProfileDateInput({
     }
 
     if (parsed && isWithinDateBounds(parsed, minDate, maxDate)) {
-      setInputValue(parsed);
+      setInputValue(formatDateForInput(parsed, dateOrder));
       setInvalid(false);
       setDisplayMonth(clampMonthToBounds(parsed, minDate, maxDate));
       onChange(parsed);
@@ -757,7 +946,7 @@ function ProfileDateInput({
 
   function selectDate(iso: string, disabled: boolean) {
     if (disabled) return;
-    setInputValue(iso);
+    setInputValue(formatDateForInput(iso, dateOrder));
     setInvalid(false);
     setDisplayMonth(clampMonthToBounds(iso, minDate, maxDate));
     onChange(iso);
@@ -778,7 +967,7 @@ function ProfileDateInput({
           type="text"
           inputMode="numeric"
           value={inputValue}
-          placeholder={dateInputPlaceholder}
+          placeholder={dateInputPlaceholder(dateOrder)}
           aria-label={ariaLabel}
           aria-invalid={invalid}
           autoComplete={autoComplete}
@@ -789,7 +978,7 @@ function ProfileDateInput({
             setInvalid(false);
 
             const trimmed = nextValue.trim();
-            const parsed = parseManualDate(nextValue);
+            const parsed = parseManualDate(nextValue, dateOrder);
             if (parsed === '') {
               onChange('');
               return;
