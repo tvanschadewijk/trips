@@ -2607,7 +2607,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
             ) : null}
           </div>
           <div className="hero-body">
-            <h1 className="text-hero-title">{trip.name}</h1>
+            <h1 className="trip-title-sr-only">{trip.name}</h1>
             <p className="hero-date-range">{formatHeroDateRange(trip.dates.start, trip.dates.end)}</p>
             <div className="hero-meta-chips" aria-label="Trip highlights">
               <span className="hero-meta-chip"><Icon name="moon" />{nights} {nights === 1 ? 'Night' : 'Nights'}</span>
