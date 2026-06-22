@@ -273,7 +273,11 @@ function mapSearchContext(day: Day, atlas: TripRouteAtlas | undefined, contextLa
     .filter((point) => point.role !== 'home')
     .map((point) => point.label)
     .slice(0, 3) ?? [];
-  return uniquePlaceLabels([...routeLabels, ...contextLabels, day.title]).join(' ');
+  const dayLocationLabels = [
+    day.accommodation?.detail?.address,
+    stayDestinationSearchText(day),
+  ].filter((value): value is string => Boolean(value));
+  return uniquePlaceLabels([...routeLabels, ...dayLocationLabels, ...contextLabels, day.title]).join(' ');
 }
 
 function normalizeMapSearchLabel(value: string): string {
@@ -506,9 +510,12 @@ function addDayMapTarget(
 
   seen.add(normalized);
   const context = mapSearchContext(day, atlas, options.contextLabels);
+  const needsExactPlaceSearch = options.placeType === 'lodging' || options.placeType === 'restaurant';
   const fallbackPoint = options.fallbackPoint
-    ?? matchingAtlasPoint(atlas, [trimmed, options.address].filter(Boolean).join(' '))
-    ?? approximateAtlasPoint(atlas, targets.length);
+    ?? (needsExactPlaceSearch
+      ? undefined
+      : matchingAtlasPoint(atlas, [trimmed, options.address].filter(Boolean).join(' '))
+        ?? approximateAtlasPoint(atlas, targets.length));
   targets.push({
     id: `day-${day.day_number}-poi-${targets.length}-${normalized.replace(/\s+/g, '-')}`,
     label: trimmed,

@@ -86,7 +86,7 @@ const OVERVIEW_MAP_FIT_PADDING = { top: 28, right: 24, bottom: 28, left: 24 } sa
 const DAY_MAP_FIT_PADDING = { top: 68, right: 84, bottom: 76, left: 68 } satisfies google.maps.Padding;
 const DAY_MAP_REFIT_PADDING = { top: 76, right: 92, bottom: 84, left: 76 } satisfies google.maps.Padding;
 const PLACE_FALLBACK_MAX_DISTANCE_KM = 120;
-const POI_RESULT_BOUNDS_PAD_DEGREES = 0.04;
+const POI_RESULT_BOUNDS_PAD_DEGREES = 0.18;
 const SEARCH_CACHE = new Map<string, ResolvedSearchTarget | null>();
 const PLACE_AREA_TYPES = new Set([
   'administrative_area_level_1',
@@ -266,7 +266,6 @@ function searchResultFitsTarget(
 }
 
 function locationBiasFor(target: ItineraryMapPoiSearchTarget): google.maps.places.SearchByTextRequest['locationBias'] | undefined {
-  if (target.kind === 'poi' && target.bbox) return undefined;
   if (target.bbox) return boundsLiteralFor(target.bbox);
   if (!target.proximity) return undefined;
 
@@ -278,7 +277,11 @@ function locationBiasFor(target: ItineraryMapPoiSearchTarget): google.maps.place
 
 function locationRestrictionFor(target: ItineraryMapPoiSearchTarget): google.maps.places.SearchByTextRequest['locationRestriction'] | undefined {
   if (target.kind !== 'poi' || !target.bbox) return undefined;
-  return boundsLiteralFor(target.bbox);
+  // Day-map POI bounds are inferred from itinerary route context. Treat them as
+  // a ranking hint, not a hard wall, so nearby establishments just outside a
+  // broad place anchor (for example Como city vs. a Lake Como route point) can
+  // still resolve to their real Places result.
+  return undefined;
 }
 
 function placeCoordinates(place: google.maps.places.Place): google.maps.LatLngLiteral | undefined {
@@ -296,11 +299,22 @@ function isAreaResult(place: google.maps.places.Place): boolean {
   return types.some((type) => PLACE_AREA_TYPES.has(type));
 }
 
+function placeNameMatchesTarget(place: google.maps.places.Place, target: ItineraryMapPoiSearchTarget): boolean {
+  const placeName = normalizeSearchText(place.displayName ?? '');
+  const targetName = normalizeSearchText(target.label);
+  if (!placeName || !targetName) return false;
+  return placeName === targetName || placeName.includes(targetName) || targetName.includes(placeName);
+}
+
 function pickSearchPlace(places: google.maps.places.Place[] | undefined, target: ItineraryMapPoiSearchTarget): google.maps.places.Place | undefined {
   const candidates = (places ?? []).filter((place) => placeCoordinates(place));
   if (!candidates.length) return undefined;
   if (target.kind === 'place') return candidates[0];
-  if (target.placeType) return candidates.find((place) => !isAreaResult(place)) ?? candidates[0];
+  if (target.placeType) {
+    return candidates.find((place) => !isAreaResult(place) && placeNameMatchesTarget(place, target))
+      ?? candidates.find((place) => !isAreaResult(place))
+      ?? candidates[0];
+  }
 
   const targetText = normalizeSearchText(target.label);
   return candidates.find((place) => {
@@ -312,6 +326,13 @@ function pickSearchPlace(places: google.maps.places.Place[] | undefined, target:
 
 function resolvedTargetFromFallback(target: ItineraryMapPoiSearchTarget, index: number): ResolvedSearchTarget | null {
   if (!target.fallbackPoint) return null;
+  if (
+    target.kind === 'poi'
+    && target.fallbackPoint.source !== 'stored'
+    && (target.placeType === 'lodging' || target.placeType === 'restaurant')
+  ) {
+    return null;
+  }
 
   return {
     point: {
@@ -389,18 +410,19 @@ async function resolveSearchTarget(target: ItineraryMapPoiSearchTarget, apiKey: 
       if (!place || !position) continue;
       if (!searchResultFitsTarget(target, position)) continue;
 
+      const displayName = place.displayName?.trim();
       const resolved: ResolvedSearchTarget = {
         point: {
           id: target.id,
           index: 0,
-          label: target.label,
+          label: displayName || target.label,
           lat: position.lat,
           lng: position.lng,
           role: target.role ?? 'stop',
           source: 'derived',
         },
         detail: {
-          title: target.detail?.title ?? target.label,
+          title: displayName || target.detail?.title || target.label,
           kicker: target.detail?.kicker,
           body: target.detail?.body || place.formattedAddress || '',
         },

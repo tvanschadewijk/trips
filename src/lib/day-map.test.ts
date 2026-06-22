@@ -70,12 +70,13 @@ test('day map targets preserve the day order and skip generic meal descriptions'
       'Trattoria da Maria',
     ]
   );
-  assert.deepEqual(dayMapData.atlas?.points.map((point) => point.label), targets.map((target) => target.label));
-  assert.equal(targets.every((target) => Boolean(target.fallbackPoint)), true);
+  assert.deepEqual(dayMapData.atlas?.points.map((point) => point.label), ['Peschici', 'Museo delle Culture']);
   assert.equal(targets.some((target) => target.label === 'Ravenna'), false);
   assert.equal(targets.find((target) => target.label === 'Peschici')?.fallbackPoint?.lat, 41.946);
   assert.equal(targets.find((target) => target.label === 'Vila SEJUDA Alberghetto')?.placeType, 'lodging');
+  assert.equal(targets.find((target) => target.label === 'Vila SEJUDA Alberghetto')?.fallbackPoint, undefined);
   assert.equal(targets.find((target) => target.label === 'Trattoria da Maria')?.placeType, 'restaurant');
+  assert.equal(targets.find((target) => target.label === 'Trattoria da Maria')?.fallbackPoint, undefined);
 });
 
 test('day map targets include agent-added single restaurant meals', () => {
@@ -114,7 +115,9 @@ test('day map targets include agent-added single restaurant meals', () => {
 
   assert.ok(platea);
   assert.equal(platea.placeType, 'restaurant');
-  assert.equal(dayMapData.atlas?.points.some((point) => point.label === 'Platea Ristorante'), true);
+  assert.equal(platea.fallbackPoint, undefined);
+  assert.match(platea.query ?? '', /Brunate, Lake Como, Italy/);
+  assert.equal(dayMapData.atlas?.points.some((point) => point.label === 'Platea Ristorante'), false);
 });
 
 test('day map route places are anchored to known atlas coordinates before text search', () => {
