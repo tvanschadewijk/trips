@@ -87,6 +87,32 @@ test('builds a scratch-generation agent message with hard date requirements', ()
   assert.match(message, /Preferred pace: relaxed/);
 });
 
+test('includes pasted and uploaded trip references in the generation message', () => {
+  const referenceBrief = TripCreationBriefSchema.parse({
+    ...brief,
+    reference_text: 'Draft route: Tokyo, Kyoto, Naoshima.',
+    reference_sources: [
+      {
+        id: 'ref-1',
+        kind: 'file',
+        file_name: 'flight-confirmation.pdf',
+        content_type: 'application/pdf',
+        size: 4096,
+        extracted_text: '- Flight AMS to HND arrives 2026-09-02 at 08:15',
+        status: 'ready',
+        error: '',
+      },
+    ],
+  });
+
+  const message = buildTripGenerationAgentMessage(referenceBrief, null);
+
+  assert.match(message, /Trip reference material/);
+  assert.match(message, /Draft route: Tokyo, Kyoto, Naoshima/);
+  assert.match(message, /flight-confirmation\.pdf/);
+  assert.match(message, /arrives 2026-09-02 at 08:15/);
+});
+
 test('rejects a trip that ends on the start date', () => {
   assert.throws(
     () => TripCreationBriefSchema.parse({
