@@ -87,6 +87,7 @@ import {
   generateThreadTitle,
 } from '@/lib/trip-chat/thread-title';
 import { classifyTurnFailure } from '@/lib/trip-chat/turn-failure';
+import { formatViewContextPrefix } from '@/lib/trip-chat/view-context';
 
 const BodySchema = z.object({
   message: z.string().min(1).max(8000),
@@ -916,28 +917,6 @@ async function persistAssistantFallback(
     toolCallCounter: { count: 0 },
     error_detail: detail ? `unhandled: ${detail}` : 'unhandled background turn error',
   });
-}
-
-function formatViewContextPrefix(ctx: ChatRequestBody['view_context']): string {
-  if (!ctx) return '';
-  if (ctx.slideKind === 'day' && ctx.day_number) {
-    const dateStr = ctx.date ? ` (${ctx.date})` : '';
-    const titleStr = ctx.title ? ` — "${ctx.title}"` : '';
-    return `[The user is currently viewing Day ${ctx.day_number}${dateStr}${titleStr}. If their question is ambiguous about which day, default to this one.]\n\n`;
-  }
-  if (ctx.slideKind === 'cover') {
-    return `[The user is currently on the trip cover (overview), not a specific day.]\n\n`;
-  }
-  if (ctx.slideKind === 'accommodation_review') {
-    const destination = ctx.destination_title
-      ? ` destination "${ctx.destination_title}"`
-      : ' accommodation-review destination';
-    const candidate = ctx.candidate_name
-      ? ` Candidate in focus: "${ctx.candidate_name}".`
-      : '';
-    return `[The user is currently viewing the private Accommodations Reviewer for${destination}.${candidate} Use accommodation-review tools before answering hotel-candidate workflow questions.]\n\n`;
-  }
-  return '';
 }
 
 async function resolveClaudeExecutable(): Promise<{
