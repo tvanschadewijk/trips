@@ -1,21 +1,20 @@
 import { test, expect } from '@playwright/test';
 
 const BASE = process.env.BASE_URL ?? 'http://localhost:3000';
-const SHARE_ID = process.env.TEST_SHARE_ID ?? 'demo';
+const SHARE_ID = process.env.TEST_SHARE_ID ?? 'NyLNFNHxC9';
 
 test.describe('Explicit Save for offline', () => {
+  async function openTripActions(page) {
+    await page.getByRole('button', { name: 'Trip actions' }).click();
+  }
+
   test('saves trip and persists manifest entry', async ({ page }) => {
     await page.goto(`${BASE}/t/${SHARE_ID}`);
     await page.waitForLoadState('networkidle');
 
-    // Tap a non-cover slide so the save button (which lives in the nav
-    // when not 'over-hero') has full contrast and is hit-testable. The
-    // button is also visible on the cover; this just exercises both.
-    const saveBtn = page.locator('.save-offline-btn');
-    await saveBtn.click();
-
-    // Wait for the saved (terracotta check) state.
-    await expect(saveBtn).toHaveClass(/saved/);
+    await openTripActions(page);
+    await page.getByRole('menuitem', { name: 'Download trip for offline' }).click();
+    await expect(page.getByText('Downloaded for offline')).toBeVisible();
 
     // Manifest entry should be present.
     const entry = await page.evaluate((shareId) => {
@@ -32,17 +31,17 @@ test.describe('Explicit Save for offline', () => {
     await page.goto(`${BASE}/t/${SHARE_ID}`);
     await page.waitForLoadState('networkidle');
 
-    const saveBtn = page.locator('.save-offline-btn');
-    if (!(await saveBtn.evaluate((el) => el.classList.contains('saved')))) {
-      await saveBtn.click();
-      await expect(saveBtn).toHaveClass(/saved/);
+    await openTripActions(page);
+    const removeAction = page.getByRole('menuitem', { name: 'Remove offline download' });
+    if (!(await removeAction.isVisible())) {
+      await page.getByRole('menuitem', { name: 'Download trip for offline' }).click();
+      await expect(page.getByText('Downloaded for offline')).toBeVisible();
+      await openTripActions(page);
     }
 
-    // Tap the saved button to open the confirm dialog.
-    await saveBtn.click();
-    await page.locator('.confirm-btn-delete').click();
-
-    await expect(saveBtn).not.toHaveClass(/saved/);
+    await page.getByRole('menuitem', { name: 'Remove offline download' }).click();
+    await page.getByRole('button', { name: 'Remove' }).click();
+    await expect(page.getByText('Download removed')).toBeVisible();
 
     const entry = await page.evaluate((shareId) => {
       const raw = localStorage.getItem('ourtrips:offline-manifest:v1');

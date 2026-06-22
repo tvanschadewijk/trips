@@ -53,6 +53,7 @@ const RESERVED_FILENAMES = new Set(['index.md', 'log.md']);
 const DEFAULT_KNOWLEDGE_ROOT = join(process.cwd(), 'knowledge');
 const CONCEPT_BODY_LIMIT = 1400;
 const TOTAL_CONTEXT_LIMIT = 11000;
+const LOCAL_DUPLICATE_ARTIFACT_PATTERN = / 2(?:\.[^/]+)?$/u;
 
 const INTENT_DOCS: Record<string, string[]> = {
   confirm_accommodation_booking: [
@@ -142,11 +143,17 @@ function isReservedMarkdown(relativePath: string): boolean {
   return filename ? RESERVED_FILENAMES.has(filename) : false;
 }
 
+function isLocalDuplicateArtifact(entryName: string): boolean {
+  return LOCAL_DUPLICATE_ARTIFACT_PATTERN.test(entryName);
+}
+
 function collectMarkdownFiles(root: string, dir = root): string[] {
   const entries = readdirSync(dir);
   const files: string[] = [];
 
   for (const entry of entries) {
+    if (isLocalDuplicateArtifact(entry)) continue;
+
     const absolute = join(dir, entry);
     const stats = statSync(absolute);
     if (stats.isDirectory()) {

@@ -1447,6 +1447,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
                 className="trip-cover-menu-item"
                 onClick={handleToggleOfflineDownload}
                 disabled={offlineBusy}
+                aria-label={offlineTrip.isSaved ? 'Remove offline download' : 'Download trip for offline'}
                 role="menuitem"
               >
                 <span className="trip-cover-menu-icon"><Icon name={offlineTrip.isSaved ? 'check' : 'download'} /></span>
