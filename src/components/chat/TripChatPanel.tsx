@@ -27,14 +27,30 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { AnimatePresence, motion, useDragControls } from 'motion/react';
 import {
+  AlertTriangle,
+  BookOpen,
+  CalendarDays,
   Check,
+  CheckCircle2,
+  CircleDot,
+  ClipboardCheck,
+  Compass,
+  Globe2,
+  Hotel,
+  Link as LinkIcon,
+  MapPin,
   MessageCircle,
   PanelLeft,
   PanelLeftClose,
   Pencil,
+  PencilLine,
+  Plane,
+  Route,
+  Search,
   SendHorizontal,
   SquarePen,
   Trash2,
+  Utensils,
   X,
 } from 'lucide-react';
 import type { ToolCallSummary } from '@/lib/trip-chat/prompt';
@@ -571,6 +587,10 @@ export default function TripChatPanel({
         id: `local-progress-${Date.now()}`,
         turn_index: nextTurnIndex,
         stage: 'queued',
+        action: 'read_request',
+        object_type: 'request',
+        status: 'active',
+        confidence: 'observed',
         message: INITIAL_CHAT_PROGRESS_MESSAGE,
         created_at: new Date().toISOString(),
       },
@@ -698,13 +718,15 @@ export default function TripChatPanel({
 
   const threadGroups = groupThreadsByRecency(threads);
   const latestProgress = turnProgress[turnProgress.length - 1];
+  const activeProgress =
+    loading && latestProgress && latestProgress.stage !== 'done' ? latestProgress : undefined;
   const activeStatusText =
-    loading && latestProgress && latestProgress.stage !== 'done'
-      ? latestProgress.message
+    activeProgress
+      ? activeProgress.message
       : statusPhases[statusIdx] ?? statusPhases[statusPhases.length - 1];
   const visibleProgress = turnProgress
     .filter((event) => event.stage !== 'done')
-    .slice(-4);
+    .slice(-5);
 
   return (
     <>
@@ -747,6 +769,11 @@ export default function TripChatPanel({
             {loading ? (
               <>
                 <TypingDots />
+                {activeProgress && (
+                  <span style={minimizedActivityIconStyle}>
+                    <ProgressIcon event={activeProgress} size={13} />
+                  </span>
+                )}
                 <span style={{ marginLeft: 10, fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic' }}>
                   {activeStatusText}
                 </span>
@@ -980,8 +1007,15 @@ export default function TripChatPanel({
                         initial={{ opacity: 0, y: 6 }}
                         animate={{ opacity: 1, y: 0 }}
                         style={statusRowStyle}
+                        role="status"
+                        aria-live="polite"
                       >
                         <TypingDots />
+                        {activeProgress && (
+                          <span style={statusIconStyle}>
+                            <ProgressIcon event={activeProgress} size={14} />
+                          </span>
+                        )}
                         <AnimatePresence mode="wait">
                           <motion.span
                             key={activeStatusText}
@@ -1065,21 +1099,82 @@ function TypingDots() {
   );
 }
 
+function ProgressIcon({ event, size = 14 }: { event: ChatProgressEvent; size?: number }) {
+  const objectType = event.object_type ?? '';
+  const Icon =
+    event.status === 'error' || event.stage === 'error'
+      ? AlertTriangle
+      : event.status === 'completed' || event.stage === 'done'
+        ? CheckCircle2
+        : event.stage === 'researching' && event.source === 'web'
+          ? Globe2
+          : event.stage === 'researching'
+            ? Search
+            : event.stage === 'booking'
+              ? LinkIcon
+              : objectType.includes('restaurant')
+                ? Utensils
+                : objectType.includes('hotel') || objectType.includes('accommodation')
+                  ? Hotel
+                  : objectType.includes('flight')
+                    ? Plane
+                    : objectType.includes('transport')
+                      ? Route
+                      : objectType.includes('date') || objectType.includes('logistics')
+                        ? CalendarDays
+                        : event.stage === 'reading'
+                          ? BookOpen
+                          : event.stage === 'editing'
+                            ? PencilLine
+                            : event.stage === 'checking' || event.stage === 'reviewing'
+                              ? ClipboardCheck
+                              : event.stage === 'queued' || event.stage === 'starting'
+                                ? Compass
+                                : objectType.includes('day')
+                                  ? MapPin
+                                  : CircleDot;
+  return <Icon size={size} strokeWidth={2.15} aria-hidden="true" />;
+}
+
+function progressMeta(event: ChatProgressEvent): string[] {
+  return [
+    event.source_label,
+    event.confidence === 'inferred' ? 'Inferred' : null,
+    event.status === 'completed' ? 'Done' : null,
+  ].filter((value): value is string => Boolean(value));
+}
+
 function ProgressTrail({ progress }: { progress: ChatProgressEvent[] }) {
   return (
-    <motion.ol
+    <motion.div
       initial={{ opacity: 0, y: 4 }}
       animate={{ opacity: 1, y: 0 }}
-      style={progressTrailStyle}
-      aria-label="Recent agent activity"
+      style={progressTrailWrapStyle}
     >
-      {progress.map((event) => (
-        <li key={event.id} style={progressTrailItemStyle}>
-          <span style={progressTrailDotStyle} aria-hidden="true" />
-          {event.message}
-        </li>
-      ))}
-    </motion.ol>
+      <div style={progressTrailLabelStyle}>Agent activity</div>
+      <ol style={progressTrailStyle} aria-label="Recent agent activity">
+        {progress.map((event) => {
+          const meta = progressMeta(event);
+          return (
+            <li key={event.id} style={progressTrailItemStyle}>
+              <span style={progressTrailIconStyle}>
+                <ProgressIcon event={event} size={13} />
+              </span>
+              <span style={progressTrailMessageStyle}>{event.message}</span>
+              {meta.length > 0 && (
+                <span style={progressTrailMetaStyle}>
+                  {meta.map((label) => (
+                    <span key={label} style={progressTrailChipStyle}>
+                      {label}
+                    </span>
+                  ))}
+                </span>
+              )}
+            </li>
+          );
+        })}
+      </ol>
+    </motion.div>
   );
 }
 
@@ -1192,6 +1287,16 @@ const unreadBadgeStyle: React.CSSProperties = {
   fontWeight: 600,
   letterSpacing: '0.04em',
   fontFamily: 'Inter, system-ui, sans-serif',
+};
+
+const minimizedActivityIconStyle: React.CSSProperties = {
+  marginLeft: 9,
+  width: 18,
+  height: 18,
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  color: '#A03E1F',
 };
 
 const backdropStyle: React.CSSProperties = {
@@ -1315,6 +1420,16 @@ const statusRowStyle: React.CSSProperties = {
   alignSelf: 'flex-start',
 };
 
+const statusIconStyle: React.CSSProperties = {
+  width: 18,
+  height: 18,
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  color: '#A03E1F',
+  marginLeft: -2,
+};
+
 const statusTextStyle: React.CSSProperties = {
   fontFamily: '"Fraunces", "Iowan Old Style", "Palatino", Georgia, serif',
   fontOpticalSizing: 'auto',
@@ -1326,31 +1441,73 @@ const statusTextStyle: React.CSSProperties = {
   letterSpacing: 0,
 };
 
-const progressTrailStyle: React.CSSProperties = {
+const progressTrailWrapStyle: React.CSSProperties = {
   margin: '-4px 0 2px 28px',
+  paddingLeft: 8,
+  borderLeft: '1px solid #E8E1D6',
+};
+
+const progressTrailLabelStyle: React.CSSProperties = {
+  margin: '0 0 5px',
+  color: '#9B4F2E',
+  fontSize: 10,
+  fontWeight: 600,
+  letterSpacing: '0.14em',
+  lineHeight: 1,
+  textTransform: 'uppercase',
+};
+
+const progressTrailStyle: React.CSSProperties = {
+  margin: 0,
   padding: 0,
   listStyle: 'none',
   display: 'flex',
   flexDirection: 'column',
-  gap: 4,
+  gap: 6,
   color: '#6B6157',
   fontSize: 12,
   lineHeight: 1.45,
 };
 
 const progressTrailItemStyle: React.CSSProperties = {
-  position: 'relative',
-  paddingLeft: 12,
+  display: 'grid',
+  gridTemplateColumns: '16px minmax(0, 1fr)',
+  columnGap: 7,
+  rowGap: 3,
+  alignItems: 'start',
 };
 
-const progressTrailDotStyle: React.CSSProperties = {
-  position: 'absolute',
-  left: 0,
-  top: '0.62em',
-  width: 4,
-  height: 4,
+const progressTrailIconStyle: React.CSSProperties = {
+  width: 16,
+  height: 16,
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  color: '#9B4F2E',
+  marginTop: 1,
+};
+
+const progressTrailMessageStyle: React.CSSProperties = {
+  minWidth: 0,
+};
+
+const progressTrailMetaStyle: React.CSSProperties = {
+  gridColumn: '2',
+  display: 'flex',
+  flexWrap: 'wrap',
+  gap: 4,
+};
+
+const progressTrailChipStyle: React.CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  minHeight: 17,
+  padding: '1px 6px',
   borderRadius: 999,
-  background: '#D4C8B4',
+  background: '#F4EDE2',
+  color: '#6B6157',
+  fontSize: 10,
+  fontWeight: 560,
 };
 
 const typingDotsStyle: React.CSSProperties = {

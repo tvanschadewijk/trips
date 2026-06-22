@@ -302,6 +302,9 @@ export async function POST(
     turnIndex,
   }, {
     stage: 'queued',
+    action: 'queue',
+    object_type: 'agent_turn',
+    confidence: 'observed',
     message: 'Queued your request...',
   });
 
@@ -367,6 +370,20 @@ export async function POST(
       total_cost_usd: 0,
       duration_ms: fastLane.durationMs,
       toolCallCounter: { count: fastLane.toolCallsSummary.length },
+    });
+
+    await insertTurnProgress(admin, {
+      sessionRowId,
+      tripId,
+      userId: access.userId,
+      turnIndex,
+    }, {
+      stage: 'done',
+      action: 'finish',
+      object_type: 'fast_lane_turn',
+      status: 'completed',
+      confidence: 'observed',
+      message: 'Answered from the quick path.',
     });
 
     if (polishTitle) {
@@ -468,11 +485,44 @@ function createTurnProgressReporter(
 ): (update: ChatProgressUpdate) => Promise<void> {
   let lastKey = '';
   return async (update) => {
-    const key = `${update.stage}:${update.message}`;
+    const key = progressKey(update);
     if (key === lastKey) return;
     lastKey = key;
     await insertTurnProgress(admin, scope, update);
   };
+}
+
+function progressKey(update: ChatProgressUpdate): string {
+  return [
+    update.stage,
+    update.message,
+    update.action,
+    update.object_type,
+    update.object_label,
+    update.source,
+    update.source_label,
+    update.status,
+    update.confidence,
+  ]
+    .filter(Boolean)
+    .join(':');
+}
+
+function progressEventStatus(update: ChatProgressUpdate): ChatProgressUpdate['status'] {
+  if (update.status) return update.status;
+  if (update.stage === 'done') return 'completed';
+  if (update.stage === 'error') return 'error';
+  return 'active';
+}
+
+function progressConfidence(update: ChatProgressUpdate): ChatProgressUpdate['confidence'] {
+  return update.confidence ?? 'observed';
+}
+
+function progressSchemaMissing(errorMessage: string): boolean {
+  return /trip_chat_progress_events|schema cache|relation .* does not exist|could not find .* column|column .* does not exist/i.test(
+    errorMessage
+  );
 }
 
 async function insertTurnProgress(
@@ -480,22 +530,79 @@ async function insertTurnProgress(
   scope: TurnProgressScope,
   update: ChatProgressUpdate
 ): Promise<void> {
-  const { error } = await admin.from('trip_chat_progress_events').insert({
+  const row = {
     session_id: scope.sessionRowId,
     trip_id: scope.tripId,
     user_id: scope.userId,
     turn_index: scope.turnIndex,
     stage: update.stage,
     message: update.message.slice(0, 240),
-  });
+    action: update.action ?? null,
+    object_type: update.object_type ?? null,
+    object_label: update.object_label?.slice(0, 160) ?? null,
+    source: update.source ?? null,
+    source_label: update.source_label?.slice(0, 120) ?? null,
+    event_status: progressEventStatus(update),
+    confidence: progressConfidence(update),
+  };
+
+  const { error } = await admin.from('trip_chat_progress_events').insert(row);
+
+  if (error && progressSchemaMissing(error.message)) {
+    const { error: fallbackError } = await admin.from('trip_chat_progress_events').insert({
+      session_id: row.session_id,
+      trip_id: row.trip_id,
+      user_id: row.user_id,
+      turn_index: row.turn_index,
+      stage: row.stage,
+      message: row.message,
+    });
+    if (!fallbackError || progressSchemaMissing(fallbackError.message)) return;
+    console.error('trip-chat: failed to record progress', fallbackError.message);
+    return;
+  }
 
   if (error) {
-    // Older local/prod databases may not have the progress table yet. Progress
-    // is helpful, not load-bearing; the turn must continue either way.
-    if (!/trip_chat_progress_events|schema cache|relation .* does not exist/i.test(error.message)) {
-      console.error('trip-chat: failed to record progress', error.message);
-    }
+    console.error('trip-chat: failed to record progress', error.message);
   }
+}
+
+type ProgressRow = {
+  id: unknown;
+  turn_index: unknown;
+  stage: unknown;
+  message: unknown;
+  action?: unknown;
+  object_type?: unknown;
+  object_label?: unknown;
+  source?: unknown;
+  source_label?: unknown;
+  event_status?: unknown;
+  confidence?: unknown;
+  created_at: unknown;
+};
+
+function mapProgressRows(data: ProgressRow[] | null | undefined): ChatProgressEvent[] {
+  return (data ?? []).map((row) => ({
+    id: String(row.id),
+    turn_index: Number(row.turn_index),
+    stage: row.stage as ChatProgressEvent['stage'],
+    message: String(row.message ?? ''),
+    action: typeof row.action === 'string' ? row.action : undefined,
+    object_type: typeof row.object_type === 'string' ? row.object_type : undefined,
+    object_label: typeof row.object_label === 'string' ? row.object_label : undefined,
+    source: typeof row.source === 'string' ? row.source : undefined,
+    source_label: typeof row.source_label === 'string' ? row.source_label : undefined,
+    status:
+      typeof row.event_status === 'string'
+        ? (row.event_status as ChatProgressEvent['status'])
+        : undefined,
+    confidence:
+      typeof row.confidence === 'string'
+        ? (row.confidence as ChatProgressEvent['confidence'])
+        : undefined,
+    created_at: String(row.created_at ?? ''),
+  }));
 }
 
 async function loadTurnProgress(
@@ -505,26 +612,34 @@ async function loadTurnProgress(
 ): Promise<ChatProgressEvent[]> {
   const { data, error } = await admin
     .from('trip_chat_progress_events')
-    .select('id, turn_index, stage, message, created_at')
+    .select(
+      'id, turn_index, stage, message, action, object_type, object_label, source, source_label, event_status, confidence, created_at'
+    )
     .eq('session_id', threadId)
     .eq('turn_index', turnIndex)
     .order('created_at', { ascending: true })
     .limit(30);
 
   if (error) {
-    if (!/trip_chat_progress_events|schema cache|relation .* does not exist/i.test(error.message)) {
-      console.error('trip-chat: failed to load progress', error.message);
+    if (progressSchemaMissing(error.message)) {
+      const fallback = await admin
+        .from('trip_chat_progress_events')
+        .select('id, turn_index, stage, message, created_at')
+        .eq('session_id', threadId)
+        .eq('turn_index', turnIndex)
+        .order('created_at', { ascending: true })
+        .limit(30);
+
+      if (!fallback.error) return mapProgressRows(fallback.data as ProgressRow[]);
+      if (progressSchemaMissing(fallback.error.message)) return [];
+      console.error('trip-chat: failed to load progress', fallback.error.message);
+      return [];
     }
+    console.error('trip-chat: failed to load progress', error.message);
     return [];
   }
 
-  return (data ?? []).map((row) => ({
-    id: String(row.id),
-    turn_index: Number(row.turn_index),
-    stage: row.stage as ChatProgressEvent['stage'],
-    message: String(row.message ?? ''),
-    created_at: String(row.created_at ?? ''),
-  }));
+  return mapProgressRows(data as ProgressRow[]);
 }
 
 async function requireTripChatAccess(
@@ -637,6 +752,9 @@ async function runAgentTurn(args: RunAgentTurnArgs): Promise<void> {
   const progress = createTurnProgressReporter(admin, args);
   await progress({
     stage: 'starting',
+    action: 'start',
+    object_type: 'agent_session',
+    confidence: 'observed',
     message: 'Starting the travel agent...',
   });
 
@@ -666,7 +784,7 @@ async function runAgentTurn(args: RunAgentTurnArgs): Promise<void> {
         input_keys: Object.keys(input as Record<string, unknown>),
       });
       toolCallCounter.count += 1;
-      await progress(getAppliedToolProgressUpdate(tool));
+      await progress(getAppliedToolProgressUpdate(tool, input));
     },
   });
 
@@ -739,6 +857,9 @@ async function runAgentTurn(args: RunAgentTurnArgs): Promise<void> {
   });
   await progress({
     stage: 'thinking',
+    action: 'plan',
+    object_type: 'next_step',
+    confidence: 'inferred',
     message: 'Planning the next step...',
   });
   try {
@@ -749,6 +870,9 @@ async function runAgentTurn(args: RunAgentTurnArgs): Promise<void> {
         sdkSessionId = (msg as { session_id: string }).session_id;
         await progress({
           stage: 'starting',
+          action: 'connect',
+          object_type: 'agent_session',
+          confidence: 'observed',
           message: 'Connected to the agent session...',
         });
       }
@@ -762,6 +886,9 @@ async function runAgentTurn(args: RunAgentTurnArgs): Promise<void> {
           assistantText = textBlocks.map((c) => c.text ?? '').join('').trim();
           await progress({
             stage: 'writing',
+            action: 'draft',
+            object_type: 'reply',
+            confidence: 'observed',
             message: 'Drafting the reply...',
           });
         }
@@ -785,11 +912,18 @@ async function runAgentTurn(args: RunAgentTurnArgs): Promise<void> {
           resultError = `agent stopped: ${r.subtype}`;
           await progress({
             stage: 'error',
+            action: 'record_error',
+            object_type: 'agent_result',
+            status: 'error',
+            confidence: 'observed',
             message: 'The agent stopped early; saving what happened...',
           });
         } else {
           await progress({
             stage: 'reviewing',
+            action: 'review',
+            object_type: 'agent_result',
+            confidence: 'observed',
             message: 'Reviewing the result...',
           });
         }
@@ -816,6 +950,10 @@ async function runAgentTurn(args: RunAgentTurnArgs): Promise<void> {
     });
     await progress({
       stage: 'error',
+      action: 'record_error',
+      object_type: 'agent_turn',
+      status: 'error',
+      confidence: 'observed',
       message: 'The agent hit an error; saving a truthful status...',
     });
     assistantText =
@@ -837,6 +975,9 @@ async function runAgentTurn(args: RunAgentTurnArgs): Promise<void> {
 
   await progress({
     stage: 'writing',
+    action: 'save',
+    object_type: 'reply',
+    confidence: 'observed',
     message: 'Saving the response...',
   });
 
@@ -852,6 +993,10 @@ async function runAgentTurn(args: RunAgentTurnArgs): Promise<void> {
 
   await progress({
     stage: 'done',
+    action: 'finish',
+    object_type: 'agent_turn',
+    status: 'completed',
+    confidence: 'observed',
     message: 'Done.',
   });
 
@@ -881,6 +1026,10 @@ async function persistAssistantFallback(
   const admin = createAdminClient();
   await insertTurnProgress(admin, args, {
     stage: 'error',
+    action: 'record_error',
+    object_type: 'background_turn',
+    status: 'error',
+    confidence: 'observed',
     message: 'The background turn stopped before it could finish.',
   });
   const { data: existingAssistant } = await admin

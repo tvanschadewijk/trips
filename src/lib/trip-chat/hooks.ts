@@ -46,11 +46,12 @@ export interface HookContext {
 
 async function emitToolProgress(
   ctx: HookContext,
-  toolName: string
+  toolName: string,
+  toolInput?: unknown
 ): Promise<void> {
   if (!ctx.onProgress) return;
   try {
-    await ctx.onProgress(getToolProgressUpdate(toolName));
+    await ctx.onProgress(getToolProgressUpdate(toolName, toolInput));
   } catch {
     // Progress updates are advisory and must never block a tool call.
   }
@@ -73,7 +74,7 @@ export function buildPreToolUseHook(ctx: HookContext): HookCallback {
 
     if (!isTripEditorTool) {
       if (toolName === 'WebSearch' || toolName === 'AskUserQuestion') {
-        await emitToolProgress(ctx, toolName);
+        await emitToolProgress(ctx, toolName, pt.tool_input);
       }
       return { continue: true };
     }
@@ -107,7 +108,7 @@ export function buildPreToolUseHook(ctx: HookContext): HookCallback {
       }
     }
 
-    await emitToolProgress(ctx, toolName);
+    await emitToolProgress(ctx, toolName, pt.tool_input);
 
     return { continue: true };
   };
