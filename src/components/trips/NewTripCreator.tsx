@@ -111,6 +111,7 @@ type GenerationStep = 'idle' | 'draft' | 'agent' | 'poll' | 'done' | 'error';
 
 const POLL_INTERVAL_MS = 2400;
 const POLL_TIMEOUT_MS = 305_000;
+const TRIP_OPEN_DELAY_MS = 1500;
 const questionOrder: BriefQuestion[] = [
   'destination',
   'dates',
@@ -311,12 +312,14 @@ export default function NewTripCreator({ initialPreferences, profileComplete }: 
   const [statusText, setStatusText] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [draftUrl, setDraftUrl] = useState<string | null>(null);
+  const [completedTripUrl, setCompletedTripUrl] = useState<string | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [agentOpen, setAgentOpen] = useState(false);
 
   const currentQuestionIndex = questionOrder.indexOf(activeQuestion);
   const dayCount = inclusiveDayCount(form.start_date, form.end_date);
   const working = generationStep !== 'idle' && generationStep !== 'error';
+  const completed = generationStep === 'done' && Boolean(completedTripUrl);
 
   useEffect(() => {
     if (!busy) return;
@@ -382,6 +385,7 @@ export default function NewTripCreator({ initialPreferences, profileComplete }: 
     setBusy(true);
     setError(null);
     setDraftUrl(null);
+    setCompletedTripUrl(null);
     setElapsedSeconds(0);
 
     try {
@@ -397,7 +401,9 @@ export default function NewTripCreator({ initialPreferences, profileComplete }: 
         throw new Error(draftBody.error ?? `HTTP ${draftRes.status}`);
       }
       draft = draftBody as DraftResponse;
-      setDraftUrl(`/t/${draft.share_id}`);
+      const tripUrl = `/t/${encodeURIComponent(draft.share_id)}`;
+      setDraftUrl(tripUrl);
+      router.prefetch(tripUrl);
 
       setGenerationStep('agent');
       setStatusText('Starting the travel agent with the destination, dates, travelers, profile context, and reference material...');
@@ -437,13 +443,15 @@ export default function NewTripCreator({ initialPreferences, profileComplete }: 
       }
 
       setGenerationStep('done');
-      setStatusText('Opening your completed first draft...');
+      setCompletedTripUrl(tripUrl);
+      setStatusText('Everything is finished. I am opening the new trip now.');
       await updateGeneration(draft.generation_session_id, {
         status: 'completed',
         chat_thread_id: threadId,
         turn_index: turn.turn_index,
       });
-      router.replace(`/t/${draft.share_id}`);
+      await sleep(TRIP_OPEN_DELAY_MS);
+      router.push(tripUrl);
     } catch (err) {
       setGenerationStep('error');
       const message = err instanceof Error ? err.message : 'Failed to create trip';
@@ -672,8 +680,14 @@ export default function NewTripCreator({ initialPreferences, profileComplete }: 
                 busy={busy}
                 error={error}
                 draftUrl={draftUrl}
+                completedTripUrl={completedTripUrl}
                 onCreate={createTrip}
               />
+              {completed && (
+                <AgentBubble>
+                  Everything is finished. I am opening the new trip now.
+                </AgentBubble>
+              )}
             </div>
           )}
         </div>
@@ -684,7 +698,7 @@ export default function NewTripCreator({ initialPreferences, profileComplete }: 
           <Sparkles size={18} aria-hidden="true" />
           <div>
             <h2>Progress</h2>
-            <p>{busy ? `Working for ${formatElapsed(elapsedSeconds)}` : 'Agent-led setup'}</p>
+            <p>{completed ? 'Trip created' : busy ? `Working for ${formatElapsed(elapsedSeconds)}` : 'Agent-led setup'}</p>
           </div>
         </div>
 
@@ -696,14 +710,25 @@ export default function NewTripCreator({ initialPreferences, profileComplete }: 
           <StatusStep active={generationStep === 'done'} done={generationStep === 'done'} label="Open trip" />
         </ol>
 
-        <div className="trip-generation-now">
-          <Clock3 size={16} aria-hidden="true" />
+        <div className={`trip-generation-now ${completed ? 'is-success' : ''}`} aria-live="polite">
+          {completed ? (
+            <Check size={16} aria-hidden="true" />
+          ) : (
+            <Clock3 size={16} aria-hidden="true" />
+          )}
           <div>
             <strong>{statusText || 'I am asking for the details needed to create the trip.'}</strong>
             <p>
-              {busy
-                ? generationEstimate(dayCount, elapsedSeconds)
-                : 'Once generation starts, this panel will show what the agent is doing and how long it may still take.'}
+              {completed && completedTripUrl ? (
+                <>
+                  Taking you to the trip page. If the browser does not move,{' '}
+                  <Link href={completedTripUrl}>open the trip manually</Link>.
+                </>
+              ) : busy ? (
+                generationEstimate(dayCount, elapsedSeconds)
+              ) : (
+                'Once generation starts, this panel will show what the agent is doing and how long it may still take.'
+              )}
             </p>
           </div>
         </div>
@@ -1399,6 +1424,7 @@ function ReviewBrief({
   busy,
   error,
   draftUrl,
+  completedTripUrl,
   onCreate,
 }: {
   form: FormState;
@@ -1406,11 +1432,22 @@ function ReviewBrief({
   busy: boolean;
   error: string | null;
   draftUrl: string | null;
+  completedTripUrl: string | null;
   onCreate: () => void;
 }) {
   return (
     <div className="trip-agent-review">
       <BriefSnapshot form={form} dayCount={dayCount} />
+      {completedTripUrl && (
+        <div className="trip-create-success">
+          <Check size={16} aria-hidden="true" />
+          <div>
+            <strong>Everything is finished.</strong>
+            <span>I am opening the new trip now.</span>
+            <Link href={completedTripUrl}>Open trip</Link>
+          </div>
+        </div>
+      )}
       {error && (
         <div className="trip-create-error">
           <AlertCircle size={16} aria-hidden="true" />
@@ -1421,10 +1458,17 @@ function ReviewBrief({
         </div>
       )}
       <div className="trip-agent-control-actions">
-        <button className="trip-create-primary" type="button" disabled={busy || !form.destination.trim()} onClick={onCreate}>
-          {busy ? 'Creating trip...' : 'Create trip'}
-          <Sparkles size={16} aria-hidden="true" />
-        </button>
+        {completedTripUrl ? (
+          <Link className="trip-create-primary" href={completedTripUrl}>
+            Open trip
+            <ArrowRight size={16} aria-hidden="true" />
+          </Link>
+        ) : (
+          <button className="trip-create-primary" type="button" disabled={busy || !form.destination.trim()} onClick={onCreate}>
+            {busy ? 'Creating trip...' : 'Create trip'}
+            <Sparkles size={16} aria-hidden="true" />
+          </button>
+        )}
       </div>
     </div>
   );
