@@ -3497,22 +3497,19 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
             <div className="date-strip-inner" ref={dateStripRef}>
               {days.map((day, dayIndex) => {
                 const date = new Date(day.date + 'T12:00:00');
-                const wd = date.toLocaleDateString('en-GB', { weekday: 'short' }).toUpperCase();
+                const wd = date.toLocaleDateString('en-GB', { weekday: 'short' });
                 const d = date.getDate();
                 const tripDayNumber = dayIndex + 1;
                 const slideIndex = dayIndex + 1;
+                const isLastDay = days.length > 1 && dayIndex === days.length - 1;
+                const dayLabel = isLastDay ? 'Last day' : `Day ${tripDayNumber}`;
                 return (
                   <button key={day.day_number} className={`date-btn ${currentSlide === slideIndex ? 'active' : ''}`}
                     onClick={() => { if (!dateStripDragged.current) goTo(slideIndex); }}
                     aria-current={currentSlide === slideIndex ? 'date' : undefined}
-                    aria-label={`Day ${tripDayNumber}, ${date.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}`}>
-                    <span className="date-btn-number-row">
-                      <span className="date-btn-trip-day">{tripDayNumber}</span>
-                      <span className="date-btn-date-stack">
-                        <span className="date-btn-wd">{wd}</span>
-                        <span className="date-btn-d">{d}</span>
-                      </span>
-                    </span>
+                    aria-label={`${dayLabel}, ${date.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}`}>
+                    <span className="date-btn-day">{dayLabel}</span>
+                    <span className="date-btn-date">{wd} {d}</span>
                   </button>
                 );
               })}

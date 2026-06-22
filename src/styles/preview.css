@@ -40,7 +40,7 @@
   --ease-exit: cubic-bezier(0.4, 0, 1, 1);
   --app-max-width: 430px;
   --nav-height: 56px;
-  --date-strip-height: 54px;
+  --date-strip-height: 58px;
   --trip-chat-sheet-width: 520px;
   --trip-chat-sheet-max-height: min(43vh, 360px);
   --trip-chat-sheet-radius: 22px;
@@ -326,21 +326,18 @@
    ============================================ */
 .date-strip { position: absolute; top: calc(var(--nav-height) + env(safe-area-inset-top)); left: 0; right: 0; height: var(--date-strip-height); border-bottom: 1px solid var(--color-border); box-shadow: none; background: var(--color-surface); z-index: 10; opacity: 1; transform: translateY(0); transition: opacity var(--motion-medium) var(--ease-standard), transform var(--motion-medium) var(--ease-standard), border-color var(--motion-medium) var(--ease-standard); will-change: opacity, transform; -webkit-mask-image: linear-gradient(to right, transparent, black 16px, black calc(100% - 16px), transparent); mask-image: linear-gradient(to right, transparent, black 16px, black calc(100% - 16px), transparent); }
 .date-strip.hidden { opacity: 0; transform: translateY(-10px); pointer-events: none; overflow: hidden; border-bottom-color: transparent; }
-.date-strip-inner { display: flex; gap: 4px; padding: 8px 12px; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; height: 100%; align-items: center; touch-action: pan-x; }
+.date-strip-inner { display: flex; gap: 6px; padding: 8px 12px; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; height: 100%; align-items: center; touch-action: pan-x; }
 .date-strip-inner::-webkit-scrollbar { display: none; }
-.date-btn { display: flex; align-items: center; justify-content: center; width: 56px; height: 42px; border-radius: 14px; border: none; cursor: pointer; flex-shrink: 0; transition: background var(--motion-fast) var(--ease-standard), color var(--motion-fast) var(--ease-standard), box-shadow var(--motion-medium) var(--ease-standard), transform var(--motion-fast) var(--ease-standard); background: transparent; color: var(--color-text-muted); font-family: var(--font-sans); }
-.date-btn:active:not(.active) { background: var(--color-surface-deep); transform: scale(0.92); }
-.date-btn.active { background: var(--color-card); color: var(--color-text-primary); box-shadow: rgba(26, 20, 16, 0.04) 0 1px 0 0, rgba(26, 20, 16, 0.10) 0 8px 22px -14px; }
+.date-btn { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-width: 58px; height: auto; padding: 6px 12px; border-radius: 12px; border: none; border-bottom: 2px solid transparent; cursor: pointer; flex-shrink: 0; transition: background var(--motion-fast) var(--ease-standard), color var(--motion-fast) var(--ease-standard), box-shadow var(--motion-medium) var(--ease-standard), transform var(--motion-fast) var(--ease-standard); background: transparent; color: var(--color-text-muted); font-family: var(--font-sans); }
+.date-btn:active:not(.active) { background: var(--color-surface-deep); transform: scale(0.96); }
+.date-btn.active { background: var(--color-card); color: var(--color-text-primary); border-bottom-color: var(--color-accent); box-shadow: rgba(26, 20, 16, 0.04) 0 1px 0 0, rgba(26, 20, 16, 0.10) 0 8px 22px -14px; }
 @media (hover: hover) {
   .date-btn:hover:not(.active) { background: var(--color-surface-deep); color: var(--color-text-secondary); }
 }
-.date-btn-number-row { display: flex; align-items: center; justify-content: center; gap: 5px; min-width: 0; line-height: 1; }
-.date-btn-trip-day { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; border-radius: 999px; background: #B9AEA4; color: #FFFFFF; font-family: var(--font-sans); font-feature-settings: 'tnum' on, 'cv11' on, 'ss01' on; font-size: 9px; font-weight: 620; line-height: 1; flex-shrink: 0; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.22); }
-.date-btn-date-stack { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-width: 23px; }
-.date-btn-wd { font-size: 8px; font-weight: 600; line-height: 1; text-transform: uppercase; letter-spacing: 0.14em; text-indent: 0.14em; color: var(--color-text-tertiary); }
-.date-btn.active .date-btn-wd { color: var(--color-text-muted); }
-.date-btn-d { font-family: var(--font-sans); font-feature-settings: 'tnum' on, 'cv11' on, 'ss01' on; font-size: 17px; font-weight: 620; line-height: 0.96; letter-spacing: 0; color: var(--color-text-secondary); }
-.date-btn.active .date-btn-d { color: var(--color-text-primary); }
+.date-btn-day { font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; line-height: 1; color: var(--color-text-tertiary); white-space: nowrap; }
+.date-btn.active .date-btn-day { color: var(--color-accent); }
+.date-btn-date { font-family: var(--font-sans); font-feature-settings: 'tnum' on, 'cv11' on, 'ss01' on; font-size: 15px; font-weight: 600; line-height: 1; letter-spacing: -0.01em; white-space: nowrap; color: var(--color-text-muted); }
+.date-btn.active .date-btn-date { color: var(--color-text-primary); }
 
 /* ============================================
    SWIPE CONTAINER
@@ -4175,9 +4172,8 @@ button.day-brief-place:active {
   .hero-stats { gap: 32px; }
   .hero-pill { padding: 6px 16px; }
   .nav-back { width: 44px; height: 44px; border-radius: 14px; }
-  .date-btn { width: 58px; height: 46px; }
-  .date-btn-trip-day { width: 17px; height: 17px; font-size: 9.5px; }
-  .date-btn-d { font-size: 18px; }
+  .date-btn { min-width: 64px; padding: 7px 13px; }
+  .date-btn-date { font-size: 16px; }
   .day-slide { padding-left: max(20px, env(safe-area-inset-left)); padding-right: max(20px, env(safe-area-inset-right)); }
   .day-section { padding: 22px; }
   .text-body { font-size: 15px; line-height: 1.6; }
@@ -4838,37 +4834,25 @@ button.day-brief-place:active {
   .date-strip-inner {
     height: 100%;
     flex-direction: column;
-    gap: 12px;
-    padding: 18px 19px 40px;
+    gap: 8px;
+    padding: 16px 10px 36px;
     overflow-x: hidden;
     overflow-y: auto;
     touch-action: pan-y;
   }
 
   .date-btn {
-    width: 58px;
-    height: 58px;
-    border-radius: 14px;
-    color: var(--color-text-muted);
-  }
-
-  .date-btn-number-row {
-    gap: 7px;
-  }
-
-  .date-btn-trip-day {
-    width: 20px;
-    height: 20px;
-    font-size: 11px;
-  }
-
-  .date-btn-date-stack {
+    width: 100%;
+    height: auto;
+    align-items: flex-start;
+    justify-content: center;
     gap: 3px;
-    min-width: 28px;
-  }
-
-  .date-btn-wd {
-    font-size: 9px;
+    padding: 9px 8px 9px 11px;
+    border-radius: 12px;
+    border-bottom: none;
+    border-left: 2.5px solid transparent;
+    text-align: left;
+    color: var(--color-text-muted);
   }
 
   .date-btn:hover:not(.active) {
@@ -4877,13 +4861,16 @@ button.day-brief-place:active {
   }
 
   .date-btn.active {
+    background: var(--color-card);
+    color: var(--color-text-primary);
+    border-left-color: var(--color-accent);
     box-shadow:
-      rgba(193, 79, 42, 0.22) 0 14px 28px -18px,
-      rgba(26, 20, 16, 0.08) 0 1px 0 0;
+      rgba(26, 20, 16, 0.05) 0 1px 0 0,
+      rgba(26, 20, 16, 0.14) 0 6px 16px -7px;
   }
 
-  .date-btn-d {
-    font-size: 22px;
+  .date-btn-date {
+    font-size: 17px;
     font-weight: 620;
   }
 
@@ -5427,23 +5414,18 @@ button.day-brief-place:active {
   }
 
   .date-strip-inner {
-    padding-right: 30px;
-    padding-left: 30px;
+    padding-right: 16px;
+    padding-left: 16px;
   }
 
   .date-btn {
-    width: 66px;
-    height: 66px;
+    width: 100%;
+    height: auto;
+    padding: 11px 10px 11px 14px;
   }
 
-  .date-btn-trip-day {
-    width: 22px;
-    height: 22px;
-    font-size: 12px;
-  }
-
-  .date-btn-date-stack {
-    min-width: 31px;
+  .date-btn-date {
+    font-size: 18px;
   }
 
   .day-slide {
