@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { AnimatePresence, motion } from 'motion/react';
 import {
   AlertCircle,
   ArrowLeft,
@@ -21,6 +22,7 @@ import {
   Sparkles,
   Trash2,
   UploadCloud,
+  X,
   UserPlus,
   Users,
 } from 'lucide-react';
@@ -310,6 +312,7 @@ export default function NewTripCreator({ initialPreferences, profileComplete }: 
   const [error, setError] = useState<string | null>(null);
   const [draftUrl, setDraftUrl] = useState<string | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [agentOpen, setAgentOpen] = useState(false);
 
   const currentQuestionIndex = questionOrder.indexOf(activeQuestion);
   const dayCount = inclusiveDayCount(form.start_date, form.end_date);
@@ -323,6 +326,11 @@ export default function NewTripCreator({ initialPreferences, profileComplete }: 
     }, 1000);
     return () => window.clearInterval(timer);
   }, [busy]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setAgentOpen(true), 180);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   function setField<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -451,9 +459,9 @@ export default function NewTripCreator({ initialPreferences, profileComplete }: 
     }
   }
 
-  return (
+  const creatorContent = (
     <div className="trip-create-shell">
-      <section className="trip-create-main trip-agent-panel">
+      <section className="trip-create-main trip-agent-panel" aria-label="New trip agent questions">
         {!profileComplete && (
           <div className="trip-create-notice">
             <AlertCircle size={16} aria-hidden="true" />
@@ -702,6 +710,86 @@ export default function NewTripCreator({ initialPreferences, profileComplete }: 
 
         <BriefSnapshot form={form} dayCount={dayCount} />
       </aside>
+    </div>
+  );
+
+  return (
+    <div className="trip-new-agent-stage">
+      <AnimatePresence>
+        {!agentOpen && (
+          <motion.button
+            key="new-trip-entry"
+            type="button"
+            className="trip-ask-entry trip-new-ask-entry"
+            aria-label="Ask Travel Agent"
+            onClick={() => setAgentOpen(true)}
+            initial={{ opacity: 0, x: '-50%', y: 12, scale: 0.95 }}
+            animate={{ opacity: 1, x: '-50%', y: 0, scale: 1 }}
+            exit={{ opacity: 0, x: '-50%', y: 12, scale: 0.95 }}
+            transition={{ type: 'spring', damping: 22, stiffness: 380, mass: 0.7 }}
+            whileTap={{ scale: 0.96 }}
+          >
+            <MessageCircle className="trip-ask-entry-icon" aria-hidden="true" />
+            <span className="trip-ask-entry-label">Ask Travel Agent</span>
+          </motion.button>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {agentOpen && (
+          <>
+            <motion.div
+              key="new-trip-backdrop"
+              className="trip-new-agent-backdrop"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              onClick={() => {
+                if (!busy) setAgentOpen(false);
+              }}
+            />
+            <motion.section
+              key="new-trip-sheet"
+              role="dialog"
+              aria-label="Ask Travel Agent"
+              aria-modal="true"
+              className="trip-new-agent-sheet"
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', damping: 22, stiffness: 380, mass: 0.7 }}
+            >
+              <button
+                type="button"
+                className="trip-new-agent-grabber"
+                onClick={() => {
+                  if (!busy) setAgentOpen(false);
+                }}
+                disabled={busy}
+                aria-label="Minimize new trip agent"
+              >
+                <span aria-hidden="true" />
+              </button>
+              <header className="trip-new-agent-sheet-header">
+                <span />
+                <div>Ask Travel Agent</div>
+                <button
+                  type="button"
+                  onClick={() => setAgentOpen(false)}
+                  disabled={busy}
+                  aria-label="Close new trip agent"
+                >
+                  <X size={17} strokeWidth={2.2} aria-hidden="true" />
+                </button>
+              </header>
+              <div className="trip-new-agent-sheet-body">
+                {creatorContent}
+              </div>
+            </motion.section>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
