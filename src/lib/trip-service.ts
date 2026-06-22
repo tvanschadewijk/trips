@@ -450,6 +450,35 @@ function buildTripBody(input: SaveTripInput): {
   return { tripBody: normalizedInput.data, warnings: normalizedInput.warnings };
 }
 
+function dayNumbersFromTripData(data: unknown): number[] {
+  if (!isRecord(data) || !Array.isArray(data.days)) return [];
+
+  return data.days
+    .filter(isRecord)
+    .map((day) => day.day_number)
+    .filter((dayNumber): dayNumber is number => typeof dayNumber === 'number');
+}
+
+function assertFullSaveDoesNotDropExistingDays(existingData: unknown, nextData: TripData): void {
+  const existingDayNumbers = dayNumbersFromTripData(existingData);
+  const nextDayNumbers = dayNumbersFromTripData(nextData);
+
+  if (existingDayNumbers.length === 0 || nextDayNumbers.length >= existingDayNumbers.length) {
+    return;
+  }
+
+  const nextDayNumberSet = new Set(nextDayNumbers);
+  const missingDayNumbers = existingDayNumbers.filter((dayNumber) => !nextDayNumberSet.has(dayNumber));
+  const missingSummary = missingDayNumbers.length > 0
+    ? ` Missing existing day numbers: ${missingDayNumbers.join(', ')}.`
+    : '';
+
+  throw new TripServiceError(
+    `Refusing to replace an existing trip with ${nextDayNumbers.length} day(s) because it currently has ${existingDayNumbers.length}. save_trip replaces the complete itinerary; use patch_trip, replace_day, replace_day_section, or focused upsert/delete tools for day edits.${missingSummary}`,
+    409
+  );
+}
+
 export async function saveTripForUser(
   admin: AdminClient,
   userId: string,
@@ -463,12 +492,14 @@ export async function saveTripForUser(
   if (input.trip_id) {
     const { data: existing } = await admin
       .from('trips')
-      .select('id, share_id')
+      .select('id, share_id, data')
       .eq('id', input.trip_id)
       .eq('user_id', userId)
       .single();
 
     if (existing) {
+      assertFullSaveDoesNotDropExistingDays(existing.data, tripBody);
+
       const { error } = await admin
         .from('trips')
         .update({
@@ -503,13 +534,13 @@ export async function saveTripForUser(
     }
   }
 
-  let existingByName: { id: string; share_id: string } | null = null;
+  let existingByName: { id: string; share_id: string; data: unknown } | null = null;
   const startDate = tripBody.trip.dates.start;
 
   if (typeof startDate === 'string' && startDate.length > 0) {
     const { data } = await admin
       .from('trips')
-      .select('id, share_id')
+      .select('id, share_id, data')
       .eq('user_id', userId)
       .eq('name', tripName)
       .eq('data->trip->dates->>start', startDate)
@@ -520,7 +551,7 @@ export async function saveTripForUser(
   if (!existingByName) {
     const { data } = await admin
       .from('trips')
-      .select('id, share_id')
+      .select('id, share_id, data')
       .eq('user_id', userId)
       .eq('name', tripName)
       .single();
@@ -528,6 +559,8 @@ export async function saveTripForUser(
   }
 
   if (existingByName) {
+    assertFullSaveDoesNotDropExistingDays(existingByName.data, tripBody);
+
     const { error } = await admin
       .from('trips')
       .update({

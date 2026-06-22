@@ -150,6 +150,47 @@ test('saveTripForUser normalizes route point aliases and returns ingestion warni
   );
 });
 
+test('saveTripForUser refuses to overwrite an existing trip with a partial day payload', async () => {
+  const trip = {
+    ...fixtureRecord(),
+    user_id: 'user-1',
+  };
+  let updateCalled = false;
+  const admin = {
+    from(table: string) {
+      assert.equal(table, 'trips');
+      return {
+        select() { return this; },
+        eq() { return this; },
+        update() {
+          updateCalled = true;
+          return this;
+        },
+        single: async () => ({ data: trip, error: null }),
+      };
+    },
+  };
+
+  await assert.rejects(
+    () => saveTripForUser(
+      admin as never,
+      'user-1',
+      {
+        trip_id: 'trip-1',
+        trip: trip.data.trip,
+        days: [trip.data.days[0]],
+      },
+      'https://ourtrips.to'
+    ),
+    (err) => err instanceof TripServiceError
+      && err.status === 409
+      && /Refusing to replace an existing trip with 1 day/.test(err.message)
+      && /Missing existing day numbers: 2/.test(err.message)
+  );
+
+  assert.equal(updateCalled, false);
+});
+
 test('formatTripForRead returns compact summaries without full markdown by default', () => {
   const summary = formatTripForRead(fixtureRecord(), { view: 'summary' }, 'https://ourtrips.to');
 
