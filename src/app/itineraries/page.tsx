@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import ItinerariesExplorer from '@/components/itineraries/ItinerariesExplorer';
-import LogoSuffix from '@/components/ui/LogoSuffix';
+import AppTopBar from '@/components/ui/AppTopBar';
 import { publicItineraries } from '@/lib/public-itineraries';
 import '@/styles/itineraries.css';
 
@@ -70,17 +70,15 @@ export default function ItinerariesPage() {
 
   return (
     <div className="itineraries-page">
-      <nav className="itineraries-nav">
-        <div className="itineraries-nav-inner">
-          <Link href="/" className="itineraries-logo">
-            OurTrips<LogoSuffix />
-          </Link>
+      <AppTopBar
+        suffix="Itineraries"
+        actions={
           <div className="itineraries-nav-links">
             <Link href="/blog" className="itineraries-nav-link">Journal</Link>
             <Link href="/login" className="itineraries-btn-outline">Log in</Link>
           </div>
-        </div>
-      </nav>
+        }
+      />
 
       <main>
         <section className="itineraries-hero">

@@ -11,6 +11,7 @@ import AccommodationReviewBoard from './AccommodationReviewBoard';
 import { renderTripMarkdown } from '@/lib/render-trip-markdown';
 import { normalizeTripData } from '@/lib/trip-data-normalize';
 import { createClient } from '@/lib/supabase/client';
+import AppTopBar from '@/components/ui/AppTopBar';
 import { buildTripOverviewRouteAtlas, buildTripRouteAtlas, type TripRouteAtlas as TripRouteAtlasData } from '@/lib/trip-route';
 import {
   buildDayMapDataByNumber,
@@ -30,6 +31,17 @@ function extractIataCodes(s: string): string[] {
 
 const SHARE_MODE_OPTIONS = ['companion', 'remix', 'private'] as const;
 type ShareMode = (typeof SHARE_MODE_OPTIONS)[number];
+const TRIP_DATA_UPDATED_EVENT = 'ourtrips:trip-data-updated';
+
+type TripDataUpdatedEventDetail = {
+  tripId?: string;
+  tripData?: TripData;
+};
+
+function detailFromTripDataEvent(event: CustomEvent<unknown>): TripDataUpdatedEventDetail | undefined {
+  if (!event.detail || typeof event.detail !== 'object') return undefined;
+  return event.detail as TripDataUpdatedEventDetail;
+}
 
 interface TripPreviewProps {
   trips: TripData[];
@@ -913,6 +925,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
   const [brokenImages, setBrokenImages] = useState<Set<string>>(new Set());
   const [dayMapFocusRequest, setDayMapFocusRequest] = useState<DayMapFocusRequest | null>(null);
   const [dayMapViewAllRequest, setDayMapViewAllRequest] = useState<DayMapViewAllRequest | null>(null);
+  const [topbarHidden, setTopbarHidden] = useState(false);
   const [offlineSaved, setOfflineSaved] = useState(false);
   const onImgError = useCallback((src: string) => {
     setBrokenImages(prev => { const next = new Set(prev); next.add(src); return next; });
@@ -1061,6 +1074,46 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
   useEffect(() => {
     setCoverMenuOpen(false);
   }, [activeTripIndex, currentSlide]);
+
+  useEffect(() => {
+    setTopbarHidden(false);
+  }, [activeTripIndex, currentSlide]);
+
+  useEffect(() => {
+    if (activeTripIndex === null) return;
+    const slide = trackRef.current?.querySelectorAll('.slide')[currentSlide] as HTMLElement | undefined;
+    if (!slide) return;
+
+    let previousScrollTop = slide.scrollTop;
+    let ticking = false;
+
+    const syncTopbar = () => {
+      ticking = false;
+      const nextScrollTop = slide.scrollTop;
+      const scrollingDown = nextScrollTop > previousScrollTop;
+
+      if (nextScrollTop <= 12 || nextScrollTop < previousScrollTop) {
+        setTopbarHidden(false);
+      } else if (nextScrollTop > 32 && scrollingDown) {
+        setTopbarHidden(true);
+      }
+
+      previousScrollTop = nextScrollTop;
+    };
+
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      window.requestAnimationFrame(syncTopbar);
+    };
+
+    slide.addEventListener('scroll', onScroll, { passive: true });
+    syncTopbar();
+
+    return () => {
+      slide.removeEventListener('scroll', onScroll);
+    };
+  }, [activeTripIndex, currentSlide, days.length]);
 
   useEffect(() => {
     if (!coverMenuOpen) return;
@@ -1660,6 +1713,23 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
       return updated;
     });
   }, [activeTripIndex]);
+
+  useEffect(() => {
+    if (!tripId || typeof window === 'undefined') return;
+
+    const onTripDataUpdated = (event: Event) => {
+      const detail = event instanceof CustomEvent
+        ? detailFromTripDataEvent(event)
+        : undefined;
+      if (detail?.tripId !== tripId || !detail.tripData) return;
+      handleTripDataUpdated(detail.tripData);
+    };
+
+    window.addEventListener(TRIP_DATA_UPDATED_EVENT, onTripDataUpdated);
+    return () => {
+      window.removeEventListener(TRIP_DATA_UPDATED_EVENT, onTripDataUpdated);
+    };
+  }, [handleTripDataUpdated, tripId]);
 
   const showDetail = useCallback((content: DetailContent) => {
     if (detailCloseTimerRef.current) {
@@ -3399,44 +3469,28 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
           className={`trip-screen ${detailOpen ? 'detail-behind' : ''}`}
           style={{ display: 'flex' }}
         >
-          {/* Nav Bar */}
-          <div className={`nav-bar ${isHero ? 'over-hero' : ''}`}>
-            <a className="nav-home" href={homeHref} aria-label="Go to OurTrips home">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/brand/ourtrips-favicon-48.png" alt="" />
-            </a>
-            <div className="nav-title-group">
-              <div className="nav-title-text">
-                {!isHero && trip && (
-                  <>
-                    <div className="text-nav-title">
-                      <span className="nav-trip-name">{trip.name}</span>
-                    </div>
-                    <nav className="nav-breadcrumb" aria-label="Breadcrumb">
-                      <ol>
-                        <li>
-                          {/* Day view → trip cover. The brand mark already
-                              covers the path back to all trips. */}
-                          <button
-                            type="button"
-                            className="nav-breadcrumb-link"
-                            onClick={() => goTo(0)}
-                          >
-                            <Icon className="nav-breadcrumb-icon" name="back" size={14} strokeWidth={2.4} />
-                            <span>Trip overview</span>
-                          </button>
-                        </li>
-                      </ol>
-                    </nav>
-                  </>
-                )}
-              </div>
-            </div>
-            <div className="nav-actions">
+          <AppTopBar
+            href={homeHref}
+            suffix={trip?.name}
+            className={`trip-topbar ${topbarHidden ? 'is-scroll-hidden' : ''}`}
+            actions={
+              <>
+                {!isHero ? (
+                  <button
+                    type="button"
+                    className="trip-topbar-overview"
+                    onClick={() => goTo(0)}
+                    aria-label="Back to trip overview"
+                  >
+                    <Icon name="back" size={15} strokeWidth={2.4} />
+                    <span>Trip overview</span>
+                  </button>
+                ) : null}
               {renderAddToTripsButton()}
               {isHero && renderCoverActionsMenu()}
-            </div>
-          </div>
+              </>
+            }
+          />
 
           {/* Date Strip */}
           <div className={`date-strip ${isHero ? 'hidden' : ''}`}>

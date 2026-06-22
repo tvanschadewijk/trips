@@ -4,7 +4,7 @@ import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
-import LogoSuffix from '@/components/ui/LogoSuffix';
+import AppTopBar from '@/components/ui/AppTopBar';
 import { publicItineraries } from '@/lib/public-itineraries';
 import '@/styles/landing.css';
 
@@ -112,17 +112,17 @@ export default async function Home() {
 
   return (
     <div className="landing">
-      <nav className="landing-nav">
-        <div className="landing-nav-inner">
-          <Link href="/" className="landing-logo">OurTrips<LogoSuffix /></Link>
+      <AppTopBar
+        suffix="AI travel itineraries"
+        actions={
           <div className="landing-nav-links">
             <Link href="/itineraries" className="landing-nav-link">Itineraries</Link>
             <Link href="/changelog" className="landing-nav-link">Changelog</Link>
             <Link href="/blog" className="landing-nav-link">Journal</Link>
             <Link href="/login" className="landing-btn-outline">Log in</Link>
           </div>
-        </div>
-      </nav>
+        }
+      />
 
       <section className="landing-hero">
         <div className="landing-hero-inner">

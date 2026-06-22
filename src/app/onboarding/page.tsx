@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import LogoSuffix from '@/components/ui/LogoSuffix';
+import AppTopBar from '@/components/ui/AppTopBar';
 import TravelProfileForm from '@/components/travel-profile/TravelProfileForm';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
@@ -71,11 +70,7 @@ export default async function OnboardingPage({ searchParams }: Props) {
 
   return (
     <main className="profile-page">
-      <nav className="profile-nav">
-        <Link href="/dashboard" className="profile-logo">
-          OurTrips<LogoSuffix />
-        </Link>
-      </nav>
+      <AppTopBar href="/dashboard" suffix="Travel profile" />
 
       <header className="profile-header">
         <p className="profile-eyebrow">First-run setup</p>

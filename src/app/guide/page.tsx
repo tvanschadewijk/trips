@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
 import GuideCopyButton from '@/components/ui/GuideCopyButton';
-import LogoSuffix from '@/components/ui/LogoSuffix';
+import AppTopBar from '@/components/ui/AppTopBar';
 import '@/styles/guide.css';
 
 export const metadata: Metadata = {
@@ -35,12 +35,10 @@ export default function GuidePage() {
 
   return (
     <div className="guide">
-      <nav className="guide-nav">
-        <div className="guide-nav-inner">
-          <Link href="/" className="guide-logo">OurTrips<LogoSuffix /></Link>
-          <Link href="/login" className="guide-btn-outline">Log in</Link>
-        </div>
-      </nav>
+      <AppTopBar
+        suffix="Connector guide"
+        actions={<Link href="/login" className="guide-btn-outline">Log in</Link>}
+      />
 
       <main className="guide-main">
         <div className="guide-content">

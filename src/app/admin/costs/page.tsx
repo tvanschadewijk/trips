@@ -2,7 +2,6 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import {
-  ArrowLeft,
   CalendarDays,
   ChartLine,
   Database,
@@ -11,6 +10,7 @@ import {
   ReceiptText,
 } from 'lucide-react';
 
+import AppTopBar from '@/components/ui/AppTopBar';
 import {
   buildAdminCostDashboard,
   type AdminCostApiKeyRow,
@@ -371,15 +371,10 @@ export default async function AdminCostsPage({
 
   return (
     <div className="admin admin-costs">
-      <nav className="admin-nav">
-        <div className="admin-nav-inner admin-costs-nav-inner">
-          <div className="admin-nav-left">
-            <Link href="/admin" className="admin-nav-back" title="Back to analytics">
-              <ArrowLeft size={18} aria-hidden="true" />
-            </Link>
-            <span className="admin-nav-title">User Costs</span>
-            <span className="admin-nav-badge">Admin</span>
-          </div>
+      <AppTopBar
+        href="/admin"
+        suffix="Admin · User Costs"
+        actions={
           <div className="admin-nav-links">
             <Link href="/admin" className="admin-costs-nav-link">
               <ChartLine size={15} aria-hidden="true" />
@@ -390,8 +385,8 @@ export default async function AdminCostsPage({
               Logistics
             </Link>
           </div>
-        </div>
-      </nav>
+        }
+      />
 
       <main className="admin-main admin-costs-main">
         <section className="admin-costs-hero">

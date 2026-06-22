@@ -2,7 +2,7 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
-import LogoSuffix from '@/components/ui/LogoSuffix';
+import AppTopBar from '@/components/ui/AppTopBar';
 import CopyCodeBlocks from '@/components/blog/CopyCodeBlocks';
 import { getPost, getAllPosts } from '@/lib/blog/posts';
 import '@/styles/blog.css';
@@ -121,16 +121,16 @@ export default async function BlogPostPage({ params }: Props) {
 
   return (
     <div className="blog">
-      <nav className="blog-nav">
-        <div className="blog-nav-inner">
-          <Link href="/" className="blog-logo">OurTrips<LogoSuffix /></Link>
+      <AppTopBar
+        suffix="Journal"
+        actions={
           <div className="blog-nav-links">
             <Link href="/changelog" className="blog-nav-link">Changelog</Link>
             <Link href="/blog" className="blog-nav-link">Blog</Link>
             <Link href="/login" className="blog-btn-outline">Log in</Link>
           </div>
-        </div>
-      </nav>
+        }
+      />
 
       <main className="blog-main">
         <div className="blog-content">

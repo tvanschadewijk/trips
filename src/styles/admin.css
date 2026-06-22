@@ -133,6 +133,10 @@
 .admin-nav-side-link:hover {
   color: #f7f8f8;
 }
+.app-topbar .admin-nav-side-link:hover,
+.app-topbar .admin-logistics-trip-link:hover {
+  color: #1a1410;
+}
 
 /* Main */
 .admin-main {

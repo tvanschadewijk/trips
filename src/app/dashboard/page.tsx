@@ -26,6 +26,7 @@ import { getTripOverviewImageUrl } from '@/lib/trip-images';
 import { useSavedTripIds } from '@/lib/offline';
 import { useOnlineStatus } from '@/lib/online-status';
 import { isPublicItineraryShareId } from '@/lib/public-itineraries';
+import AppTopBar from '@/components/ui/AppTopBar';
 import '@/styles/dashboard.css';
 
 interface DashTrip {
@@ -229,12 +230,9 @@ export default function DashboardPage() {
 
   return (
     <div className="dash">
-      <nav className="dash-nav">
-        <div className="dash-nav-inner">
-          <Link href="/" className="dash-logo" aria-label="OurTrips home">
-            <span className="dash-logo-word">OurTrips<span className="logo-to">.To</span></span>
-            <span className="logo-suffix">{personalTrips.length > 0 ? `${personalTrips[0].name}${personalTrips.length > 1 ? ` and ${personalTrips.length - 1} more` : ''}` : '?'}</span>
-          </Link>
+      <AppTopBar
+        suffix={personalTrips.length > 0 ? `${personalTrips[0].name}${personalTrips.length > 1 ? ` and ${personalTrips.length - 1} more` : ''}` : '?'}
+        actions={
           <div className="dash-nav-right">
             <button className="dash-settings-btn" onClick={() => setSettingsOpen(!settingsOpen)} aria-label="Settings">
               <Settings size={20} aria-hidden="true" />
@@ -276,8 +274,8 @@ export default function DashboardPage() {
               </>
             )}
           </div>
-        </div>
-      </nav>
+        }
+      />
 
       <main className="dash-main">
         {!online && (

@@ -154,6 +154,57 @@
 /* ============================================
    NAV BAR
    ============================================ */
+.trip-topbar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  padding-top: env(safe-area-inset-top);
+}
+.trip-topbar .app-topbar-inner {
+  min-height: var(--nav-height);
+  padding: 0 16px;
+}
+.trip-topbar .app-topbar-suffix {
+  max-width: min(52vw, 720px);
+}
+.trip-topbar .app-topbar-actions {
+  gap: 6px;
+}
+.trip-topbar-overview {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: 40px;
+  max-width: 152px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--color-accent);
+  cursor: pointer;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 620;
+  line-height: 1;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s, transform 0.1s;
+}
+.trip-topbar-overview svg {
+  flex: 0 0 auto;
+}
+.trip-topbar-overview:active {
+  transform: scale(0.96);
+  background: var(--color-surface-deep);
+}
+@media (hover: hover) {
+  .trip-topbar-overview:hover {
+    background: var(--color-surface-deep);
+    color: var(--color-accent-deep);
+  }
+}
 .nav-bar { position: absolute; top: 0; left: 0; right: 0; height: calc(var(--nav-height) + env(safe-area-inset-top)); display: flex; align-items: center; gap: 4px; padding: 0 8px; padding-top: env(safe-area-inset-top); z-index: 20; transition: background var(--motion-medium) var(--ease-standard), border-color var(--motion-medium) var(--ease-standard), color var(--motion-fast) ease; background: var(--color-surface); border-bottom: 1px solid var(--color-border); }
 .nav-bar.over-hero { background: transparent; border-bottom-color: transparent; }
 .nav-home,

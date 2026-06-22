@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import LogoSuffix from '@/components/ui/LogoSuffix';
+import AppTopBar from '@/components/ui/AppTopBar';
 import NewTripCreator from '@/components/trips/NewTripCreator';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
@@ -49,12 +48,7 @@ export default async function NewTripPage() {
 
   return (
     <main className="trip-create-page">
-      <nav className="trip-create-nav">
-        <Link href="/dashboard" className="trip-create-logo">
-          OurTrips<LogoSuffix />
-        </Link>
-        <Link href="/dashboard" className="trip-create-nav-link">Trips</Link>
-      </nav>
+      <AppTopBar href="/dashboard" suffix="New trip" />
 
       <header className="trip-create-header">
         <p className="trip-create-eyebrow">New itinerary</p>

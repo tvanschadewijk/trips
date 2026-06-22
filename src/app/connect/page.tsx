@@ -1,9 +1,8 @@
 'use client';
 
 import { Suspense, useState, useEffect } from 'react';
-import Link from 'next/link';
 import { Check, CircleX, KeyRound, Mail } from 'lucide-react';
-import LogoSuffix from '@/components/ui/LogoSuffix';
+import AppTopBar from '@/components/ui/AppTopBar';
 import { useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import '@/styles/connect.css';
@@ -14,7 +13,7 @@ export default function ConnectPage() {
   return (
     <Suspense fallback={
       <div className="connect">
-        <nav className="connect-nav"><span className="connect-logo">OurTrips<LogoSuffix /></span></nav>
+        <AppTopBar suffix="Connect" />
         <div className="connect-card"><div className="connect-center"><p className="connect-desc">Loading...</p></div></div>
       </div>
     }>
@@ -113,9 +112,7 @@ function ConnectInner() {
 
   return (
     <div className="connect">
-      <nav className="connect-nav">
-        <Link href="/" className="connect-logo">OurTrips<LogoSuffix /></Link>
-      </nav>
+      <AppTopBar suffix="Connect" />
 
       <div className="connect-card">
         {step === 'loading' && (

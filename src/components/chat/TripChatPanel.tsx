@@ -38,6 +38,7 @@ import {
   X,
 } from 'lucide-react';
 import type { ToolCallSummary } from '@/lib/trip-chat/prompt';
+import type { TripData } from '@/lib/types';
 import {
   DEFAULT_CHAT_STATUS_PHASES,
   INITIAL_CHAT_PROGRESS_MESSAGE,
@@ -86,6 +87,7 @@ const CHAT_POLL_TIMEOUT_MS = 305_000;
 const CHAT_HISTORY_LIMIT = 50;
 const RAIL_PREF_STORAGE_KEY = 'trip-chat-rail-open';
 const MOBILE_RAIL_QUERY = '(max-width: 719px)';
+const TRIP_DATA_UPDATED_EVENT = 'ourtrips:trip-data-updated';
 
 type ChatTurnResponse = {
   status?: 'queued' | 'fast_lane';
@@ -112,6 +114,10 @@ type ThreadListResponse = {
   threads: ChatThreadSummary[];
 };
 
+type TripDataResponse = {
+  trip_data?: TripData;
+};
+
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -132,13 +138,27 @@ function isMobileRail(): boolean {
   return typeof window !== 'undefined' && window.matchMedia(MOBILE_RAIL_QUERY).matches;
 }
 
-function notifyTripEditApplied(tripId: string) {
+function notifyTripEditApplied(tripId: string, tripData?: TripData) {
   if (typeof window === 'undefined') return;
   window.dispatchEvent(
     new CustomEvent('ourtrips:accommodation-review-updated', {
       detail: { tripId },
     })
   );
+  if (tripData) {
+    window.dispatchEvent(
+      new CustomEvent(TRIP_DATA_UPDATED_EVENT, {
+        detail: { tripId, tripData },
+      })
+    );
+  }
+}
+
+async function fetchLatestTripData(tripId: string): Promise<TripData | null> {
+  const res = await fetch(`/api/trips/${tripId}/data`, { cache: 'no-store' });
+  if (!res.ok) return null;
+  const json = (await res.json()) as TripDataResponse;
+  return json.trip_data ?? null;
 }
 
 async function fetchChatHistoryPayload(
@@ -490,6 +510,20 @@ export default function TripChatPanel({
     [renameDraft, threads, tripId]
   );
 
+  const refreshTripAfterToolCalls = useCallback(() => {
+    void (async () => {
+      let tripData: TripData | null = null;
+      try {
+        tripData = await fetchLatestTripData(tripId);
+      } catch {
+        // A router refresh still gives the server-rendered view a chance to
+        // pick up the edit if the lightweight owner data endpoint is unavailable.
+      }
+      notifyTripEditApplied(tripId, tripData ?? undefined);
+      router.refresh();
+    })();
+  }, [router, tripId]);
+
   const finishTurn = useCallback(
     (threadId: string, serverMessages: ChatMessage[], assistant: ChatMessage) => {
       // Only swap the transcript if the user is still on that thread.
@@ -508,11 +542,10 @@ export default function TripChatPanel({
       void refreshThreads();
 
       if ((assistant.tool_calls_json?.length ?? 0) > 0) {
-        notifyTripEditApplied(tripId);
-        router.refresh();
+        refreshTripAfterToolCalls();
       }
     },
-    [refreshThreads, router, tripId]
+    [refreshThreads, refreshTripAfterToolCalls]
   );
 
   async function send() {
@@ -628,8 +661,7 @@ export default function TripChatPanel({
       });
       void refreshThreads();
       if ((assistant.tool_calls_json?.length ?? 0) > 0) {
-        notifyTripEditApplied(tripId);
-        router.refresh();
+        refreshTripAfterToolCalls();
       }
     } catch (err) {
       if (isLikelyDroppedFetch(err) && threadIdAtSend) {

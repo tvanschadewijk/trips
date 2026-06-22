@@ -23,6 +23,7 @@
  * near-invisible.
  */
 import { useEffect, useState } from 'react';
+import AppTopBar from '@/components/ui/AppTopBar';
 import '@/styles/preview.css';
 
 interface Props {
@@ -40,12 +41,7 @@ export default function TripCoverSkeleton({ heroImage }: Props) {
   return (
     <div className="trip-app">
       <div className="trip-screen" style={{ display: 'flex' }}>
-        <div className="nav-bar over-hero">
-          <span className="nav-home" aria-hidden="true">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/brand/ourtrips-favicon-48.png" alt="" />
-          </span>
-        </div>
+        <AppTopBar className="trip-topbar over-hero" suffix="Loading trip" />
         <div className="swipe-viewport">
           <div className="swipe-track" style={{ transform: 'translateX(0)' }}>
             <div className="slide">
