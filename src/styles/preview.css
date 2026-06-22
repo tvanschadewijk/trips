@@ -3683,7 +3683,7 @@ button.day-brief-place:active {
 .trip-app :focus:not(:focus-visible) { outline: none; }
 
 /* ============================================
-   SAVE OFFLINE button (top-right of nav)
+   COVER ACTIONS (top-right of nav)
    ============================================ */
 .add-to-trips-btn {
   display: inline-flex;
@@ -3730,7 +3730,12 @@ button.day-brief-place:active {
     box-shadow: 0 4px 16px rgba(26,20,16,0.2), 0 12px 32px rgba(26,20,16,0.12);
   }
 }
-.save-offline-btn {
+.trip-cover-menu-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+.save-offline-btn,
+.trip-cover-menu-btn {
   display: flex; align-items: center; justify-content: center;
   width: 40px; height: 40px;
   border-radius: 999px;
@@ -3743,18 +3748,148 @@ button.day-brief-place:active {
   transition: background 0.15s, color 0.15s, transform 0.1s;
   -webkit-tap-highlight-color: transparent;
 }
-.save-offline-btn:active { transform: scale(0.92); background: var(--color-surface-deep); }
+.save-offline-btn:active,
+.trip-cover-menu-btn:active { transform: scale(0.92); background: var(--color-surface-deep); }
 @media (hover: hover) {
-  .save-offline-btn:hover { background: var(--color-surface-deep); color: var(--color-text-primary); }
+  .save-offline-btn:hover,
+  .trip-cover-menu-btn:hover { background: var(--color-surface-deep); color: var(--color-text-primary); }
 }
-.nav-bar.over-hero .save-offline-btn { color: #FBF7F1; }
-.nav-bar.over-hero .save-offline-btn:active { background: rgba(251,247,241,0.18); }
+.nav-bar.over-hero .save-offline-btn,
+.nav-bar.over-hero .trip-cover-menu-btn { color: #FBF7F1; }
+.nav-bar.over-hero .save-offline-btn:active,
+.nav-bar.over-hero .trip-cover-menu-btn:active { background: rgba(251,247,241,0.18); }
 @media (hover: hover) {
-  .nav-bar.over-hero .save-offline-btn:hover { background: rgba(251,247,241,0.18); color: #FBF7F1; }
+  .nav-bar.over-hero .save-offline-btn:hover,
+  .nav-bar.over-hero .trip-cover-menu-btn:hover { background: rgba(251,247,241,0.18); color: #FBF7F1; }
 }
 .save-offline-btn.saved { color: var(--color-accent); }
 .nav-bar.over-hero .save-offline-btn.saved { color: var(--color-accent-light); }
 .save-offline-btn.busy { opacity: 0.85; cursor: wait; }
+.trip-cover-menu-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 44;
+}
+.trip-cover-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 45;
+  width: min(286px, calc(100vw - 28px));
+  padding: 6px;
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  box-shadow: var(--shadow-float);
+  animation: trip-cover-menu-in 160ms var(--ease-enter) both;
+}
+.trip-cover-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  min-height: 48px;
+  padding: 9px 10px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s, color 0.15s, transform 0.1s;
+}
+.trip-cover-menu-item:disabled {
+  cursor: wait;
+  opacity: 0.62;
+}
+.trip-cover-menu-item:active:not(:disabled) {
+  transform: scale(0.99);
+  background: var(--color-surface-deep);
+}
+@media (hover: hover) {
+  .trip-cover-menu-item:hover:not(:disabled) {
+    background: var(--color-surface-deep);
+  }
+}
+.trip-cover-menu-icon,
+.trip-cover-menu-check {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  color: var(--color-accent);
+}
+.trip-cover-menu-icon svg,
+.trip-cover-menu-check svg {
+  width: 16px;
+  height: 16px;
+}
+.trip-cover-menu-label {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+.trip-cover-menu-label > span {
+  overflow: hidden;
+  color: var(--color-text-primary);
+  font-size: 14px;
+  font-weight: 590;
+  line-height: 1.25;
+  letter-spacing: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.trip-cover-menu-label small {
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-family: var(--font-serif);
+  font-optical-sizing: auto;
+  font-size: 12px;
+  font-style: italic;
+  font-weight: 360;
+  line-height: 1.3;
+  letter-spacing: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.trip-cover-menu-section {
+  padding: 10px 10px 5px;
+  color: var(--color-accent);
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: 620;
+  letter-spacing: 0.16em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+.trip-cover-menu-divider {
+  height: 1px;
+  margin: 6px 8px;
+  background: var(--color-border);
+}
+.trip-cover-menu-item.is-active {
+  background: var(--color-surface);
+}
+.trip-cover-menu-item.is-active .trip-cover-menu-check {
+  color: var(--color-accent);
+}
+.trip-cover-menu-item-danger .trip-cover-menu-icon,
+.trip-cover-menu-item-danger .trip-cover-menu-label > span {
+  color: var(--color-accent);
+}
+@media (hover: hover) {
+  .trip-cover-menu-item-danger:hover:not(:disabled) {
+    background: rgba(193, 79, 42, 0.10);
+  }
+}
+@keyframes trip-cover-menu-in {
+  from { opacity: 0; transform: translateY(-4px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
 .save-offline-spinner {
   animation: save-offline-spin 0.9s linear infinite;
   transform-origin: 12px 12px;
@@ -3834,7 +3969,8 @@ button.day-brief-place:active {
   to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-.save-offline-toast {
+.save-offline-toast,
+.trip-cover-action-toast {
   position: absolute;
   top: calc(var(--nav-height) + env(safe-area-inset-top) + 12px);
   left: 50%;
@@ -4116,20 +4252,23 @@ button.day-brief-place:active {
 
   .nav-bar.over-hero .nav-home,
   .nav-bar.over-hero .nav-back,
-  .nav-bar.over-hero .save-offline-btn {
+  .nav-bar.over-hero .save-offline-btn,
+  .nav-bar.over-hero .trip-cover-menu-btn {
     color: var(--color-text-primary);
   }
 
   .nav-bar.over-hero .nav-home:hover,
   .nav-bar.over-hero .nav-back:hover,
-  .nav-bar.over-hero .save-offline-btn:hover {
+  .nav-bar.over-hero .save-offline-btn:hover,
+  .nav-bar.over-hero .trip-cover-menu-btn:hover {
     background: rgba(255, 255, 255, 0.96);
     color: var(--color-text-primary);
   }
 
   .nav-home,
   .nav-back,
-  .save-offline-btn {
+  .save-offline-btn,
+  .trip-cover-menu-btn {
     width: 64px;
     height: 64px;
     border: 1px solid rgba(232, 225, 214, 0.82);
@@ -4171,19 +4310,27 @@ button.day-brief-place:active {
 
   .nav-home:active,
   .nav-back:active,
-  .save-offline-btn:active {
+  .save-offline-btn:active,
+  .trip-cover-menu-btn:active {
     transform: translateY(1px) scale(0.97);
     background: rgba(245, 228, 218, 0.78);
   }
 
   .nav-home:hover,
   .nav-back:hover,
-  .save-offline-btn:hover {
+  .save-offline-btn:hover,
+  .trip-cover-menu-btn:hover {
     background: rgba(255, 255, 255, 0.96);
     color: var(--color-text-primary);
     box-shadow:
       rgba(26, 20, 16, 0.05) 0 1px 0 0,
       rgba(26, 20, 16, 0.14) 0 18px 42px -26px;
+  }
+
+  .trip-cover-menu {
+    top: calc(100% + 12px);
+    width: 304px;
+    border-radius: 16px;
   }
 
   .nav-title-group {

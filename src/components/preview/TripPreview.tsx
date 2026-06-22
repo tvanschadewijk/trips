@@ -5,12 +5,12 @@ import type { ReactNode } from 'react';
 import { flushSync } from 'react-dom';
 import type { TripData, Day, Transport, Accommodation, Tip, Meal, Block, RichDetail, Service } from '@/lib/types';
 import { TripIcon as Icon } from './icons';
-import SaveOfflineButton from './SaveOfflineButton';
 import TripRouteAtlas from './TripRouteAtlas';
 import ItineraryMap, { type ItineraryMapFocusRequest, type ItineraryMapViewAllRequest } from './ItineraryMap';
 import AccommodationReviewBoard from './AccommodationReviewBoard';
 import { renderTripMarkdown } from '@/lib/render-trip-markdown';
 import { normalizeTripData } from '@/lib/trip-data-normalize';
+import { createClient } from '@/lib/supabase/client';
 import { buildTripOverviewRouteAtlas, buildTripRouteAtlas, type TripRouteAtlas as TripRouteAtlasData } from '@/lib/trip-route';
 import {
   buildDayMapDataByNumber,
@@ -19,7 +19,7 @@ import {
 } from '@/lib/day-map';
 import { getTripOverviewImageUrl } from '@/lib/trip-images';
 import { isConfirmedAccommodation } from '@/lib/trip-status';
-import { isTripSavedOffline } from '@/lib/offline';
+import { isTripSavedOffline, useOfflineTrip } from '@/lib/offline';
 import '@/styles/preview.css';
 
 /** Extract 3-letter IATA airport codes from a string like "Amsterdam (AMS) → New York (JFK)" */
@@ -27,6 +27,9 @@ function extractIataCodes(s: string): string[] {
   const matches = s.match(/\b[A-Z]{3}\b/g);
   return matches || [];
 }
+
+const SHARE_MODE_OPTIONS = ['companion', 'remix', 'private'] as const;
+type ShareMode = (typeof SHARE_MODE_OPTIONS)[number];
 
 interface TripPreviewProps {
   trips: TripData[];
@@ -37,7 +40,7 @@ interface TripPreviewProps {
   canAddToTrips?: boolean;
   /** Trip's sharing mode — controls whether the floating CTA reads
    *  "Add to my trips" (companion) or "Remix this trip" (remix). */
-  shareMode?: 'companion' | 'remix';
+  shareMode?: ShareMode;
   tripId?: string;
   homeHref?: string;
 }
@@ -55,6 +58,33 @@ function formatNightLabel(nights: number | null | undefined): string | null {
   const count = normalizedNightCount(nights);
   if (!count) return null;
   return `${count} ${count === 1 ? 'night' : 'nights'}`;
+}
+
+function notifyOfflineStatusChanged(shareId: string, saved: boolean) {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(
+    new CustomEvent('ourtrips:offline-status-changed', {
+      detail: { shareId, saved },
+    })
+  );
+}
+
+function shareModeLabel(mode: ShareMode): string {
+  if (mode === 'private') return 'Private';
+  if (mode === 'remix') return 'Remix link';
+  return 'Companion link';
+}
+
+function shareModeHint(mode: ShareMode): string {
+  if (mode === 'private') return 'Link is off';
+  if (mode === 'remix') return 'Public, PII removed, others can remix';
+  return 'Anyone with the link sees full bookings';
+}
+
+function shareModeIcon(mode: ShareMode): string {
+  if (mode === 'private') return 'x';
+  if (mode === 'remix') return 'shuffle';
+  return 'users';
 }
 
 function routeStopCountFor(atlas: ReturnType<typeof buildTripRouteAtlas>): number {
@@ -870,8 +900,14 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
   const [isDesktopPreview, setIsDesktopPreview] = useState<boolean | null>(null);
   const [showArchive, setShowArchive] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [coverMenuOpen, setCoverMenuOpen] = useState(false);
+  const [coverToast, setCoverToast] = useState<string | null>(null);
+  const [confirmingOfflineRemove, setConfirmingOfflineRemove] = useState(false);
+  const [coverDeleteConfirm, setCoverDeleteConfirm] = useState(false);
+  const [coverDeleteBusy, setCoverDeleteBusy] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'already_saved' | 'already_owned' | 'error'>('idle');
+  const [currentShareMode, setCurrentShareMode] = useState<ShareMode>(shareMode ?? 'companion');
   const [inlineBookingKey, setInlineBookingKey] = useState<string | null>(null);
   const [inlineBookingErrorKey, setInlineBookingErrorKey] = useState<string | null>(null);
   const [brokenImages, setBrokenImages] = useState<Set<string>>(new Set());
@@ -889,6 +925,8 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
   const detailBodyRef = useRef<HTMLDivElement>(null);
   const detailCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const detailClosingRef = useRef(false);
+  const coverMenuRef = useRef<HTMLDivElement | null>(null);
+  const coverToastTimerRef = useRef<number | null>(null);
   const dayMapFocusNonceRef = useRef(0);
   const dayMapViewAllNonceRef = useRef(0);
 
@@ -899,6 +937,14 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
   const activeTripData = activeTripIndex !== null ? trips[activeTripIndex] : undefined;
   const trip = activeTripData?.trip ?? null;
   const days = useMemo(() => activeTripData?.days ?? [], [activeTripData]);
+  const offlineTripMeta = useMemo(() => activeTripData ? {
+    name: activeTripData.trip.name,
+    subtitle: activeTripData.trip.subtitle,
+    heroImage: getTripOverviewImageUrl(activeTripData.trip),
+    start: activeTripData.trip.dates?.start,
+    end: activeTripData.trip.dates?.end,
+  } : undefined, [activeTripData]);
+  const offlineTrip = useOfflineTrip(shareId, offlineTripMeta);
   const displayableTripNotes = (trip?.notes ?? []).filter((note) => trimDisplayText(note.content));
   const markdownSource = activeTripData?.markdown_source;
   const totalSlides = 1 + days.length;
@@ -1005,6 +1051,35 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
       window.removeEventListener('ourtrips:offline-status-changed', handleOfflineStatus);
     };
   }, [shareId]);
+
+  useEffect(() => {
+    setCurrentShareMode(shareMode ?? 'companion');
+  }, [shareMode]);
+
+  useEffect(() => {
+    setCoverMenuOpen(false);
+  }, [activeTripIndex, currentSlide]);
+
+  useEffect(() => {
+    if (!coverMenuOpen) return;
+
+    function closeCoverMenuOnOutsidePointer(event: PointerEvent) {
+      const target = event.target;
+      if (target instanceof Node && coverMenuRef.current?.contains(target)) return;
+      setCoverMenuOpen(false);
+    }
+
+    document.addEventListener('pointerdown', closeCoverMenuOnOutsidePointer, true);
+    return () => {
+      document.removeEventListener('pointerdown', closeCoverMenuOnOutsidePointer, true);
+    };
+  }, [coverMenuOpen]);
+
+  useEffect(() => {
+    return () => {
+      if (coverToastTimerRef.current) window.clearTimeout(coverToastTimerRef.current);
+    };
+  }, []);
 
   // Publish current slide as context for the chat panel. Stored in
   // sessionStorage so the chat component can pick it up without prop
@@ -1228,6 +1303,200 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
           </>
         )}
       </button>
+    );
+  }
+
+  function showCoverActionToast(message: string) {
+    setCoverToast(message);
+    if (coverToastTimerRef.current) window.clearTimeout(coverToastTimerRef.current);
+    coverToastTimerRef.current = window.setTimeout(() => setCoverToast(null), 2200);
+  }
+
+  async function handleCopyShareLink() {
+    if (!shareId || typeof window === 'undefined') return;
+
+    const url = `${window.location.origin}/t/${shareId}`;
+    setCoverMenuOpen(false);
+    try {
+      await navigator.clipboard.writeText(url);
+      showCoverActionToast('Share link copied');
+    } catch {
+      showCoverActionToast('Could not copy link');
+    }
+  }
+
+  async function handleToggleOfflineDownload() {
+    if (!shareId || !activeTripData) return;
+    if (offlineTrip.state.status === 'saving' || offlineTrip.state.status === 'removing') return;
+
+    setCoverMenuOpen(false);
+    if (offlineTrip.isSaved) {
+      setConfirmingOfflineRemove(true);
+      return;
+    }
+
+    await offlineTrip.save(activeTripData);
+    notifyOfflineStatusChanged(shareId, true);
+    showCoverActionToast('Downloaded for offline');
+  }
+
+  async function handleRemoveOfflineDownload() {
+    if (!shareId) return;
+
+    setConfirmingOfflineRemove(false);
+    await offlineTrip.remove();
+    notifyOfflineStatusChanged(shareId, false);
+    showCoverActionToast('Download removed');
+  }
+
+  async function handleCoverShareModeChange(next: ShareMode) {
+    if (!tripId || currentShareMode === next) return;
+
+    const previous = currentShareMode;
+    setCurrentShareMode(next);
+    setCoverMenuOpen(false);
+
+    try {
+      const res = await fetch(`/api/trips/${tripId}/share-mode`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ share_mode: next }),
+      });
+      if (!res.ok) throw new Error('Failed to update sharing');
+      showCoverActionToast(`${shareModeLabel(next)} selected`);
+    } catch {
+      setCurrentShareMode(previous);
+      showCoverActionToast('Could not update sharing');
+    }
+  }
+
+  function requestCoverDelete() {
+    setCoverMenuOpen(false);
+    setCoverDeleteConfirm(true);
+  }
+
+  async function handleDeleteActiveTrip() {
+    if (activeTripIndex === null) return;
+
+    setCoverDeleteBusy(true);
+    try {
+      if (tripId) {
+        const supabase = createClient();
+        const { error } = await supabase.from('trips').delete().eq('id', tripId);
+        if (error) throw error;
+      } else {
+        onDelete?.(activeTripIndex);
+      }
+
+      setTrips(prev => prev.filter((_, index) => index !== activeTripIndex));
+      setCoverDeleteConfirm(false);
+
+      if (autoOpen) {
+        window.location.href = homeHref;
+      } else {
+        setActiveTripIndex(null);
+        setOverviewFaded(false);
+      }
+    } catch {
+      showCoverActionToast('Could not delete trip');
+    } finally {
+      setCoverDeleteBusy(false);
+    }
+  }
+
+  function renderCoverActionsMenu() {
+    if (!shareId || !activeTripData) return null;
+
+    const offlineBusy = offlineTrip.state.status === 'saving' || offlineTrip.state.status === 'removing';
+    const offlineLabel = offlineBusy
+      ? (offlineTrip.state.status === 'removing' ? 'Removing download...' : 'Downloading...')
+      : offlineTrip.isSaved
+        ? 'Remove download'
+        : 'Download trip';
+    const offlineHint = offlineTrip.isSaved
+      ? 'Remove this device copy'
+      : 'Keep this itinerary on this device';
+    const canManageTrip = Boolean(tripId);
+    const canDeleteTrip = Boolean(tripId || onDelete);
+
+    return (
+      <div className="trip-cover-menu-wrap" ref={coverMenuRef}>
+        <button
+          type="button"
+          className="trip-cover-menu-btn"
+          onClick={() => setCoverMenuOpen((value) => !value)}
+          aria-label="Trip actions"
+          aria-haspopup="menu"
+          aria-expanded={coverMenuOpen}
+        >
+          <Icon name="more" />
+        </button>
+        {coverMenuOpen && (
+          <>
+            <div className="trip-cover-menu-backdrop" onClick={() => setCoverMenuOpen(false)} />
+            <div className="trip-cover-menu" role="menu" aria-label="Trip actions">
+              <button type="button" className="trip-cover-menu-item" onClick={handleCopyShareLink} role="menuitem">
+                <span className="trip-cover-menu-icon"><Icon name="link" /></span>
+                <span className="trip-cover-menu-label">
+                  <span>Copy share link</span>
+                  <small>{currentShareMode === 'private' ? 'Link is currently off' : 'Share this trip'}</small>
+                </span>
+              </button>
+              <button
+                type="button"
+                className="trip-cover-menu-item"
+                onClick={handleToggleOfflineDownload}
+                disabled={offlineBusy}
+                role="menuitem"
+              >
+                <span className="trip-cover-menu-icon"><Icon name={offlineTrip.isSaved ? 'check' : 'download'} /></span>
+                <span className="trip-cover-menu-label">
+                  <span>{offlineLabel}</span>
+                  <small>{offlineHint}</small>
+                </span>
+              </button>
+
+              {canManageTrip && (
+                <>
+                  <div className="trip-cover-menu-divider" />
+                  <div className="trip-cover-menu-section">Sharing</div>
+                  {SHARE_MODE_OPTIONS.map((mode) => (
+                    <button
+                      type="button"
+                      key={mode}
+                      className={`trip-cover-menu-item ${currentShareMode === mode ? 'is-active' : ''}`}
+                      onClick={() => handleCoverShareModeChange(mode)}
+                      aria-checked={currentShareMode === mode}
+                      role="menuitemradio"
+                    >
+                      <span className="trip-cover-menu-check" aria-hidden="true">
+                        {currentShareMode === mode ? <Icon name="check" /> : <Icon name={shareModeIcon(mode)} />}
+                      </span>
+                      <span className="trip-cover-menu-label">
+                        <span>{shareModeLabel(mode)}</span>
+                        <small>{shareModeHint(mode)}</small>
+                      </span>
+                    </button>
+                  ))}
+                </>
+              )}
+
+              {canDeleteTrip && (
+                <>
+                  <div className="trip-cover-menu-divider" />
+                  <button type="button" className="trip-cover-menu-item trip-cover-menu-item-danger" onClick={requestCoverDelete} role="menuitem">
+                    <span className="trip-cover-menu-icon"><Icon name="trash" /></span>
+                    <span className="trip-cover-menu-label">
+                      <span>Delete trip</span>
+                      <small>Remove it from your trips</small>
+                    </span>
+                  </button>
+                </>
+              )}
+            </div>
+          </>
+        )}
+      </div>
     );
   }
 
@@ -3162,9 +3431,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
             </div>
             <div className="nav-actions">
               {renderAddToTripsButton()}
-              {shareId && trip && (
-                <SaveOfflineButton shareId={shareId} data={{ trip, days }} />
-              )}
+              {isHero && renderCoverActionsMenu()}
             </div>
           </div>
 
@@ -3216,6 +3483,46 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
             </div>
           )}
 
+        </div>
+      )}
+
+      {coverToast && <div className="trip-cover-action-toast">{coverToast}</div>}
+
+      {confirmingOfflineRemove && (
+        <div className="save-offline-confirm">
+          <div className="save-offline-confirm-backdrop" onClick={() => setConfirmingOfflineRemove(false)} />
+          <div className="save-offline-confirm-dialog" role="dialog" aria-modal="true" aria-label="Remove offline copy?">
+            <div className="save-offline-confirm-title">Remove offline copy?</div>
+            <p className="save-offline-confirm-message">
+              You&rsquo;ll need a connection to view this trip again.
+            </p>
+            <div className="save-offline-confirm-actions">
+              <button className="save-offline-confirm-btn cancel" onClick={() => setConfirmingOfflineRemove(false)}>
+                Keep saved
+              </button>
+              <button className="save-offline-confirm-btn delete" onClick={handleRemoveOfflineDownload}>
+                Remove
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {coverDeleteConfirm && activeTripIndex !== null && (
+        <div className="confirm-overlay" role="dialog" aria-modal="true" aria-label="Confirm deletion">
+          <div className="confirm-backdrop" onClick={() => !coverDeleteBusy && setCoverDeleteConfirm(false)} />
+          <div className="confirm-dialog">
+            <div className="confirm-title">Delete trip?</div>
+            <p className="confirm-message">
+              &ldquo;{trips[activeTripIndex]?.trip.name}&rdquo; will be permanently removed. This cannot be undone.
+            </p>
+            <div className="confirm-actions">
+              <button className="confirm-btn confirm-btn-cancel" onClick={() => setCoverDeleteConfirm(false)} disabled={coverDeleteBusy}>Cancel</button>
+              <button className="confirm-btn confirm-btn-delete" onClick={handleDeleteActiveTrip} disabled={coverDeleteBusy}>
+                {coverDeleteBusy ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

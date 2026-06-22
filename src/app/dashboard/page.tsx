@@ -1,19 +1,16 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   ArrowRight,
   ChartLine,
   Check,
-  Ellipsis,
-  Link as LinkIcon,
   LogOut,
   Map as MapIcon,
   Plus,
   Settings,
-  Trash2,
   UserRound,
   WifiOff,
 } from 'lucide-react';
@@ -68,12 +65,7 @@ export default function DashboardPage() {
     if (typeof window !== 'undefined') return sessionStorage.getItem('dash-email') || null;
     return null;
   });
-  const [copied, setCopied] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [cardMenuOpen, setCardMenuOpen] = useState<string | null>(null);
-  const cardMenuRef = useRef<HTMLDivElement | null>(null);
-  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
-  const [deleting, setDeleting] = useState(false);
   const [loading, setLoading] = useState(() => {
     if (typeof window !== 'undefined' && sessionStorage.getItem('dash-trips')) return false;
     return true;
@@ -194,30 +186,6 @@ export default function DashboardPage() {
     });
   }, [loadTrips]);
 
-
-  useEffect(() => {
-    if (!cardMenuOpen) return;
-
-    function closeCardMenuOnOutsidePointer(event: PointerEvent) {
-      const target = event.target;
-      if (target instanceof Node && cardMenuRef.current?.contains(target)) return;
-      setCardMenuOpen(null);
-    }
-
-    document.addEventListener('pointerdown', closeCardMenuOnOutsidePointer, true);
-    return () => {
-      document.removeEventListener('pointerdown', closeCardMenuOnOutsidePointer, true);
-    };
-  }, [cardMenuOpen]);
-
-  function copyLink(shareId: string) {
-    const url = `${window.location.origin}/t/${shareId}`;
-    navigator.clipboard.writeText(url).then(() => {
-      setCopied(shareId);
-      setTimeout(() => setCopied(null), 2000);
-    });
-  }
-
   async function handleSignOut() {
     if (isLocalPreviewWithoutSupabase()) {
       sessionStorage.removeItem('dash-email');
@@ -229,62 +197,6 @@ export default function DashboardPage() {
     const supabase = createClient();
     await supabase.auth.signOut();
     router.push('/');
-  }
-
-  async function handleShareModeChange(tripId: string, next: 'private' | 'companion' | 'remix') {
-    // Optimistic — flip locally so the menu's checkmark updates instantly.
-    const prev = trips.find(t => t.id === tripId)?.share_mode;
-    if (prev === next) return;
-    const updated = trips.map(t => t.id === tripId ? { ...t, share_mode: next } : t);
-    setTrips(updated);
-    sessionStorage.setItem('dash-trips', JSON.stringify(updated));
-    if (isLocalPreviewWithoutSupabase()) return;
-
-    const res = await fetch(`/api/trips/${tripId}/share-mode`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ share_mode: next }),
-    });
-    if (!res.ok) {
-      // Revert on failure.
-      const reverted = trips.map(t => t.id === tripId && prev ? { ...t, share_mode: prev } : t);
-      setTrips(reverted);
-      sessionStorage.setItem('dash-trips', JSON.stringify(reverted));
-    }
-  }
-
-  async function handleDelete(tripId: string) {
-    setDeleting(true);
-    if (isLocalPreviewWithoutSupabase()) {
-      const updated = trips.filter(t => t.id !== tripId);
-      setTrips(updated);
-      sessionStorage.setItem('dash-trips', JSON.stringify(updated));
-      setDeleting(false);
-      setDeleteConfirm(null);
-      return;
-    }
-
-    const supabase = createClient();
-    const { error } = await supabase.from('trips').delete().eq('id', tripId);
-    if (!error) {
-      const updated = trips.filter(t => t.id !== tripId);
-      setTrips(updated);
-      sessionStorage.setItem('dash-trips', JSON.stringify(updated));
-    }
-    setDeleting(false);
-    setDeleteConfirm(null);
-  }
-
-  function shareModeLabel(mode: 'private' | 'companion' | 'remix'): string {
-    if (mode === 'private') return 'Private';
-    if (mode === 'remix') return 'Remix link';
-    return 'Companion link';
-  }
-
-  function shareModeHint(mode: 'private' | 'companion' | 'remix'): string {
-    if (mode === 'private') return 'Link is off';
-    if (mode === 'remix') return 'Public, PII removed, others can remix';
-    return 'Anyone with the link sees full bookings';
   }
 
   function formatDate(dateStr: string) {
@@ -468,10 +380,8 @@ export default function DashboardPage() {
               const endD = new Date(t.dates.end + 'T12:00:00');
               const nights = Math.round((endD.getTime() - startD.getTime()) / 86400000);
 
-              const menuOpen = cardMenuOpen === trip.id;
-
               return (
-                <div key={trip.id} className={`dash-card ${menuOpen ? 'is-menu-open' : ''}`}>
+                <div key={trip.id} className="dash-card">
                   <Link
                     href={`/t/${trip.share_id}`}
                     className="dash-card-link"
@@ -521,45 +431,6 @@ export default function DashboardPage() {
                       </div>
                     </div>
                   </Link>
-                  <div className="dash-card-menu-wrap" ref={menuOpen ? cardMenuRef : undefined}>
-                    <button
-                      className="dash-card-menu-btn"
-                      onClick={(e) => { e.stopPropagation(); setCardMenuOpen(cardMenuOpen === trip.id ? null : trip.id); }}
-                      aria-label="Trip options"
-                      aria-expanded={menuOpen}
-                    >
-                      <Ellipsis size={16} aria-hidden="true" />
-                    </button>
-                    {menuOpen && (
-                      <>
-                        <div className="dash-card-menu-backdrop" onClick={() => setCardMenuOpen(null)} />
-                        <div className="dash-card-menu">
-                          <div className="dash-card-menu-section">Sharing</div>
-                          {(['companion', 'remix', 'private'] as const).map(mode => (
-                            <button
-                              key={mode}
-                              className={`dash-card-menu-item ${trip.share_mode === mode ? 'is-active' : ''}`}
-                              onClick={() => { setCardMenuOpen(null); handleShareModeChange(trip.id, mode); }}
-                              title={shareModeHint(mode)}
-                            >
-                              <span className="dash-card-menu-check" aria-hidden="true">
-                                {trip.share_mode === mode ? <Check size={14} /> : null}
-                              </span>
-                              <span className="dash-card-menu-label">
-                                <span className="dash-card-menu-label-name">{shareModeLabel(mode)}</span>
-                                <span className="dash-card-menu-label-hint">{shareModeHint(mode)}</span>
-                              </span>
-                            </button>
-                          ))}
-                          <div className="dash-card-menu-divider" />
-                          <button className="dash-card-menu-item dash-card-menu-item-danger" onClick={() => { setCardMenuOpen(null); setDeleteConfirm(trip.id); }}>
-                            <Trash2 size={14} aria-hidden="true" />
-                            Delete trip
-                          </button>
-                        </div>
-                      </>
-                    )}
-                  </div>
                   <div className="dash-card-body">
                     <div className="dash-card-meta">
                       <span>{formatDate(t.dates.start)} — {formatDate(t.dates.end)}</span>
@@ -573,23 +444,6 @@ export default function DashboardPage() {
                         </span>
                       )}
                       {wasUpdated(trip) && <span className="dash-card-updated">Updated {formatUpdatedDate(trip.updated_at)}</span>}
-                      <button
-                        className={`dash-card-btn ${copied === trip.share_id ? 'copied' : ''}`}
-                        onClick={() => copyLink(trip.share_id)}
-                        title="Copy share link"
-                      >
-                        {copied === trip.share_id ? (
-                          <>
-                            <Check aria-hidden="true" />
-                            Copied
-                          </>
-                        ) : (
-                          <>
-                            <LinkIcon aria-hidden="true" />
-                            Share
-                          </>
-                        )}
-                      </button>
                     </div>
                   </div>
                 </div>
@@ -601,24 +455,6 @@ export default function DashboardPage() {
         )}
       </main>
 
-      {/* Delete confirmation dialog */}
-      {deleteConfirm && (
-        <div className="dash-confirm-overlay">
-          <div className="dash-confirm-backdrop" onClick={() => !deleting && setDeleteConfirm(null)} />
-          <div className="dash-confirm-dialog">
-            <div className="dash-confirm-title">Delete trip?</div>
-            <p className="dash-confirm-message">
-              &ldquo;{trips.find(t => t.id === deleteConfirm)?.data.trip.name}&rdquo; will be permanently removed. This cannot be undone.
-            </p>
-            <div className="dash-confirm-actions">
-              <button className="dash-confirm-btn dash-confirm-cancel" onClick={() => setDeleteConfirm(null)} disabled={deleting}>Cancel</button>
-              <button className="dash-confirm-btn dash-confirm-delete" onClick={() => handleDelete(deleteConfirm)} disabled={deleting}>
-                {deleting ? 'Deleting...' : 'Delete'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
