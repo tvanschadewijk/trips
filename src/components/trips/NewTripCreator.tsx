@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -10,14 +10,30 @@ import {
   Check,
   CircleDashed,
   Clock3,
+  FileText,
   IdCard,
+  Image as ImageIcon,
+  Loader2,
   MapPinned,
   MessageCircle,
   Minus,
+  Paperclip,
   Sparkles,
+  Trash2,
+  UploadCloud,
   UserPlus,
   Users,
 } from 'lucide-react';
+import {
+  MAX_REFERENCE_FILE_BYTES,
+  MAX_REFERENCE_IMAGE_BYTES,
+  MAX_REFERENCE_SOURCES,
+  formatFileSize,
+  inferReferenceContentType,
+  referenceFileIsAccepted,
+  referenceFileIsImage,
+  type TripReferenceSource,
+} from '@/lib/trip-references';
 import {
   createBlankTravelerProfile,
   summarizeTravelerProfiles,
@@ -42,6 +58,8 @@ type FormState = {
   budget: string;
   pace: 'from_profile' | 'relaxed' | 'balanced' | 'full';
   notes: string;
+  reference_text: string;
+  reference_sources: TripReferenceSource[];
 };
 
 type DraftResponse = {
@@ -84,6 +102,7 @@ type BriefQuestion =
   | 'must_do'
   | 'known_bookings'
   | 'notes'
+  | 'references'
   | 'review';
 
 type GenerationStep = 'idle' | 'draft' | 'agent' | 'poll' | 'done' | 'error';
@@ -99,8 +118,32 @@ const questionOrder: BriefQuestion[] = [
   'must_do',
   'known_bookings',
   'notes',
+  'references',
   'review',
 ];
+
+const referenceAccept = [
+  'application/pdf',
+  'text/plain',
+  'text/markdown',
+  'application/json',
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/heic',
+  'image/heif',
+  '.pdf',
+  '.txt',
+  '.md',
+  '.markdown',
+  '.json',
+  '.jpg',
+  '.jpeg',
+  '.png',
+  '.webp',
+  '.heic',
+  '.heif',
+].join(',');
 
 const weekdayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -182,6 +225,13 @@ function travelerSummary(profiles: TravelerProfile[]): string {
   return summarizeTravelerProfiles(profiles) || 'No travelers selected';
 }
 
+function referenceAnswerSummary(referenceText: string, sources: TripReferenceSource[]): string {
+  const parts: string[] = [];
+  if (referenceText.trim()) parts.push('pasted notes');
+  if (sources.length) parts.push(`${sources.length} upload${sources.length === 1 ? '' : 's'}`);
+  return parts.length ? parts.join(' + ') : 'No reference material';
+}
+
 function generationEstimate(dayCount: number, elapsedSeconds: number): string {
   const expectedSeconds = dayCount > 14 ? 300 : 210;
   const remainingSeconds = Math.max(0, expectedSeconds - elapsedSeconds);
@@ -249,6 +299,8 @@ export default function NewTripCreator({ initialPreferences, profileComplete }: 
     budget: initialPreferences.budget === 'varies' ? '' : initialPreferences.budget.replace(/_/g, ' '),
     pace: 'from_profile',
     notes: '',
+    reference_text: '',
+    reference_sources: [],
   });
   const [activeQuestion, setActiveQuestion] = useState<BriefQuestion>('destination');
   const [completedQuestions, setCompletedQuestions] = useState<BriefQuestion[]>([]);
@@ -340,7 +392,7 @@ export default function NewTripCreator({ initialPreferences, profileComplete }: 
       setDraftUrl(`/t/${draft.share_id}`);
 
       setGenerationStep('agent');
-      setStatusText('Starting the travel agent with the destination, dates, travelers, and profile context...');
+      setStatusText('Starting the travel agent with the destination, dates, travelers, profile context, and reference material...');
       const chatRes = await fetch(`/api/trips/${draft.trip_id}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -578,8 +630,26 @@ export default function NewTripCreator({ initialPreferences, profileComplete }: 
               skipLabel="No extra notes"
               disabled={busy}
               onChange={(value) => setField('notes', value)}
-              onSubmit={() => completeQuestion('notes', 'review')}
-              onSkip={() => completeQuestion('notes', 'review')}
+              onSubmit={() => completeQuestion('notes', 'references')}
+              onSkip={() => completeQuestion('notes', 'references')}
+            />
+          </QuestionBlock>
+
+          <QuestionBlock
+            visible={isVisible('references')}
+            complete={isComplete('references')}
+            active={activeQuestion === 'references'}
+            question="Do you have any reference material for this trip?"
+            answer={referenceAnswerSummary(form.reference_text, form.reference_sources)}
+          >
+            <ReferenceAnswerControl
+              referenceText={form.reference_text}
+              sources={form.reference_sources}
+              disabled={busy}
+              onReferenceTextChange={(value) => setField('reference_text', value)}
+              onSourcesChange={(sources) => setField('reference_sources', sources)}
+              onSubmit={() => completeQuestion('references', 'review')}
+              onSkip={() => completeQuestion('references', 'review')}
             />
           </QuestionBlock>
 
@@ -762,6 +832,184 @@ function TextAreaAnswerControl({
         </button>
         <button className="trip-create-primary" type="button" disabled={disabled} onClick={onSubmit}>
           {buttonLabel}
+          <ArrowRight size={16} aria-hidden="true" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ReferenceAnswerControl({
+  referenceText,
+  sources,
+  disabled,
+  onReferenceTextChange,
+  onSourcesChange,
+  onSubmit,
+  onSkip,
+}: {
+  referenceText: string;
+  sources: TripReferenceSource[];
+  disabled: boolean;
+  onReferenceTextChange: (value: string) => void;
+  onSourcesChange: (sources: TripReferenceSource[]) => void;
+  onSubmit: () => void;
+  onSkip: () => void;
+}) {
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const uploadDisabled = disabled || uploading || sources.length >= MAX_REFERENCE_SOURCES;
+
+  async function uploadFiles(fileList: FileList | null) {
+    const files = Array.from(fileList ?? []);
+    if (!files.length || uploadDisabled) return;
+
+    setUploadError(null);
+    setUploading(true);
+    let nextSources = sources;
+
+    try {
+      for (const file of files) {
+        if (nextSources.length >= MAX_REFERENCE_SOURCES) {
+          setUploadError(`You can attach up to ${MAX_REFERENCE_SOURCES} references.`);
+          break;
+        }
+
+        const contentType = inferReferenceContentType(file.name, file.type);
+        if (!referenceFileIsAccepted(file.name, contentType)) {
+          setUploadError(`${file.name} is not a supported PDF, photo, text, markdown, or JSON file.`);
+          continue;
+        }
+
+        const maxBytes = referenceFileIsImage(contentType)
+          ? MAX_REFERENCE_IMAGE_BYTES
+          : MAX_REFERENCE_FILE_BYTES;
+        if (file.size > maxBytes) {
+          setUploadError(`${file.name} must be smaller than ${formatFileSize(maxBytes)}.`);
+          continue;
+        }
+
+        const body = new FormData();
+        body.append('file', file);
+        const res = await fetch('/api/trip-references', {
+          method: 'POST',
+          body,
+        });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          setUploadError(json.error ?? `Could not upload ${file.name}.`);
+          continue;
+        }
+
+        if (json.source) {
+          nextSources = [...nextSources, json.source as TripReferenceSource];
+          onSourcesChange(nextSources);
+        }
+      }
+    } finally {
+      setUploading(false);
+      if (inputRef.current) inputRef.current.value = '';
+    }
+  }
+
+  function removeSource(id: string) {
+    onSourcesChange(sources.filter((source) => source.id !== id));
+  }
+
+  return (
+    <div className="trip-agent-control trip-agent-references">
+      <textarea
+        value={referenceText}
+        placeholder="Paste notes, markdown, a rough prompt, booking details, or an existing itinerary outline"
+        rows={5}
+        disabled={disabled}
+        onChange={(event) => onReferenceTextChange(event.target.value)}
+      />
+
+      <div className="trip-reference-upload-row">
+        <input
+          ref={inputRef}
+          type="file"
+          accept={referenceAccept}
+          multiple
+          disabled={uploadDisabled}
+          onChange={(event) => void uploadFiles(event.target.files)}
+        />
+        <button
+          className="trip-agent-secondary"
+          type="button"
+          disabled={uploadDisabled}
+          onClick={() => inputRef.current?.click()}
+        >
+          {uploading ? (
+            <Loader2 className="trip-reference-spin" size={15} aria-hidden="true" />
+          ) : (
+            <UploadCloud size={15} aria-hidden="true" />
+          )}
+          {uploading ? 'Uploading...' : 'Upload PDF or photo'}
+        </button>
+        <span>
+          {sources.length}/{MAX_REFERENCE_SOURCES}
+        </span>
+      </div>
+
+      {uploadError && (
+        <div className="trip-reference-error">
+          <AlertCircle size={15} aria-hidden="true" />
+          <span>{uploadError}</span>
+        </div>
+      )}
+
+      {sources.length > 0 && (
+        <div className="trip-reference-list">
+          {sources.map((source) => (
+            <article className="trip-reference-item" key={source.id}>
+              <div className="trip-reference-icon">
+                {source.kind === 'photo' ? (
+                  <ImageIcon size={16} aria-hidden="true" />
+                ) : (
+                  <FileText size={16} aria-hidden="true" />
+                )}
+              </div>
+              <div className="trip-reference-copy">
+                <div className="trip-reference-title-row">
+                  <strong>{source.file_name}</strong>
+                  <span className={`trip-reference-status is-${source.status}`}>
+                    {source.status === 'ready' ? 'Ready' : source.status}
+                  </span>
+                </div>
+                <p>
+                  {source.extracted_text.trim() ||
+                    source.error ||
+                    'Attached, but no readable text was extracted yet.'}
+                </p>
+                <span className="trip-reference-meta">
+                  <Paperclip size={12} aria-hidden="true" />
+                  {[source.content_type, source.size ? formatFileSize(source.size) : null]
+                    .filter(Boolean)
+                    .join(' / ')}
+                </span>
+              </div>
+              <button
+                type="button"
+                disabled={disabled || uploading}
+                aria-label={`Remove ${source.file_name}`}
+                onClick={() => removeSource(source.id)}
+              >
+                <Trash2 size={14} aria-hidden="true" />
+              </button>
+            </article>
+          ))}
+        </div>
+      )}
+
+      <div className="trip-agent-control-actions">
+        <button className="trip-agent-secondary" type="button" disabled={disabled || uploading} onClick={onSkip}>
+          {referenceText.trim() || sources.length ? 'Continue without more' : 'No references'}
+        </button>
+        <button className="trip-create-primary" type="button" disabled={disabled || uploading} onClick={onSubmit}>
+          Continue
           <ArrowRight size={16} aria-hidden="true" />
         </button>
       </div>
@@ -1102,6 +1350,7 @@ function BriefSnapshot({ form, dayCount }: { form: FormState; dayCount: number }
     ['Travelers', travelerSummary(form.traveler_profiles)],
     ['Origin', form.origin || 'Not specified'],
     ['Style', `${form.budget || 'Profile budget'} / ${form.pace.replace(/_/g, ' ')}`],
+    ['References', referenceAnswerSummary(form.reference_text, form.reference_sources)],
   ];
 
   return (

@@ -1,5 +1,10 @@
 import { z } from 'zod';
 import { ISO_DATE_RE, isIsoDateString } from './trip-logistics';
+import {
+  MAX_REFERENCE_TEXT_CHARS,
+  TripReferenceSourceListSchema,
+  buildTripReferencePromptSection,
+} from './trip-references';
 import type { SaveTripInput } from './trip-service';
 import {
   TravelerProfileSchema,
@@ -15,6 +20,7 @@ const IsoDateSchema = z
   .refine(isIsoDateString, 'Use a real calendar date.');
 
 const BriefTextField = z.string().trim().max(1800).default('');
+const BriefReferenceTextField = z.string().trim().max(MAX_REFERENCE_TEXT_CHARS).default('');
 
 export const TripCreationBriefSchema = z
   .object({
@@ -29,6 +35,8 @@ export const TripCreationBriefSchema = z
     budget: BriefTextField,
     pace: z.enum(['from_profile', 'relaxed', 'balanced', 'full']).default('from_profile'),
     notes: BriefTextField,
+    reference_text: BriefReferenceTextField,
+    reference_sources: TripReferenceSourceListSchema,
   })
   .strict()
   .refine((brief) => compareIsoDates(brief.start_date, brief.end_date) < 0, {
@@ -213,6 +221,10 @@ export function buildTripGenerationAgentMessage(
   profile: TravelProfileRecord | null | undefined
 ): string {
   const profileContext = compactTravelProfileForPrompt(profile);
+  const referenceContext = buildTripReferencePromptSection(
+    brief.reference_text,
+    brief.reference_sources
+  );
   const dayCount = inclusiveDayCount(brief.start_date, brief.end_date);
   const briefLines = [
     `- Destination: ${brief.destination}`,
@@ -231,7 +243,7 @@ export function buildTripGenerationAgentMessage(
 Trip brief:
 ${briefLines.join('\n')}
 
-Travel profile:
+${referenceContext ? `${referenceContext}\n` : ''}Travel profile:
 ${profileContext}
 
 Requirements:
