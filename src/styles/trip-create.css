@@ -97,6 +97,170 @@
   align-items: start;
 }
 
+.trip-new-agent-stage {
+  min-height: 420px;
+}
+
+.trip-ask-entry {
+  position: fixed;
+  left: 50%;
+  bottom: calc(14px + env(safe-area-inset-bottom));
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: auto;
+  height: auto;
+  padding: 11px 18px;
+  background: #FFFFFF;
+  color: #1A1410;
+  border: 1px solid #E8E1D6;
+  border-radius: 999px;
+  cursor: pointer;
+  box-shadow: rgba(26, 20, 16, 0.06) 0 6px 16px -4px, rgba(26, 20, 16, 0.04) 0 1px 0 0;
+  z-index: 900;
+  white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
+  line-height: 1;
+}
+
+.trip-ask-entry:hover {
+  background: #F4EDE2;
+  border-color: #D4C8B4;
+}
+
+.trip-ask-entry-icon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  color: #C14F2A;
+}
+
+.trip-ask-entry-label {
+  display: inline;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  line-height: 1;
+  text-transform: uppercase;
+  margin-left: 6px;
+  color: #1A1410;
+}
+
+.trip-new-agent-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(26, 20, 16, 0.32);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  z-index: 899;
+}
+
+.trip-new-agent-sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: min(1040px, 100vw);
+  height: min(86dvh, 840px);
+  max-height: calc(100dvh - 20px);
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: #FBF7F1;
+  border: 1px solid #E8E1D6;
+  border-bottom: 0;
+  border-top-left-radius: 28px;
+  border-top-right-radius: 28px;
+  box-shadow: rgba(26, 20, 16, 0.20) 0 -16px 48px -12px;
+  z-index: 900;
+  font-family: 'Inter', system-ui, sans-serif;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.trip-new-agent-grabber {
+  width: 100%;
+  padding: 8px 0 4px;
+  display: flex;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.trip-new-agent-grabber span {
+  width: 36px;
+  height: 4px;
+  border-radius: 999px;
+  background: #D4C8B4;
+}
+
+.trip-new-agent-grabber:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.trip-new-agent-sheet-header {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) 36px;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 24px 18px;
+  border-bottom: 1px solid #E8E1D6;
+  background: #FBF7F1;
+  flex-shrink: 0;
+}
+
+.trip-new-agent-sheet-header div {
+  text-align: center;
+  font-family: 'Fraunces', 'Iowan Old Style', 'Palatino', 'Georgia', serif;
+  font-optical-sizing: auto;
+  font-variation-settings: 'SOFT' 42;
+  color: #1A1410;
+  font-size: 24px;
+  font-weight: 420;
+  line-height: 1.12;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.trip-new-agent-sheet-header button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: #3D352E;
+  cursor: pointer;
+}
+
+.trip-new-agent-sheet-header button:hover {
+  background: #F4EDE2;
+}
+
+.trip-new-agent-sheet-header button:disabled {
+  color: #9B9087;
+  cursor: not-allowed;
+}
+
+.trip-new-agent-sheet-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 24px;
+}
+
+.trip-new-agent-sheet .trip-create-shell {
+  max-width: none;
+  padding: 0;
+}
+
 .trip-create-main,
 .trip-create-status {
   background: #FFFFFF;
@@ -1001,6 +1165,17 @@
 }
 
 @media (max-width: 860px) {
+  .trip-new-agent-sheet {
+    height: min(90dvh, 760px);
+    max-height: calc(100dvh - 12px);
+    border-top-left-radius: 24px;
+    border-top-right-radius: 24px;
+  }
+
+  .trip-new-agent-sheet-body {
+    padding: 18px;
+  }
+
   .trip-create-shell {
     grid-template-columns: 1fr;
   }
@@ -1015,6 +1190,31 @@
 }
 
 @media (max-width: 640px) {
+  .trip-new-agent-stage {
+    min-height: 320px;
+  }
+
+  .trip-new-agent-sheet {
+    width: 100vw;
+    height: calc(100dvh - 8px);
+    max-height: calc(100dvh - 8px);
+    border-top-left-radius: 22px;
+    border-top-right-radius: 22px;
+  }
+
+  .trip-new-agent-sheet-header {
+    padding: 6px 14px 12px;
+    grid-template-columns: 32px minmax(0, 1fr) 32px;
+  }
+
+  .trip-new-agent-sheet-header div {
+    font-size: 18px;
+  }
+
+  .trip-new-agent-sheet-body {
+    padding: 14px;
+  }
+
   .trip-create-header {
     padding: 48px 20px 28px;
   }

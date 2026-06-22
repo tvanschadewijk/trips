@@ -410,7 +410,7 @@ export default function DashboardPage() {
                 <MapIcon aria-hidden="true" />
               </div>
               <h3>Create your first trip</h3>
-              <p>Build a complete OurTrips itinerary here, then refine it with the travel agent on the trip page.</p>
+              <p>Open the travel agent, answer a few guided questions, and let OurTrips build the first itinerary draft.</p>
             </div>
 
             <div className="dash-onboard-steps">
@@ -431,9 +431,9 @@ export default function DashboardPage() {
               <div className="dash-onboard-step">
                 <div className="dash-onboard-step-num">2</div>
                 <div className="dash-onboard-step-body">
-                  <div className="dash-onboard-step-title">Brief the trip</div>
+                  <div className="dash-onboard-step-title">Brief the travel agent</div>
                   <p className="dash-onboard-step-desc">
-                    Add dates, destination, travelers, must-dos, known bookings, and routing notes.
+                    The Ask Travel Agent sheet opens and collects destination, dates, travelers, references, and known bookings.
                   </p>
                 </div>
               </div>

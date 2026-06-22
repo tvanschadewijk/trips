@@ -58,9 +58,10 @@ export default async function NewTripPage() {
 
       <header className="trip-create-header">
         <p className="trip-create-eyebrow">New itinerary</p>
-        <h1>Create a trip</h1>
+        <h1>Ask Travel Agent</h1>
         <p>
-          Build a complete first draft inside OurTrips, then refine it on the trip page.
+          Start with the travel agent. It will collect the brief, create the workspace,
+          and keep you updated while the first draft is built.
         </p>
       </header>
 
