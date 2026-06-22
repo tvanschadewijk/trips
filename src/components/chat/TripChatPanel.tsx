@@ -13,8 +13,9 @@
  *     grouped by recency; "New chat" starts a fresh one.
  *   - Threads are created server-side on the first message and titled from
  *     that message + the day the user was viewing (see thread-title.ts).
- *   - A thread idle for >24h is treated as finished: opening the chat
- *     starts fresh instead of resuming it (the old thread stays in the rail).
+ *   - A thread idle for >24h, or scoped to another itinerary day/view, is
+ *     treated as finished for the current opening: the old thread stays in
+ *     the rail while the user gets a clean composer.
  *
  * Posts to /api/trips/[id]/chat (with thread_id). On a successful response
  * with tool calls, triggers a router.refresh() so the trip view picks up
@@ -63,8 +64,11 @@ import {
 } from '@/lib/trip-chat/progress';
 import {
   groupThreadsByRecency,
+  isThreadCompatibleWithViewContext,
   isThreadStale,
+  threadContextForViewContext,
   type ChatThreadSummary,
+  type ThreadViewContext,
 } from '@/lib/trip-chat/thread-utils';
 import { useOnlineStatus } from '@/lib/online-status';
 import { renderTripMarkdown } from '@/lib/render-trip-markdown';
@@ -102,6 +106,7 @@ const CHAT_POLL_INTERVAL_MS = 2400;
 const CHAT_POLL_TIMEOUT_MS = 305_000;
 const CHAT_HISTORY_LIMIT = 50;
 const RAIL_PREF_STORAGE_KEY = 'trip-chat-rail-open';
+const CHAT_CONTEXT_STORAGE_KEY = 'trip-chat-context';
 const MOBILE_RAIL_QUERY = '(max-width: 719px)';
 const TRIP_DATA_UPDATED_EVENT = 'ourtrips:trip-data-updated';
 
@@ -152,6 +157,29 @@ function userFacingChatError(err: unknown): string {
 
 function isMobileRail(): boolean {
   return typeof window !== 'undefined' && window.matchMedia(MOBILE_RAIL_QUERY).matches;
+}
+
+function readStoredViewContext(): ThreadViewContext | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = sessionStorage.getItem(CHAT_CONTEXT_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? (parsed as ThreadViewContext) : null;
+  } catch {
+    return null;
+  }
+}
+
+function contextLabelForViewContext(viewContext: ThreadViewContext | null): string | null {
+  return threadContextForViewContext(viewContext)?.label ?? null;
+}
+
+function shouldStartFreshForThread(
+  thread: ChatThreadSummary,
+  viewContext: ThreadViewContext | null
+): boolean {
+  return isThreadStale(thread.updated_at) || !isThreadCompatibleWithViewContext(thread, viewContext);
 }
 
 function notifyTripEditApplied(tripId: string, tripData?: TripData) {
@@ -273,17 +301,21 @@ export default function TripChatPanel({
   const online = useOnlineStatus();
   const [state, setState] = useState<PanelState>('closed');
   const [threads, setThreads] = useState<ChatThreadSummary[]>(initialThreads);
-  // Auto-new-chat: if the newest thread has been idle >24h, open fresh.
-  // Render output while 'closed' is identical either way, so the SSR/client
-  // boundary can disagree on staleness without a hydration mismatch.
+  // Auto-new-chat: if the newest thread has been idle >24h or belongs to
+  // another itinerary view, open fresh. Render output while 'closed' is
+  // identical either way, so the SSR/client boundary can disagree on this
+  // without a hydration mismatch.
   const [activeThreadId, setActiveThreadId] = useState<string | null>(() => {
     if (!initialThreadId) return null;
     const thread = initialThreads.find((t) => t.id === initialThreadId);
-    if (!thread || isThreadStale(thread.updated_at)) return null;
+    if (!thread || shouldStartFreshForThread(thread, readStoredViewContext())) return null;
     return initialThreadId;
   });
   const [messages, setMessages] = useState<ChatMessage[]>(
     activeThreadId ? initialMessages : []
+  );
+  const [currentContextLabel, setCurrentContextLabel] = useState<string | null>(() =>
+    contextLabelForViewContext(readStoredViewContext())
   );
   const [railOpen, setRailOpen] = useState(false);
   const [threadLoading, setThreadLoading] = useState(false);
@@ -396,6 +428,7 @@ export default function TripChatPanel({
       // The active thread may have been deleted from another device.
       const current = activeThreadIdRef.current;
       if (current && !fresh.some((t) => t.id === current)) {
+        activeThreadIdRef.current = null;
         setActiveThreadId(null);
         setMessages([]);
       }
@@ -405,10 +438,12 @@ export default function TripChatPanel({
   }, [tripId]);
 
   const startNewChat = useCallback(() => {
+    activeThreadIdRef.current = null;
     setActiveThreadId(null);
     setMessages([]);
     setTurnProgress([]);
     setError(null);
+    setCurrentContextLabel(contextLabelForViewContext(readStoredViewContext()));
     setConfirmDeleteId(null);
     setRenamingId(null);
     if (isMobileRail()) setRailOpen(false);
@@ -418,13 +453,17 @@ export default function TripChatPanel({
   // Open the panel — clears unread badge, rolls a stale conversation over
   // into a fresh one (the old thread stays in the rail).
   const openPanel = useCallback(() => {
+    const viewContext = readStoredViewContext();
+    setCurrentContextLabel(contextLabelForViewContext(viewContext));
     setState('open');
     setUnread(false);
     if (!loading && activeThreadIdRef.current) {
       const thread = threads.find((t) => t.id === activeThreadIdRef.current);
-      if (thread && isThreadStale(thread.updated_at)) {
+      if (thread && shouldStartFreshForThread(thread, viewContext)) {
+        activeThreadIdRef.current = null;
         setActiveThreadId(null);
         setMessages([]);
+        setTurnProgress([]);
         setError(null);
       }
     }
@@ -462,6 +501,7 @@ export default function TripChatPanel({
       setError(null);
       try {
         const threadMessages = await fetchChatHistory(tripId, threadId);
+        activeThreadIdRef.current = threadId;
         setActiveThreadId(threadId);
         setMessages(threadMessages);
         setTurnProgress([]);
@@ -486,6 +526,7 @@ export default function TripChatPanel({
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         setThreads((prev) => prev.filter((t) => t.id !== threadId));
         if (activeThreadIdRef.current === threadId) {
+          activeThreadIdRef.current = null;
           setActiveThreadId(null);
           setMessages([]);
           setTurnProgress([]);
@@ -570,9 +611,22 @@ export default function TripChatPanel({
     setError(null);
     setStatusPhases(getChatStatusPhases(trimmed));
 
-    const threadIdAtSend = activeThreadId;
+    // Snapshot the current view context (which day is open) so the
+    // agent answers in the right scope without re-asking the user.
+    const viewContext = readStoredViewContext();
+    const context = threadContextForViewContext(viewContext);
+    setCurrentContextLabel(context?.label ?? null);
+
+    const activeThread = activeThreadId
+      ? threads.find((thread) => thread.id === activeThreadId)
+      : null;
+    const startFreshForContext = activeThread
+      ? shouldStartFreshForThread(activeThread, viewContext)
+      : false;
+    const threadIdAtSend = startFreshForContext ? null : activeThreadId;
+    const baseMessages = startFreshForContext ? [] : messages;
     const nextTurnIndex =
-      messages.length === 0 ? 0 : Math.max(...messages.map((m) => m.turn_index)) + 1;
+      baseMessages.length === 0 ? 0 : Math.max(...baseMessages.map((m) => m.turn_index)) + 1;
 
     const optimisticUser: ChatMessage = {
       id: `optimistic-${Date.now()}`,
@@ -581,7 +635,11 @@ export default function TripChatPanel({
       content: trimmed,
       tool_calls_json: null,
     };
-    setMessages((prev) => [...prev, optimisticUser]);
+    if (startFreshForContext) {
+      activeThreadIdRef.current = null;
+      setActiveThreadId(null);
+    }
+    setMessages([...baseMessages, optimisticUser]);
     setTurnProgress([
       {
         id: `local-progress-${Date.now()}`,
@@ -597,14 +655,6 @@ export default function TripChatPanel({
     ]);
     setInput('');
     setLoading(true);
-
-    // Snapshot the current view context (which day is open) so the
-    // agent answers in the right scope without re-asking the user.
-    let viewContext: unknown = null;
-    try {
-      const raw = sessionStorage.getItem('trip-chat-context');
-      if (raw) viewContext = JSON.parse(raw);
-    } catch {}
 
     try {
       const res = await fetch(`/api/trips/${tripId}/chat`, {
@@ -627,6 +677,7 @@ export default function TripChatPanel({
       const threadId = json.thread_id ?? threadIdAtSend;
       if (threadId && !threadIdAtSend) {
         const nowIso = new Date().toISOString();
+        activeThreadIdRef.current = threadId;
         setActiveThreadId(threadId);
         setThreads((prev) => [
           {
@@ -634,6 +685,8 @@ export default function TripChatPanel({
             title: json.thread_title || trimmed.slice(0, 46),
             created_at: nowIso,
             updated_at: nowIso,
+            context_key: context?.key ?? null,
+            context_label: context?.label ?? null,
           },
           ...prev.filter((t) => t.id !== threadId),
         ]);
@@ -856,8 +909,11 @@ export default function TripChatPanel({
                     <PanelLeft size={17} strokeWidth={2.1} aria-hidden="true" />
                   )}
                 </button>
-                <div style={chatTitleStyle}>
-                  Ask Travel Agent
+                <div style={chatTitleWrapStyle}>
+                  <div style={chatTitleStyle}>Ask Travel Agent</div>
+                  {currentContextLabel && (
+                    <div style={chatContextStyle}>{currentContextLabel}</div>
+                  )}
                 </div>
                 <button
                   type="button"
@@ -1377,9 +1433,17 @@ const headerIconButtonStyle: React.CSSProperties = {
   cursor: 'pointer',
 };
 
-const chatTitleStyle: React.CSSProperties = {
+const chatTitleWrapStyle: React.CSSProperties = {
   flex: 1,
+  minWidth: 0,
   textAlign: 'center',
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  gap: 2,
+};
+
+const chatTitleStyle: React.CSSProperties = {
   fontFamily: '"Fraunces", "Iowan Old Style", "Palatino", Georgia, serif',
   fontOpticalSizing: 'auto',
   fontVariationSettings: "'SOFT' 42",
@@ -1388,6 +1452,20 @@ const chatTitleStyle: React.CSSProperties = {
   lineHeight: 'var(--trip-chat-title-line-height, 1.15)',
   color: '#1A1410',
   letterSpacing: 0,
+  whiteSpace: 'nowrap',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+};
+
+const chatContextStyle: React.CSSProperties = {
+  maxWidth: '100%',
+  color: '#A03E1F',
+  fontFamily: 'Inter, system-ui, sans-serif',
+  fontSize: 10,
+  fontWeight: 600,
+  lineHeight: 1,
+  letterSpacing: '0.14em',
+  textTransform: 'uppercase',
   whiteSpace: 'nowrap',
   overflow: 'hidden',
   textOverflow: 'ellipsis',

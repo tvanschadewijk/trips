@@ -3,8 +3,11 @@ import assert from 'node:assert/strict';
 import {
   THREAD_STALE_AFTER_MS,
   groupThreadsByRecency,
+  inferThreadContextFromTitle,
+  isThreadCompatibleWithViewContext,
   isThreadStale,
   threadRecencyGroup,
+  threadContextForViewContext,
 } from './thread-utils';
 
 const NOW = Date.parse('2026-06-09T12:00:00Z');
@@ -53,4 +56,72 @@ test('groupThreadsByRecency preserves order and omits empty groups', () => {
   );
   assert.deepEqual(groups[0].threads.map((t) => t.id), ['a', 'b']);
   assert.deepEqual(groups[1].threads.map((t) => t.id), ['c']);
+});
+
+test('threadContextForViewContext scopes day chats by itinerary day number', () => {
+  assert.deepEqual(
+    threadContextForViewContext({
+      slideKind: 'day',
+      day_number: 2,
+      date: '2026-06-28',
+      title: 'Lake Como',
+    }),
+    { key: 'day:2', label: 'Day 2 · 28 Jun' }
+  );
+});
+
+test('threadContextForViewContext scopes overview and accommodation contexts', () => {
+  assert.deepEqual(threadContextForViewContext({ slideKind: 'cover' }), {
+    key: 'overview',
+    label: 'Overview',
+  });
+  assert.deepEqual(
+    threadContextForViewContext({
+      slideKind: 'accommodation_review',
+      destination_id: 'como',
+      destination_title: 'Como / Brunate',
+    }),
+    { key: 'accommodation_review:como', label: 'Hotels · Como / Brunate' }
+  );
+});
+
+test('inferThreadContextFromTitle preserves legacy day threads', () => {
+  assert.deepEqual(inferThreadContextFromTitle('Day 3 · Lake plans'), {
+    key: 'day:3',
+    label: 'Day 3',
+  });
+});
+
+test('isThreadCompatibleWithViewContext rejects a different day thread', () => {
+  const thread = {
+    id: 'a',
+    title: 'Day 2 · Lake plans',
+    created_at: new Date(NOW).toISOString(),
+    updated_at: new Date(NOW).toISOString(),
+  };
+
+  assert.equal(
+    isThreadCompatibleWithViewContext(thread, { slideKind: 'day', day_number: 2 }),
+    true
+  );
+  assert.equal(
+    isThreadCompatibleWithViewContext(thread, { slideKind: 'day', day_number: 3 }),
+    false
+  );
+});
+
+test('explicit thread context survives user-renamed titles', () => {
+  const thread = {
+    id: 'a',
+    title: 'Swimming ideas',
+    context_key: 'day:2',
+    context_label: 'Day 2 · 28 Jun',
+    created_at: new Date(NOW).toISOString(),
+    updated_at: new Date(NOW).toISOString(),
+  };
+
+  assert.equal(
+    isThreadCompatibleWithViewContext(thread, { slideKind: 'day', day_number: 2 }),
+    true
+  );
 });

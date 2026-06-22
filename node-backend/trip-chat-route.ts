@@ -82,6 +82,7 @@ import {
   latestThread,
   renameThread,
 } from '@/lib/trip-chat/threads';
+import { threadContextForViewContext } from '@/lib/trip-chat/thread-utils';
 import {
   deriveThreadTitleHeuristic,
   generateThreadTitle,
@@ -225,6 +226,7 @@ export async function POST(
   let turnIndex: number;
   let threadTitle: string | null = null;
   let isNewThread = false;
+  const threadContext = threadContextForViewContext(body.view_context);
 
   if (body.thread_id) {
     const thread = await findThread(admin, scope, body.thread_id);
@@ -235,7 +237,7 @@ export async function POST(
     turnIndex = await nextTurnIndex(admin, sessionRowId, thread.turn_count);
   } else {
     threadTitle = deriveThreadTitleHeuristic(body.message, body.view_context);
-    const created = await createThread(admin, scope, threadTitle);
+    const created = await createThread(admin, scope, threadTitle, threadContext);
     if ('error' in created) {
       return json(
         { error: 'Failed to create chat thread', detail: created.error },

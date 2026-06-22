@@ -10,6 +10,24 @@ export interface ChatThreadSummary {
   title: string;
   created_at: string;
   updated_at: string;
+  context_key?: string | null;
+  context_label?: string | null;
+}
+
+export interface ThreadViewContext {
+  slideKind?: string | null;
+  day_number?: number | null;
+  date?: string | null;
+  title?: string | null;
+  destination_id?: string | null;
+  destination_title?: string | null;
+  candidate_id?: string | null;
+  candidate_name?: string | null;
+}
+
+export interface ThreadContext {
+  key: string;
+  label: string;
 }
 
 /**
@@ -73,4 +91,103 @@ export function groupThreadsByRecency(
     group,
     threads: byGroup.get(group)!,
   }));
+}
+
+function compactText(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const text = value.replace(/\s+/g, ' ').trim();
+  return text || null;
+}
+
+function slugPart(value: string): string {
+  return value
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 48);
+}
+
+function shortDateLabel(isoDate: string | null | undefined): string | null {
+  if (!isoDate || !/^\d{4}-\d{2}-\d{2}$/.test(isoDate)) return null;
+  const date = new Date(`${isoDate}T12:00:00Z`);
+  if (!Number.isFinite(date.getTime())) return null;
+  return new Intl.DateTimeFormat('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    timeZone: 'UTC',
+  }).format(date);
+}
+
+export function threadContextForViewContext(
+  ctx: ThreadViewContext | null | undefined
+): ThreadContext | null {
+  if (!ctx) return null;
+
+  if (ctx.slideKind === 'day' && typeof ctx.day_number === 'number') {
+    const dayNumber = Math.floor(ctx.day_number);
+    if (dayNumber < 1) return null;
+    const date = shortDateLabel(ctx.date);
+    return {
+      key: `day:${dayNumber}`,
+      label: date ? `Day ${dayNumber} · ${date}` : `Day ${dayNumber}`,
+    };
+  }
+
+  if (ctx.slideKind === 'cover') {
+    return { key: 'overview', label: 'Overview' };
+  }
+
+  if (ctx.slideKind === 'accommodation_review') {
+    const destination =
+      compactText(ctx.destination_id) ??
+      (ctx.destination_title ? slugPart(ctx.destination_title) : null) ??
+      'all';
+    const label = compactText(ctx.destination_title);
+    return {
+      key: `accommodation_review:${destination}`,
+      label: label ? `Hotels · ${label}` : 'Hotels',
+    };
+  }
+
+  return null;
+}
+
+export function inferThreadContextFromTitle(title: string | null | undefined): ThreadContext | null {
+  const text = compactText(title);
+  if (!text) return null;
+  const dayMatch = /^Day\s+(\d+)\s*·/i.exec(text);
+  if (dayMatch) {
+    const dayNumber = Number(dayMatch[1]);
+    if (Number.isInteger(dayNumber) && dayNumber > 0) {
+      return { key: `day:${dayNumber}`, label: `Day ${dayNumber}` };
+    }
+  }
+  if (/^Hotels\s*·/i.test(text)) return { key: 'accommodation_review:all', label: 'Hotels' };
+  return null;
+}
+
+export function threadContextForThread(
+  thread: Pick<ChatThreadSummary, 'title' | 'context_key' | 'context_label'>
+): ThreadContext | null {
+  const explicitKey = compactText(thread.context_key);
+  if (explicitKey) {
+    const label =
+      compactText(thread.context_label) ??
+      inferThreadContextFromTitle(thread.title)?.label ??
+      explicitKey;
+    return { key: explicitKey, label };
+  }
+  return inferThreadContextFromTitle(thread.title);
+}
+
+export function isThreadCompatibleWithViewContext(
+  thread: Pick<ChatThreadSummary, 'title' | 'context_key' | 'context_label'>,
+  viewContext: ThreadViewContext | null | undefined
+): boolean {
+  const desired = threadContextForViewContext(viewContext);
+  if (!desired) return true;
+  const actual = threadContextForThread(thread);
+  return actual?.key === desired.key;
 }

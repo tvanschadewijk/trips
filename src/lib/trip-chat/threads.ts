@@ -3,12 +3,47 @@
  * see supabase/migrations/010_trip_chat_threads.sql.
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { ChatThreadSummary } from './thread-utils';
+import {
+  inferThreadContextFromTitle,
+  type ChatThreadSummary,
+  type ThreadContext,
+} from './thread-utils';
 import { deriveThreadTitleHeuristic } from './thread-title';
 
 interface ThreadScope {
   tripId: string;
   userId: string;
+}
+
+type ThreadListRow = {
+  id: string;
+  title?: string | null;
+  created_at: string;
+  updated_at: string;
+  context_key?: string | null;
+  context_label?: string | null;
+};
+
+function contextColumnMissing(message: string | undefined): boolean {
+  return /context_key|context_label|schema cache|column .*context_|could not find .*context_/i.test(
+    message ?? ''
+  );
+}
+
+function threadSummary(row: ThreadListRow & { title: string }): ChatThreadSummary {
+  const explicitKey = typeof row.context_key === 'string' ? row.context_key.trim() : '';
+  const inferred = explicitKey ? null : inferThreadContextFromTitle(row.title);
+  return {
+    id: row.id,
+    title: row.title,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+    context_key: explicitKey || inferred?.key || null,
+    context_label:
+      (typeof row.context_label === 'string' ? row.context_label.trim() : '') ||
+      inferred?.label ||
+      null,
+  };
 }
 
 /**
@@ -20,12 +55,24 @@ export async function listThreads(
   admin: SupabaseClient,
   { tripId, userId }: ThreadScope
 ): Promise<ChatThreadSummary[]> {
-  let { data } = await admin
+  const selected = await admin
     .from('trip_chat_sessions')
-    .select('id, title, created_at, updated_at')
+    .select('id, title, created_at, updated_at, context_key, context_label')
     .eq('trip_id', tripId)
     .eq('user_id', userId)
     .order('updated_at', { ascending: false });
+
+  let data = selected.data as ThreadListRow[] | null;
+
+  if (!data && contextColumnMissing(selected.error?.message)) {
+    const withoutContext = await admin
+      .from('trip_chat_sessions')
+      .select('id, title, created_at, updated_at')
+      .eq('trip_id', tripId)
+      .eq('user_id', userId)
+      .order('updated_at', { ascending: false });
+    data = withoutContext.data as ThreadListRow[] | null;
+  }
 
   if (!data) {
     // Pre-migration database (no title column yet): degrade to titleless
@@ -49,12 +96,7 @@ export async function listThreads(
     })
   );
 
-  return backfilled.map((row) => ({
-    id: row.id,
-    title: row.title,
-    created_at: row.created_at,
-    updated_at: row.updated_at,
-  }));
+  return backfilled.map(threadSummary);
 }
 
 async function backfillLegacyTitle(
@@ -88,17 +130,41 @@ async function backfillLegacyTitle(
 export async function createThread(
   admin: SupabaseClient,
   { tripId, userId }: ThreadScope,
-  title: string
+  title: string,
+  context?: ThreadContext | null
 ): Promise<
   | { id: string; reused: false }
   | { id: string; reused: true; existingTitle: string | null; turnCount: number | null }
   | { error: string }
 > {
-  const { data, error } = await admin
+  const insertRow = {
+    trip_id: tripId,
+    user_id: userId,
+    title,
+    ...(context
+      ? {
+          context_key: context.key,
+          context_label: context.label,
+        }
+      : {}),
+  };
+
+  let { data, error } = await admin
     .from('trip_chat_sessions')
-    .insert({ trip_id: tripId, user_id: userId, title })
+    .insert(insertRow)
     .select('id')
     .single();
+
+  if (error && context && contextColumnMissing(error.message)) {
+    const withoutContext = await admin
+      .from('trip_chat_sessions')
+      .insert({ trip_id: tripId, user_id: userId, title })
+      .select('id')
+      .single();
+    data = withoutContext.data;
+    error = withoutContext.error;
+  }
+
   if (!error && data) {
     return { id: data.id, reused: false };
   }
@@ -152,15 +218,27 @@ export async function latestThread(
   admin: SupabaseClient,
   { tripId, userId }: ThreadScope
 ): Promise<{ id: string; turn_count: number | null; updated_at: string; title?: string | null } | null> {
-  const { data } = await admin
+  const selected = await admin
     .from('trip_chat_sessions')
-    .select('id, turn_count, updated_at, title')
+    .select('id, turn_count, updated_at, title, context_key, context_label')
     .eq('trip_id', tripId)
     .eq('user_id', userId)
     .order('updated_at', { ascending: false })
     .limit(1)
     .maybeSingle();
-  if (data) return data;
+  if (selected.data) return selected.data;
+
+  if (contextColumnMissing(selected.error?.message)) {
+    const withoutContext = await admin
+      .from('trip_chat_sessions')
+      .select('id, turn_count, updated_at, title')
+      .eq('trip_id', tripId)
+      .eq('user_id', userId)
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (withoutContext.data) return withoutContext.data;
+  }
 
   // Pre-migration fallback: no title column yet.
   const legacy = await admin
