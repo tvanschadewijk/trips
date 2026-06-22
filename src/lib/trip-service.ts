@@ -5,6 +5,8 @@ import { normalizeTripData, normalizeTripDataWithWarnings } from '@/lib/trip-dat
 import { buildTripLogisticsLedger } from '@/lib/trip-logistics-ledger';
 import { auditTripLogistics, type TripLogisticsAudit } from '@/lib/trip-logistics';
 import {
+  COORDINATE_BACKED_ROUTE_POINTS_REQUIRED_MESSAGE,
+  hasCoordinateBackedTripRoute,
   normalizeTripForQualityContract,
   validateItineraryQuality,
   type TripQualityReport,
@@ -441,8 +443,14 @@ function buildTripBody(input: SaveTripInput): {
   if (input.trip_schema_version === 2) {
     const normalized = normalizeTripForQualityContract(normalizedInput.data);
     const quality = validateItineraryQuality(normalized);
-    if (input.strict_quality && quality.errors.length > 0) {
-      throw new TripServiceError(quality.errors.join(' '), 422);
+    const strictErrors = [
+      ...quality.errors,
+      ...(!hasCoordinateBackedTripRoute(normalized)
+        ? [COORDINATE_BACKED_ROUTE_POINTS_REQUIRED_MESSAGE]
+        : []),
+    ];
+    if (input.strict_quality && strictErrors.length > 0) {
+      throw new TripServiceError(strictErrors.join(' '), 422);
     }
     return { tripBody: normalized, quality, warnings: normalizedInput.warnings };
   }

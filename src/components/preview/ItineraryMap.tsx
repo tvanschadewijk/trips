@@ -476,11 +476,47 @@ function googleMapsLinkFor(point: PointDisplay): string {
   return `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
 }
 
+function googleMapsSearchLinkForTarget(target: ItineraryMapPoiSearchTarget): string {
+  const query = target.query && target.query.length <= 120 ? target.query : target.label;
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+}
+
 function popupKickerFor(point: PointDisplay): string {
   if (point.detail.kicker) return point.detail.kicker;
   if (point.role === 'home') return 'Start / finish';
   if (point.marker) return `Stop ${point.marker}`;
   return 'Route stop';
+}
+
+function ItineraryMapSearchFallback({ targets }: { targets: ItineraryMapPoiSearchTarget[] }) {
+  const visibleTargets = targets.slice(0, 5);
+  const hiddenCount = Math.max(0, targets.length - visibleTargets.length);
+
+  return (
+    <div className="itinerary-map-search-fallback">
+      <div className="itinerary-map-search-fallback-kicker">
+        <MapPin aria-hidden="true" />
+        <span>Map places</span>
+      </div>
+      <div className="itinerary-map-search-fallback-list">
+        {visibleTargets.map((target) => (
+          <a
+            className="itinerary-map-search-fallback-link"
+            href={googleMapsSearchLinkForTarget(target)}
+            key={target.id}
+            target="_blank"
+            rel="noreferrer"
+          >
+            <span>{target.detail?.title ?? target.label}</span>
+            <ExternalLink aria-hidden="true" />
+          </a>
+        ))}
+      </div>
+      {hiddenCount ? (
+        <span className="itinerary-map-search-fallback-more">+ {hiddenCount} more</span>
+      ) : null}
+    </div>
+  );
 }
 
 function ItineraryMapStopPopup({
@@ -809,6 +845,11 @@ export default function ItineraryMap({
   const showFallback = !GOOGLE_MAPS_API_KEY || (!waitingForSearch && displayAtlas.points.length === 0);
   const showDeferred = !enabled && !showFallback;
   const fallbackNode = fallback ? <div className="itinerary-map-fallback">{fallback}</div> : null;
+  const searchFallbackNode = stableSearchTargets.length ? (
+    <div className="itinerary-map-fallback">
+      <ItineraryMapSearchFallback targets={stableSearchTargets} />
+    </div>
+  ) : null;
   const errorNode = (
     <div className="itinerary-map-error">
       <span>Map could not load</span>
@@ -1019,9 +1060,9 @@ export default function ItineraryMap({
       {showDeferred ? (
         <div className="itinerary-map-deferred" aria-hidden="true" />
       ) : showFallback ? (
-        fallbackNode ?? errorNode
+        fallbackNode ?? searchFallbackNode ?? errorNode
       ) : failed ? (
-        fallbackNode ?? errorNode
+        fallbackNode ?? searchFallbackNode ?? errorNode
       ) : (
         <>
           <div ref={containerRef} className="itinerary-map-canvas" />

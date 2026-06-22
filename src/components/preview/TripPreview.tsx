@@ -961,6 +961,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     routeAtlas && tripGeographyAtlas && tripGeographyAtlas.points.length < routeAtlas.points.length
   );
   const overviewMapAtlas = showFullJourneyMap && routeAtlas ? routeAtlas : tripGeographyAtlas;
+  const hasOverviewMapAtlas = Boolean(overviewMapAtlas);
   const overviewRoutePointDetails = useMemo(
     () => mapPointDetailsForTrip(overviewMapAtlas, days),
     [overviewMapAtlas, days]
@@ -990,7 +991,8 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
 
   useEffect(() => {
     if (isDesktopPreview === false) setShowOverviewMap(false);
-  }, [isDesktopPreview]);
+    if (isDesktopPreview === true && hasOverviewMapAtlas) setShowOverviewMap(true);
+  }, [activeTripIndex, hasOverviewMapAtlas, isDesktopPreview]);
 
   const dayMapDataByNumber = useMemo(
     () => buildDayMapDataByNumber(
