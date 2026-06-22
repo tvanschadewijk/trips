@@ -120,6 +120,36 @@ test('day map targets include agent-added single restaurant meals', () => {
   assert.equal(dayMapData.atlas?.points.some((point) => point.label === 'Platea Ristorante'), false);
 });
 
+test('day map targets preserve stored Google Maps place links for meal places', () => {
+  const trip = baseTrip([
+    {
+      day_number: 1,
+      date: '2026-07-03',
+      title: 'Tsagarada',
+      blocks: [],
+      meals: [
+        {
+          type: 'dinner',
+          name: 'Dinner in Tsagarada',
+          place: {
+            name: 'Itamos',
+            address: 'Tsagarada, Greece',
+            google_maps_url: 'https://maps.google.com/?cid=123456789',
+            place_id: 'ChIJExamplePlaceId',
+          },
+        },
+      ],
+    },
+  ]);
+
+  const dayMapData = buildDayMapDataByNumber(undefined, trip.days)[1];
+  const target = dayMapData.searchTargets.find((candidate) => candidate.label === 'Itamos');
+
+  assert.ok(target);
+  assert.equal(target.detail?.googleMapsUrl, 'https://maps.google.com/?cid=123456789');
+  assert.equal(target.detail?.placeId, 'ChIJExamplePlaceId');
+});
+
 test('day map route places are anchored to known atlas coordinates before text search', () => {
   const trip = baseTrip([
     {

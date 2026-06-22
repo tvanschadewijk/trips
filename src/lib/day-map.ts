@@ -1,4 +1,4 @@
-import type { Accommodation, Day, Meal } from './types';
+import type { Accommodation, Day, ItineraryPlace, Meal } from './types';
 import {
   buildDayRouteMapSearchText,
   routePlaceTextMatches,
@@ -11,6 +11,8 @@ export interface ItineraryMapPointDetail {
   title?: string;
   kicker?: string;
   body?: string;
+  googleMapsUrl?: string;
+  placeId?: string;
 }
 
 export interface ItineraryMapPoiSearchTarget {
@@ -374,6 +376,13 @@ function explicitFallbackPoint(place: { lat?: number; lng?: number } | undefined
   return { lat: place.lat, lng: place.lng, source: 'stored' };
 }
 
+function googleMapsDetailForPlace(place: ItineraryPlace | undefined): Pick<ItineraryMapPointDetail, 'googleMapsUrl' | 'placeId'> {
+  return {
+    googleMapsUrl: place?.google_maps_url,
+    placeId: place?.place_id,
+  };
+}
+
 function isPlaceholderAccommodationName(value: string): boolean {
   const normalized = normalizeMapSearchLabel(value);
   return (
@@ -589,6 +598,7 @@ export function buildDayMapSearchTargets(
         title: block.place.name,
         kicker: `Day ${day.day_number} · Sight`,
         body: truncateMapDetail(block.place.note || block.detail?.why || block.detail?.body || block.content),
+        ...googleMapsDetailForPlace(block.place),
       }, {
         address: block.place.address,
         fallbackPoint: explicitFallbackPoint(block.place),
@@ -622,6 +632,7 @@ export function buildDayMapSearchTargets(
       title: mealLabel,
       kicker: `Day ${day.day_number} · ${meal.type}`,
       body: truncateMapDetail(meal.note || meal.detail?.why || meal.detail?.body || meal.detail?.address),
+      ...googleMapsDetailForPlace(meal.place),
     }, {
       address: meal.place?.address ?? meal.detail?.address,
       fallbackPoint: explicitFallbackPoint(meal.place),
@@ -673,6 +684,8 @@ function mapPointDetailsForTargets(targets: ItineraryMapPoiSearchTarget[]): Reco
       title: target.detail?.title ?? target.label,
       kicker: target.detail?.kicker,
       body: target.detail?.body,
+      googleMapsUrl: target.detail?.googleMapsUrl,
+      placeId: target.detail?.placeId,
     },
   ]));
 }
