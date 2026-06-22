@@ -9,6 +9,7 @@ import {
   Check,
   LogOut,
   Map as MapIcon,
+  MessageCircle,
   Plus,
   Settings,
   UserRound,
@@ -455,6 +456,16 @@ export default function DashboardPage() {
         )}
       </main>
 
+      {online && (
+        <Link
+          href="/trips/new"
+          className="dash-agent-entry"
+          aria-label="Ask your Travel Agent to create a new trip"
+        >
+          <MessageCircle className="dash-agent-entry-icon" aria-hidden="true" />
+          <span className="dash-agent-entry-label">Ask Your Travel Agent</span>
+        </Link>
+      )}
     </div>
   );
 }
