@@ -338,10 +338,10 @@ export default function DashboardPage() {
                 <UserRound size={15} aria-hidden="true" />
                 Travel profile
               </Link>
-              <button type="button" className="dash-new-trip-btn" onClick={openNewTripAgent}>
+              <Link href={NEW_TRIP_AGENT_HREF} className="dash-new-trip-btn" onClick={openNewTripAgent}>
                 <Plus size={16} aria-hidden="true" />
                 New trip
-              </button>
+              </Link>
             </div>
           )}
         </div>
@@ -399,10 +399,10 @@ export default function DashboardPage() {
 
             <div className="dash-onboard-footer">
               {travelProfileComplete ? (
-                <button type="button" className="dash-onboard-demo-link" onClick={openNewTripAgent}>
+                <Link href={NEW_TRIP_AGENT_HREF} className="dash-onboard-demo-link" onClick={openNewTripAgent}>
                   Create a trip
                   <ArrowRight size={14} aria-hidden="true" />
-                </button>
+                </Link>
               ) : (
                 <Link href={NEW_TRIP_PROFILE_HREF} className="dash-onboard-demo-link">
                   Create travel profile
@@ -499,15 +499,15 @@ export default function DashboardPage() {
       </main>
 
       {online && (
-        <button
-          type="button"
+        <Link
+          href={NEW_TRIP_AGENT_HREF}
           className="dash-agent-entry"
           onClick={openNewTripAgent}
           aria-label="Ask your Travel Agent to create a new trip"
         >
           <MessageCircle className="dash-agent-entry-icon" aria-hidden="true" />
           <span className="dash-agent-entry-label">Ask Your Travel Agent</span>
-        </button>
+        </Link>
       )}
 
       {newTripAgentOpen && (
