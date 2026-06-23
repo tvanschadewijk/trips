@@ -4,6 +4,12 @@ Selected product updates for OurTrips.
 
 ## Unreleased
 
+## 2026-06-23 - 0.1.1 - Codex-managed release bumps
+
+### Improved
+- Replaced Release Please with a Codex-managed versioning flow that bumps `package.json`, `package-lock.json`, and `CHANGELOG.md` in the shipping commit.
+- Added CI release guards so production-impacting changes must include an increased app version and a changelog entry before Cloudflare deploys from `main`.
+
 ## 2026-06-23 - Native trip creation and portable-guide messaging
 
 ### Added

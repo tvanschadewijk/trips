@@ -55,16 +55,24 @@ Review the app locally at [http://localhost:3000](http://localhost:3000). After 
 
 ## Versioning
 
-Versions are managed by release-please from Conventional Commit messages on `main`. The canonical app version lives in `package.json`.
+Versions are managed directly in the commit that ships to `main`. Release Please is not used. The canonical app version lives in `package.json`, and `package-lock.json` must carry the same version.
 
-Use these commit prefixes:
+Before every completed update that will be pushed to `main`, Codex must choose the bump, update the version, and add a dated changelog entry:
 
-- `fix:` for patch releases, such as `0.1.0` to `0.1.1`
-- `feat:` for minor releases, such as `0.1.0` to `0.2.0`
-- `feat!:` or `BREAKING CHANGE:` for major releases, such as `1.0.0` to `2.0.0`
-- `chore:`, `docs:`, `style:`, `refactor:`, `test:`, and `ci:` for changes that usually do not create a release
+- `patch` for fixes, dependency updates, copy changes, styling, docs/process changes, and small UI polish.
+- `minor` for new user-facing capabilities, meaningful workflow changes, or notable backend behavior changes.
+- `major` only for breaking API, data, or user-contract changes.
 
-Pull requests check the PR title and commit messages for this format. When qualifying commits land on `main`, GitHub Actions opens a release PR that updates `package.json`, `package-lock.json`, `CHANGELOG.md`, and the release manifest. Merging that release PR creates the GitHub Release and tag automatically.
+Use `npm version <patch|minor|major> --no-git-tag-version` so `package.json` and `package-lock.json` stay in sync. Add a published `CHANGELOG.md` entry whose heading starts with the date and includes the new version, for example `## 2026-06-23 - 0.1.1 - Release workflow update`.
+
+GitHub Actions runs `scripts/check-release-version.mjs` on pull requests and pushes to `main`. Production-impacting changes must include `package.json`, `package-lock.json`, and `CHANGELOG.md`; the package version must increase; and the changelog must mention the new version. The Cloudflare deploy workflows run the same check before deploying direct pushes to `main`.
+
+Use Conventional Commit prefixes for commit subjects so the intended bump remains obvious:
+
+- `fix:` for patch-sized changes.
+- `feat:` for minor-sized changes.
+- `feat!:` or `BREAKING CHANGE:` for major changes.
+- `chore:`, `docs:`, `style:`, `refactor:`, `test:`, and `ci:` when they describe the work best; still bump the app version before pushing to `main`.
 
 Example commits:
 
