@@ -14,6 +14,14 @@ The limit is enforced server-side before any new trip insert. Existing trips can
 
 Create or rename the Stripe sandbox to `ourtrips.to`.
 
+If you have a Stripe sandbox secret key available locally, run:
+
+```bash
+STRIPE_SECRET_KEY=sk_test_... OURTRIPS_PUBLIC_ORIGIN=https://ourtrips.to npm run stripe:setup
+```
+
+The script creates or reuses the product, both prices, and the webhook endpoint, then prints the price IDs and webhook secret to put into Cloudflare.
+
 Create one product:
 
 - Product: `OurTrips Pro`
@@ -30,6 +38,11 @@ Required environment variables:
 - `STRIPE_PRO_PRICE_ID`
 - `STRIPE_EARLY_ADOPTER_PRICE_ID`
 - `OURTRIPS_PUBLIC_ORIGIN=https://ourtrips.to`
+
+Optional setup variables:
+
+- `OURTRIPS_PRO_MONTHLY_AMOUNT_CENTS=795`
+- `OURTRIPS_EARLY_ADOPTER_AMOUNT_CENTS=2995`
 
 Webhook endpoint:
 

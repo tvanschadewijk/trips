@@ -1,6 +1,6 @@
 {
   "name": "our-trips",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
   "engines": {
     "node": "22.x"
@@ -29,6 +29,7 @@
     "lint": "eslint",
     "test": "node --test --import tsx \"src/**/*.test.ts\"",
     "smoke:ui": "node scripts/smoke-ui-chrome.mjs",
+    "stripe:setup": "node scripts/setup-stripe-billing.mjs",
     "generate:brand-video": "node scripts/generate-our-trips-brand-video.mjs",
     "compose:brand-video": "swift scripts/compose-our-trips-brand-video.swift"
   },

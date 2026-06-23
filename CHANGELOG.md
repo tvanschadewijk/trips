@@ -4,6 +4,12 @@ Selected product updates for OurTrips.
 
 ## Unreleased
 
+## 2026-06-24 - 0.2.1 - Stripe setup automation
+
+### Added
+- Added an idempotent Stripe setup script for creating or reusing the OurTrips product, subscription prices, and webhook endpoint from a sandbox secret key.
+- Documented the automated Stripe setup path and configurable billing amounts.
+
 ## 2026-06-23 - 0.2.0 - Stripe billing and early adopter plan
 
 ### Added
