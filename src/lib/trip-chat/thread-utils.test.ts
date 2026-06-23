@@ -6,6 +6,7 @@ import {
   inferThreadContextFromTitle,
   isThreadCompatibleWithViewContext,
   isThreadStale,
+  resolveChatSendTarget,
   threadRecencyGroup,
   threadContextForViewContext,
 } from './thread-utils';
@@ -124,4 +125,63 @@ test('explicit thread context survives user-renamed titles', () => {
     isThreadCompatibleWithViewContext(thread, { slideKind: 'day', day_number: 2 }),
     true
   );
+});
+
+test('resolveChatSendTarget keeps replies in the visible thread when view context drifts', () => {
+  const thread = {
+    id: 'overview-thread',
+    title: 'Route decisions',
+    context_key: 'overview',
+    context_label: 'Overview',
+  };
+
+  const target = resolveChatSendTarget({
+    activeThreadId: thread.id,
+    activeThread: thread,
+    viewContext: { slideKind: 'day', day_number: 3, date: '2026-06-30' },
+  });
+
+  assert.equal(target.threadId, thread.id);
+  assert.equal(target.viewContext, null);
+  assert.deepEqual(target.context, { key: 'overview', label: 'Overview' });
+});
+
+test('resolveChatSendTarget uses current context when starting a new thread', () => {
+  const target = resolveChatSendTarget({
+    activeThreadId: null,
+    viewContext: { slideKind: 'day', day_number: 2, date: '2026-06-28' },
+  });
+
+  assert.equal(target.threadId, null);
+  assert.deepEqual(target.viewContext, {
+    slideKind: 'day',
+    day_number: 2,
+    date: '2026-06-28',
+  });
+  assert.deepEqual(target.context, { key: 'day:2', label: 'Day 2 · 28 Jun' });
+});
+
+test('resolveChatSendTarget preserves matching active-thread view context', () => {
+  const thread = {
+    id: 'day-thread',
+    title: 'Swimming ideas',
+    context_key: 'day:2',
+    context_label: 'Day 2 · 28 Jun',
+  };
+  const viewContext = {
+    slideKind: 'day',
+    day_number: 2,
+    date: '2026-06-28',
+    title: 'Lake Como',
+  };
+
+  const target = resolveChatSendTarget({
+    activeThreadId: thread.id,
+    activeThread: thread,
+    viewContext,
+  });
+
+  assert.equal(target.threadId, thread.id);
+  assert.deepEqual(target.viewContext, viewContext);
+  assert.deepEqual(target.context, { key: 'day:2', label: 'Day 2 · 28 Jun' });
 });

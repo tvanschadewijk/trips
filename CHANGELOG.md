@@ -4,6 +4,12 @@ Selected product updates for OurTrips.
 
 ## Unreleased
 
+## 2026-06-23 - 0.1.2 - Chat thread routing fix
+
+### Fixed
+- Fixed Ask Travel Agent replies so submitting from a visible conversation always continues that conversation, even if the trip preview context changes while the chat sheet is open.
+- Prevented typed drafts and in-flight replies from being silently carried into a newly started chat thread.
+
 ## 2026-06-23 - 0.1.1 - Codex-managed release bumps
 
 ### Improved

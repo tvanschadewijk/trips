@@ -6093,8 +6093,13 @@ button.day-brief-place:active {
   cursor: pointer;
 }
 
-.trip-chat-rail-new:hover {
+.trip-chat-rail-new:hover:not(:disabled) {
   background: #fbf7f1;
+}
+
+.trip-chat-rail-new:disabled {
+  opacity: 0.55;
+  cursor: default;
 }
 
 .trip-chat-rail-new svg {

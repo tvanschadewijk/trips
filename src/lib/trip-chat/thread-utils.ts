@@ -191,3 +191,46 @@ export function isThreadCompatibleWithViewContext(
   const actual = threadContextForThread(thread);
   return actual?.key === desired.key;
 }
+
+export interface ChatSendTarget {
+  threadId: string | null;
+  viewContext: ThreadViewContext | null;
+  context: ThreadContext | null;
+}
+
+/**
+ * Resolve where the next user message should go. The important invariant:
+ * once a thread is visible in the chat panel, pressing Send must continue
+ * that thread. View context may change while the sheet is open, but context
+ * drift must never silently turn a reply into a new thread.
+ */
+export function resolveChatSendTarget({
+  activeThreadId,
+  activeThread,
+  viewContext,
+}: {
+  activeThreadId: string | null;
+  activeThread?: Pick<ChatThreadSummary, 'title' | 'context_key' | 'context_label'> | null;
+  viewContext: ThreadViewContext | null | undefined;
+}): ChatSendTarget {
+  const currentViewContext = viewContext ?? null;
+
+  if (!activeThreadId) {
+    return {
+      threadId: null,
+      viewContext: currentViewContext,
+      context: threadContextForViewContext(currentViewContext),
+    };
+  }
+
+  const threadContext = activeThread ? threadContextForThread(activeThread) : null;
+  const contextStillMatches =
+    !activeThread || isThreadCompatibleWithViewContext(activeThread, currentViewContext);
+  const effectiveViewContext = contextStillMatches ? currentViewContext : null;
+
+  return {
+    threadId: activeThreadId,
+    viewContext: effectiveViewContext,
+    context: threadContextForViewContext(effectiveViewContext) ?? threadContext,
+  };
+}

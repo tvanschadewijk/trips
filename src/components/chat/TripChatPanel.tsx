@@ -67,6 +67,7 @@ import {
   groupThreadsByRecency,
   isThreadCompatibleWithViewContext,
   isThreadStale,
+  resolveChatSendTarget,
   threadContextForViewContext,
   type ChatThreadSummary,
   type ThreadViewContext,
@@ -413,6 +414,7 @@ export default function TripChatPanel({
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const sheetRef = useRef<HTMLDivElement | null>(null);
   const activeThreadIdRef = useRef<string | null>(activeThreadId);
+  const messagesRef = useRef<ChatMessage[]>(messages);
   // Distinguishes a real drag on the grabber from a plain click (a click
   // should dismiss the sheet; releasing a half-drag should not).
   const dragMovedRef = useRef(false);
@@ -428,6 +430,10 @@ export default function TripChatPanel({
   useEffect(() => {
     activeThreadIdRef.current = activeThreadId;
   }, [activeThreadId]);
+
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
 
   // Restore the rail visibility preference (desktop users tend to keep it).
   useEffect(() => {
@@ -555,17 +561,19 @@ export default function TripChatPanel({
   }, [tripId]);
 
   const startNewChat = useCallback(() => {
+    if (loading || threadLoading) return;
     activeThreadIdRef.current = null;
     setActiveThreadId(null);
     setMessages([]);
     setTurnProgress([]);
+    setInput('');
     setError(null);
     setCurrentContextLabel(contextLabelForViewContext(readStoredViewContext()));
     setConfirmDeleteId(null);
     setRenamingId(null);
     if (isMobileRail()) setRailOpen(false);
     focusChatInput();
-  }, [focusChatInput]);
+  }, [focusChatInput, loading, threadLoading]);
 
   // Open the panel — clears unread badge, rolls a stale conversation over
   // into a fresh one (the old thread stays in the rail).
@@ -811,20 +819,23 @@ export default function TripChatPanel({
     setError(null);
     setStatusPhases(getChatStatusPhases(trimmed));
 
-    // Snapshot the current view context (which day is open) so the
-    // agent answers in the right scope without re-asking the user.
-    const viewContext = readStoredViewContext();
-    const context = threadContextForViewContext(viewContext);
+    // Resolve the submit target once. A visible thread always wins; the
+    // preview context can drift while the sheet is open, but that must not
+    // silently fork a reply into a new conversation.
+    const activeThreadIdAtSend = activeThreadIdRef.current;
+    const activeThread = activeThreadIdAtSend
+      ? threads.find((thread) => thread.id === activeThreadIdAtSend)
+      : null;
+    const target = resolveChatSendTarget({
+      activeThreadId: activeThreadIdAtSend,
+      activeThread,
+      viewContext: readStoredViewContext(),
+    });
+    const threadIdAtSend = target.threadId;
+    const context = target.context;
     setCurrentContextLabel(context?.label ?? null);
 
-    const activeThread = activeThreadId
-      ? threads.find((thread) => thread.id === activeThreadId)
-      : null;
-    const startFreshForContext = activeThread
-      ? shouldStartFreshForThread(activeThread, viewContext)
-      : false;
-    const threadIdAtSend = startFreshForContext ? null : activeThreadId;
-    const baseMessages = startFreshForContext ? [] : messages;
+    const baseMessages = messagesRef.current;
     const nextTurnIndex =
       baseMessages.length === 0 ? 0 : Math.max(...baseMessages.map((m) => m.turn_index)) + 1;
 
@@ -835,10 +846,6 @@ export default function TripChatPanel({
       content: trimmed,
       tool_calls_json: null,
     };
-    if (startFreshForContext) {
-      activeThreadIdRef.current = null;
-      setActiveThreadId(null);
-    }
     setMessages([...baseMessages, optimisticUser]);
     setTurnProgress([
       {
@@ -863,7 +870,7 @@ export default function TripChatPanel({
         body: JSON.stringify({
           message: trimmed,
           thread_id: threadIdAtSend,
-          view_context: viewContext,
+          view_context: target.viewContext,
         }),
       });
       if (!res.ok) {
@@ -1002,6 +1009,7 @@ export default function TripChatPanel({
     bottom: keyboardInset,
     '--trip-chat-available-height': availableSheetHeight,
   } as React.CSSProperties;
+  const newChatDisabled = loading || threadLoading;
 
   return createPortal(
     <>
@@ -1122,7 +1130,7 @@ export default function TripChatPanel({
                 <button
                   type="button"
                   onClick={toggleRail}
-                  style={headerIconButtonStyle}
+                  style={headerIconButtonStyle()}
                   aria-label={railOpen ? 'Hide chat history' : 'Show chat history'}
                   aria-expanded={railOpen}
                 >
@@ -1141,7 +1149,8 @@ export default function TripChatPanel({
                 <button
                   type="button"
                   onClick={startNewChat}
-                  style={headerIconButtonStyle}
+                  disabled={newChatDisabled}
+                  style={headerIconButtonStyle(newChatDisabled)}
                   aria-label="New chat"
                 >
                   <SquarePen size={16} strokeWidth={2.1} aria-hidden="true" />
@@ -1161,6 +1170,7 @@ export default function TripChatPanel({
                         type="button"
                         className="trip-chat-rail-new"
                         onClick={startNewChat}
+                        disabled={newChatDisabled}
                       >
                         <SquarePen size={14} strokeWidth={2.2} aria-hidden="true" />
                         New chat
@@ -1645,19 +1655,22 @@ const headerStyle: React.CSSProperties = {
   background: '#FBF7F1',
 };
 
-const headerIconButtonStyle: React.CSSProperties = {
-  flexShrink: 0,
-  width: 32,
-  height: 32,
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  background: 'transparent',
-  color: '#3D352E',
-  border: 'none',
-  borderRadius: 9,
-  cursor: 'pointer',
-};
+function headerIconButtonStyle(disabled = false): React.CSSProperties {
+  return {
+    flexShrink: 0,
+    width: 32,
+    height: 32,
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    background: 'transparent',
+    color: '#3D352E',
+    border: 'none',
+    borderRadius: 9,
+    cursor: disabled ? 'default' : 'pointer',
+    opacity: disabled ? 0.48 : 1,
+  };
+}
 
 const chatTitleWrapStyle: React.CSSProperties = {
   flex: 1,
