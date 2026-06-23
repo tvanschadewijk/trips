@@ -22,11 +22,13 @@
     "chat:backend:containers": "wrangler containers list --config wrangler.chat-backend.jsonc",
     "chat:backend:typecheck": "tsc -p node-backend/tsconfig.json --noEmit --pretty false",
     "chat:backend:worker:typecheck": "tsc -p node-backend/tsconfig.worker.json --noEmit --pretty false",
+    "pretypecheck": "node scripts/check-local-file-hydration.mjs",
     "typecheck": "tsc -p tsconfig.build.json --noEmit --pretty false",
     "verify": "npm run lint && npm run typecheck && npm run test && npm run build",
     "start": "next start",
     "lint": "eslint",
     "test": "node --test --import tsx \"src/**/*.test.ts\"",
+    "smoke:ui": "node scripts/smoke-ui-chrome.mjs",
     "generate:brand-video": "node scripts/generate-our-trips-brand-video.mjs",
     "compose:brand-video": "swift scripts/compose-our-trips-brand-video.swift"
   },

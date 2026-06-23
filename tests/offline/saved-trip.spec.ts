@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 const BASE = process.env.BASE_URL ?? 'http://localhost:3000';
-const SHARE_ID = process.env.TEST_SHARE_ID ?? 'demo';
+const SHARE_ID = process.env.TEST_SHARE_ID ?? 'NyLNFNHxC9';
 
 test.describe('Saved trip works offline', () => {
   test('cached HTML serves when offline', async ({ page, context }) => {

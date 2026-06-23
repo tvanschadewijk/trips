@@ -13,8 +13,9 @@
  *     grouped by recency; "New chat" starts a fresh one.
  *   - Threads are created server-side on the first message and titled from
  *     that message + the day the user was viewing (see thread-title.ts).
- *   - A thread idle for >24h is treated as finished: opening the chat
- *     starts fresh instead of resuming it (the old thread stays in the rail).
+ *   - A thread idle for >24h, or scoped to another itinerary day/view, is
+ *     treated as finished for the current opening: the old thread stays in
+ *     the rail while the user gets a clean composer.
  *
  * Posts to /api/trips/[id]/chat (with thread_id). On a successful response
  * with tool calls, triggers a router.refresh() so the trip view picks up
@@ -24,20 +25,38 @@
  * surfaces, Fraunces serif for display, Inter for UI, terracotta accent.
  */
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { AnimatePresence, motion, useDragControls } from 'motion/react';
 import {
+  AlertTriangle,
+  BookOpen,
+  CalendarDays,
   Check,
+  CheckCircle2,
+  CircleDot,
+  ClipboardCheck,
+  Compass,
+  Globe2,
+  Hotel,
+  Link as LinkIcon,
+  MapPin,
   MessageCircle,
   PanelLeft,
   PanelLeftClose,
   Pencil,
+  PencilLine,
+  Plane,
+  Route,
+  Search,
   SendHorizontal,
   SquarePen,
   Trash2,
+  Utensils,
   X,
 } from 'lucide-react';
 import type { ToolCallSummary } from '@/lib/trip-chat/prompt';
+import type { TripData } from '@/lib/types';
 import {
   DEFAULT_CHAT_STATUS_PHASES,
   INITIAL_CHAT_PROGRESS_MESSAGE,
@@ -46,8 +65,11 @@ import {
 } from '@/lib/trip-chat/progress';
 import {
   groupThreadsByRecency,
+  isThreadCompatibleWithViewContext,
   isThreadStale,
+  threadContextForViewContext,
   type ChatThreadSummary,
+  type ThreadViewContext,
 } from '@/lib/trip-chat/thread-utils';
 import { useOnlineStatus } from '@/lib/online-status';
 import { renderTripMarkdown } from '@/lib/render-trip-markdown';
@@ -81,11 +103,16 @@ const overlaySpring = {
 };
 
 const KEYBOARD_INSET_THRESHOLD = 100;
+const PANEL_TOP_CLEARANCE_PX = 12;
+const MIN_VISIBLE_SHEET_PX = 132;
+const SWIPE_MINIMIZE_THRESHOLD_PX = 68;
 const CHAT_POLL_INTERVAL_MS = 2400;
 const CHAT_POLL_TIMEOUT_MS = 305_000;
 const CHAT_HISTORY_LIMIT = 50;
 const RAIL_PREF_STORAGE_KEY = 'trip-chat-rail-open';
+const CHAT_CONTEXT_STORAGE_KEY = 'trip-chat-context';
 const MOBILE_RAIL_QUERY = '(max-width: 719px)';
+const TRIP_DATA_UPDATED_EVENT = 'ourtrips:trip-data-updated';
 
 type ChatTurnResponse = {
   status?: 'queued' | 'fast_lane';
@@ -112,6 +139,10 @@ type ThreadListResponse = {
   threads: ChatThreadSummary[];
 };
 
+type TripDataResponse = {
+  trip_data?: TripData;
+};
+
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -132,13 +163,61 @@ function isMobileRail(): boolean {
   return typeof window !== 'undefined' && window.matchMedia(MOBILE_RAIL_QUERY).matches;
 }
 
-function notifyTripEditApplied(tripId: string) {
+function isEditableElement(value: Element | null): value is HTMLElement {
+  if (!(value instanceof HTMLElement)) return false;
+  const tagName = value.tagName;
+  return value.isContentEditable || tagName === 'INPUT' || tagName === 'TEXTAREA';
+}
+
+function shouldAutoFocusChatInput(): boolean {
+  if (typeof window === 'undefined') return false;
+  return !window.matchMedia('(pointer: coarse)').matches && !isMobileRail();
+}
+
+function readStoredViewContext(): ThreadViewContext | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = sessionStorage.getItem(CHAT_CONTEXT_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? (parsed as ThreadViewContext) : null;
+  } catch {
+    return null;
+  }
+}
+
+function contextLabelForViewContext(viewContext: ThreadViewContext | null): string | null {
+  return threadContextForViewContext(viewContext)?.label ?? null;
+}
+
+function shouldStartFreshForThread(
+  thread: ChatThreadSummary,
+  viewContext: ThreadViewContext | null
+): boolean {
+  return isThreadStale(thread.updated_at) || !isThreadCompatibleWithViewContext(thread, viewContext);
+}
+
+function notifyTripEditApplied(tripId: string, tripData?: TripData) {
   if (typeof window === 'undefined') return;
   window.dispatchEvent(
     new CustomEvent('ourtrips:accommodation-review-updated', {
       detail: { tripId },
     })
   );
+  if (tripData) {
+    window.dispatchEvent(
+      new CustomEvent(TRIP_DATA_UPDATED_EVENT, {
+        detail: { tripId, tripData },
+      })
+    );
+  }
+}
+
+async function fetchLatestTripData(tripId: string): Promise<TripData | null> {
+  const res = await fetch(`/api/trips/${tripId}/data`, { cache: 'no-store' });
+  if (!res.ok) return null;
+  const json = (await res.json()) as TripDataResponse;
+  return json.trip_data ?? null;
 }
 
 async function fetchChatHistoryPayload(
@@ -235,19 +314,24 @@ export default function TripChatPanel({
 }: Props) {
   const router = useRouter();
   const online = useOnlineStatus();
+  const [mounted, setMounted] = useState(false);
   const [state, setState] = useState<PanelState>('closed');
   const [threads, setThreads] = useState<ChatThreadSummary[]>(initialThreads);
-  // Auto-new-chat: if the newest thread has been idle >24h, open fresh.
-  // Render output while 'closed' is identical either way, so the SSR/client
-  // boundary can disagree on staleness without a hydration mismatch.
+  // Auto-new-chat: if the newest thread has been idle >24h or belongs to
+  // another itinerary view, open fresh. Render output while 'closed' is
+  // identical either way, so the SSR/client boundary can disagree on this
+  // without a hydration mismatch.
   const [activeThreadId, setActiveThreadId] = useState<string | null>(() => {
     if (!initialThreadId) return null;
     const thread = initialThreads.find((t) => t.id === initialThreadId);
-    if (!thread || isThreadStale(thread.updated_at)) return null;
+    if (!thread || shouldStartFreshForThread(thread, readStoredViewContext())) return null;
     return initialThreadId;
   });
   const [messages, setMessages] = useState<ChatMessage[]>(
     activeThreadId ? initialMessages : []
+  );
+  const [currentContextLabel, setCurrentContextLabel] = useState<string | null>(() =>
+    contextLabelForViewContext(readStoredViewContext())
   );
   const [railOpen, setRailOpen] = useState(false);
   const [threadLoading, setThreadLoading] = useState(false);
@@ -263,7 +347,9 @@ export default function TripChatPanel({
   );
   const [turnProgress, setTurnProgress] = useState<ChatProgressEvent[]>([]);
   const [unread, setUnread] = useState(false);
+  const [layoutViewportHeight, setLayoutViewportHeight] = useState<number | null>(null);
   const [keyboardInset, setKeyboardInset] = useState(0);
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const sheetRef = useRef<HTMLDivElement | null>(null);
@@ -272,6 +358,13 @@ export default function TripChatPanel({
   // should dismiss the sheet; releasing a half-drag should not).
   const dragMovedRef = useRef(false);
   const dragControls = useDragControls();
+  const touchStartYRef = useRef<number | null>(null);
+  const sheetTouchLastYRef = useRef<number | null>(null);
+  const sheetTouchScrollableRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     activeThreadIdRef.current = activeThreadId;
@@ -293,46 +386,79 @@ export default function TripChatPanel({
     el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
   }, [messages.length, loading]);
 
+  const focusChatInput = useCallback(() => {
+    if (!shouldAutoFocusChatInput()) return;
+    window.setTimeout(() => inputRef.current?.focus(), 0);
+  }, []);
+
   useEffect(() => {
-    if (state === 'open') inputRef.current?.focus();
-  }, [state]);
+    if (state === 'open') focusChatInput();
+  }, [focusChatInput, state]);
 
   // Track the iOS keyboard via visualViewport. When the textarea is
   // focused and the keyboard is up, we lift the sheet by that inset so
   // the input stays above it. Borrowed from preppy/AssistantOverlay.
   useEffect(() => {
-    if (typeof window === 'undefined' || !window.visualViewport) return;
+    if (typeof window === 'undefined') return;
     const vv = window.visualViewport;
     let raf: number | null = null;
     const update = () => {
       raf = null;
-      const obscured = Math.max(
+      const activeElement = document.activeElement;
+      const focusedInsideSheet = !!sheetRef.current && sheetRef.current.contains(activeElement);
+      const sheetInputFocused = focusedInsideSheet && isEditableElement(activeElement);
+      const layoutHeight = Math.round(window.innerHeight);
+      const viewportHeight = Math.round(vv?.height ?? window.innerHeight);
+      const viewportOffsetTop = Math.max(0, Math.round(vv?.offsetTop ?? 0));
+      const obscured = vv
+        ? Math.max(0, Math.round(window.innerHeight - (viewportHeight + viewportOffsetTop)))
+        : 0;
+      const candidate =
+        sheetInputFocused && obscured > KEYBOARD_INSET_THRESHOLD ? obscured : 0;
+      const maxUsableInset = Math.max(
         0,
-        Math.round(window.innerHeight - (vv.height + Math.max(0, vv.offsetTop))),
+        window.innerHeight - MIN_VISIBLE_SHEET_PX - PANEL_TOP_CLEARANCE_PX
       );
-      const focusedInsideSheet =
-        !!sheetRef.current &&
-        document.activeElement instanceof HTMLElement &&
-        sheetRef.current.contains(document.activeElement);
-      const next = focusedInsideSheet && obscured > KEYBOARD_INSET_THRESHOLD ? obscured : 0;
-      setKeyboardInset((prev) => (prev === next ? prev : next));
+      const next = Math.min(candidate, maxUsableInset);
+
+      setLayoutViewportHeight((prev) => (prev === layoutHeight ? prev : layoutHeight));
+      setKeyboardInset((prev) => {
+        if (!sheetInputFocused) return prev === next ? prev : next;
+        if (next === 0) return prev === 0 ? prev : 0;
+        if (prev === 0) return next;
+        const stabilized = Math.max(prev, next);
+        return prev === stabilized ? prev : stabilized;
+      });
+      setIsKeyboardVisible((prev) => {
+        const visible = next > 0;
+        return prev === visible ? prev : visible;
+      });
     };
     const schedule = () => {
       if (raf === null) raf = window.requestAnimationFrame(update);
     };
     update();
-    vv.addEventListener('resize', schedule);
-    vv.addEventListener('scroll', schedule);
+    vv?.addEventListener('resize', schedule);
+    vv?.addEventListener('scroll', schedule);
+    window.addEventListener('resize', schedule);
+    window.addEventListener('orientationchange', schedule);
     window.addEventListener('focusin', schedule);
     window.addEventListener('focusout', schedule);
     return () => {
-      vv.removeEventListener('resize', schedule);
-      vv.removeEventListener('scroll', schedule);
+      vv?.removeEventListener('resize', schedule);
+      vv?.removeEventListener('scroll', schedule);
+      window.removeEventListener('resize', schedule);
+      window.removeEventListener('orientationchange', schedule);
       window.removeEventListener('focusin', schedule);
       window.removeEventListener('focusout', schedule);
       if (raf !== null) window.cancelAnimationFrame(raf);
     };
   }, [state]);
+
+  const isSheetTextInputActive = useCallback(() => {
+    const activeElement = document.activeElement;
+    return !!sheetRef.current && sheetRef.current.contains(activeElement) && isEditableElement(activeElement);
+  }, []);
 
   // Rotate status text while waiting for the agent. Cheap proxy for real
   // streamed status — shows the user the turn is progressing.
@@ -360,6 +486,7 @@ export default function TripChatPanel({
       // The active thread may have been deleted from another device.
       const current = activeThreadIdRef.current;
       if (current && !fresh.some((t) => t.id === current)) {
+        activeThreadIdRef.current = null;
         setActiveThreadId(null);
         setMessages([]);
       }
@@ -369,26 +496,32 @@ export default function TripChatPanel({
   }, [tripId]);
 
   const startNewChat = useCallback(() => {
+    activeThreadIdRef.current = null;
     setActiveThreadId(null);
     setMessages([]);
     setTurnProgress([]);
     setError(null);
+    setCurrentContextLabel(contextLabelForViewContext(readStoredViewContext()));
     setConfirmDeleteId(null);
     setRenamingId(null);
     if (isMobileRail()) setRailOpen(false);
-    inputRef.current?.focus();
-  }, []);
+    focusChatInput();
+  }, [focusChatInput]);
 
   // Open the panel — clears unread badge, rolls a stale conversation over
   // into a fresh one (the old thread stays in the rail).
   const openPanel = useCallback(() => {
+    const viewContext = readStoredViewContext();
+    setCurrentContextLabel(contextLabelForViewContext(viewContext));
     setState('open');
     setUnread(false);
     if (!loading && activeThreadIdRef.current) {
       const thread = threads.find((t) => t.id === activeThreadIdRef.current);
-      if (thread && isThreadStale(thread.updated_at)) {
+      if (thread && shouldStartFreshForThread(thread, viewContext)) {
+        activeThreadIdRef.current = null;
         setActiveThreadId(null);
         setMessages([]);
+        setTurnProgress([]);
         setError(null);
       }
     }
@@ -402,6 +535,89 @@ export default function TripChatPanel({
     setState('closed');
     setUnread(false);
   }, []);
+
+  const handleBackdropClick = useCallback(() => {
+    if (isKeyboardVisible || isSheetTextInputActive()) {
+      const activeElement = document.activeElement;
+      if (activeElement instanceof HTMLElement) activeElement.blur();
+      return;
+    }
+    close();
+  }, [close, isKeyboardVisible, isSheetTextInputActive]);
+
+  useEffect(() => {
+    const sheet = sheetRef.current;
+    if (!sheet || state !== 'open') return;
+
+    const getMainScroller = () =>
+      sheet.querySelector('[data-trip-chat-main-scroll]') as HTMLElement | null;
+    const findScrollableFromTarget = (target: EventTarget | null) => {
+      let node = target instanceof HTMLElement ? target : null;
+      while (node && node !== sheet) {
+        const style = window.getComputedStyle(node);
+        const isScrollableY = style.overflowY === 'auto' || style.overflowY === 'scroll';
+        if (isScrollableY && node.scrollHeight > node.clientHeight + 1) return node;
+        node = node.parentElement;
+      }
+      return null;
+    };
+
+    const handleTouchStart = (event: TouchEvent) => {
+      sheetTouchLastYRef.current = event.touches[0]?.clientY ?? null;
+      sheetTouchScrollableRef.current = findScrollableFromTarget(event.target);
+      const mainScroller = getMainScroller();
+      const startedInMainScroller =
+        !!mainScroller && event.target instanceof Node && mainScroller.contains(event.target);
+      touchStartYRef.current =
+        startedInMainScroller && mainScroller.scrollTop <= 0.5
+          ? event.touches[0]?.clientY ?? null
+          : null;
+    };
+
+    const handleTouchMove = (event: TouchEvent) => {
+      const currentY = event.touches[0]?.clientY;
+      if (currentY === undefined) return;
+      const previousY = sheetTouchLastYRef.current ?? currentY;
+      const moveDeltaY = currentY - previousY;
+      sheetTouchLastYRef.current = currentY;
+
+      const scrollable = sheetTouchScrollableRef.current;
+      if (scrollable && scrollable.scrollHeight > scrollable.clientHeight + 1) {
+        const atTop = scrollable.scrollTop <= 0.5;
+        const atBottom =
+          scrollable.scrollTop + scrollable.clientHeight >= scrollable.scrollHeight - 0.5;
+        if ((moveDeltaY > 0 && atTop) || (moveDeltaY < 0 && atBottom) || moveDeltaY === 0) {
+          event.preventDefault();
+        }
+      } else {
+        event.preventDefault();
+      }
+
+      if (isKeyboardVisible || touchStartYRef.current === null) return;
+      if (currentY - touchStartYRef.current > SWIPE_MINIMIZE_THRESHOLD_PX) {
+        touchStartYRef.current = null;
+        minimize();
+      }
+    };
+
+    const handleTouchEnd = () => {
+      touchStartYRef.current = null;
+      sheetTouchLastYRef.current = null;
+      sheetTouchScrollableRef.current = null;
+    };
+
+    sheet.addEventListener('touchstart', handleTouchStart, { passive: true });
+    sheet.addEventListener('touchmove', handleTouchMove, { passive: false });
+    sheet.addEventListener('touchend', handleTouchEnd, { passive: true });
+    sheet.addEventListener('touchcancel', handleTouchEnd, { passive: true });
+    return () => {
+      sheet.removeEventListener('touchstart', handleTouchStart);
+      sheet.removeEventListener('touchmove', handleTouchMove);
+      sheet.removeEventListener('touchend', handleTouchEnd);
+      sheet.removeEventListener('touchcancel', handleTouchEnd);
+      handleTouchEnd();
+    };
+  }, [isKeyboardVisible, minimize, state]);
 
   const toggleRail = useCallback(() => {
     setRailOpen((open) => {
@@ -426,18 +642,19 @@ export default function TripChatPanel({
       setError(null);
       try {
         const threadMessages = await fetchChatHistory(tripId, threadId);
+        activeThreadIdRef.current = threadId;
         setActiveThreadId(threadId);
         setMessages(threadMessages);
         setTurnProgress([]);
         if (isMobileRail()) setRailOpen(false);
-        inputRef.current?.focus();
+        focusChatInput();
       } catch (err) {
         setError(userFacingChatError(err));
       } finally {
         setThreadLoading(false);
       }
     },
-    [threadLoading, tripId]
+    [focusChatInput, threadLoading, tripId]
   );
 
   const deleteThread = useCallback(
@@ -450,6 +667,7 @@ export default function TripChatPanel({
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         setThreads((prev) => prev.filter((t) => t.id !== threadId));
         if (activeThreadIdRef.current === threadId) {
+          activeThreadIdRef.current = null;
           setActiveThreadId(null);
           setMessages([]);
           setTurnProgress([]);
@@ -490,6 +708,20 @@ export default function TripChatPanel({
     [renameDraft, threads, tripId]
   );
 
+  const refreshTripAfterToolCalls = useCallback(() => {
+    void (async () => {
+      let tripData: TripData | null = null;
+      try {
+        tripData = await fetchLatestTripData(tripId);
+      } catch {
+        // A router refresh still gives the server-rendered view a chance to
+        // pick up the edit if the lightweight owner data endpoint is unavailable.
+      }
+      notifyTripEditApplied(tripId, tripData ?? undefined);
+      router.refresh();
+    })();
+  }, [router, tripId]);
+
   const finishTurn = useCallback(
     (threadId: string, serverMessages: ChatMessage[], assistant: ChatMessage) => {
       // Only swap the transcript if the user is still on that thread.
@@ -508,11 +740,10 @@ export default function TripChatPanel({
       void refreshThreads();
 
       if ((assistant.tool_calls_json?.length ?? 0) > 0) {
-        notifyTripEditApplied(tripId);
-        router.refresh();
+        refreshTripAfterToolCalls();
       }
     },
-    [refreshThreads, router, tripId]
+    [refreshThreads, refreshTripAfterToolCalls]
   );
 
   async function send() {
@@ -521,9 +752,22 @@ export default function TripChatPanel({
     setError(null);
     setStatusPhases(getChatStatusPhases(trimmed));
 
-    const threadIdAtSend = activeThreadId;
+    // Snapshot the current view context (which day is open) so the
+    // agent answers in the right scope without re-asking the user.
+    const viewContext = readStoredViewContext();
+    const context = threadContextForViewContext(viewContext);
+    setCurrentContextLabel(context?.label ?? null);
+
+    const activeThread = activeThreadId
+      ? threads.find((thread) => thread.id === activeThreadId)
+      : null;
+    const startFreshForContext = activeThread
+      ? shouldStartFreshForThread(activeThread, viewContext)
+      : false;
+    const threadIdAtSend = startFreshForContext ? null : activeThreadId;
+    const baseMessages = startFreshForContext ? [] : messages;
     const nextTurnIndex =
-      messages.length === 0 ? 0 : Math.max(...messages.map((m) => m.turn_index)) + 1;
+      baseMessages.length === 0 ? 0 : Math.max(...baseMessages.map((m) => m.turn_index)) + 1;
 
     const optimisticUser: ChatMessage = {
       id: `optimistic-${Date.now()}`,
@@ -532,26 +776,26 @@ export default function TripChatPanel({
       content: trimmed,
       tool_calls_json: null,
     };
-    setMessages((prev) => [...prev, optimisticUser]);
+    if (startFreshForContext) {
+      activeThreadIdRef.current = null;
+      setActiveThreadId(null);
+    }
+    setMessages([...baseMessages, optimisticUser]);
     setTurnProgress([
       {
         id: `local-progress-${Date.now()}`,
         turn_index: nextTurnIndex,
         stage: 'queued',
+        action: 'read_request',
+        object_type: 'request',
+        status: 'active',
+        confidence: 'observed',
         message: INITIAL_CHAT_PROGRESS_MESSAGE,
         created_at: new Date().toISOString(),
       },
     ]);
     setInput('');
     setLoading(true);
-
-    // Snapshot the current view context (which day is open) so the
-    // agent answers in the right scope without re-asking the user.
-    let viewContext: unknown = null;
-    try {
-      const raw = sessionStorage.getItem('trip-chat-context');
-      if (raw) viewContext = JSON.parse(raw);
-    } catch {}
 
     try {
       const res = await fetch(`/api/trips/${tripId}/chat`, {
@@ -574,6 +818,7 @@ export default function TripChatPanel({
       const threadId = json.thread_id ?? threadIdAtSend;
       if (threadId && !threadIdAtSend) {
         const nowIso = new Date().toISOString();
+        activeThreadIdRef.current = threadId;
         setActiveThreadId(threadId);
         setThreads((prev) => [
           {
@@ -581,6 +826,8 @@ export default function TripChatPanel({
             title: json.thread_title || trimmed.slice(0, 46),
             created_at: nowIso,
             updated_at: nowIso,
+            context_key: context?.key ?? null,
+            context_label: context?.label ?? null,
           },
           ...prev.filter((t) => t.id !== threadId),
         ]);
@@ -628,8 +875,7 @@ export default function TripChatPanel({
       });
       void refreshThreads();
       if ((assistant.tool_calls_json?.length ?? 0) > 0) {
-        notifyTripEditApplied(tripId);
-        router.refresh();
+        refreshTripAfterToolCalls();
       }
     } catch (err) {
       if (isLikelyDroppedFetch(err) && threadIdAtSend) {
@@ -663,18 +909,28 @@ export default function TripChatPanel({
   // Hide the entry point entirely when offline — without a network
   // there's nothing the chat can do.
   if (!online) return null;
+  if (!mounted) return null;
 
   const threadGroups = groupThreadsByRecency(threads);
   const latestProgress = turnProgress[turnProgress.length - 1];
+  const activeProgress =
+    loading && latestProgress && latestProgress.stage !== 'done' ? latestProgress : undefined;
   const activeStatusText =
-    loading && latestProgress && latestProgress.stage !== 'done'
-      ? latestProgress.message
+    activeProgress
+      ? activeProgress.message
       : statusPhases[statusIdx] ?? statusPhases[statusPhases.length - 1];
   const visibleProgress = turnProgress
     .filter((event) => event.stage !== 'done')
-    .slice(-4);
+    .slice(-5);
+  const layoutViewportHeightCss = layoutViewportHeight ? `${layoutViewportHeight}px` : '100dvh';
+  const availableSheetHeight = `max(${MIN_VISIBLE_SHEET_PX}px, calc(${layoutViewportHeightCss} - env(safe-area-inset-top, 0px) - ${PANEL_TOP_CLEARANCE_PX}px - ${keyboardInset}px))`;
+  const sheetRuntimeStyle = {
+    ...sheetStyle,
+    bottom: keyboardInset,
+    '--trip-chat-available-height': availableSheetHeight,
+  } as React.CSSProperties;
 
-  return (
+  return createPortal(
     <>
       {/* Closed: centered entry pill */}
       <AnimatePresence>
@@ -715,6 +971,11 @@ export default function TripChatPanel({
             {loading ? (
               <>
                 <TypingDots />
+                {activeProgress && (
+                  <span style={minimizedActivityIconStyle}>
+                    <ProgressIcon event={activeProgress} size={13} />
+                  </span>
+                )}
                 <span style={{ marginLeft: 10, fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic' }}>
                   {activeStatusText}
                 </span>
@@ -742,15 +1003,16 @@ export default function TripChatPanel({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
-              onClick={close}
+              onClick={handleBackdropClick}
             />
             <motion.div
               key="sheet"
               ref={sheetRef}
               role="dialog"
+              aria-modal="true"
               aria-label="Ask Travel Agent"
               className={`trip-chat-sheet${railOpen ? ' is-rail-open' : ''}`}
-              style={{ ...sheetStyle, bottom: keyboardInset }}
+              style={sheetRuntimeStyle}
               initial={{ y: '100%' }}
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
@@ -797,8 +1059,11 @@ export default function TripChatPanel({
                     <PanelLeft size={17} strokeWidth={2.1} aria-hidden="true" />
                   )}
                 </button>
-                <div style={chatTitleStyle}>
-                  Ask Travel Agent
+                <div style={chatTitleWrapStyle}>
+                  <div style={chatTitleStyle}>Ask Travel Agent</div>
+                  {currentContextLabel && (
+                    <div style={chatContextStyle}>{currentContextLabel}</div>
+                  )}
                 </div>
                 <button
                   type="button"
@@ -925,7 +1190,7 @@ export default function TripChatPanel({
                 )}
 
                 <div className="trip-chat-main">
-                  <div ref={scrollerRef} style={messagesStyle}>
+                  <div ref={scrollerRef} style={messagesStyle} data-trip-chat-main-scroll>
                     {threadLoading && (
                       <div style={statusRowStyle}>
                         <TypingDots />
@@ -948,8 +1213,15 @@ export default function TripChatPanel({
                         initial={{ opacity: 0, y: 6 }}
                         animate={{ opacity: 1, y: 0 }}
                         style={statusRowStyle}
+                        role="status"
+                        aria-live="polite"
                       >
                         <TypingDots />
+                        {activeProgress && (
+                          <span style={statusIconStyle}>
+                            <ProgressIcon event={activeProgress} size={14} />
+                          </span>
+                        )}
                         <AnimatePresence mode="wait">
                           <motion.span
                             key={activeStatusText}
@@ -1007,7 +1279,8 @@ export default function TripChatPanel({
           </>
         )}
       </AnimatePresence>
-    </>
+    </>,
+    document.body
   );
 }
 
@@ -1033,21 +1306,82 @@ function TypingDots() {
   );
 }
 
+function ProgressIcon({ event, size = 14 }: { event: ChatProgressEvent; size?: number }) {
+  const objectType = event.object_type ?? '';
+  const Icon =
+    event.status === 'error' || event.stage === 'error'
+      ? AlertTriangle
+      : event.status === 'completed' || event.stage === 'done'
+        ? CheckCircle2
+        : event.stage === 'researching' && event.source === 'web'
+          ? Globe2
+          : event.stage === 'researching'
+            ? Search
+            : event.stage === 'booking'
+              ? LinkIcon
+              : objectType.includes('restaurant')
+                ? Utensils
+                : objectType.includes('hotel') || objectType.includes('accommodation')
+                  ? Hotel
+                  : objectType.includes('flight')
+                    ? Plane
+                    : objectType.includes('transport')
+                      ? Route
+                      : objectType.includes('date') || objectType.includes('logistics')
+                        ? CalendarDays
+                        : event.stage === 'reading'
+                          ? BookOpen
+                          : event.stage === 'editing'
+                            ? PencilLine
+                            : event.stage === 'checking' || event.stage === 'reviewing'
+                              ? ClipboardCheck
+                              : event.stage === 'queued' || event.stage === 'starting'
+                                ? Compass
+                                : objectType.includes('day')
+                                  ? MapPin
+                                  : CircleDot;
+  return <Icon size={size} strokeWidth={2.15} aria-hidden="true" />;
+}
+
+function progressMeta(event: ChatProgressEvent): string[] {
+  return [
+    event.source_label,
+    event.confidence === 'inferred' ? 'Inferred' : null,
+    event.status === 'completed' ? 'Done' : null,
+  ].filter((value): value is string => Boolean(value));
+}
+
 function ProgressTrail({ progress }: { progress: ChatProgressEvent[] }) {
   return (
-    <motion.ol
+    <motion.div
       initial={{ opacity: 0, y: 4 }}
       animate={{ opacity: 1, y: 0 }}
-      style={progressTrailStyle}
-      aria-label="Recent agent activity"
+      style={progressTrailWrapStyle}
     >
-      {progress.map((event) => (
-        <li key={event.id} style={progressTrailItemStyle}>
-          <span style={progressTrailDotStyle} aria-hidden="true" />
-          {event.message}
-        </li>
-      ))}
-    </motion.ol>
+      <div style={progressTrailLabelStyle}>Agent activity</div>
+      <ol style={progressTrailStyle} aria-label="Recent agent activity">
+        {progress.map((event) => {
+          const meta = progressMeta(event);
+          return (
+            <li key={event.id} style={progressTrailItemStyle}>
+              <span style={progressTrailIconStyle}>
+                <ProgressIcon event={event} size={13} />
+              </span>
+              <span style={progressTrailMessageStyle}>{event.message}</span>
+              {meta.length > 0 && (
+                <span style={progressTrailMetaStyle}>
+                  {meta.map((label) => (
+                    <span key={label} style={progressTrailChipStyle}>
+                      {label}
+                    </span>
+                  ))}
+                </span>
+              )}
+            </li>
+          );
+        })}
+      </ol>
+    </motion.div>
   );
 }
 
@@ -1162,6 +1496,16 @@ const unreadBadgeStyle: React.CSSProperties = {
   fontFamily: 'Inter, system-ui, sans-serif',
 };
 
+const minimizedActivityIconStyle: React.CSSProperties = {
+  marginLeft: 9,
+  width: 18,
+  height: 18,
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  color: '#A03E1F',
+};
+
 const backdropStyle: React.CSSProperties = {
   position: 'fixed',
   inset: 0,
@@ -1180,9 +1524,11 @@ const sheetStyle: React.CSSProperties = {
   marginRight: 'auto',
   // --trip-chat-rail-extra is 0 unless the thread rail is docked open on
   // desktop (preview.css) — the rail widens the sheet, never reshapes it.
-  width: 'min(calc(var(--trip-chat-sheet-width, 520px) + var(--trip-chat-rail-extra, 0px)), 100vw)',
-  height: 'var(--trip-chat-sheet-height, auto)',
-  maxHeight: 'var(--trip-chat-sheet-max-height, min(43vh, 360px))',
+  width:
+    'min(calc(var(--trip-chat-sheet-width, 100vw) + var(--trip-chat-rail-extra, 0px)), calc(100vw - var(--trip-chat-sheet-gutter, 0px)))',
+  height: 'var(--trip-chat-sheet-height, min(var(--trip-chat-available-height, 82dvh), 620px))',
+  maxHeight:
+    'var(--trip-chat-sheet-max-height, var(--trip-chat-sheet-height, min(var(--trip-chat-available-height, 82dvh), 620px)))',
   background: '#FBF7F1',
   border: '1px solid #E8E1D6',
   borderTopLeftRadius: 'var(--trip-chat-sheet-radius, 22px)',
@@ -1240,9 +1586,17 @@ const headerIconButtonStyle: React.CSSProperties = {
   cursor: 'pointer',
 };
 
-const chatTitleStyle: React.CSSProperties = {
+const chatTitleWrapStyle: React.CSSProperties = {
   flex: 1,
+  minWidth: 0,
   textAlign: 'center',
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  gap: 2,
+};
+
+const chatTitleStyle: React.CSSProperties = {
   fontFamily: '"Fraunces", "Iowan Old Style", "Palatino", Georgia, serif',
   fontOpticalSizing: 'auto',
   fontVariationSettings: "'SOFT' 42",
@@ -1256,9 +1610,26 @@ const chatTitleStyle: React.CSSProperties = {
   textOverflow: 'ellipsis',
 };
 
+const chatContextStyle: React.CSSProperties = {
+  maxWidth: '100%',
+  color: '#A03E1F',
+  fontFamily: 'Inter, system-ui, sans-serif',
+  fontSize: 10,
+  fontWeight: 600,
+  lineHeight: 1,
+  letterSpacing: '0.14em',
+  textTransform: 'uppercase',
+  whiteSpace: 'nowrap',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+};
+
 const messagesStyle: React.CSSProperties = {
   flex: 1,
   overflowY: 'auto',
+  overscrollBehavior: 'contain',
+  WebkitOverflowScrolling: 'touch',
+  touchAction: 'pan-y',
   padding: 'var(--trip-chat-messages-padding, 14px 16px)',
   display: 'flex',
   flexDirection: 'column',
@@ -1283,6 +1654,16 @@ const statusRowStyle: React.CSSProperties = {
   alignSelf: 'flex-start',
 };
 
+const statusIconStyle: React.CSSProperties = {
+  width: 18,
+  height: 18,
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  color: '#A03E1F',
+  marginLeft: -2,
+};
+
 const statusTextStyle: React.CSSProperties = {
   fontFamily: '"Fraunces", "Iowan Old Style", "Palatino", Georgia, serif',
   fontOpticalSizing: 'auto',
@@ -1294,31 +1675,73 @@ const statusTextStyle: React.CSSProperties = {
   letterSpacing: 0,
 };
 
-const progressTrailStyle: React.CSSProperties = {
+const progressTrailWrapStyle: React.CSSProperties = {
   margin: '-4px 0 2px 28px',
+  paddingLeft: 8,
+  borderLeft: '1px solid #E8E1D6',
+};
+
+const progressTrailLabelStyle: React.CSSProperties = {
+  margin: '0 0 5px',
+  color: '#9B4F2E',
+  fontSize: 10,
+  fontWeight: 600,
+  letterSpacing: '0.14em',
+  lineHeight: 1,
+  textTransform: 'uppercase',
+};
+
+const progressTrailStyle: React.CSSProperties = {
+  margin: 0,
   padding: 0,
   listStyle: 'none',
   display: 'flex',
   flexDirection: 'column',
-  gap: 4,
+  gap: 6,
   color: '#6B6157',
   fontSize: 12,
   lineHeight: 1.45,
 };
 
 const progressTrailItemStyle: React.CSSProperties = {
-  position: 'relative',
-  paddingLeft: 12,
+  display: 'grid',
+  gridTemplateColumns: '16px minmax(0, 1fr)',
+  columnGap: 7,
+  rowGap: 3,
+  alignItems: 'start',
 };
 
-const progressTrailDotStyle: React.CSSProperties = {
-  position: 'absolute',
-  left: 0,
-  top: '0.62em',
-  width: 4,
-  height: 4,
+const progressTrailIconStyle: React.CSSProperties = {
+  width: 16,
+  height: 16,
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  color: '#9B4F2E',
+  marginTop: 1,
+};
+
+const progressTrailMessageStyle: React.CSSProperties = {
+  minWidth: 0,
+};
+
+const progressTrailMetaStyle: React.CSSProperties = {
+  gridColumn: '2',
+  display: 'flex',
+  flexWrap: 'wrap',
+  gap: 4,
+};
+
+const progressTrailChipStyle: React.CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  minHeight: 17,
+  padding: '1px 6px',
   borderRadius: 999,
-  background: '#D4C8B4',
+  background: '#F4EDE2',
+  color: '#6B6157',
+  fontSize: 10,
+  fontWeight: 560,
 };
 
 const typingDotsStyle: React.CSSProperties = {

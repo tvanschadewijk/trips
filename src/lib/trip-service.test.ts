@@ -150,6 +150,88 @@ test('saveTripForUser normalizes route point aliases and returns ingestion warni
   );
 });
 
+test('saveTripForUser strict v2 saves require coordinate-backed route points', async () => {
+  await assert.rejects(
+    saveTripForUser(
+      { from: () => { throw new Error('storage should not be touched'); } } as never,
+      'user-1',
+      {
+        trip_schema_version: 2,
+        strict_quality: true,
+        trip: {
+          name: 'Anti-Atlas Adventure',
+          subtitle: 'Southern Morocco by road',
+          dates: { start: '2026-10-24', end: '2026-10-24' },
+          travelers: ['Thijs'],
+          summary: 'Mountains and coast across southern Morocco.',
+          hero_image: 'https://example.com/morocco.jpg',
+        },
+        days: [
+          {
+            day_number: 1,
+            date: '2026-10-24',
+            title: 'Arrival in Agadir',
+            description_title: 'Landing on Morocco coast',
+            description: 'Arrive, settle in, and take the first walk by the Atlantic.',
+            blocks: [
+              {
+                time_label: 'Afternoon',
+                type: 'activity',
+                content: 'Beach walk',
+                place: { name: 'Agadir beachfront', address: 'Agadir, Morocco' },
+              },
+            ],
+            tips: [{ icon: 'info', title: 'Arrival timing', content: 'Keep the first evening easy after the flight.' }],
+          },
+        ],
+      },
+      'https://ourtrips.to'
+    ),
+    (err) => err instanceof TripServiceError && /trip\.route_points/.test(err.message)
+  );
+});
+
+test('saveTripForUser refuses to overwrite an existing trip with a partial day payload', async () => {
+  const trip = {
+    ...fixtureRecord(),
+    user_id: 'user-1',
+  };
+  let updateCalled = false;
+  const admin = {
+    from(table: string) {
+      assert.equal(table, 'trips');
+      return {
+        select() { return this; },
+        eq() { return this; },
+        update() {
+          updateCalled = true;
+          return this;
+        },
+        single: async () => ({ data: trip, error: null }),
+      };
+    },
+  };
+
+  await assert.rejects(
+    () => saveTripForUser(
+      admin as never,
+      'user-1',
+      {
+        trip_id: 'trip-1',
+        trip: trip.data.trip,
+        days: [trip.data.days[0]],
+      },
+      'https://ourtrips.to'
+    ),
+    (err) => err instanceof TripServiceError
+      && err.status === 409
+      && /Refusing to replace an existing trip with 1 day/.test(err.message)
+      && /Missing existing day numbers: 2/.test(err.message)
+  );
+
+  assert.equal(updateCalled, false);
+});
+
 test('formatTripForRead returns compact summaries without full markdown by default', () => {
   const summary = formatTripForRead(fixtureRecord(), { view: 'summary' }, 'https://ourtrips.to');
 

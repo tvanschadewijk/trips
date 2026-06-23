@@ -18,6 +18,8 @@ import type { TripData } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
 
+type ShareMode = 'private' | 'companion' | 'remix';
+
 interface Props {
   params: Promise<{ shareId: string }>;
 }
@@ -41,11 +43,19 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     const supabase = await createClient();
     const { data } = await supabase
       .from('trips')
-      .select('data')
+      .select('data, user_id, share_mode')
       .eq('share_id', shareId)
-      .in('share_mode', ['companion', 'remix'])
       .single();
     if (data?.data) {
+      if (data.share_mode === 'private') {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user || data.user_id !== user.id) {
+          return {
+            title: 'Trip not found — OurTrips',
+            robots: { index: false, follow: false },
+          };
+        }
+      }
       const trip = normalizeTripData(data.data).trip;
       const title = `${trip.name} — OurTrips`;
       const description = trip.subtitle || trip.summary || `An itinerary on OurTrips.`;
@@ -81,7 +91,7 @@ async function fetchTripAndViewer(shareId: string): Promise<{
   tripId: string;
   isOwner: boolean;
   viewerUserId: string | null;
-  shareMode: 'companion' | 'remix';
+  shareMode: ShareMode;
 } | null> {
   try {
     if (isLocalPreviewWithoutSupabase()) {
@@ -92,7 +102,7 @@ async function fetchTripAndViewer(shareId: string): Promise<{
         tripId: localTrip.id,
         isOwner: true,
         viewerUserId: null,
-        shareMode: localTrip.share_mode === 'remix' ? 'remix' : 'companion',
+        shareMode: localTrip.share_mode,
       };
     }
 
@@ -101,7 +111,6 @@ async function fetchTripAndViewer(shareId: string): Promise<{
       .from('trips')
       .select('id, data, user_id, share_mode')
       .eq('share_id', shareId)
-      .in('share_mode', ['companion', 'remix'])
       .single();
 
     if (error || !data) return null;
@@ -116,8 +125,10 @@ async function fetchTripAndViewer(shareId: string): Promise<{
       }
     } catch { /* not logged in */ }
 
+    const shareMode = (data.share_mode as ShareMode) ?? 'companion';
+    if (shareMode === 'private' && !isOwner) return null;
+
     const rawTrip = normalizeTripData(data.data);
-    const shareMode = (data.share_mode as 'companion' | 'remix') ?? 'companion';
     // Non-owners on a remix-mode trip get the scrubbed view. Owners always
     // see their own data raw. Companion-mode keeps legacy share semantics,
     // but new Travel Wallet items stay private by default.

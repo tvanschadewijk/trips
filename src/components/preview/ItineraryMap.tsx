@@ -1,7 +1,7 @@
 'use client';
 
 import { importLibrary, setOptions } from '@googlemaps/js-api-loader';
-import { ExternalLink, MapPin } from 'lucide-react';
+import { ExternalLink, MapPin, Minus, Plus } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { flushSync } from 'react-dom';
@@ -76,6 +76,7 @@ type ResolvedSearchTarget = {
 
 const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 const GOOGLE_MAPS_MAP_ID = process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID;
+const MAP_BACKGROUND_COLOR = '#EFE5D8';
 const MAP_POPOVER_Z_INDEX = 1_000_000;
 const HOVER_POPUP_CLOSE_DELAY_MS = 160;
 const EMPTY_SEARCH_TARGETS: ItineraryMapPoiSearchTarget[] = [];
@@ -476,6 +477,42 @@ function googleMapsLinkFor(point: PointDisplay): string {
   return `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
 }
 
+function googleMapsSearchLinkForTarget(target: ItineraryMapPoiSearchTarget): string {
+  const query = target.query && target.query.length <= 120 ? target.query : target.label;
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+}
+
+function ItineraryMapSearchFallback({ targets }: { targets: ItineraryMapPoiSearchTarget[] }) {
+  const visibleTargets = targets.slice(0, 5);
+  const hiddenCount = Math.max(0, targets.length - visibleTargets.length);
+
+  return (
+    <div className="itinerary-map-search-fallback">
+      <div className="itinerary-map-search-fallback-kicker">
+        <MapPin aria-hidden="true" />
+        <span>Map places</span>
+      </div>
+      <div className="itinerary-map-search-fallback-list">
+        {visibleTargets.map((target) => (
+          <a
+            className="itinerary-map-search-fallback-link"
+            href={googleMapsSearchLinkForTarget(target)}
+            key={target.id}
+            target="_blank"
+            rel="noreferrer"
+          >
+            <span>{target.detail?.title ?? target.label}</span>
+            <ExternalLink aria-hidden="true" />
+          </a>
+        ))}
+      </div>
+      {hiddenCount ? (
+        <span className="itinerary-map-search-fallback-more">+ {hiddenCount} more</span>
+      ) : null}
+    </div>
+  );
+}
+
 function popupKickerFor(point: PointDisplay): string {
   if (point.detail.kicker) return point.detail.kicker;
   if (point.role === 'home') return 'Start / finish';
@@ -809,6 +846,11 @@ export default function ItineraryMap({
   const showFallback = !GOOGLE_MAPS_API_KEY || (!waitingForSearch && displayAtlas.points.length === 0);
   const showDeferred = !enabled && !showFallback;
   const fallbackNode = fallback ? <div className="itinerary-map-fallback">{fallback}</div> : null;
+  const searchFallbackNode = stableSearchTargets.length ? (
+    <div className="itinerary-map-fallback">
+      <ItineraryMapSearchFallback targets={stableSearchTargets} />
+    </div>
+  ) : null;
   const errorNode = (
     <div className="itinerary-map-error">
       <span>Map could not load</span>
@@ -816,7 +858,7 @@ export default function ItineraryMap({
   );
   const effectiveLoadingLabel = waitingForSearch ? 'Finding day places' : loadingLabel;
   const effectiveLoadingHint = waitingForSearch ? 'Looking up hotels, restaurants and sights for this day.' : loadingHint;
-  const useCustomZoomControls = interactive && variant === 'day';
+  const useCustomZoomControls = interactive;
   const showCustomZoomControls = useCustomZoomControls && ready && !showFallback && !showDeferred && !failed;
 
   const zoomMap = (direction: 1 | -1) => {
@@ -917,18 +959,26 @@ export default function ItineraryMap({
         if (cancelled || !mapContainer.isConnected) return;
 
         const map = new Map(mapContainer, {
-          backgroundColor: '#EFE5D8',
+          backgroundColor: MAP_BACKGROUND_COLOR,
+          cameraControl: false,
           center: centerFor(displayAtlas),
-          clickableIcons: interactive,
-          disableDefaultUI: !interactive,
-          fullscreenControl: interactive,
-          gestureHandling: interactive ? 'auto' : 'none',
+          clickableIcons: false,
+          colorScheme: 'LIGHT',
+          controlSize: 30,
+          disableDefaultUI: true,
+          fullscreenControl: false,
+          gestureHandling: interactive ? 'cooperative' : 'none',
+          headingInteractionEnabled: false,
           keyboardShortcuts: interactive,
           mapId: GOOGLE_MAPS_MAP_ID || undefined,
           mapTypeControl: false,
+          rotateControl: false,
+          scaleControl: false,
           streetViewControl: false,
+          tilt: 0,
+          tiltInteractionEnabled: false,
           zoom: displayAtlas.points.length === 1 ? 11 : 6,
-          zoomControl: interactive && !useCustomZoomControls,
+          zoomControl: false,
         });
 
         mapRef.current = map;
@@ -1019,9 +1069,9 @@ export default function ItineraryMap({
       {showDeferred ? (
         <div className="itinerary-map-deferred" aria-hidden="true" />
       ) : showFallback ? (
-        fallbackNode ?? errorNode
+        fallbackNode ?? searchFallbackNode ?? errorNode
       ) : failed ? (
-        fallbackNode ?? errorNode
+        fallbackNode ?? searchFallbackNode ?? errorNode
       ) : (
         <>
           <div ref={containerRef} className="itinerary-map-canvas" />
@@ -1035,7 +1085,7 @@ export default function ItineraryMap({
                 disabled={currentZoom !== null && currentZoom >= MAX_MAP_ZOOM}
                 onClick={() => zoomMap(1)}
               >
-                +
+                <Plus aria-hidden="true" />
               </button>
               <button
                 type="button"
@@ -1045,7 +1095,7 @@ export default function ItineraryMap({
                 disabled={currentZoom !== null && currentZoom <= MIN_MAP_ZOOM}
                 onClick={() => zoomMap(-1)}
               >
-                -
+                <Minus aria-hidden="true" />
               </button>
             </div>
           ) : null}

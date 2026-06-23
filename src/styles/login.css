@@ -326,6 +326,8 @@
   .login-table {
     min-height: auto;
     padding: 36px 24px 80px;
+    grid-template-columns: minmax(0, 1fr);
+    place-items: start center;
     gap: 28px;
   }
 
@@ -376,6 +378,7 @@
   .login-card {
     width: 100%;
     padding: 36px 26px 30px;
+    animation: none;
   }
 
   .login-title {

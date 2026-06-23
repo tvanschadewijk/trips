@@ -78,6 +78,45 @@ test('day map targets preserve the day order and skip generic meal descriptions'
   assert.equal(targets.find((target) => target.label === 'Trattoria da Maria')?.placeType, 'restaurant');
 });
 
+test('day map targets include agent-added single restaurant meals', () => {
+  const trip = baseTrip([
+    {
+      day_number: 1,
+      date: '2026-06-27',
+      title: 'Amsterdam -> Lake Como / Brunate',
+      blocks: [],
+      transport: [{ mode: 'car', label: 'Self-drive', from: 'Amsterdam', to: 'Lake Como' }],
+      accommodation: {
+        name: 'Locanda Milano 1873',
+        status: 'booked',
+        detail: { address: 'Brunate, Lake Como, Italy' },
+      },
+    },
+    {
+      day_number: 2,
+      date: '2026-06-28',
+      title: 'Lake Como / Brunate',
+      blocks: [],
+      accommodation: {
+        name: 'Locanda Milano 1873',
+        status: 'booked',
+        detail: { address: 'Brunate, Lake Como, Italy' },
+      },
+      meals: [
+        { type: 'dinner', name: 'Platea Ristorante' },
+      ],
+    },
+  ]);
+
+  const atlas = buildTripRouteAtlas(trip);
+  const dayMapData = buildDayMapDataByNumber(atlas, trip.days)[2];
+  const platea = dayMapData.searchTargets.find((target) => target.label === 'Platea Ristorante');
+
+  assert.ok(platea);
+  assert.equal(platea.placeType, 'restaurant');
+  assert.equal(dayMapData.atlas?.points.some((point) => point.label === 'Platea Ristorante'), true);
+});
+
 test('day map route places are anchored to known atlas coordinates before text search', () => {
   const trip = baseTrip([
     {

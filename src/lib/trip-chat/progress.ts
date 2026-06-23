@@ -1,10 +1,10 @@
-export const INITIAL_CHAT_PROGRESS_MESSAGE = 'Processing your request...';
+export const INITIAL_CHAT_PROGRESS_MESSAGE = 'Reading your request...';
 
 export const DEFAULT_CHAT_STATUS_PHASES = [
-  'Reading the trip...',
+  'Reading your request...',
   'Planning the next step...',
-  'Checking dates and stay details...',
-  'Preparing the edit...',
+  'Checking the itinerary context...',
+  'Preparing the next action...',
   'Reviewing the result...',
   'Still working through the details...',
   'Writing the reply...',
@@ -12,10 +12,10 @@ export const DEFAULT_CHAT_STATUS_PHASES = [
 
 export const POLICY_RESEARCH_STATUS_PHASES = [
   'Finding the relevant stays...',
-  'Checking current policies...',
+  'Searching current policy sources...',
+  'Checking official pages...',
   'Comparing source details...',
   'Saving concise notes...',
-  'Reviewing the policy evidence...',
   'Writing the reply...',
 ] as const;
 
@@ -33,9 +33,20 @@ export type ChatProgressStage =
   | 'done'
   | 'error';
 
+export type ChatProgressStatus = 'active' | 'completed' | 'blocked' | 'error';
+
+export type ChatProgressConfidence = 'observed' | 'inferred';
+
 export interface ChatProgressUpdate {
   stage: ChatProgressStage;
   message: string;
+  action?: string;
+  object_type?: string;
+  object_label?: string;
+  source?: string;
+  source_label?: string;
+  status?: ChatProgressStatus;
+  confidence?: ChatProgressConfidence;
 }
 
 export interface ChatProgressEvent extends ChatProgressUpdate {
@@ -46,74 +57,183 @@ export interface ChatProgressEvent extends ChatProgressUpdate {
 
 const POLICY_RESEARCH_RE = /\b(dog|dogs|pet|pets|policy|policies|allowed|hotel|hotels|stay|stays|accommodation|accommodations)\b/i;
 
-const TOOL_PROGRESS: Record<string, ChatProgressUpdate> = {
-  get_trip: { stage: 'reading', message: 'Reading the current itinerary...' },
-  get_date_ledger: { stage: 'checking', message: 'Checking the date and stay ledger...' },
-  get_logistics_audit: { stage: 'checking', message: 'Running a logistics check...' },
-  list_accommodations: { stage: 'reading', message: 'Reading the stay details...' },
-  list_accommodation_review: { stage: 'reading', message: 'Reading the accommodation shortlist...' },
-  update_trip: { stage: 'editing', message: 'Saving an itinerary edit...' },
-  update_accommodation: { stage: 'editing', message: 'Saving the stay details...' },
-  update_accommodation_detail: { stage: 'editing', message: 'Saving accommodation notes...' },
-  upsert_activity: { stage: 'editing', message: 'Saving the activity change...' },
-  delete_activity: { stage: 'editing', message: 'Removing an activity...' },
-  upsert_meal: { stage: 'editing', message: 'Saving the meal change...' },
-  delete_meal: { stage: 'editing', message: 'Removing a meal...' },
-  upsert_transport: { stage: 'editing', message: 'Saving the transport change...' },
-  delete_transport: { stage: 'editing', message: 'Removing a transport leg...' },
-  research_place_policy: { stage: 'researching', message: 'Checking current policy sources...' },
-  create_accommodation_candidate: {
-    stage: 'editing',
-    message: 'Adding an accommodation option...',
-  },
-  update_accommodation_candidate: {
-    stage: 'editing',
-    message: 'Updating the accommodation shortlist...',
-  },
-  move_accommodation_candidate: {
-    stage: 'editing',
-    message: 'Moving an accommodation option...',
-  },
-  promote_accommodation_candidate: {
-    stage: 'editing',
-    message: 'Promoting the booked stay into the trip...',
-  },
-  booking_link_restaurant: { stage: 'booking', message: 'Building a restaurant booking link...' },
-  booking_link_hotel: { stage: 'booking', message: 'Building a hotel booking link...' },
-  booking_link_flight: { stage: 'booking', message: 'Building a flight search link...' },
-  booking_link_activity: { stage: 'booking', message: 'Building an activity booking link...' },
-};
-
-const APPLIED_TOOL_PROGRESS: Record<string, ChatProgressUpdate> = {
-  update_trip: { stage: 'reviewing', message: 'Saved the itinerary edit.' },
-  update_accommodation: { stage: 'reviewing', message: 'Saved the stay details.' },
-  update_accommodation_detail: { stage: 'reviewing', message: 'Saved the accommodation notes.' },
-  upsert_activity: { stage: 'reviewing', message: 'Saved the activity change.' },
-  delete_activity: { stage: 'reviewing', message: 'Removed the activity.' },
-  upsert_meal: { stage: 'reviewing', message: 'Saved the meal change.' },
-  delete_meal: { stage: 'reviewing', message: 'Removed the meal.' },
-  upsert_transport: { stage: 'reviewing', message: 'Saved the transport change.' },
-  delete_transport: { stage: 'reviewing', message: 'Removed the transport leg.' },
-  create_accommodation_candidate: {
-    stage: 'reviewing',
-    message: 'Added the accommodation option.',
-  },
-  update_accommodation_candidate: {
-    stage: 'reviewing',
-    message: 'Updated the accommodation shortlist.',
-  },
-  move_accommodation_candidate: {
-    stage: 'reviewing',
-    message: 'Moved the accommodation option.',
-  },
-  promote_accommodation_candidate: {
-    stage: 'reviewing',
-    message: 'Promoted the booked stay into the trip.',
-  },
-};
-
 function normalizeToolName(toolName: string): string {
   return toolName.replace(/^mcp__trip_editor__/, '');
+}
+
+function observed(update: ChatProgressUpdate): ChatProgressUpdate {
+  return {
+    status: 'active',
+    confidence: 'observed',
+    ...update,
+  };
+}
+
+function completed(update: ChatProgressUpdate): ChatProgressUpdate {
+  return {
+    status: 'completed',
+    confidence: 'observed',
+    ...update,
+  };
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : null;
+}
+
+function stringField(record: Record<string, unknown> | null, key: string): string | undefined {
+  const value = record?.[key];
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined;
+}
+
+function numberField(record: Record<string, unknown> | null, key: string): number | undefined {
+  const value = record?.[key];
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+}
+
+function nestedRecord(
+  record: Record<string, unknown> | null,
+  key: string
+): Record<string, unknown> | null {
+  return asRecord(record?.[key]);
+}
+
+function cleanLabel(value: unknown, maxLength = 72): string | undefined {
+  if (value === undefined || value === null) return undefined;
+  const clean = String(value).replace(/\s+/g, ' ').trim();
+  if (!clean) return undefined;
+  return clean.length > maxLength ? `${clean.slice(0, maxLength - 1).trimEnd()}...` : clean;
+}
+
+function queryLabel(value: unknown): string | undefined {
+  return cleanLabel(value, 92);
+}
+
+function dayPhrase(dayNumber: number | undefined): string {
+  return dayNumber ? ` on Day ${dayNumber}` : '';
+}
+
+function objectFromMatch(match: Record<string, unknown> | null): string | undefined {
+  return (
+    cleanLabel(match?.name) ??
+    cleanLabel(match?.title) ??
+    cleanLabel(match?.label) ??
+    cleanLabel(match?.content_contains)
+  );
+}
+
+function activityLabel(input: Record<string, unknown> | null): string | undefined {
+  const activity = nestedRecord(input, 'activity');
+  const detail = nestedRecord(activity, 'detail');
+  const place = nestedRecord(activity, 'place');
+  return (
+    cleanLabel(detail?.title) ??
+    cleanLabel(place?.name) ??
+    cleanLabel(activity?.content, 56) ??
+    objectFromMatch(nestedRecord(input, 'match'))
+  );
+}
+
+function mealLabel(input: Record<string, unknown> | null): string | undefined {
+  const meal = nestedRecord(input, 'meal');
+  return cleanLabel(meal?.name) ?? objectFromMatch(nestedRecord(input, 'match'));
+}
+
+function transportLabel(input: Record<string, unknown> | null): string | undefined {
+  const transport = nestedRecord(input, 'transport');
+  const from = cleanLabel(transport?.from, 30);
+  const to = cleanLabel(transport?.to, 30);
+  return (
+    cleanLabel(transport?.label) ??
+    (from && to ? `${from} to ${to}` : undefined) ??
+    objectFromMatch(nestedRecord(input, 'match'))
+  );
+}
+
+function accommodationLabel(input: Record<string, unknown> | null): string | undefined {
+  const patch = nestedRecord(input, 'accommodation_patch');
+  const candidate = nestedRecord(input, 'candidate');
+  const candidatePatch = nestedRecord(input, 'candidate_patch');
+  return (
+    cleanLabel(patch?.name) ??
+    cleanLabel(candidate?.candidate) ??
+    cleanLabel(candidatePatch?.candidate)
+  );
+}
+
+function webSearchLabel(input: Record<string, unknown> | null): string | undefined {
+  return (
+    queryLabel(input?.query) ??
+    queryLabel(input?.q) ??
+    queryLabel(input?.search_query) ??
+    queryLabel(input?.terms)
+  );
+}
+
+function policyName(policyType: string | undefined): string {
+  return policyType === 'pet_policy' ? 'pet policy' : 'dog policy';
+}
+
+function getTripProgress(input: Record<string, unknown> | null): ChatProgressUpdate {
+  const view = stringField(input, 'view') ?? 'summary';
+  const dayNumber = numberField(input, 'day_number');
+  if (view === 'day' && dayNumber) {
+    return observed({
+      stage: 'reading',
+      action: 'read',
+      object_type: 'day',
+      object_label: `Day ${dayNumber}`,
+      message: `Reading Day ${dayNumber}...`,
+    });
+  }
+
+  if (view === 'days') {
+    const dayStart = numberField(input, 'day_start');
+    const dayEnd = numberField(input, 'day_end');
+    const dayNumbers = Array.isArray(input?.day_numbers)
+      ? input.day_numbers.filter((value) => typeof value === 'number')
+      : [];
+    const label =
+      dayStart && dayEnd
+        ? `Days ${dayStart}-${dayEnd}`
+        : dayNumbers.length
+          ? `Days ${dayNumbers.join(', ')}`
+          : 'selected days';
+    return observed({
+      stage: 'reading',
+      action: 'read',
+      object_type: 'day',
+      object_label: label,
+      message: `Reading ${label}...`,
+    });
+  }
+
+  if (view === 'sections') {
+    return observed({
+      stage: 'reading',
+      action: 'read',
+      object_type: 'itinerary_sections',
+      message: 'Reading the requested itinerary sections...',
+    });
+  }
+
+  if (view === 'full') {
+    return observed({
+      stage: 'reading',
+      action: 'read',
+      object_type: 'itinerary',
+      object_label: 'Full itinerary',
+      message: 'Reading the full itinerary...',
+    });
+  }
+
+  return observed({
+    stage: 'reading',
+    action: 'read',
+    object_type: 'itinerary',
+    object_label: 'Current itinerary',
+    message: 'Reading the current itinerary...',
+  });
 }
 
 export function getChatStatusPhases(message: string): readonly string[] {
@@ -122,28 +242,455 @@ export function getChatStatusPhases(message: string): readonly string[] {
     : DEFAULT_CHAT_STATUS_PHASES;
 }
 
-export function getToolProgressUpdate(toolName: string): ChatProgressUpdate {
+export function getToolProgressUpdate(
+  toolName: string,
+  toolInput?: unknown
+): ChatProgressUpdate {
+  const normalized = normalizeToolName(toolName);
+  const input = asRecord(toolInput);
+
   if (toolName === 'WebSearch') {
-    return { stage: 'researching', message: 'Searching current sources...' };
+    const label = webSearchLabel(input);
+    return observed({
+      stage: 'researching',
+      action: 'search',
+      object_type: label ? 'web_query' : 'web',
+      object_label: label,
+      source: 'web',
+      source_label: 'Web',
+      message: label ? `Searching the web for "${label}"...` : 'Searching current web sources...',
+    });
   }
   if (toolName === 'AskUserQuestion') {
-    return { stage: 'thinking', message: 'Preparing a clarifying question...' };
+    return observed({
+      stage: 'thinking',
+      action: 'prepare_question',
+      object_type: 'clarifying_question',
+      message: 'Preparing a clarifying question...',
+    });
   }
 
-  return (
-    TOOL_PROGRESS[normalizeToolName(toolName)] ?? {
-      stage: 'thinking',
-      message: 'Working through the next step...',
-    }
-  );
+  if (normalized === 'get_trip') return getTripProgress(input);
+  if (normalized === 'get_date_ledger') {
+    return observed({
+      stage: 'checking',
+      action: 'check',
+      object_type: 'date_ledger',
+      object_label: 'Dates and stays',
+      message: 'Checking the date and stay ledger...',
+    });
+  }
+  if (normalized === 'get_logistics_audit') {
+    return observed({
+      stage: 'checking',
+      action: 'audit',
+      object_type: 'logistics',
+      object_label: 'Trip logistics',
+      message: 'Running a logistics check...',
+    });
+  }
+  if (normalized === 'list_accommodations') {
+    return observed({
+      stage: 'reading',
+      action: 'list',
+      object_type: 'accommodation',
+      message: 'Reading the stay details...',
+    });
+  }
+  if (normalized === 'list_accommodation_review') {
+    return observed({
+      stage: 'reading',
+      action: 'list',
+      object_type: 'accommodation_review',
+      message: 'Reading the accommodation shortlist...',
+    });
+  }
+  if (normalized === 'research_place_policy') {
+    const place = cleanLabel(input?.place_name);
+    const policy = policyName(stringField(input, 'policy_type'));
+    return observed({
+      stage: 'researching',
+      action: 'verify_policy',
+      object_type: 'place_policy',
+      object_label: place,
+      source: stringField(input, 'source_url') ? 'website' : 'web',
+      source_label: stringField(input, 'source_url') ? 'Known source' : 'Web',
+      message: place ? `Checking ${policy} for ${place}...` : 'Checking current policy sources...',
+    });
+  }
+  if (normalized === 'update_trip') {
+    return observed({
+      stage: 'editing',
+      action: 'save',
+      object_type: 'itinerary',
+      message: 'Saving an itinerary edit...',
+    });
+  }
+  if (normalized === 'update_accommodation') {
+    const label = accommodationLabel(input);
+    return observed({
+      stage: 'editing',
+      action: 'save',
+      object_type: 'accommodation',
+      object_label: label,
+      message: label ? `Saving stay details for ${label}...` : 'Saving the stay details...',
+    });
+  }
+  if (normalized === 'update_accommodation_detail') {
+    return observed({
+      stage: 'editing',
+      action: 'save',
+      object_type: 'accommodation_detail',
+      message: 'Saving accommodation notes...',
+    });
+  }
+  if (normalized === 'upsert_activity') {
+    const dayNumber = numberField(input, 'day_number');
+    const label = activityLabel(input);
+    return observed({
+      stage: 'editing',
+      action: 'save',
+      object_type: 'activity',
+      object_label: label,
+      message: label
+        ? `Saving ${label}${dayPhrase(dayNumber)}...`
+        : `Saving the activity change${dayPhrase(dayNumber)}...`,
+    });
+  }
+  if (normalized === 'delete_activity') {
+    const dayNumber = numberField(input, 'day_number');
+    const label = objectFromMatch(nestedRecord(input, 'match'));
+    return observed({
+      stage: 'editing',
+      action: 'delete',
+      object_type: 'activity',
+      object_label: label,
+      message: label
+        ? `Removing ${label}${dayPhrase(dayNumber)}...`
+        : `Removing an activity${dayPhrase(dayNumber)}...`,
+    });
+  }
+  if (normalized === 'upsert_meal') {
+    const dayNumber = numberField(input, 'day_number');
+    const label = mealLabel(input);
+    return observed({
+      stage: 'editing',
+      action: 'save',
+      object_type: 'restaurant',
+      object_label: label,
+      message: label
+        ? `Saving ${label}${dayPhrase(dayNumber)}...`
+        : `Saving the meal change${dayPhrase(dayNumber)}...`,
+    });
+  }
+  if (normalized === 'delete_meal') {
+    const dayNumber = numberField(input, 'day_number');
+    const label = objectFromMatch(nestedRecord(input, 'match'));
+    return observed({
+      stage: 'editing',
+      action: 'delete',
+      object_type: 'restaurant',
+      object_label: label,
+      message: label
+        ? `Removing ${label}${dayPhrase(dayNumber)}...`
+        : `Removing a meal${dayPhrase(dayNumber)}...`,
+    });
+  }
+  if (normalized === 'upsert_transport') {
+    const dayNumber = numberField(input, 'day_number');
+    const label = transportLabel(input);
+    return observed({
+      stage: 'editing',
+      action: 'save',
+      object_type: 'transport',
+      object_label: label,
+      message: label
+        ? `Saving transport: ${label}${dayPhrase(dayNumber)}...`
+        : `Saving the transport change${dayPhrase(dayNumber)}...`,
+    });
+  }
+  if (normalized === 'delete_transport') {
+    const dayNumber = numberField(input, 'day_number');
+    const label = objectFromMatch(nestedRecord(input, 'match'));
+    return observed({
+      stage: 'editing',
+      action: 'delete',
+      object_type: 'transport',
+      object_label: label,
+      message: label
+        ? `Removing transport: ${label}${dayPhrase(dayNumber)}...`
+        : `Removing a transport leg${dayPhrase(dayNumber)}...`,
+    });
+  }
+  if (normalized === 'create_accommodation_candidate') {
+    const label = accommodationLabel(input);
+    return observed({
+      stage: 'editing',
+      action: 'create',
+      object_type: 'accommodation_candidate',
+      object_label: label,
+      message: label
+        ? `Adding ${label} to accommodation options...`
+        : 'Adding an accommodation option...',
+    });
+  }
+  if (normalized === 'update_accommodation_candidate') {
+    const label = accommodationLabel(input);
+    return observed({
+      stage: 'editing',
+      action: 'save',
+      object_type: 'accommodation_candidate',
+      object_label: label,
+      message: label
+        ? `Updating accommodation option: ${label}...`
+        : 'Updating the accommodation shortlist...',
+    });
+  }
+  if (normalized === 'move_accommodation_candidate') {
+    const lane = cleanLabel(input?.lane);
+    return observed({
+      stage: 'editing',
+      action: 'move',
+      object_type: 'accommodation_candidate',
+      object_label: lane,
+      message: lane
+        ? `Moving an accommodation option to ${lane}...`
+        : 'Moving an accommodation option...',
+    });
+  }
+  if (normalized === 'promote_accommodation_candidate') {
+    return observed({
+      stage: 'editing',
+      action: 'promote',
+      object_type: 'accommodation_candidate',
+      message: 'Promoting the booked stay into the trip...',
+    });
+  }
+  if (normalized === 'booking_link_restaurant') {
+    const label = cleanLabel(input?.name);
+    return observed({
+      stage: 'booking',
+      action: 'build_link',
+      object_type: 'restaurant',
+      object_label: label,
+      source: 'booking_link',
+      source_label: 'Reservation link',
+      message: label
+        ? `Building a restaurant booking link for ${label}...`
+        : 'Building a restaurant booking link...',
+    });
+  }
+  if (normalized === 'booking_link_hotel') {
+    const label = cleanLabel(input?.query);
+    return observed({
+      stage: 'booking',
+      action: 'build_link',
+      object_type: 'hotel',
+      object_label: label,
+      source: 'booking_link',
+      source_label: 'Hotel booking link',
+      message: label
+        ? `Building a hotel booking link for ${label}...`
+        : 'Building a hotel booking link...',
+    });
+  }
+  if (normalized === 'booking_link_flight') {
+    const origin = cleanLabel(input?.origin, 24);
+    const destination = cleanLabel(input?.destination, 24);
+    const label = origin && destination ? `${origin} to ${destination}` : undefined;
+    return observed({
+      stage: 'booking',
+      action: 'build_link',
+      object_type: 'flight',
+      object_label: label,
+      source: 'booking_link',
+      source_label: 'Flight search link',
+      message: label
+        ? `Building a flight search link from ${label}...`
+        : 'Building a flight search link...',
+    });
+  }
+  if (normalized === 'booking_link_activity') {
+    const label = cleanLabel(input?.query);
+    return observed({
+      stage: 'booking',
+      action: 'build_link',
+      object_type: 'activity',
+      object_label: label,
+      source: 'booking_link',
+      source_label: 'Activity booking link',
+      message: label
+        ? `Building an activity booking link for ${label}...`
+        : 'Building an activity booking link...',
+    });
+  }
+
+  return observed({
+    stage: 'thinking',
+    action: 'use_tool',
+    object_type: normalized,
+    message: 'Working through the next step...',
+  });
 }
 
-export function getAppliedToolProgressUpdate(toolName: string | undefined): ChatProgressUpdate {
+export function getAppliedToolProgressUpdate(
+  toolName: string | undefined,
+  toolInput?: unknown
+): ChatProgressUpdate {
   const normalized = normalizeToolName(toolName ?? 'update_trip');
-  return (
-    APPLIED_TOOL_PROGRESS[normalized] ?? {
+  const input = asRecord(toolInput);
+
+  if (normalized === 'update_trip') {
+    return completed({
       stage: 'reviewing',
-      message: 'Saved a trip update.',
-    }
-  );
+      action: 'saved',
+      object_type: 'itinerary',
+      message: 'Saved the itinerary edit.',
+    });
+  }
+  if (normalized === 'update_accommodation') {
+    const label = accommodationLabel(input);
+    return completed({
+      stage: 'reviewing',
+      action: 'saved',
+      object_type: 'accommodation',
+      object_label: label,
+      message: label ? `Saved stay details for ${label}.` : 'Saved the stay details.',
+    });
+  }
+  if (normalized === 'update_accommodation_detail') {
+    return completed({
+      stage: 'reviewing',
+      action: 'saved',
+      object_type: 'accommodation_detail',
+      message: 'Saved the accommodation notes.',
+    });
+  }
+  if (normalized === 'upsert_activity') {
+    const label = activityLabel(input);
+    const dayNumber = numberField(input, 'day_number');
+    return completed({
+      stage: 'reviewing',
+      action: 'saved',
+      object_type: 'activity',
+      object_label: label,
+      message: label
+        ? `Saved ${label}${dayPhrase(dayNumber)}.`
+        : `Saved the activity change${dayPhrase(dayNumber)}.`,
+    });
+  }
+  if (normalized === 'delete_activity') {
+    const label = objectFromMatch(nestedRecord(input, 'match'));
+    const dayNumber = numberField(input, 'day_number');
+    return completed({
+      stage: 'reviewing',
+      action: 'removed',
+      object_type: 'activity',
+      object_label: label,
+      message: label
+        ? `Removed ${label}${dayPhrase(dayNumber)}.`
+        : `Removed the activity${dayPhrase(dayNumber)}.`,
+    });
+  }
+  if (normalized === 'upsert_meal') {
+    const label = mealLabel(input);
+    const dayNumber = numberField(input, 'day_number');
+    return completed({
+      stage: 'reviewing',
+      action: 'saved',
+      object_type: 'restaurant',
+      object_label: label,
+      message: label
+        ? `Saved ${label}${dayPhrase(dayNumber)}.`
+        : `Saved the meal change${dayPhrase(dayNumber)}.`,
+    });
+  }
+  if (normalized === 'delete_meal') {
+    const label = objectFromMatch(nestedRecord(input, 'match'));
+    const dayNumber = numberField(input, 'day_number');
+    return completed({
+      stage: 'reviewing',
+      action: 'removed',
+      object_type: 'restaurant',
+      object_label: label,
+      message: label
+        ? `Removed ${label}${dayPhrase(dayNumber)}.`
+        : `Removed the meal${dayPhrase(dayNumber)}.`,
+    });
+  }
+  if (normalized === 'upsert_transport') {
+    const label = transportLabel(input);
+    const dayNumber = numberField(input, 'day_number');
+    return completed({
+      stage: 'reviewing',
+      action: 'saved',
+      object_type: 'transport',
+      object_label: label,
+      message: label
+        ? `Saved transport: ${label}${dayPhrase(dayNumber)}.`
+        : `Saved the transport leg${dayPhrase(dayNumber)}.`,
+    });
+  }
+  if (normalized === 'delete_transport') {
+    const label = objectFromMatch(nestedRecord(input, 'match'));
+    const dayNumber = numberField(input, 'day_number');
+    return completed({
+      stage: 'reviewing',
+      action: 'removed',
+      object_type: 'transport',
+      object_label: label,
+      message: label
+        ? `Removed transport: ${label}${dayPhrase(dayNumber)}.`
+        : `Removed the transport leg${dayPhrase(dayNumber)}.`,
+    });
+  }
+  if (normalized === 'create_accommodation_candidate') {
+    const label = accommodationLabel(input);
+    return completed({
+      stage: 'reviewing',
+      action: 'created',
+      object_type: 'accommodation_candidate',
+      object_label: label,
+      message: label ? `Added ${label} to accommodation options.` : 'Added the accommodation option.',
+    });
+  }
+  if (normalized === 'update_accommodation_candidate') {
+    const label = accommodationLabel(input);
+    return completed({
+      stage: 'reviewing',
+      action: 'saved',
+      object_type: 'accommodation_candidate',
+      object_label: label,
+      message: label
+        ? `Updated accommodation option: ${label}.`
+        : 'Updated the accommodation shortlist.',
+    });
+  }
+  if (normalized === 'move_accommodation_candidate') {
+    const lane = cleanLabel(input?.lane);
+    return completed({
+      stage: 'reviewing',
+      action: 'moved',
+      object_type: 'accommodation_candidate',
+      object_label: lane,
+      message: lane
+        ? `Moved the accommodation option to ${lane}.`
+        : 'Moved the accommodation option.',
+    });
+  }
+  if (normalized === 'promote_accommodation_candidate') {
+    return completed({
+      stage: 'reviewing',
+      action: 'promoted',
+      object_type: 'accommodation_candidate',
+      message: 'Promoted the booked stay into the trip.',
+    });
+  }
+
+  return completed({
+    stage: 'reviewing',
+    action: 'saved',
+    object_type: 'trip_update',
+    message: 'Saved a trip update.',
+  });
 }

@@ -1,6 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import {
+  clearKnowledgeBundleCache,
   formatAgentKnowledgeContext,
   loadKnowledgeBundle,
   routeAgentKnowledge,
@@ -16,6 +20,37 @@ test('knowledge bundle is OKF-parseable', () => {
   assert.ok(bundle.byId.has('core/intent-ledger-and-completion-audit'));
   assert.ok(bundle.byId.has('ourtrips/tool-use-context'));
   assert.ok(bundle.byId.has('travel/restaurant-reservations/playbook'));
+});
+
+test('ignores local duplicate copy artifacts in knowledge roots', () => {
+  const root = mkdtempSync(join(tmpdir(), 'ourtrips-knowledge-'));
+
+  try {
+    mkdirSync(join(root, 'core'), { recursive: true });
+    mkdirSync(join(root, 'core 2'), { recursive: true });
+    writeFileSync(
+      join(root, 'core', 'canonical.md'),
+      [
+        '---',
+        'type: Playbook',
+        'title: Canonical',
+        '---',
+        '',
+        '# Canonical',
+        '',
+      ].join('\n')
+    );
+    writeFileSync(join(root, 'core 2', 'copy.md'), '# Missing frontmatter\n');
+    writeFileSync(join(root, 'log 2.md'), '# Duplicate log\n');
+
+    clearKnowledgeBundleCache();
+
+    assert.deepEqual(validateKnowledgeBundle(root), []);
+    assert.deepEqual(loadKnowledgeBundle(root).concepts.map((concept) => concept.id), ['core/canonical']);
+  } finally {
+    clearKnowledgeBundleCache();
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test('routes restaurant reservation knowledge with country context', () => {

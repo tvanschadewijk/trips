@@ -1,12 +1,14 @@
 'use client';
 
-import { useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Accessibility,
   ArrowRight,
   BedDouble,
   CalendarDays,
+  ChevronLeft,
+  ChevronRight,
   FileText,
   Gauge,
   IdCard,
@@ -16,6 +18,7 @@ import {
   Trash2,
   UploadCloud,
   Utensils,
+  X,
   UserPlus,
   Users,
 } from 'lucide-react';
@@ -47,9 +50,289 @@ const genderOptions: Array<{ value: TravelerProfile['gender']; label: string }> 
   { value: 'prefer_not_to_say', label: 'Prefer not to say' },
 ];
 
+const dateWeekdays = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
+const dateMonths = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+];
+
+type DateOrder = 'month-first' | 'day-first';
+
+const usStateNames = [
+  'alabama',
+  'alaska',
+  'arizona',
+  'arkansas',
+  'california',
+  'colorado',
+  'connecticut',
+  'delaware',
+  'florida',
+  'georgia',
+  'hawaii',
+  'idaho',
+  'illinois',
+  'indiana',
+  'iowa',
+  'kansas',
+  'kentucky',
+  'louisiana',
+  'maine',
+  'maryland',
+  'massachusetts',
+  'michigan',
+  'minnesota',
+  'mississippi',
+  'missouri',
+  'montana',
+  'nebraska',
+  'nevada',
+  'new hampshire',
+  'new jersey',
+  'new mexico',
+  'new york',
+  'north carolina',
+  'north dakota',
+  'ohio',
+  'oklahoma',
+  'oregon',
+  'pennsylvania',
+  'rhode island',
+  'south carolina',
+  'south dakota',
+  'tennessee',
+  'texas',
+  'utah',
+  'vermont',
+  'virginia',
+  'washington',
+  'west virginia',
+  'wisconsin',
+  'wyoming',
+];
+const usStateCodes = [
+  'AL',
+  'AK',
+  'AZ',
+  'AR',
+  'CA',
+  'CO',
+  'CT',
+  'DE',
+  'FL',
+  'GA',
+  'HI',
+  'ID',
+  'IL',
+  'IN',
+  'IA',
+  'KS',
+  'KY',
+  'LA',
+  'ME',
+  'MD',
+  'MA',
+  'MI',
+  'MN',
+  'MS',
+  'MO',
+  'MT',
+  'NE',
+  'NV',
+  'NH',
+  'NJ',
+  'NM',
+  'NY',
+  'NC',
+  'ND',
+  'OH',
+  'OK',
+  'OR',
+  'PA',
+  'RI',
+  'SC',
+  'SD',
+  'TN',
+  'TX',
+  'UT',
+  'VT',
+  'VA',
+  'WA',
+  'WV',
+  'WI',
+  'WY',
+];
+const usCityNames = [
+  'atlanta',
+  'austin',
+  'boston',
+  'charlotte',
+  'chicago',
+  'dallas',
+  'denver',
+  'houston',
+  'las vegas',
+  'los angeles',
+  'miami',
+  'minneapolis',
+  'nashville',
+  'new orleans',
+  'new york',
+  'orlando',
+  'philadelphia',
+  'phoenix',
+  'portland',
+  'san diego',
+  'san francisco',
+  'seattle',
+  'tampa',
+  'washington dc',
+  'washington d.c.',
+];
+
 function safeNextHref(value: string): string {
-  if (!value.startsWith('/') || value.startsWith('//')) return '/trips/new';
+  if (!value.startsWith('/') || value.startsWith('//')) return '/dashboard?agent=new';
   return value;
+}
+
+function todayIso(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function isoFromParts(year: number, month: number, day: number): string | null {
+  if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) return null;
+  if (year < 1 || month < 1 || month > 12 || day < 1 || day > 31) return null;
+
+  const date = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
+  if (
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() !== month - 1 ||
+    date.getUTCDate() !== day
+  ) {
+    return null;
+  }
+
+  return date.toISOString().slice(0, 10);
+}
+
+function containsLocationWord(value: string, word: string): boolean {
+  const escapedWord = word.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
+  return new RegExp(`(^|[^a-z])${escapedWord}([^a-z]|$)`, 'iu').test(value);
+}
+
+function dateOrderForHomeBase(homeBase: string): DateOrder {
+  const normalized = homeBase.trim().toLowerCase();
+  if (!normalized) return 'day-first';
+
+  if (/\b(u\.?s\.?a?|united states|america)\b/iu.test(normalized)) {
+    return 'month-first';
+  }
+
+  if (usStateNames.some((state) => containsLocationWord(normalized, state))) {
+    return 'month-first';
+  }
+
+  const stateCodePattern = new RegExp(`(^|[\\s,])(${usStateCodes.join('|')})([\\s,]|$)`, 'u');
+  if (stateCodePattern.test(homeBase.toUpperCase())) {
+    return 'month-first';
+  }
+
+  if (usCityNames.some((city) => containsLocationWord(normalized, city))) {
+    return 'month-first';
+  }
+
+  return 'day-first';
+}
+
+function dateInputPlaceholder(dateOrder: DateOrder): string {
+  return dateOrder === 'month-first' ? 'MM/DD/YYYY' : 'DD/MM/YYYY';
+}
+
+function formatDateForInput(value: string, dateOrder: DateOrder): string {
+  if (!value) return '';
+
+  const [year, month, day] = value.split('-');
+  if (!year || !month || !day) return value;
+
+  return dateOrder === 'month-first'
+    ? `${month}/${day}/${year}`
+    : `${day}/${month}/${year}`;
+}
+
+function parseManualDate(value: string, dateOrder: DateOrder = 'day-first'): string | null {
+  const trimmed = value.trim();
+  if (!trimmed) return '';
+
+  const yearFirst = trimmed.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})$/u);
+  if (yearFirst) {
+    return isoFromParts(Number(yearFirst[1]), Number(yearFirst[2]), Number(yearFirst[3]));
+  }
+
+  const dayOrMonthFirst = trimmed.match(/^(\d{1,2})[-/. ](\d{1,2})[-/. ](\d{4})$/u);
+  if (!dayOrMonthFirst) return null;
+
+  const first = Number(dayOrMonthFirst[1]);
+  const second = Number(dayOrMonthFirst[2]);
+  const year = Number(dayOrMonthFirst[3]);
+  const firstMustBeDay = first > 12 && second <= 12;
+  const secondMustBeDay = second > 12 && first <= 12;
+  const isMonthFirst = secondMustBeDay || dateOrder === 'month-first';
+  const month = firstMustBeDay ? second : isMonthFirst ? first : second;
+  const day = firstMustBeDay ? first : isMonthFirst ? second : first;
+
+  return isoFromParts(year, month, day);
+}
+
+function dateFromIso(value: string): Date {
+  const [year, month, day] = value.split('-').map(Number);
+  return new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
+}
+
+function formatIsoDate(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
+function monthStartIso(value: string): string {
+  const iso = parseManualDate(value);
+  const fallback = iso || todayIso();
+  return `${fallback.slice(0, 7)}-01`;
+}
+
+function addMonthsIso(value: string, months: number): string {
+  const date = dateFromIso(value);
+  date.setUTCMonth(date.getUTCMonth() + months, 1);
+  return formatIsoDate(date);
+}
+
+function compareIsoDates(a: string, b: string): number {
+  return a.localeCompare(b);
+}
+
+function isWithinDateBounds(value: string, minDate?: string, maxDate?: string): boolean {
+  if (minDate && compareIsoDates(value, minDate) < 0) return false;
+  if (maxDate && compareIsoDates(value, maxDate) > 0) return false;
+  return true;
+}
+
+function clampMonthToBounds(value: string, minDate?: string, maxDate?: string): string {
+  const monthStart = monthStartIso(value);
+  if (minDate && compareIsoDates(monthStart, monthStartIso(minDate)) < 0) {
+    return monthStartIso(minDate);
+  }
+  if (maxDate && compareIsoDates(monthStart, monthStartIso(maxDate)) > 0) {
+    return monthStartIso(maxDate);
+  }
+  return monthStart;
 }
 
 export default function TravelProfileForm({ initialPreferences, initialSources, nextHref }: Props) {
@@ -192,6 +475,8 @@ export default function TravelProfileForm({ initialPreferences, initialSources, 
     }
   }
 
+  const dateOrder = dateOrderForHomeBase(preferences.home_base);
+
   return (
     <form className="profile-form" onSubmit={submit}>
       <section className="profile-panel profile-panel-main">
@@ -208,6 +493,7 @@ export default function TravelProfileForm({ initialPreferences, initialSources, 
           onAdd={addTraveler}
           onChange={updateTraveler}
           onRemove={removeTraveler}
+          dateOrder={dateOrder}
         />
 
         <div className="profile-grid-two">
@@ -397,11 +683,13 @@ function TravelerProfilesEditor({
   onAdd,
   onChange,
   onRemove,
+  dateOrder,
 }: {
   profiles: TravelerProfile[];
   onAdd: () => void;
   onChange: <K extends keyof TravelerProfile>(index: number, key: K, value: TravelerProfile[K]) => void;
   onRemove: (index: number) => void;
+  dateOrder: DateOrder;
 }) {
   return (
     <section className="profile-travelers">
@@ -446,15 +734,19 @@ function TravelerProfilesEditor({
                     autoComplete="name"
                   />
                 </label>
-                <label className="profile-field">
+                <div className="profile-field">
                   <span><CalendarDays size={14} aria-hidden="true" /> Date of birth</span>
-                  <input
-                    type="date"
+                  <ProfileDateInput
                     value={profile.date_of_birth}
-                    onChange={(event) => onChange(index, 'date_of_birth', event.target.value)}
+                    onChange={(value) => onChange(index, 'date_of_birth', value)}
                     autoComplete="bday"
+                    ariaLabel={`${profile.full_name || `Traveler ${index + 1}`} date of birth`}
+                    defaultDisplayDate="1990-01-01"
+                    dateOrder={dateOrder}
+                    minDate="1900-01-01"
+                    maxDate={todayIso()}
                   />
-                </label>
+                </div>
               </div>
 
               <div className="profile-grid-two">
@@ -502,14 +794,17 @@ function TravelerProfilesEditor({
               </div>
 
               <div className="profile-grid-two">
-                <label className="profile-field">
+                <div className="profile-field">
                   <span><CalendarDays size={14} aria-hidden="true" /> Passport expiry</span>
-                  <input
-                    type="date"
+                  <ProfileDateInput
                     value={profile.passport_expiry}
-                    onChange={(event) => onChange(index, 'passport_expiry', event.target.value)}
+                    onChange={(value) => onChange(index, 'passport_expiry', value)}
+                    autoComplete="off"
+                    ariaLabel={`${profile.full_name || `Traveler ${index + 1}`} passport expiry`}
+                    defaultDisplayDate={todayIso()}
+                    dateOrder={dateOrder}
                   />
-                </label>
+                </div>
                 <label className="profile-field">
                   <span>Traveler notes</span>
                   <input
@@ -524,6 +819,286 @@ function TravelerProfilesEditor({
         </div>
       )}
     </section>
+  );
+}
+
+function ProfileDateInput({
+  value,
+  onChange,
+  ariaLabel,
+  autoComplete,
+  defaultDisplayDate,
+  dateOrder,
+  minDate,
+  maxDate,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  ariaLabel: string;
+  autoComplete?: string;
+  defaultDisplayDate: string;
+  dateOrder: DateOrder;
+  minDate?: string;
+  maxDate?: string;
+}) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [open, setOpen] = useState(false);
+  const [inputValue, setInputValue] = useState(formatDateForInput(value, dateOrder));
+  const [invalid, setInvalid] = useState(false);
+  const [displayMonth, setDisplayMonth] = useState(
+    clampMonthToBounds(value || defaultDisplayDate, minDate, maxDate)
+  );
+
+  useEffect(() => {
+    setInputValue(formatDateForInput(value, dateOrder));
+    setInvalid(false);
+    if (value) {
+      setDisplayMonth(clampMonthToBounds(value, minDate, maxDate));
+    }
+  }, [dateOrder, defaultDisplayDate, maxDate, minDate, value]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    function closeOnOutsidePointer(event: PointerEvent) {
+      if (!containerRef.current?.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    }
+
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setOpen(false);
+      }
+    }
+
+    document.addEventListener('pointerdown', closeOnOutsidePointer);
+    document.addEventListener('keydown', closeOnEscape);
+
+    return () => {
+      document.removeEventListener('pointerdown', closeOnOutsidePointer);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [open]);
+
+  const monthDate = dateFromIso(displayMonth);
+  const selectedMonth = monthDate.getUTCMonth();
+  const selectedYear = monthDate.getUTCFullYear();
+  const today = todayIso();
+
+  const yearOptions = useMemo(() => {
+    const currentYear = dateFromIso(todayIso()).getUTCFullYear();
+    const minYear = minDate ? dateFromIso(minDate).getUTCFullYear() : Math.min(selectedYear, currentYear - 20);
+    const maxYear = maxDate ? dateFromIso(maxDate).getUTCFullYear() : Math.max(selectedYear, currentYear + 20);
+
+    return Array.from({ length: maxYear - minYear + 1 }, (_, index) => minYear + index);
+  }, [maxDate, minDate, selectedYear]);
+
+  const cells = useMemo(() => {
+    const firstDay = new Date(Date.UTC(selectedYear, selectedMonth, 1, 12, 0, 0));
+    const mondayOffset = (firstDay.getUTCDay() + 6) % 7;
+    const gridStart = new Date(firstDay);
+    gridStart.setUTCDate(firstDay.getUTCDate() - mondayOffset);
+
+    return Array.from({ length: 42 }, (_, index) => {
+      const date = new Date(gridStart);
+      date.setUTCDate(gridStart.getUTCDate() + index);
+      const iso = formatIsoDate(date);
+
+      return {
+        iso,
+        day: date.getUTCDate(),
+        disabled: !isWithinDateBounds(iso, minDate, maxDate),
+        isCurrentMonth: date.getUTCMonth() === selectedMonth,
+        isSelected: iso === value,
+        isToday: iso === today,
+      };
+    });
+  }, [maxDate, minDate, selectedMonth, selectedYear, today, value]);
+
+  function commitInput(rawValue: string): boolean {
+    const parsed = parseManualDate(rawValue, dateOrder);
+    if (parsed === '') {
+      setInputValue('');
+      setInvalid(false);
+      onChange('');
+      return true;
+    }
+
+    if (parsed && isWithinDateBounds(parsed, minDate, maxDate)) {
+      setInputValue(formatDateForInput(parsed, dateOrder));
+      setInvalid(false);
+      setDisplayMonth(clampMonthToBounds(parsed, minDate, maxDate));
+      onChange(parsed);
+      return true;
+    }
+
+    setInvalid(true);
+    return false;
+  }
+
+  function updateCalendarMonth(nextMonth: number, nextYear: number) {
+    const next = isoFromParts(nextYear, nextMonth + 1, 1);
+    if (next) {
+      setDisplayMonth(clampMonthToBounds(next, minDate, maxDate));
+    }
+  }
+
+  function selectDate(iso: string, disabled: boolean) {
+    if (disabled) return;
+    setInputValue(formatDateForInput(iso, dateOrder));
+    setInvalid(false);
+    setDisplayMonth(clampMonthToBounds(iso, minDate, maxDate));
+    onChange(iso);
+    setOpen(false);
+  }
+
+  return (
+    <div
+      ref={containerRef}
+      className={[
+        'profile-date-input',
+        open ? 'is-open' : '',
+        invalid ? 'is-invalid' : '',
+      ].filter(Boolean).join(' ')}
+    >
+      <div className="profile-date-input-row">
+        <input
+          type="text"
+          inputMode="numeric"
+          value={inputValue}
+          placeholder={dateInputPlaceholder(dateOrder)}
+          aria-label={ariaLabel}
+          aria-invalid={invalid}
+          autoComplete={autoComplete}
+          onFocus={() => setOpen(true)}
+          onChange={(event) => {
+            const nextValue = event.target.value;
+            setInputValue(nextValue);
+            setInvalid(false);
+
+            const trimmed = nextValue.trim();
+            const parsed = parseManualDate(nextValue, dateOrder);
+            if (parsed === '') {
+              onChange('');
+              return;
+            }
+            if (trimmed.length >= 10 && parsed && isWithinDateBounds(parsed, minDate, maxDate)) {
+              onChange(parsed);
+              setDisplayMonth(clampMonthToBounds(parsed, minDate, maxDate));
+            }
+          }}
+          onBlur={(event) => commitInput(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') {
+              event.preventDefault();
+              if (commitInput(event.currentTarget.value)) {
+                setOpen(false);
+              }
+            }
+            if (event.key === 'ArrowDown') {
+              event.preventDefault();
+              setOpen(true);
+            }
+          }}
+        />
+        {value && (
+          <button
+            className="profile-date-clear"
+            type="button"
+            aria-label={`Clear ${ariaLabel}`}
+            onClick={() => {
+              setInputValue('');
+              setInvalid(false);
+              onChange('');
+            }}
+          >
+            <X size={14} aria-hidden="true" />
+          </button>
+        )}
+        <button
+          className="profile-date-toggle"
+          type="button"
+          aria-label={`Open ${ariaLabel} calendar`}
+          aria-expanded={open}
+          onClick={() => {
+            setDisplayMonth(clampMonthToBounds(value || defaultDisplayDate, minDate, maxDate));
+            setOpen((current) => !current);
+          }}
+        >
+          <CalendarDays size={16} aria-hidden="true" />
+        </button>
+      </div>
+
+      {open && (
+        <div className="profile-date-popover">
+          <div className="profile-date-popover-header">
+            <button
+              type="button"
+              aria-label="Previous month"
+              onClick={() => setDisplayMonth((current) => clampMonthToBounds(addMonthsIso(current, -1), minDate, maxDate))}
+              disabled={minDate ? compareIsoDates(addMonthsIso(displayMonth, -1), monthStartIso(minDate)) < 0 : false}
+            >
+              <ChevronLeft size={16} aria-hidden="true" />
+            </button>
+            <strong>{dateMonths[selectedMonth]} {selectedYear}</strong>
+            <button
+              type="button"
+              aria-label="Next month"
+              onClick={() => setDisplayMonth((current) => clampMonthToBounds(addMonthsIso(current, 1), minDate, maxDate))}
+              disabled={maxDate ? compareIsoDates(addMonthsIso(displayMonth, 1), monthStartIso(maxDate)) > 0 : false}
+            >
+              <ChevronRight size={16} aria-hidden="true" />
+            </button>
+          </div>
+
+          <div className="profile-date-month-controls">
+            <select
+              aria-label="Month"
+              value={selectedMonth}
+              onChange={(event) => updateCalendarMonth(Number(event.target.value), selectedYear)}
+            >
+              {dateMonths.map((month, index) => (
+                <option key={month} value={index}>{month}</option>
+              ))}
+            </select>
+            <select
+              aria-label="Year"
+              value={selectedYear}
+              onChange={(event) => updateCalendarMonth(selectedMonth, Number(event.target.value))}
+            >
+              {yearOptions.map((year) => (
+                <option key={year} value={year}>{year}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="profile-date-weekdays">
+            {dateWeekdays.map((day) => (
+              <span key={day}>{day}</span>
+            ))}
+          </div>
+
+          <div className="profile-date-grid">
+            {cells.map((cell) => (
+              <button
+                key={cell.iso}
+                type="button"
+                disabled={cell.disabled}
+                className={[
+                  cell.isCurrentMonth ? '' : 'is-muted',
+                  cell.isSelected ? 'is-selected' : '',
+                  cell.isToday ? 'is-today' : '',
+                ].filter(Boolean).join(' ')}
+                onClick={() => selectDate(cell.iso, cell.disabled)}
+              >
+                {cell.day}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 

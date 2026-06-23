@@ -1,8 +1,9 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { ArrowLeft, ExternalLink } from 'lucide-react';
+import { DollarSign, ExternalLink } from 'lucide-react';
 
+import AppTopBar from '@/components/ui/AppTopBar';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { formatTripLogisticsLedgerForRead } from '@/lib/trip-service';
@@ -123,23 +124,24 @@ export default async function AdminLogisticsPage({
 
   return (
     <div className="admin admin-logistics">
-      <nav className="admin-nav">
-        <div className="admin-nav-inner admin-logistics-nav-inner">
-          <div className="admin-nav-left">
-            <Link href="/admin" className="admin-nav-back" title="Back to analytics">
-              <ArrowLeft size={18} aria-hidden="true" />
+      <AppTopBar
+        href="/admin"
+        suffix="Admin · Trip Logistics"
+        actions={
+          <div className="admin-nav-links">
+            <Link href="/admin/costs" className="admin-logistics-trip-link">
+              <DollarSign size={14} aria-hidden="true" />
+              Costs
             </Link>
-            <span className="admin-nav-title">Trip Logistics</span>
-            <span className="admin-nav-badge">Admin</span>
+            {ledger ? (
+              <Link href={`/t/${ledger.share_id}`} className="admin-logistics-trip-link">
+                Open trip
+                <ExternalLink size={14} aria-hidden="true" />
+              </Link>
+            ) : null}
           </div>
-          {ledger ? (
-            <Link href={`/t/${ledger.share_id}`} className="admin-logistics-trip-link">
-              Open trip
-              <ExternalLink size={14} aria-hidden="true" />
-            </Link>
-          ) : null}
-        </div>
-      </nav>
+        }
+      />
 
       <main className="admin-main admin-logistics-main">
         <section className="admin-logistics-hero">

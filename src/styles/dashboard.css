@@ -196,19 +196,30 @@
   justify-content: center;
   gap: 8px;
   min-height: 38px;
+  border: 1px solid transparent;
   border-radius: 999px;
   padding: 9px 14px;
   text-decoration: none;
+  font-family: 'Inter', system-ui, sans-serif;
   font-size: 13px;
   font-weight: 580;
   line-height: 1;
   white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.1s;
 }
 .dash-new-trip-btn {
-  background: #C14F2A;
-  color: #FBF7F1;
+  background: #FFFFFF;
+  color: #1A1410;
+  border-color: #E8E1D6;
+  box-shadow: rgba(26, 20, 16, 0.06) 0 6px 16px -10px, rgba(26, 20, 16, 0.04) 0 1px 0 0;
 }
-.dash-new-trip-btn:hover { background: #A03E1F; }
+.dash-new-trip-btn:hover {
+  background: #F4EDE2;
+  border-color: #D4C8B4;
+}
+.dash-new-trip-btn:active { transform: translateY(1px); }
+.dash-new-trip-btn svg { color: #C14F2A; }
 .dash-profile-link {
   background: #F4EDE2;
   color: #1A1410;
@@ -419,167 +430,6 @@
   border-radius: 999px;
 }
 .dash-card-saved svg { opacity: 0.95; }
-.dash-card-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 16px;
-  background: #C14F2A;
-  color: #FBF7F1;
-  font-family: 'Inter', system-ui, sans-serif;
-  font-size: 12px;
-  font-weight: 580;
-  letter-spacing: -0.005em;
-  border: none;
-  border-radius: 999px;
-  cursor: pointer;
-  text-decoration: none;
-  transition: background 0.15s, transform 0.12s;
-}
-.dash-card-btn:hover { background: #A03E1F; }
-.dash-card-btn:active { transform: translateY(1px); }
-.dash-card-btn svg { width: 13px; height: 13px; }
-.dash-card-btn.copied { background: #2F6B4A; color: #FBF7F1; }
-
-/* Card three-dot menu */
-.dash-card-menu-wrap {
-  position: absolute; top: 12px; right: 12px; z-index: 5;
-}
-.dash-card-menu-btn {
-  display: flex; align-items: center; justify-content: center;
-  width: 32px; height: 32px; border-radius: 999px;
-  border: none; cursor: pointer;
-  background: rgba(251, 247, 241, 0.92); color: #1A1410;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  transition: background 0.15s, transform 0.1s;
-}
-.dash-card-menu-btn:hover { background: #FBF7F1; }
-.dash-card-menu-btn:active { transform: scale(0.92); }
-.dash-card-menu-backdrop {
-  position: fixed; inset: 0; z-index: 9;
-}
-.dash-card-menu {
-  position: absolute; top: 38px; right: 0; z-index: 10;
-  min-width: 260px;
-  background: #FFFFFF;
-  border: 1px solid #E8E1D6;
-  border-radius: 6px; padding: 4px;
-  box-shadow: rgba(26, 20, 16, 0.10) 0 16px 40px -10px, rgba(26, 20, 16, 0.04) 0 1px 0 0;
-  animation: dash-menu-in 0.15s ease-out;
-}
-.dash-card-menu-item {
-  display: flex; align-items: center; gap: 10px;
-  width: 100%; padding: 10px 12px;
-  background: none; border: none; border-radius: 4px;
-  color: #1A1410; font-family: 'Inter', system-ui, sans-serif;
-  font-size: 13px; font-weight: 520; cursor: pointer;
-  transition: background 0.15s;
-  text-align: left;
-}
-.dash-card-menu-item:hover { background: #F4EDE2; }
-.dash-card-menu-item-danger { color: #C14F2A; }
-.dash-card-menu-item-danger:hover { background: rgba(193, 79, 42, 0.10); color: #A03E1F; }
-
-.dash-card-menu-section {
-  padding: 10px 12px 4px;
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: #C14F2A;
-}
-.dash-card-menu-divider {
-  height: 1px;
-  background: #E8E1D6;
-  margin: 6px 8px;
-}
-.dash-card-menu-item.is-active { background: #FBF7F1; }
-.dash-card-menu-check {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  width: 14px;
-  height: 14px;
-  text-align: center;
-  color: #C14F2A;
-  font-size: 13px;
-  line-height: 1;
-}
-.dash-card-menu-label {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-.dash-card-menu-label-name {
-  font-weight: 580;
-  color: #1A1410;
-}
-.dash-card-menu-label-hint {
-  font-family: 'Fraunces', 'Iowan Old Style', 'Palatino', 'Georgia', serif;
-  font-style: italic;
-  font-size: 12px;
-  font-weight: 360;
-  color: #6B6157;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* Delete confirmation */
-.dash-confirm-overlay {
-  position: fixed; inset: 0; z-index: 200;
-  display: flex; align-items: center; justify-content: center;
-}
-.dash-confirm-backdrop {
-  position: absolute; inset: 0;
-  background: rgba(26, 20, 16, 0.32); backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
-  animation: share-fade-in 0.2s ease-out;
-}
-.dash-confirm-dialog {
-  position: relative; z-index: 1;
-  width: 90%; max-width: 360px;
-  background: #FFFFFF;
-  border: 1px solid #E8E1D6;
-  border-radius: 6px; padding: 28px;
-  box-shadow: rgba(26, 20, 16, 0.14) 0 24px 60px -12px;
-  animation: dash-menu-in 0.2s ease-out;
-}
-.dash-confirm-title {
-  font-family: 'Fraunces', 'Iowan Old Style', 'Palatino', 'Georgia', serif;
-  font-optical-sizing: auto;
-  font-size: 22px; font-weight: 420;
-  letter-spacing: -0.012em;
-  color: #1A1410;
-  margin-bottom: 10px;
-}
-.dash-confirm-message {
-  font-family: 'Inter', system-ui, sans-serif;
-  font-size: 14px; color: #3D352E;
-  line-height: 1.55; margin: 0 0 24px;
-}
-.dash-confirm-actions {
-  display: flex; gap: 10px; justify-content: flex-end;
-}
-.dash-confirm-btn {
-  padding: 11px 22px; border: none; border-radius: 999px;
-  font-family: 'Inter', system-ui, sans-serif;
-  font-size: 14px; font-weight: 580; cursor: pointer;
-  transition: background 0.15s, transform 0.1s;
-}
-.dash-confirm-btn:active { transform: scale(0.97); }
-.dash-confirm-btn:disabled { opacity: 0.5; cursor: wait; }
-.dash-confirm-cancel {
-  background: #F4EDE2; color: #1A1410;
-}
-.dash-confirm-cancel:hover { background: #E8E1D6; }
-.dash-confirm-delete {
-  background: #C14F2A; color: #FBF7F1;
-}
-.dash-confirm-delete:hover { background: #A03E1F; }
 
 /* Empty state (legacy) */
 .dash-empty {
@@ -838,13 +688,16 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  border: 0;
+  border-bottom: 1px solid #C14F2A;
+  background: transparent;
   font-family: 'Inter', system-ui, sans-serif;
   font-size: 14px;
   font-weight: 580;
   color: #1A1410;
+  cursor: pointer;
   text-decoration: none;
   padding: 0 0 4px;
-  border-bottom: 1px solid #C14F2A;
   transition: color 0.15s, border-color 0.15s;
 }
 .dash-onboard-demo-link:hover { color: #C14F2A; border-color: #A03E1F; }

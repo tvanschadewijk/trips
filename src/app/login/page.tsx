@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import LogoSuffix from '@/components/ui/LogoSuffix';
+import AppTopBar from '@/components/ui/AppTopBar';
 import { getLocalPreviewTrips, isLocalPreviewWithoutSupabase } from '@/lib/local-preview';
 import { publicItineraries } from '@/lib/public-itineraries';
 import { createClient, isSupabaseConfigured } from '@/lib/supabase/client';
@@ -63,9 +62,7 @@ export default function LoginPage() {
 
   return (
     <div className="login">
-      <nav className="login-nav">
-        <Link href="/" className="login-logo">OurTrips<LogoSuffix /></Link>
-      </nav>
+      <AppTopBar suffix="Sign in" />
 
       <main className="login-table" aria-label="OurTrips sign in">
         <div className="login-itinerary-cards" aria-hidden="true">

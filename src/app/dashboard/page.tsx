@@ -1,19 +1,16 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   ArrowRight,
   ChartLine,
   Check,
-  Ellipsis,
-  Link as LinkIcon,
   LogOut,
   Map as MapIcon,
   Plus,
   Settings,
-  Trash2,
   UserRound,
   WifiOff,
 } from 'lucide-react';
@@ -28,7 +25,14 @@ import { getTripOverviewImageUrl } from '@/lib/trip-images';
 import { useSavedTripIds } from '@/lib/offline';
 import { useOnlineStatus } from '@/lib/online-status';
 import { isPublicItineraryShareId } from '@/lib/public-itineraries';
+import AppTopBar from '@/components/ui/AppTopBar';
+import NewTripCreator from '@/components/trips/NewTripCreator';
+import {
+  normalizeTravelProfilePreferences,
+  type TravelProfilePreferences,
+} from '@/lib/travel-profile';
 import '@/styles/dashboard.css';
+import '@/styles/trip-create.css';
 
 interface DashTrip {
   id: string;
@@ -39,6 +43,10 @@ interface DashTrip {
   created_at: string;
   updated_at: string;
 }
+
+const NEW_TRIP_AGENT_HREF = '/dashboard?agent=new';
+const DASHBOARD_PROFILE_HREF = `/onboarding?next=${encodeURIComponent('/dashboard')}`;
+const NEW_TRIP_PROFILE_HREF = `/onboarding?next=${encodeURIComponent(NEW_TRIP_AGENT_HREF)}`;
 
 function normalizeDashTrip(trip: DashTrip): DashTrip {
   return {
@@ -68,18 +76,26 @@ export default function DashboardPage() {
     if (typeof window !== 'undefined') return sessionStorage.getItem('dash-email') || null;
     return null;
   });
-  const [copied, setCopied] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [cardMenuOpen, setCardMenuOpen] = useState<string | null>(null);
-  const cardMenuRef = useRef<HTMLDivElement | null>(null);
-  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
-  const [deleting, setDeleting] = useState(false);
   const [loading, setLoading] = useState(() => {
     if (typeof window !== 'undefined' && sessionStorage.getItem('dash-trips')) return false;
     return true;
   });
   const [isAdmin, setIsAdmin] = useState(false);
-  const [travelProfileComplete, setTravelProfileComplete] = useState(false);
+  const [travelProfileComplete, setTravelProfileComplete] = useState(() => {
+    if (typeof window !== 'undefined') return sessionStorage.getItem('dash-travel-profile-complete') === 'true';
+    return false;
+  });
+  const [travelPreferences, setTravelPreferences] = useState<TravelProfilePreferences>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = sessionStorage.getItem('dash-travel-profile-preferences');
+        if (cached) return normalizeTravelProfilePreferences(JSON.parse(cached));
+      } catch {}
+    }
+    return normalizeTravelProfilePreferences(null);
+  });
+  const [newTripAgentOpen, setNewTripAgentOpen] = useState(false);
   const savedOfflineIds = useSavedTripIds();
   const online = useOnlineStatus();
   const personalTrips = trips.filter(t => !isPublicItineraryShareId(t.share_id));
@@ -115,11 +131,15 @@ export default function DashboardPage() {
   const loadTrips = useCallback(async () => {
     if (isLocalPreviewWithoutSupabase()) {
       const localTrips = getLocalPreviewTrips();
+      const localPreferences = normalizeTravelProfilePreferences(null);
       setTrips(localTrips);
       setEmail('local-preview@example.com');
       setTravelProfileComplete(true);
+      setTravelPreferences(localPreferences);
       sessionStorage.setItem('dash-email', 'local-preview@example.com');
       sessionStorage.setItem('dash-trips', JSON.stringify(localTrips));
+      sessionStorage.setItem('dash-travel-profile-complete', 'true');
+      sessionStorage.setItem('dash-travel-profile-preferences', JSON.stringify(localPreferences));
       setLoading(false);
       return;
     }
@@ -145,10 +165,14 @@ export default function DashboardPage() {
 
     const { data: travelProfile } = await supabase
       .from('travel_profiles')
-      .select('onboarding_completed_at')
+      .select('onboarding_completed_at, preferences')
       .eq('user_id', user.id)
       .maybeSingle();
+    const nextTravelPreferences = normalizeTravelProfilePreferences(travelProfile?.preferences);
     setTravelProfileComplete(Boolean(travelProfile?.onboarding_completed_at));
+    setTravelPreferences(nextTravelPreferences);
+    sessionStorage.setItem('dash-travel-profile-complete', String(Boolean(travelProfile?.onboarding_completed_at)));
+    sessionStorage.setItem('dash-travel-profile-preferences', JSON.stringify(nextTravelPreferences));
 
     // Try with share_mode (post-migration). If the column doesn't exist
     // yet, retry without it and default every trip to 'companion' — keeps
@@ -194,28 +218,26 @@ export default function DashboardPage() {
     });
   }, [loadTrips]);
 
-
   useEffect(() => {
-    if (!cardMenuOpen) return;
-
-    function closeCardMenuOnOutsidePointer(event: PointerEvent) {
-      const target = event.target;
-      if (target instanceof Node && cardMenuRef.current?.contains(target)) return;
-      setCardMenuOpen(null);
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('agent') === 'new') {
+      queueMicrotask(() => setNewTripAgentOpen(true));
     }
+  }, []);
 
-    document.addEventListener('pointerdown', closeCardMenuOnOutsidePointer, true);
-    return () => {
-      document.removeEventListener('pointerdown', closeCardMenuOnOutsidePointer, true);
-    };
-  }, [cardMenuOpen]);
+  function openNewTripAgent() {
+    setNewTripAgentOpen(true);
+  }
 
-  function copyLink(shareId: string) {
-    const url = `${window.location.origin}/t/${shareId}`;
-    navigator.clipboard.writeText(url).then(() => {
-      setCopied(shareId);
-      setTimeout(() => setCopied(null), 2000);
-    });
+  function handleNewTripAgentOpenChange(nextOpen: boolean) {
+    setNewTripAgentOpen(nextOpen);
+    if (nextOpen || typeof window === 'undefined') return;
+
+    const currentUrl = new URL(window.location.href);
+    if (currentUrl.pathname === '/dashboard' && currentUrl.searchParams.get('agent') === 'new') {
+      router.replace('/dashboard', { scroll: false });
+    }
   }
 
   async function handleSignOut() {
@@ -229,62 +251,6 @@ export default function DashboardPage() {
     const supabase = createClient();
     await supabase.auth.signOut();
     router.push('/');
-  }
-
-  async function handleShareModeChange(tripId: string, next: 'private' | 'companion' | 'remix') {
-    // Optimistic — flip locally so the menu's checkmark updates instantly.
-    const prev = trips.find(t => t.id === tripId)?.share_mode;
-    if (prev === next) return;
-    const updated = trips.map(t => t.id === tripId ? { ...t, share_mode: next } : t);
-    setTrips(updated);
-    sessionStorage.setItem('dash-trips', JSON.stringify(updated));
-    if (isLocalPreviewWithoutSupabase()) return;
-
-    const res = await fetch(`/api/trips/${tripId}/share-mode`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ share_mode: next }),
-    });
-    if (!res.ok) {
-      // Revert on failure.
-      const reverted = trips.map(t => t.id === tripId && prev ? { ...t, share_mode: prev } : t);
-      setTrips(reverted);
-      sessionStorage.setItem('dash-trips', JSON.stringify(reverted));
-    }
-  }
-
-  async function handleDelete(tripId: string) {
-    setDeleting(true);
-    if (isLocalPreviewWithoutSupabase()) {
-      const updated = trips.filter(t => t.id !== tripId);
-      setTrips(updated);
-      sessionStorage.setItem('dash-trips', JSON.stringify(updated));
-      setDeleting(false);
-      setDeleteConfirm(null);
-      return;
-    }
-
-    const supabase = createClient();
-    const { error } = await supabase.from('trips').delete().eq('id', tripId);
-    if (!error) {
-      const updated = trips.filter(t => t.id !== tripId);
-      setTrips(updated);
-      sessionStorage.setItem('dash-trips', JSON.stringify(updated));
-    }
-    setDeleting(false);
-    setDeleteConfirm(null);
-  }
-
-  function shareModeLabel(mode: 'private' | 'companion' | 'remix'): string {
-    if (mode === 'private') return 'Private';
-    if (mode === 'remix') return 'Remix link';
-    return 'Companion link';
-  }
-
-  function shareModeHint(mode: 'private' | 'companion' | 'remix'): string {
-    if (mode === 'private') return 'Link is off';
-    if (mode === 'remix') return 'Public, PII removed, others can remix';
-    return 'Anyone with the link sees full bookings';
   }
 
   function formatDate(dateStr: string) {
@@ -316,12 +282,9 @@ export default function DashboardPage() {
 
   return (
     <div className="dash">
-      <nav className="dash-nav">
-        <div className="dash-nav-inner">
-          <Link href="/" className="dash-logo" aria-label="OurTrips home">
-            <span className="dash-logo-word">OurTrips<span className="logo-to">.To</span></span>
-            <span className="logo-suffix">{personalTrips.length > 0 ? `${personalTrips[0].name}${personalTrips.length > 1 ? ` and ${personalTrips.length - 1} more` : ''}` : '?'}</span>
-          </Link>
+      <AppTopBar
+        suffix={personalTrips.length > 0 ? `${personalTrips[0].name}${personalTrips.length > 1 ? ` and ${personalTrips.length - 1} more` : ''}` : '?'}
+        actions={
           <div className="dash-nav-right">
             <button className="dash-settings-btn" onClick={() => setSettingsOpen(!settingsOpen)} aria-label="Settings">
               <Settings size={20} aria-hidden="true" />
@@ -339,7 +302,7 @@ export default function DashboardPage() {
                     </Link>
                   )}
                   {online && (
-                    <Link href="/onboarding?next=/dashboard" className="dash-settings-item" onClick={() => setSettingsOpen(false)}>
+                    <Link href={DASHBOARD_PROFILE_HREF} className="dash-settings-item" onClick={() => setSettingsOpen(false)}>
                       <UserRound size={16} aria-hidden="true" />
                       Travel profile
                     </Link>
@@ -363,8 +326,8 @@ export default function DashboardPage() {
               </>
             )}
           </div>
-        </div>
-      </nav>
+        }
+      />
 
       <main className="dash-main">
         {!online && (
@@ -384,16 +347,14 @@ export default function DashboardPage() {
           </div>
           {online && (
             <div className="dash-header-actions">
-              {!travelProfileComplete && (
-                <Link href="/onboarding?next=/trips/new" className="dash-profile-link">
-                  <UserRound size={15} aria-hidden="true" />
-                  Travel profile
-                </Link>
-              )}
-              <Link href="/trips/new" className="dash-new-trip-btn">
+              <Link href={DASHBOARD_PROFILE_HREF} className="dash-profile-link">
+                <UserRound size={15} aria-hidden="true" />
+                Travel profile
+              </Link>
+              <button type="button" className="dash-new-trip-btn" onClick={openNewTripAgent}>
                 <Plus size={16} aria-hidden="true" />
                 New trip
-              </Link>
+              </button>
             </div>
           )}
         </div>
@@ -421,7 +382,7 @@ export default function DashboardPage() {
                   <p className="dash-onboard-step-desc">
                     Set pace, food, lodging, transport, and practical preferences once.
                   </p>
-                  <Link href="/onboarding?next=/trips/new" className="dash-onboard-action-link">
+                  <Link href={NEW_TRIP_PROFILE_HREF} className="dash-onboard-action-link">
                     {travelProfileComplete ? 'Review profile' : 'Start profile'}
                     <ArrowRight size={14} aria-hidden="true" />
                   </Link>
@@ -450,10 +411,17 @@ export default function DashboardPage() {
             </div>
 
             <div className="dash-onboard-footer">
-              <Link href={travelProfileComplete ? '/trips/new' : '/onboarding?next=/trips/new'} className="dash-onboard-demo-link">
-                {travelProfileComplete ? 'Create a trip' : 'Create travel profile'}
-                <ArrowRight size={14} aria-hidden="true" />
-              </Link>
+              {travelProfileComplete ? (
+                <button type="button" className="dash-onboard-demo-link" onClick={openNewTripAgent}>
+                  Create a trip
+                  <ArrowRight size={14} aria-hidden="true" />
+                </button>
+              ) : (
+                <Link href={NEW_TRIP_PROFILE_HREF} className="dash-onboard-demo-link">
+                  Create travel profile
+                  <ArrowRight size={14} aria-hidden="true" />
+                </Link>
+              )}
             </div>
           </div>
         ) : (
@@ -468,10 +436,8 @@ export default function DashboardPage() {
               const endD = new Date(t.dates.end + 'T12:00:00');
               const nights = Math.round((endD.getTime() - startD.getTime()) / 86400000);
 
-              const menuOpen = cardMenuOpen === trip.id;
-
               return (
-                <div key={trip.id} className={`dash-card ${menuOpen ? 'is-menu-open' : ''}`}>
+                <div key={trip.id} className="dash-card">
                   <Link
                     href={`/t/${trip.share_id}`}
                     className="dash-card-link"
@@ -521,45 +487,6 @@ export default function DashboardPage() {
                       </div>
                     </div>
                   </Link>
-                  <div className="dash-card-menu-wrap" ref={menuOpen ? cardMenuRef : undefined}>
-                    <button
-                      className="dash-card-menu-btn"
-                      onClick={(e) => { e.stopPropagation(); setCardMenuOpen(cardMenuOpen === trip.id ? null : trip.id); }}
-                      aria-label="Trip options"
-                      aria-expanded={menuOpen}
-                    >
-                      <Ellipsis size={16} aria-hidden="true" />
-                    </button>
-                    {menuOpen && (
-                      <>
-                        <div className="dash-card-menu-backdrop" onClick={() => setCardMenuOpen(null)} />
-                        <div className="dash-card-menu">
-                          <div className="dash-card-menu-section">Sharing</div>
-                          {(['companion', 'remix', 'private'] as const).map(mode => (
-                            <button
-                              key={mode}
-                              className={`dash-card-menu-item ${trip.share_mode === mode ? 'is-active' : ''}`}
-                              onClick={() => { setCardMenuOpen(null); handleShareModeChange(trip.id, mode); }}
-                              title={shareModeHint(mode)}
-                            >
-                              <span className="dash-card-menu-check" aria-hidden="true">
-                                {trip.share_mode === mode ? <Check size={14} /> : null}
-                              </span>
-                              <span className="dash-card-menu-label">
-                                <span className="dash-card-menu-label-name">{shareModeLabel(mode)}</span>
-                                <span className="dash-card-menu-label-hint">{shareModeHint(mode)}</span>
-                              </span>
-                            </button>
-                          ))}
-                          <div className="dash-card-menu-divider" />
-                          <button className="dash-card-menu-item dash-card-menu-item-danger" onClick={() => { setCardMenuOpen(null); setDeleteConfirm(trip.id); }}>
-                            <Trash2 size={14} aria-hidden="true" />
-                            Delete trip
-                          </button>
-                        </div>
-                      </>
-                    )}
-                  </div>
                   <div className="dash-card-body">
                     <div className="dash-card-meta">
                       <span>{formatDate(t.dates.start)} — {formatDate(t.dates.end)}</span>
@@ -573,23 +500,6 @@ export default function DashboardPage() {
                         </span>
                       )}
                       {wasUpdated(trip) && <span className="dash-card-updated">Updated {formatUpdatedDate(trip.updated_at)}</span>}
-                      <button
-                        className={`dash-card-btn ${copied === trip.share_id ? 'copied' : ''}`}
-                        onClick={() => copyLink(trip.share_id)}
-                        title="Copy share link"
-                      >
-                        {copied === trip.share_id ? (
-                          <>
-                            <Check aria-hidden="true" />
-                            Copied
-                          </>
-                        ) : (
-                          <>
-                            <LinkIcon aria-hidden="true" />
-                            Share
-                          </>
-                        )}
-                      </button>
                     </div>
                   </div>
                 </div>
@@ -601,24 +511,17 @@ export default function DashboardPage() {
         )}
       </main>
 
-      {/* Delete confirmation dialog */}
-      {deleteConfirm && (
-        <div className="dash-confirm-overlay">
-          <div className="dash-confirm-backdrop" onClick={() => !deleting && setDeleteConfirm(null)} />
-          <div className="dash-confirm-dialog">
-            <div className="dash-confirm-title">Delete trip?</div>
-            <p className="dash-confirm-message">
-              &ldquo;{trips.find(t => t.id === deleteConfirm)?.data.trip.name}&rdquo; will be permanently removed. This cannot be undone.
-            </p>
-            <div className="dash-confirm-actions">
-              <button className="dash-confirm-btn dash-confirm-cancel" onClick={() => setDeleteConfirm(null)} disabled={deleting}>Cancel</button>
-              <button className="dash-confirm-btn dash-confirm-delete" onClick={() => handleDelete(deleteConfirm)} disabled={deleting}>
-                {deleting ? 'Deleting...' : 'Delete'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <NewTripCreator
+        initialPreferences={travelPreferences}
+        profileComplete={travelProfileComplete}
+        open={newTripAgentOpen}
+        autoOpen={false}
+        showEntryButton
+        onOpenChange={handleNewTripAgentOpenChange}
+        sheetTitle="Start a new trip with your travel agent."
+        profileNextHref={NEW_TRIP_AGENT_HREF}
+        showExistingTripHint
+      />
     </div>
   );
 }

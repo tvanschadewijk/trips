@@ -132,6 +132,11 @@ test('PreToolUse emits progress for allowed tools', async () => {
   assert.deepEqual(updates, [
     {
       stage: 'checking',
+      action: 'check',
+      object_type: 'date_ledger',
+      object_label: 'Dates and stays',
+      status: 'active',
+      confidence: 'observed',
       message: 'Checking the date and stay ledger...',
     },
   ]);

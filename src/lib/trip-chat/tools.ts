@@ -32,6 +32,10 @@ import {
 import { buildTripLogisticsLedger } from '@/lib/trip-logistics-ledger';
 import { normalizeTripData } from '@/lib/trip-data-normalize';
 import { auditTripLogistics, ISO_DATE_RE, isIsoDateString } from '@/lib/trip-logistics';
+import {
+  COORDINATE_BACKED_ROUTE_POINTS_REQUIRED_MESSAGE,
+  hasCoordinateBackedTripRoute,
+} from '@/lib/trip-quality';
 import type {
   Accommodation,
   AccommodationCandidate,
@@ -784,6 +788,9 @@ not send an empty object.
   - Free-form fields like \`time_label\` on a block accept "Morning",
     "14:00 – 16:30", "Late afternoon" — stay consistent with what's already
     in the trip.
+  - Every full-trip rewrite must include \`trip.route_points\` with at least
+    two coordinate-backed route/stay stops using \`label\`, \`lat\`, and
+    \`lng\`, so the overview map renders even before live place search runs.
   - Every visible hotel, activity site, restaurant, and route stop should be
     map-ready exactly once. Use \`place: { name, address?, lat?, lng? }\` on
     named sights, meals, and stops when you know the exact place; avoid
@@ -2089,6 +2096,11 @@ export function createTripEditorMcpServer(
 
       const before = normalizeTripData(read.data.data);
       const after = mergeTrip(before, input);
+      if (input.trip !== undefined && input.days !== undefined && !hasCoordinateBackedTripRoute(after)) {
+        return textToolError(
+          `Full-trip updates must include route coordinates. ${COORDINATE_BACKED_ROUTE_POINTS_REQUIRED_MESSAGE} Add trip.route_points for the main origin, stays, route stops, and return/end point, then retry the same update.`
+        );
+      }
       const cascadeReview = buildAccommodationCascadeReview(before, after);
 
       // 2. Write back. The service-role client is trusted (admin route has

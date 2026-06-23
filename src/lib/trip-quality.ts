@@ -46,8 +46,35 @@ type MutableTripData = TripData & {
   days: Array<Day & Record<string, unknown>>;
 };
 
+export const COORDINATE_BACKED_ROUTE_POINTS_REQUIRED_MESSAGE =
+  'Trip must include at least two trip.route_points with label, lat, and lng so the itinerary map has a coordinate-backed route and fallback.';
+
 function text(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
+}
+
+function isCoordinateBackedRoutePoint(point: unknown): boolean {
+  if (!point || typeof point !== 'object') return false;
+  const routePoint = point as { label?: unknown; lat?: unknown; lng?: unknown };
+  return (
+    text(routePoint.label).length > 0 &&
+    typeof routePoint.lat === 'number' &&
+    Number.isFinite(routePoint.lat) &&
+    routePoint.lat >= -90 &&
+    routePoint.lat <= 90 &&
+    typeof routePoint.lng === 'number' &&
+    Number.isFinite(routePoint.lng) &&
+    routePoint.lng >= -180 &&
+    routePoint.lng <= 180
+  );
+}
+
+export function coordinateBackedRoutePointCount(data: TripData): number {
+  return (data.trip.route_points ?? []).filter(isCoordinateBackedRoutePoint).length;
+}
+
+export function hasCoordinateBackedTripRoute(data: TripData): boolean {
+  return coordinateBackedRoutePointCount(data) >= 2;
 }
 
 function normalizedStatus(value: unknown): string {
@@ -207,6 +234,15 @@ export function validateItineraryQuality(data: unknown): TripQualityReport {
       code: 'missing_days',
       path: 'days',
       message: 'A v2 OurTrips itinerary must include at least one day.',
+    });
+  }
+
+  if (!hasCoordinateBackedTripRoute(normalized)) {
+    addIssue(issues, {
+      level: 'warning',
+      code: 'missing_route_points',
+      path: 'trip.route_points',
+      message: 'Trip should include at least two trip.route_points with label, lat, and lng so the itinerary map has a coordinate-backed route and fallback.',
     });
   }
 

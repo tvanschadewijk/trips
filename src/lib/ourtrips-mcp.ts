@@ -52,7 +52,7 @@ const MCP_INSTRUCTIONS =
     'Use OurTrips to save and edit travel itineraries for the authenticated user. This MCP connector is self-contained; rely on this connector\'s tools and schema guidance.',
     'Use save_trip_v3 for new or substantially rewritten itineraries when exact dates, sleeps/nights, or transport requirements matter; it rejects hard logistics contradictions. Use save_trip_v2 only when you intentionally want warnings without a hard logistics gate. Use get_trip_schema or get_trip_template when you need structure. Use get_trip summary/day/days/sections reads first; full reads require allow_large=true because large trips can exceed agent token limits.',
     'Use focused upsert/delete tools for meals, hotels, transport, and activities. For route rewrites, hotel swaps, removed stops, or stale nested fields, use replace_day, replace_day_section, replace_accommodation with mode=replace, delete_day, truncate_days_after, replace_paths, or delete_paths instead of deep merge.',
-    'Map contract: every visible named hotel, restaurant, activity site, and route stop must be represented once with a specific name and, when known, place/address/lat/lng context. For trip.route_points[], use label, lat, and lng; do not use name or title for route point labels. Do not combine several restaurants or hotels into one title, provider, note, or service.',
+    'Map contract: every final trip must include trip.route_points[] with at least two coordinate-backed route/stay stops using label, lat, and lng so the overview map renders even when live place search is unavailable, and every visible named hotel, restaurant, activity site, and route stop must be represented once with a specific name and, when known, place/address/lat/lng context. For trip.route_points[], use label, lat, and lng; do not use name or title for route point labels. Do not combine several restaurants or hotels into one title, provider, note, or service.',
     'Accommodation shortlist contract: for each overnight stop without a booked hotel, create 2-4 private accommodation candidates, usually 3, with create_accommodation_candidate. Create exactly one candidate per hotel. Keep days[].accommodation as the booked/current stay or a clear placeholder such as "Hotel not confirmed yet"; never put hotel shortlists, slash-separated hotel names, or multiple hotel options into one public accommodation entry.',
     'Restaurant reservations belong in days[].meals[] as one meal per restaurant with detail.reservation or booking_status. Do not create trip.services entries for restaurants; trip.services is only for external logistics or providers not already rendered as transport, accommodation, meals, or activities.',
     'Every day should include at least one practical, place-specific tip with title and content. Omit tips only when there is truly nothing useful; never send empty tip objects.',
@@ -414,7 +414,10 @@ const TripMetaV2Schema = z
     summary: z.string().min(1),
     hero_image: z.string().min(1),
     overview_image: z.string().optional(),
-    route_points: z.array(TripRoutePointSchema).optional(),
+    route_points: z
+      .array(TripRoutePointSchema)
+      .optional()
+      .describe('Required for final/generated trips: at least two route/stay stops with label, lat, and lng so the overview map has a coordinate-backed fallback.'),
     notes: z.array(JsonObjectSchema).optional(),
   })
   .passthrough();
@@ -579,6 +582,7 @@ const TRIP_SCHEMA_REFERENCE = {
       'Use get_trip_logistics_ledger before answering or editing trip start/end dates, day counts, nights/sleeps, stays, or how long travelers spend somewhere.',
       'Use get_trip summary/day/days/sections reads before full reads.',
       'Run validate_trip_contract before claiming the trip is complete.',
+      'Include trip.route_points[] with at least two coordinate-backed route/stay stops using label, lat, and lng for final/generated trips.',
       'Map every visible named hotel, restaurant, activity site, and route stop with a specific name. Prefer place.name plus address or lat/lng when the exact place is known.',
       'For each overnight stop without a booked hotel, create 2-4 private accommodation candidates, usually 3, with one candidate per hotel.',
       'Keep the public days[].accommodation field single-choice: the booked/current stay, or a clear placeholder such as "Hotel not confirmed yet" while candidates are under review.',
@@ -591,6 +595,7 @@ const TRIP_SCHEMA_REFERENCE = {
   trip: {
     required: ['name', 'subtitle', 'dates', 'travelers', 'summary', 'hero_image'],
     optional: ['overview_image', 'image_assets', 'route_points', 'accent_color', 'services', 'notes'],
+    required_for_final_generated_trips: ['route_points'],
     services_rule: 'Use services only for external providers not already represented as transport, accommodation, meals, or activities. Never use services for restaurant reservations or combined restaurant booking lists.',
     example: {
       name: 'Turkey Road Trip',
@@ -675,7 +680,11 @@ const TRIP_SCHEMA_REFERENCE = {
     required: ['label', 'lat', 'lng'],
     optional: ['day', 'mode', 'role'],
     roles: ['home', 'stop', 'stay', 'excursion', 'trail', 'return'],
-    rules: ['Use label for the visible route point label; do not use name or title.'],
+    rules: [
+      'Final/generated trips must include at least two coordinate-backed route/stay stops so the overview map can render without live place search.',
+      'Use label for the visible route point label; do not use name or title.',
+      'Use mode for the travel context from the previous point and role for home, stay, stop, excursion, trail, or return.',
+    ],
   },
   image_assets: {
     section: 'trip.image_assets',
@@ -791,6 +800,10 @@ const TRIP_TEMPLATE_REFERENCE = {
     trip: {
       ...TRIP_SCHEMA_REFERENCE.trip.example,
       dates: { start: '2026-09-01', end: '2026-09-01' },
+      route_points: [
+        { label: 'Amsterdam', lat: 52.3676, lng: 4.9041, day: 1, mode: 'flight', role: 'home' },
+        { label: 'Istanbul', lat: 41.0082, lng: 28.9784, day: 1, mode: 'flight', role: 'stay' },
+      ],
     },
     days: [
       {

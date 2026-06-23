@@ -283,7 +283,62 @@ No neon outlines. No glow. No gradient borders.
 - Feature strip: 3-col → 2-col → 1-col stacked
 - Hero: side-by-side → stacked with image first on mobile
 
-## 9. Agent Prompt Guide
+## 9. Product Day View — Variant B Magazine Spread
+
+The in-app day view uses the **Variant B Magazine Spread** pattern from the design iteration: a split top band for place and route context, followed by a two-page editorial body. It should feel like opening a travel magazine spread, not reading a dashboard.
+
+### Desktop Composition
+- Keep the existing app chrome: sticky top bar, vertical date rail, and warm paper page background.
+- The day content sits in one centered editorial sheet, max-width about `1220px`, with `4px` paper corners and hairline warm rules.
+- Top band: two columns, `1fr / 1.12fr`, height `300px`. Left column is the day photograph. Right column is the day map. If no map exists, the photo spans the full band.
+- Body: same `1fr / 1.12fr` split. Left page is the written day story. Right page is the recessed itinerary panel.
+- Align the top band and body to the same column grid so the photo, map, story, and itinerary feel like one printed spread.
+- Desktop body padding: `36px 40px 96px` per page. Keep the bottom spacious because the floating travel-agent pill sits over the viewport.
+
+### Day/Date Rail
+- Desktop uses the editorial day/date rail from the Variant B handoff, not compact icon buttons.
+- Width: `188px`, pinned under the top bar on the left, full-height to the bottom of the viewport.
+- Rail background: Paper `#FBF7F1`; right divider `1px solid rgba(232,225,214,.82)`.
+- Header: `Itinerary`, `11px` Inter `600`, uppercase, `0.14em`, Ink 35, padded `0 28px 14px`.
+- Each day row: full-width button, `9px 28px`, left border `2px solid transparent`, no radius, no card shadow.
+- Active day: Terracotta left rule, faint terracotta left-to-right wash, Day label in Terracotta, date in Ink.
+- Day label: `Day 1`, `10px` Inter `600`, uppercase, `0.14em`.
+- Date label: `Sat 27`, Fraunces `18px`, weight `380–420`, line-height `1.12`.
+- Footer: trip summary (`15 days · 8 stops`) after a warm top rule, `11px` Inter, Ink 35.
+- Mobile may keep the compact horizontal day strip, but desktop must use the editorial rail.
+
+### Left Page: Day Story
+- Overline: `11px` Inter, `600`, uppercase, `0.16em`, Terracotta.
+- Title: Fraunces, `48px` desktop / `36px` mobile, weight `340–360`, line-height `1.0–1.02`, color Ink. Do not color the title terracotta.
+- Standfirst: Fraunces italic, `20px` desktop / `19px` mobile, Ink 70.
+- Lead paragraph: Fraunces `18px`, weight `380`, line-height `1.58–1.6`, Ink 70. Use a restrained drop cap only when the lead has enough length to justify it.
+- Fact grid: two columns, top rule in Ink, labels as `10px` uppercase Inter, values in Fraunces `21–23px`. Values may wrap; never squeeze text.
+
+### Right Page: Numbered Itinerary Panel
+- Background is Paper Deep `#F4EDE2`; no floating card around the whole panel on desktop.
+- Header: Fraunces `22–23px` title (`The day`) and an uppercase item count in Ink 35.
+- Rows use a two-column grid: `32px` number marker plus flexible content. Gap `18px` desktop, `14px` mobile.
+- Number markers are Fraunces in a `32px` circle. Marker 1 uses Terracotta border/text; subsequent markers use Ink.
+- Row separators use warm rules (`#E3D9C8` or `rgba(212, 200, 180, 0.74)`).
+- Nested product cards inside the numbered panel lose their outer card chrome: transparent background, no border, no shadow, no extra radius. Keep internal rows, status pills, detail buttons, and blue commit actions intact.
+- Section labels inside rows stay Inter uppercase overlines. Primary item titles stay Inter product titles unless the item is an editorial place/stay name already intended to use Fraunces.
+
+### Top Band
+- Photo: real destination/day photography, object-fit cover, no blur, no dark stock treatment. Caption sits over the lower-left image in `10–11px` uppercase Inter with a subtle dark text shadow.
+- Map: use the existing itinerary map component or atlas fallback. In the top band it is borderless except for the vertical rule between photo and map. Map label sits in the top-left as an uppercase overline.
+- Keep the map and photo equal height on desktop. On mobile, stack photo above map as separate soft product cards.
+
+### Floating Ask-Agent Pill
+- The real Ask Travel Agent control stays fixed, centered, and functional. Do not duplicate it inside the day content.
+- Desktop day-view position: about `26px` from the bottom plus safe-area inset. Hide swipe dots on true desktop so the pill owns that center-bottom anchor.
+- Style: Terracotta pill, `14px` Inter `600`, icon plus label, `14px 26px` padding, radius `999px`, shadow `0 14px 34px -8px rgba(26,20,16,.5)`.
+
+### Mobile Collapse
+- Stack in this order: photo, map, story, numbered itinerary.
+- Use product radii (`16px` for photo/map/order panel, `12px` internal rows) while preserving the same editorial type hierarchy.
+- Avoid hiding content that exists on desktop; only collapse the grid and reduce padding.
+
+## 10. Agent Prompt Guide
 
 ### Quick Tokens
 - Page bg: `#FBF7F1` · Card: `#FFFFFF` · Recess: `#F4EDE2` · Inverse: `#1A1410`

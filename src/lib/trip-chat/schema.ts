@@ -363,7 +363,10 @@ export const TripMetaEditableSchema = z
     hero_image: z.string().optional(),
     overview_image: z.string().optional(),
     image_assets: TripImageAssetsSchema.optional(),
-    route_points: z.array(TripRoutePointSchema).optional(),
+    route_points: z
+      .array(TripRoutePointSchema)
+      .optional()
+      .describe('For full-trip rewrites, include at least two coordinate-backed route/stay stops with label, lat, and lng so the overview map can render without live place search.'),
     accent_color: z.string().optional(),
     services: z.array(ServiceSchema).optional(),
     notes: z.array(TripNoteSchema).optional(),

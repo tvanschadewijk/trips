@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Ban, CalendarDays } from 'lucide-react';
+import { Ban, CalendarDays, DollarSign } from 'lucide-react';
 import {
   AreaChart,
   Area,
@@ -16,6 +16,7 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import { createClient } from '@/lib/supabase/client';
+import AppTopBar from '@/components/ui/AppTopBar';
 import '@/styles/admin.css';
 
 interface AnalyticsData {
@@ -211,21 +212,22 @@ export default function AdminPage() {
 
   return (
     <div className="admin">
-      <nav className="admin-nav">
-        <div className="admin-nav-inner">
-          <div className="admin-nav-left">
-            <Link href="/dashboard" className="admin-nav-back" title="Back to dashboard">
-              <ArrowLeft size={18} aria-hidden="true" />
+      <AppTopBar
+        href="/dashboard"
+        suffix="Admin · Analytics"
+        actions={
+          <div className="admin-nav-links">
+            <Link href="/admin/costs" className="admin-nav-side-link">
+              <DollarSign size={15} aria-hidden="true" />
+              Costs
             </Link>
-            <span className="admin-nav-title">Analytics</span>
-            <span className="admin-nav-badge">Admin</span>
+            <Link href="/admin/logistics" className="admin-nav-side-link">
+              <CalendarDays size={15} aria-hidden="true" />
+              Trip logistics
+            </Link>
           </div>
-          <Link href="/admin/logistics" className="admin-nav-side-link">
-            <CalendarDays size={15} aria-hidden="true" />
-            Trip logistics
-          </Link>
-        </div>
-      </nav>
+        }
+      />
 
       <main className="admin-main">
         <div className="admin-controls">

@@ -550,6 +550,9 @@ itinerary predictable:
     \`fixed\` is only for bookings, tickets, transport, or researched
     constraints; use \`suggested\` for AI-proposed exact times and \`window\`
     for labels like Morning, Afternoon, or Evening.
+  - Full-trip rewrites must include \`trip.route_points\` with at least two
+    coordinate-backed route/stay stops using \`label\`, \`lat\`, and \`lng\`.
+    This powers the overview map even when live place search is unavailable.
   - Use \`place: { name, address?, lat?, lng? }\` on named sights, meals, and
     stops when you know the exact place. This helps maps stay reliable.
     Every visible hotel, activity site, restaurant, and route stop should be

@@ -5,13 +5,14 @@ import type { ReactNode } from 'react';
 import { flushSync } from 'react-dom';
 import type { TripData, Day, Transport, Accommodation, Tip, Meal, Block, RichDetail, Service } from '@/lib/types';
 import { TripIcon as Icon } from './icons';
-import SaveOfflineButton from './SaveOfflineButton';
 import TripRouteAtlas from './TripRouteAtlas';
 import ItineraryMap, { type ItineraryMapFocusRequest, type ItineraryMapViewAllRequest } from './ItineraryMap';
 import AccommodationReviewBoard from './AccommodationReviewBoard';
 import { renderTripMarkdown } from '@/lib/render-trip-markdown';
 import { normalizeTripData } from '@/lib/trip-data-normalize';
-import { buildTripOverviewRouteAtlas, buildTripRouteAtlas, type TripRouteAtlas } from '@/lib/trip-route';
+import { createClient } from '@/lib/supabase/client';
+import AppTopBar from '@/components/ui/AppTopBar';
+import { buildTripOverviewRouteAtlas, buildTripRouteAtlas, type TripRouteAtlas as TripRouteAtlasData } from '@/lib/trip-route';
 import {
   buildDayMapDataByNumber,
   EMPTY_DAY_MAP_ATLAS,
@@ -19,13 +20,27 @@ import {
 } from '@/lib/day-map';
 import { getTripOverviewImageUrl } from '@/lib/trip-images';
 import { isConfirmedAccommodation } from '@/lib/trip-status';
-import { isTripSavedOffline } from '@/lib/offline';
+import { isTripSavedOffline, useOfflineTrip } from '@/lib/offline';
 import '@/styles/preview.css';
 
 /** Extract 3-letter IATA airport codes from a string like "Amsterdam (AMS) → New York (JFK)" */
 function extractIataCodes(s: string): string[] {
   const matches = s.match(/\b[A-Z]{3}\b/g);
   return matches || [];
+}
+
+const SHARE_MODE_OPTIONS = ['companion', 'remix', 'private'] as const;
+type ShareMode = (typeof SHARE_MODE_OPTIONS)[number];
+const TRIP_DATA_UPDATED_EVENT = 'ourtrips:trip-data-updated';
+
+type TripDataUpdatedEventDetail = {
+  tripId?: string;
+  tripData?: TripData;
+};
+
+function detailFromTripDataEvent(event: CustomEvent<unknown>): TripDataUpdatedEventDetail | undefined {
+  if (!event.detail || typeof event.detail !== 'object') return undefined;
+  return event.detail as TripDataUpdatedEventDetail;
 }
 
 interface TripPreviewProps {
@@ -37,7 +52,7 @@ interface TripPreviewProps {
   canAddToTrips?: boolean;
   /** Trip's sharing mode — controls whether the floating CTA reads
    *  "Add to my trips" (companion) or "Remix this trip" (remix). */
-  shareMode?: 'companion' | 'remix';
+  shareMode?: ShareMode;
   tripId?: string;
   homeHref?: string;
 }
@@ -55,6 +70,33 @@ function formatNightLabel(nights: number | null | undefined): string | null {
   const count = normalizedNightCount(nights);
   if (!count) return null;
   return `${count} ${count === 1 ? 'night' : 'nights'}`;
+}
+
+function notifyOfflineStatusChanged(shareId: string, saved: boolean) {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(
+    new CustomEvent('ourtrips:offline-status-changed', {
+      detail: { shareId, saved },
+    })
+  );
+}
+
+function shareModeLabel(mode: ShareMode): string {
+  if (mode === 'private') return 'Private';
+  if (mode === 'remix') return 'Remix link';
+  return 'Companion link';
+}
+
+function shareModeHint(mode: ShareMode): string {
+  if (mode === 'private') return 'Link is off';
+  if (mode === 'remix') return 'Public, PII removed, others can remix';
+  return 'Anyone with the link sees full bookings';
+}
+
+function shareModeIcon(mode: ShareMode): string {
+  if (mode === 'private') return 'x';
+  if (mode === 'remix') return 'shuffle';
+  return 'users';
 }
 
 function routeStopCountFor(atlas: ReturnType<typeof buildTripRouteAtlas>): number {
@@ -145,7 +187,7 @@ function fallbackRouteLabels(days: Day[]): string[] {
   return labels;
 }
 
-function overviewRouteGroups(atlas: TripRouteAtlas | undefined, days: Day[]): OverviewRouteGroups {
+function overviewRouteGroups(atlas: TripRouteAtlasData | undefined, days: Day[]): OverviewRouteGroups {
   const points = atlas?.points ?? [];
   if (!points.length) return { outbound: fallbackRouteLabels(days).slice(0, 6), returnVia: [] };
 
@@ -184,7 +226,7 @@ function overviewHighlightIcon(label: string): string {
   return 'binoculars';
 }
 
-function overviewHighlights(atlas: TripRouteAtlas | undefined, days: Day[]): OverviewHighlight[] {
+function overviewHighlights(atlas: TripRouteAtlasData | undefined, days: Day[]): OverviewHighlight[] {
   const labels: string[] = [];
   const routePoints = (atlas?.points ?? []).filter((point) => point.role !== 'home' && point.role !== 'return');
   for (const point of routePoints) addUniqueText(labels, point.label, 6);
@@ -235,7 +277,7 @@ function formatKm(value: number): string {
   return '';
 }
 
-function overviewMetrics(days: Day[], atlas: TripRouteAtlas | undefined, nights: number): OverviewMetric[] {
+function overviewMetrics(days: Day[], atlas: TripRouteAtlasData | undefined, nights: number): OverviewMetric[] {
   const hotelNames: string[] = [];
   const natureLabels: string[] = [];
   let distanceKm = 0;
@@ -870,13 +912,20 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
   const [isDesktopPreview, setIsDesktopPreview] = useState<boolean | null>(null);
   const [showArchive, setShowArchive] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [coverMenuOpen, setCoverMenuOpen] = useState(false);
+  const [coverToast, setCoverToast] = useState<string | null>(null);
+  const [confirmingOfflineRemove, setConfirmingOfflineRemove] = useState(false);
+  const [coverDeleteConfirm, setCoverDeleteConfirm] = useState(false);
+  const [coverDeleteBusy, setCoverDeleteBusy] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'already_saved' | 'already_owned' | 'error'>('idle');
+  const [currentShareMode, setCurrentShareMode] = useState<ShareMode>(shareMode ?? 'companion');
   const [inlineBookingKey, setInlineBookingKey] = useState<string | null>(null);
   const [inlineBookingErrorKey, setInlineBookingErrorKey] = useState<string | null>(null);
   const [brokenImages, setBrokenImages] = useState<Set<string>>(new Set());
   const [dayMapFocusRequest, setDayMapFocusRequest] = useState<DayMapFocusRequest | null>(null);
   const [dayMapViewAllRequest, setDayMapViewAllRequest] = useState<DayMapViewAllRequest | null>(null);
+  const [topbarHidden, setTopbarHidden] = useState(false);
   const [offlineSaved, setOfflineSaved] = useState(false);
   const onImgError = useCallback((src: string) => {
     setBrokenImages(prev => { const next = new Set(prev); next.add(src); return next; });
@@ -889,6 +938,8 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
   const detailBodyRef = useRef<HTMLDivElement>(null);
   const detailCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const detailClosingRef = useRef(false);
+  const coverMenuRef = useRef<HTMLDivElement | null>(null);
+  const coverToastTimerRef = useRef<number | null>(null);
   const dayMapFocusNonceRef = useRef(0);
   const dayMapViewAllNonceRef = useRef(0);
 
@@ -899,6 +950,14 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
   const activeTripData = activeTripIndex !== null ? trips[activeTripIndex] : undefined;
   const trip = activeTripData?.trip ?? null;
   const days = useMemo(() => activeTripData?.days ?? [], [activeTripData]);
+  const offlineTripMeta = useMemo(() => activeTripData ? {
+    name: activeTripData.trip.name,
+    subtitle: activeTripData.trip.subtitle,
+    heroImage: getTripOverviewImageUrl(activeTripData.trip),
+    start: activeTripData.trip.dates?.start,
+    end: activeTripData.trip.dates?.end,
+  } : undefined, [activeTripData]);
+  const offlineTrip = useOfflineTrip(shareId, offlineTripMeta);
   const displayableTripNotes = (trip?.notes ?? []).filter((note) => trimDisplayText(note.content));
   const markdownSource = activeTripData?.markdown_source;
   const totalSlides = 1 + days.length;
@@ -915,6 +974,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     routeAtlas && tripGeographyAtlas && tripGeographyAtlas.points.length < routeAtlas.points.length
   );
   const overviewMapAtlas = showFullJourneyMap && routeAtlas ? routeAtlas : tripGeographyAtlas;
+  const hasOverviewMapAtlas = Boolean(overviewMapAtlas);
   const overviewRoutePointDetails = useMemo(
     () => mapPointDetailsForTrip(overviewMapAtlas, days),
     [overviewMapAtlas, days]
@@ -944,7 +1004,8 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
 
   useEffect(() => {
     if (isDesktopPreview === false) setShowOverviewMap(false);
-  }, [isDesktopPreview]);
+    if (isDesktopPreview === true && hasOverviewMapAtlas) setShowOverviewMap(true);
+  }, [activeTripIndex, hasOverviewMapAtlas, isDesktopPreview]);
 
   const dayMapDataByNumber = useMemo(
     () => buildDayMapDataByNumber(
@@ -1006,6 +1067,75 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     };
   }, [shareId]);
 
+  useEffect(() => {
+    setCurrentShareMode(shareMode ?? 'companion');
+  }, [shareMode]);
+
+  useEffect(() => {
+    setCoverMenuOpen(false);
+  }, [activeTripIndex, currentSlide]);
+
+  useEffect(() => {
+    setTopbarHidden(false);
+  }, [activeTripIndex, currentSlide]);
+
+  useEffect(() => {
+    if (activeTripIndex === null) return;
+    const slide = trackRef.current?.querySelectorAll('.slide')[currentSlide] as HTMLElement | undefined;
+    if (!slide) return;
+
+    let previousScrollTop = slide.scrollTop;
+    let ticking = false;
+
+    const syncTopbar = () => {
+      ticking = false;
+      const nextScrollTop = slide.scrollTop;
+      const scrollingDown = nextScrollTop > previousScrollTop;
+
+      if (nextScrollTop <= 12 || nextScrollTop < previousScrollTop) {
+        setTopbarHidden(false);
+      } else if (nextScrollTop > 32 && scrollingDown) {
+        setTopbarHidden(true);
+      }
+
+      previousScrollTop = nextScrollTop;
+    };
+
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      window.requestAnimationFrame(syncTopbar);
+    };
+
+    slide.addEventListener('scroll', onScroll, { passive: true });
+    syncTopbar();
+
+    return () => {
+      slide.removeEventListener('scroll', onScroll);
+    };
+  }, [activeTripIndex, currentSlide, days.length]);
+
+  useEffect(() => {
+    if (!coverMenuOpen) return;
+
+    function closeCoverMenuOnOutsidePointer(event: PointerEvent) {
+      const target = event.target;
+      if (target instanceof Node && coverMenuRef.current?.contains(target)) return;
+      setCoverMenuOpen(false);
+    }
+
+    document.addEventListener('pointerdown', closeCoverMenuOnOutsidePointer, true);
+    return () => {
+      document.removeEventListener('pointerdown', closeCoverMenuOnOutsidePointer, true);
+    };
+  }, [coverMenuOpen]);
+
+  useEffect(() => {
+    return () => {
+      if (coverToastTimerRef.current) window.clearTimeout(coverToastTimerRef.current);
+    };
+  }, []);
+
   // Publish current slide as context for the chat panel. Stored in
   // sessionStorage so the chat component can pick it up without prop
   // drilling. Slide 0 = cover; slide N = day N.
@@ -1049,6 +1179,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     };
   }, [trip, days]);
   const isHero = currentSlide === 0;
+  const dateRailStopCount = routeStopCountFor(overviewMapAtlas) || routeStopCountFor(routeAtlas) || days.length;
   const shouldRenderSlideContent = useCallback(
     (slideIndex: number) => (
       Math.abs(currentSlide - slideIndex) <= NEARBY_SLIDE_RENDER_RADIUS
@@ -1231,6 +1362,201 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     );
   }
 
+  function showCoverActionToast(message: string) {
+    setCoverToast(message);
+    if (coverToastTimerRef.current) window.clearTimeout(coverToastTimerRef.current);
+    coverToastTimerRef.current = window.setTimeout(() => setCoverToast(null), 2200);
+  }
+
+  async function handleCopyShareLink() {
+    if (!shareId || typeof window === 'undefined') return;
+
+    const url = `${window.location.origin}/t/${shareId}`;
+    setCoverMenuOpen(false);
+    try {
+      await navigator.clipboard.writeText(url);
+      showCoverActionToast('Share link copied');
+    } catch {
+      showCoverActionToast('Could not copy link');
+    }
+  }
+
+  async function handleToggleOfflineDownload() {
+    if (!shareId || !activeTripData) return;
+    if (offlineTrip.state.status === 'saving' || offlineTrip.state.status === 'removing') return;
+
+    setCoverMenuOpen(false);
+    if (offlineTrip.isSaved) {
+      setConfirmingOfflineRemove(true);
+      return;
+    }
+
+    await offlineTrip.save(activeTripData);
+    notifyOfflineStatusChanged(shareId, true);
+    showCoverActionToast('Downloaded for offline');
+  }
+
+  async function handleRemoveOfflineDownload() {
+    if (!shareId) return;
+
+    setConfirmingOfflineRemove(false);
+    await offlineTrip.remove();
+    notifyOfflineStatusChanged(shareId, false);
+    showCoverActionToast('Download removed');
+  }
+
+  async function handleCoverShareModeChange(next: ShareMode) {
+    if (!tripId || currentShareMode === next) return;
+
+    const previous = currentShareMode;
+    setCurrentShareMode(next);
+    setCoverMenuOpen(false);
+
+    try {
+      const res = await fetch(`/api/trips/${tripId}/share-mode`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ share_mode: next }),
+      });
+      if (!res.ok) throw new Error('Failed to update sharing');
+      showCoverActionToast(`${shareModeLabel(next)} selected`);
+    } catch {
+      setCurrentShareMode(previous);
+      showCoverActionToast('Could not update sharing');
+    }
+  }
+
+  function requestCoverDelete() {
+    setCoverMenuOpen(false);
+    setCoverDeleteConfirm(true);
+  }
+
+  async function handleDeleteActiveTrip() {
+    if (activeTripIndex === null) return;
+
+    setCoverDeleteBusy(true);
+    try {
+      if (tripId) {
+        const supabase = createClient();
+        const { error } = await supabase.from('trips').delete().eq('id', tripId);
+        if (error) throw error;
+      } else {
+        onDelete?.(activeTripIndex);
+      }
+
+      setTrips(prev => prev.filter((_, index) => index !== activeTripIndex));
+      setCoverDeleteConfirm(false);
+
+      if (autoOpen) {
+        window.location.href = homeHref;
+      } else {
+        setActiveTripIndex(null);
+        setOverviewFaded(false);
+      }
+    } catch {
+      showCoverActionToast('Could not delete trip');
+    } finally {
+      setCoverDeleteBusy(false);
+    }
+  }
+
+  function renderCoverActionsMenu() {
+    if (!shareId || !activeTripData) return null;
+
+    const offlineBusy = offlineTrip.state.status === 'saving' || offlineTrip.state.status === 'removing';
+    const offlineLabel = offlineBusy
+      ? (offlineTrip.state.status === 'removing' ? 'Removing download...' : 'Downloading...')
+      : offlineTrip.isSaved
+        ? 'Remove download'
+        : 'Download trip';
+    const offlineHint = offlineTrip.isSaved
+      ? 'Remove this device copy'
+      : 'Keep this itinerary on this device';
+    const canManageTrip = Boolean(tripId);
+    const canDeleteTrip = Boolean(tripId || onDelete);
+
+    return (
+      <div className="trip-cover-menu-wrap" ref={coverMenuRef}>
+        <button
+          type="button"
+          className="trip-cover-menu-btn"
+          onClick={() => setCoverMenuOpen((value) => !value)}
+          aria-label="Trips options"
+          aria-haspopup="menu"
+          aria-expanded={coverMenuOpen}
+        >
+          <Icon name="more-horizontal" size={21} strokeWidth={2.6} />
+        </button>
+        {coverMenuOpen && (
+          <>
+            <div className="trip-cover-menu-backdrop" onClick={() => setCoverMenuOpen(false)} />
+            <div className="trip-cover-menu" role="menu" aria-label="Trips options">
+              <button type="button" className="trip-cover-menu-item" onClick={handleCopyShareLink} role="menuitem">
+                <span className="trip-cover-menu-icon"><Icon name="link" /></span>
+                <span className="trip-cover-menu-label">
+                  <span>Copy share link</span>
+                  <small>{currentShareMode === 'private' ? 'Link is currently off' : 'Share this trip'}</small>
+                </span>
+              </button>
+              <button
+                type="button"
+                className="trip-cover-menu-item"
+                onClick={handleToggleOfflineDownload}
+                disabled={offlineBusy}
+                aria-label={offlineTrip.isSaved ? 'Remove offline download' : 'Download trip for offline'}
+                role="menuitem"
+              >
+                <span className="trip-cover-menu-icon"><Icon name={offlineTrip.isSaved ? 'check' : 'download'} /></span>
+                <span className="trip-cover-menu-label">
+                  <span>{offlineLabel}</span>
+                  <small>{offlineHint}</small>
+                </span>
+              </button>
+
+              {canManageTrip && (
+                <>
+                  <div className="trip-cover-menu-divider" />
+                  <div className="trip-cover-menu-section">Sharing</div>
+                  {SHARE_MODE_OPTIONS.map((mode) => (
+                    <button
+                      type="button"
+                      key={mode}
+                      className={`trip-cover-menu-item ${currentShareMode === mode ? 'is-active' : ''}`}
+                      onClick={() => handleCoverShareModeChange(mode)}
+                      aria-checked={currentShareMode === mode}
+                      role="menuitemradio"
+                    >
+                      <span className="trip-cover-menu-check" aria-hidden="true">
+                        {currentShareMode === mode ? <Icon name="check" /> : <Icon name={shareModeIcon(mode)} />}
+                      </span>
+                      <span className="trip-cover-menu-label">
+                        <span>{shareModeLabel(mode)}</span>
+                        <small>{shareModeHint(mode)}</small>
+                      </span>
+                    </button>
+                  ))}
+                </>
+              )}
+
+              {canDeleteTrip && (
+                <>
+                  <div className="trip-cover-menu-divider" />
+                  <button type="button" className="trip-cover-menu-item trip-cover-menu-item-danger" onClick={requestCoverDelete} role="menuitem">
+                    <span className="trip-cover-menu-icon"><Icon name="trash" /></span>
+                    <span className="trip-cover-menu-label">
+                      <span>Delete trip</span>
+                      <small>Remove it from your trips</small>
+                    </span>
+                  </button>
+                </>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+    );
+  }
+
   // Auto-save trip after login redirect
   useEffect(() => {
     if (!shareId) return;
@@ -1388,6 +1714,23 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
       return updated;
     });
   }, [activeTripIndex]);
+
+  useEffect(() => {
+    if (!tripId || typeof window === 'undefined') return;
+
+    const onTripDataUpdated = (event: Event) => {
+      const detail = event instanceof CustomEvent
+        ? detailFromTripDataEvent(event)
+        : undefined;
+      if (detail?.tripId !== tripId || !detail.tripData) return;
+      handleTripDataUpdated(detail.tripData);
+    };
+
+    window.addEventListener(TRIP_DATA_UPDATED_EVENT, onTripDataUpdated);
+    return () => {
+      window.removeEventListener(TRIP_DATA_UPDATED_EVENT, onTripDataUpdated);
+    };
+  }, [handleTripDataUpdated, tripId]);
 
   const showDetail = useCallback((content: DetailContent) => {
     if (detailCloseTimerRef.current) {
@@ -2265,7 +2608,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
             ) : null}
           </div>
           <div className="hero-body">
-            <h1 className="text-hero-title">{trip.name}</h1>
+            <h1 className="trip-title-sr-only">{trip.name}</h1>
             <p className="hero-date-range">{formatHeroDateRange(trip.dates.start, trip.dates.end)}</p>
             <div className="hero-meta-chips" aria-label="Trip highlights">
               <span className="hero-meta-chip"><Icon name="moon" />{nights} {nights === 1 ? 'Night' : 'Nights'}</span>
@@ -2468,39 +2811,31 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     const dayIntro = getDayIntro(day);
     const dayTitleId = `day-title-${day.day_number}`;
 
-    const statsChips = day.stats?.length ? (
-      <div className="hero-stats-row">
-        {day.stats.map((s, i) => (
-          <div key={i} className="hero-stat-chip">
-            <span className="hero-stat-chip-icon"><Icon name={s.icon} /></span>
-            <span>{s.value}</span>
-          </div>
-        ))}
-      </div>
-    ) : null;
+    const fallbackStoryStats = [
+      stayDateLabel ? { label: 'Stay', value: stayDateLabel } : null,
+      hasDayMapLocations ? { label: dayMapSearchTargets.length ? 'Places' : 'Stops', value: dayMapCountLabel } : null,
+      day.subtitle ? { label: 'Base', value: day.subtitle } : null,
+    ].filter((item): item is { label: string; value: string } => Boolean(item?.value));
+    const dayStoryStats = [
+      ...(day.stats ?? [])
+        .map((stat) => ({ label: trimDisplayText(stat.label), value: trimDisplayText(stat.value) }))
+        .filter((stat) => stat.label && stat.value),
+      ...fallbackStoryStats,
+    ].slice(0, 4);
+    const dayLeadText = trimDisplayText(dayIntro.body) || trimDisplayText(dayIntro.title) || trimDisplayText(day.description) || trimDisplayText(day.subtitle);
+    const dayLeadChars = Array.from(dayLeadText);
+    const dayStandfirst = dayIntro.title && dayIntro.body ? dayIntro.title : '';
 
-    const heroSection = day.hero_image ? (
-      <div className="day-hero">
+    const dayPhotoSection = day.hero_image ? (
+      <figure className="day-spread-photo">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={day.hero_image} alt={day.title} style={{ opacity: brokenImages.has(day.hero_image) ? 0 : 1 }} onError={() => onImgError(day.hero_image!)} loading="lazy" />
-        <div className="day-hero-gradient" />
-        <div className="day-hero-text">
-          <p className="text-label" style={{ margin: '0 0 4px' }}>Day {day.day_number} &middot; {dateStr}</p>
-          <h2 className="text-card-title-light day-hero-title" id={dayTitleId} style={{ margin: 0 }}>{day.title}</h2>
-          {dayIntro.title && <p className="day-hero-intro-title">{dayIntro.title}</p>}
-          {dayIntro.body && <p className="day-hero-intro">{dayIntro.body}</p>}
-          {heroMeta && <p className="text-hero-subtitle day-hero-meta" style={{ margin: '5px 0 0' }}>{heroMeta}</p>}
-          {statsChips}
-        </div>
-      </div>
+        <figcaption>{day.subtitle || day.title}</figcaption>
+      </figure>
     ) : (
-      <div className="day-header-plain">
-        <p className="text-label-dark">Day {day.day_number} &middot; {dateStr}</p>
-        <h2 className="text-card-title" id={dayTitleId} style={{ marginTop: 4 }}>{day.title}</h2>
-        {dayIntro.title && <p className="day-header-plain-intro-title">{dayIntro.title}</p>}
-        {dayIntro.body && <p className="day-header-plain-intro">{dayIntro.body}</p>}
-        {day.subtitle && <p className="text-body-italic" style={{ marginTop: 4 }}>{day.subtitle}</p>}
-        {statsChips}
+      <div className="day-spread-photo day-spread-photo-empty">
+        <span>Day {day.day_number}</span>
+        <strong>{dateStr}</strong>
       </div>
     );
 
@@ -2538,12 +2873,12 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
       </div>
     ) : null;
 
-    const visualSection = dayMapSection ? (
-      <div className="day-visual-stack">
-        {heroSection}
+    const topBandSection = (
+      <div className={`day-spread-topband ${dayMapSection ? 'has-map' : 'photo-only'}`}>
+        {dayPhotoSection}
         {dayMapSection}
       </div>
-    ) : heroSection;
+    );
 
     const displayBlocks = (day.blocks ?? []).map(getDisplayableBlock).filter((block) => block !== null);
     const visibleMeals = displayableMeals(day.meals);
@@ -2907,34 +3242,6 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
       );
     })() : null;
 
-    const hasBriefItems = Boolean(todayModeCard || seeAndDoBlock || stayCard || mealCard);
-    const briefSection = (
-      <section className="day-brief" aria-labelledby={dayTitleId}>
-        <div className="day-brief-header">
-          <p className="day-brief-overline">Day {day.day_number} &middot; {dateStr}</p>
-          <p className="day-brief-heading" aria-hidden="true">
-            <span>{day.title}</span>
-          </p>
-          <div className="day-brief-meta-row">
-            <span>{stayDateLabel}</span>
-            {day.subtitle && <em>{day.subtitle}</em>}
-          </div>
-        </div>
-        {hasBriefItems && (
-          <div className="day-brief-body">
-            {todayModeCard}
-            {seeAndDoBlock}
-            {(stayCard || mealCard) && (
-              <div className="day-brief-card-list">
-                {stayCard}
-                {mealCard}
-              </div>
-            )}
-          </div>
-        )}
-      </section>
-    );
-
     const transSection = day.transport?.length ? (
       <div className="day-section">
         <div className="day-section-title">
@@ -3036,15 +3343,75 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
       </div>
     ) : null;
 
+    const dayOrderNodes: ReactNode[] = [];
+    const appendOrderNode = (node: ReactNode | ReactNode[] | null | undefined) => {
+      if (Array.isArray(node)) {
+        node.forEach(appendOrderNode);
+        return;
+      }
+      if (node) dayOrderNodes.push(node);
+    };
+
+    appendOrderNode(todayModeCard);
+    appendOrderNode(seeAndDoBlock);
+    appendOrderNode(stayCard);
+    appendOrderNode(mealCard);
+    appendOrderNode(transSection);
+    appendOrderNode(servicesSection);
+    appendOrderNode(tipsSection);
+
+    const dayOrderTitleId = `day-order-title-${day.day_number}`;
+    const dayOrderPanel = dayOrderNodes.length ? (
+      <section className="day-order-panel" aria-labelledby={dayOrderTitleId}>
+        <div className="day-order-header">
+          <h3 id={dayOrderTitleId}>The day</h3>
+          <span>{dayOrderNodes.length} thing{dayOrderNodes.length === 1 ? '' : 's'}</span>
+        </div>
+        <div className="day-order-list">
+          {dayOrderNodes.map((node, index) => (
+            <div className="day-order-entry" key={index}>
+              <div className={`day-order-number ${index === 0 ? 'is-primary' : ''}`}>{index + 1}</div>
+              <div className="day-order-entry-body">{node}</div>
+            </div>
+          ))}
+        </div>
+      </section>
+    ) : null;
+
+    const dayStorySection = (
+      <section className="day-spread-story" aria-labelledby={dayTitleId}>
+        <p className="day-spread-overline">Day {day.day_number} &middot; {dateStr}{nightLabel ? ` · ${nightLabel}` : ''}</p>
+        <h2 id={dayTitleId}>{day.title}</h2>
+        {dayStandfirst && <p className="day-spread-standfirst">{dayStandfirst}</p>}
+        {dayLeadText && (
+          <p className="day-spread-lead">
+            {dayLeadChars.length > 36 && (
+              <span className="day-spread-dropcap">{dayLeadChars[0]}</span>
+            )}
+            {dayLeadChars.length > 36 ? dayLeadChars.slice(1).join('') : dayLeadText}
+          </p>
+        )}
+        {heroMeta && <p className="day-spread-meta">{heroMeta}</p>}
+        {dayStoryStats.length ? (
+          <div className="day-spread-facts">
+            {dayStoryStats.map((stat, index) => (
+              <div className="day-spread-fact" key={`${stat.label}-${index}`}>
+                <span>{stat.label}</span>
+                <strong>{stat.value}</strong>
+              </div>
+            ))}
+          </div>
+        ) : null}
+      </section>
+    );
+
     return (
       <div key={day.day_number} className={`slide ${currentSlide === slideIndex ? 'active' : ''}`}>
         <div className="day-slide">
-          {visualSection}
-          <div className="day-content-stack">
-            {briefSection}
-            {transSection}
-            {servicesSection}
-            {tipsSection}
+          {topBandSection}
+          <div className="day-spread-body">
+            {dayStorySection}
+            {dayOrderPanel}
           </div>
         </div>
       </div>
@@ -3127,53 +3494,36 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
           className={`trip-screen ${detailOpen ? 'detail-behind' : ''}`}
           style={{ display: 'flex' }}
         >
-          {/* Nav Bar */}
-          <div className={`nav-bar ${isHero ? 'over-hero' : ''}`}>
-            <a className="nav-home" href={homeHref} aria-label="Go to OurTrips home">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/brand/ourtrips-favicon-48.png" alt="" />
-            </a>
-            <div className="nav-title-group">
-              <div className="nav-title-text">
-                {!isHero && trip && (
-                  <>
-                    <div className="text-nav-title">
-                      <span className="nav-trip-name">{trip.name}</span>
-                    </div>
-                    <nav className="nav-breadcrumb" aria-label="Breadcrumb">
-                      <ol>
-                        <li>
-                          {/* Day view → trip cover. The brand mark already
-                              covers the path back to all trips. */}
-                          <button
-                            type="button"
-                            className="nav-breadcrumb-link"
-                            onClick={() => goTo(0)}
-                          >
-                            <Icon className="nav-breadcrumb-icon" name="back" size={14} strokeWidth={2.4} />
-                            <span>Trip overview</span>
-                          </button>
-                        </li>
-                      </ol>
-                    </nav>
-                  </>
-                )}
-              </div>
-            </div>
-            <div className="nav-actions">
+          <AppTopBar
+            href={homeHref}
+            suffix={trip?.name}
+            className={`trip-topbar ${topbarHidden ? 'is-scroll-hidden' : ''}`}
+            actions={
+              <>
+                {!isHero ? (
+                  <button
+                    type="button"
+                    className="trip-topbar-overview"
+                    onClick={() => goTo(0)}
+                    aria-label="Back to trip overview"
+                  >
+                    <Icon name="back" size={15} strokeWidth={2.4} />
+                    <span>Trip overview</span>
+                  </button>
+                ) : null}
               {renderAddToTripsButton()}
-              {shareId && trip && (
-                <SaveOfflineButton shareId={shareId} data={{ trip, days }} />
-              )}
-            </div>
-          </div>
+              {isHero && renderCoverActionsMenu()}
+              </>
+            }
+          />
 
           {/* Date Strip */}
           <div className={`date-strip ${isHero ? 'hidden' : ''}`}>
             <div className="date-strip-inner" ref={dateStripRef}>
+              <div className="date-strip-label" aria-hidden="true">Itinerary</div>
               {days.map((day, dayIndex) => {
                 const date = new Date(day.date + 'T12:00:00');
-                const wd = date.toLocaleDateString('en-GB', { weekday: 'short' }).toUpperCase();
+                const wd = date.toLocaleDateString('en-GB', { weekday: 'short' });
                 const d = date.getDate();
                 const tripDayNumber = dayIndex + 1;
                 const slideIndex = dayIndex + 1;
@@ -3184,14 +3534,20 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
                     aria-label={`Day ${tripDayNumber}, ${date.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}`}>
                     <span className="date-btn-number-row">
                       <span className="date-btn-trip-day">{tripDayNumber}</span>
+                      <span className="date-btn-day-label">Day {tripDayNumber}</span>
                       <span className="date-btn-date-stack">
                         <span className="date-btn-wd">{wd}</span>
                         <span className="date-btn-d">{d}</span>
+                        <span className="date-btn-date-label">{wd} {d}</span>
                       </span>
                     </span>
                   </button>
                 );
               })}
+              <div className="date-strip-summary">
+                {days.length} day{days.length === 1 ? '' : 's'}
+                {dateRailStopCount ? ` · ${dateRailStopCount} stop${dateRailStopCount === 1 ? '' : 's'}` : ''}
+              </div>
             </div>
           </div>
 
@@ -3216,6 +3572,46 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
             </div>
           )}
 
+        </div>
+      )}
+
+      {coverToast && <div className="trip-cover-action-toast">{coverToast}</div>}
+
+      {confirmingOfflineRemove && (
+        <div className="save-offline-confirm">
+          <div className="save-offline-confirm-backdrop" onClick={() => setConfirmingOfflineRemove(false)} />
+          <div className="save-offline-confirm-dialog" role="dialog" aria-modal="true" aria-label="Remove offline copy?">
+            <div className="save-offline-confirm-title">Remove offline copy?</div>
+            <p className="save-offline-confirm-message">
+              You&rsquo;ll need a connection to view this trip again.
+            </p>
+            <div className="save-offline-confirm-actions">
+              <button className="save-offline-confirm-btn cancel" onClick={() => setConfirmingOfflineRemove(false)}>
+                Keep saved
+              </button>
+              <button className="save-offline-confirm-btn delete" onClick={handleRemoveOfflineDownload}>
+                Remove
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {coverDeleteConfirm && activeTripIndex !== null && (
+        <div className="confirm-overlay" role="dialog" aria-modal="true" aria-label="Confirm deletion">
+          <div className="confirm-backdrop" onClick={() => !coverDeleteBusy && setCoverDeleteConfirm(false)} />
+          <div className="confirm-dialog">
+            <div className="confirm-title">Delete trip?</div>
+            <p className="confirm-message">
+              &ldquo;{trips[activeTripIndex]?.trip.name}&rdquo; will be permanently removed. This cannot be undone.
+            </p>
+            <div className="confirm-actions">
+              <button className="confirm-btn confirm-btn-cancel" onClick={() => setCoverDeleteConfirm(false)} disabled={coverDeleteBusy}>Cancel</button>
+              <button className="confirm-btn confirm-btn-delete" onClick={handleDeleteActiveTrip} disabled={coverDeleteBusy}>
+                {coverDeleteBusy ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

@@ -1,6 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  coordinateBackedRoutePointCount,
+  hasCoordinateBackedTripRoute,
   OURTRIPS_TRIP_SCHEMA_VERSION,
   normalizeTripForQualityContract,
   validateItineraryQuality,
@@ -48,7 +50,22 @@ test('quality validation reports sparse legacy days as warnings, not hard errors
   assert.ok(report.warnings.some((warning) => warning.includes('programme')));
   assert.ok(report.warnings.some((warning) => warning.includes('description_title')));
   assert.ok(report.warnings.some((warning) => warning.includes('practical')));
+  assert.ok(report.issues.some((issue) => issue.code === 'missing_route_points'));
   assert.equal(report.summary.open_action_count, 1);
+});
+
+test('quality validation recognizes coordinate-backed route points', () => {
+  const data = legacyTrip();
+  data.trip.route_points = [
+    { label: 'Amsterdam', lat: 52.3676, lng: 4.9041, role: 'home' },
+    { label: 'Istanbul', lat: 41.0082, lng: 28.9784, role: 'stay' },
+  ];
+
+  const report = validateItineraryQuality(data);
+
+  assert.equal(coordinateBackedRoutePointCount(data), 2);
+  assert.equal(hasCoordinateBackedTripRoute(data), true);
+  assert.equal(report.issues.some((issue) => issue.code === 'missing_route_points'), false);
 });
 
 test('quality validation rejects an empty v2 itinerary as a hard error', () => {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { AnimatePresence, motion } from 'motion/react';
@@ -46,6 +46,14 @@ import {
 type Props = {
   initialPreferences: TravelProfilePreferences;
   profileComplete: boolean;
+  open?: boolean;
+  defaultOpen?: boolean;
+  autoOpen?: boolean;
+  showEntryButton?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  sheetTitle?: string;
+  profileNextHref?: string;
+  showExistingTripHint?: boolean;
 };
 
 type FormState = {
@@ -111,6 +119,18 @@ type GenerationStep = 'idle' | 'draft' | 'agent' | 'poll' | 'done' | 'error';
 
 const POLL_INTERVAL_MS = 2400;
 const POLL_TIMEOUT_MS = 305_000;
+const TRIP_OPEN_DELAY_MS = 1500;
+const DEFAULT_PROFILE_NEXT_HREF = '/dashboard?agent=new';
+const NEW_TRIP_KEYBOARD_INSET_THRESHOLD = 100;
+const NEW_TRIP_TOP_CLEARANCE_PX = 8;
+const NEW_TRIP_MIN_VISIBLE_SHEET_PX = 176;
+const NEW_TRIP_SWIPE_CLOSE_THRESHOLD_PX = 68;
+
+function isEditableElement(value: Element | null): value is HTMLElement {
+  if (!(value instanceof HTMLElement)) return false;
+  const tagName = value.tagName;
+  return value.isContentEditable || tagName === 'INPUT' || tagName === 'TEXTAREA';
+}
 const questionOrder: BriefQuestion[] = [
   'destination',
   'dates',
@@ -281,7 +301,18 @@ async function pollForAssistant(tripId: string, threadId: string, turnIndex: num
   throw new Error('The trip creator is taking longer than expected. Open the draft trip and continue from there.');
 }
 
-export default function NewTripCreator({ initialPreferences, profileComplete }: Props) {
+export default function NewTripCreator({
+  initialPreferences,
+  profileComplete,
+  open,
+  defaultOpen = false,
+  autoOpen = true,
+  showEntryButton = true,
+  onOpenChange,
+  sheetTitle = 'Ask Travel Agent',
+  profileNextHref = DEFAULT_PROFILE_NEXT_HREF,
+  showExistingTripHint = false,
+}: Props) {
   const router = useRouter();
   const defaultStart = useMemo(() => addDaysIso(todayIso(), 60), []);
   const defaultEnd = useMemo(() => addDaysIso(defaultStart, 5), [defaultStart]);
@@ -311,12 +342,23 @@ export default function NewTripCreator({ initialPreferences, profileComplete }: 
   const [statusText, setStatusText] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [draftUrl, setDraftUrl] = useState<string | null>(null);
+  const [completedTripUrl, setCompletedTripUrl] = useState<string | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
-  const [agentOpen, setAgentOpen] = useState(false);
+  const [uncontrolledAgentOpen, setUncontrolledAgentOpen] = useState(defaultOpen);
+  const agentOpen = open ?? uncontrolledAgentOpen;
+  const profileHref = `/onboarding?next=${encodeURIComponent(profileNextHref)}`;
+  const [layoutViewportHeight, setLayoutViewportHeight] = useState<number | null>(null);
+  const [keyboardInset, setKeyboardInset] = useState(0);
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+  const sheetRef = useRef<HTMLElement | null>(null);
+  const touchStartYRef = useRef<number | null>(null);
+  const sheetTouchLastYRef = useRef<number | null>(null);
+  const sheetTouchScrollableRef = useRef<HTMLElement | null>(null);
 
   const currentQuestionIndex = questionOrder.indexOf(activeQuestion);
   const dayCount = inclusiveDayCount(form.start_date, form.end_date);
   const working = generationStep !== 'idle' && generationStep !== 'error';
+  const completed = generationStep === 'done' && Boolean(completedTripUrl);
 
   useEffect(() => {
     if (!busy) return;
@@ -327,10 +369,150 @@ export default function NewTripCreator({ initialPreferences, profileComplete }: 
     return () => window.clearInterval(timer);
   }, [busy]);
 
+  const setAgentOpen = useCallback((nextOpen: boolean) => {
+    if (open === undefined) setUncontrolledAgentOpen(nextOpen);
+    onOpenChange?.(nextOpen);
+  }, [onOpenChange, open]);
+
+  const closeAgentSheet = useCallback(() => {
+    if (busy) return;
+    setAgentOpen(false);
+  }, [busy, setAgentOpen]);
+
   useEffect(() => {
-    const timer = window.setTimeout(() => setAgentOpen(true), 180);
+    if (open !== undefined || !autoOpen) return;
+    const timer = window.setTimeout(() => {
+      setAgentOpen(true);
+    }, 180);
     return () => window.clearTimeout(timer);
+  }, [autoOpen, open, setAgentOpen]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const vv = window.visualViewport;
+    let raf: number | null = null;
+    const update = () => {
+      raf = null;
+      const activeElement = document.activeElement;
+      const focusedInsideSheet = !!sheetRef.current && sheetRef.current.contains(activeElement);
+      const sheetInputFocused = focusedInsideSheet && isEditableElement(activeElement);
+      const layoutHeight = Math.round(window.innerHeight);
+      const viewportHeight = Math.round(vv?.height ?? window.innerHeight);
+      const viewportOffsetTop = Math.max(0, Math.round(vv?.offsetTop ?? 0));
+      const obscured = vv
+        ? Math.max(0, Math.round(window.innerHeight - (viewportHeight + viewportOffsetTop)))
+        : 0;
+      const candidate =
+        sheetInputFocused && obscured > NEW_TRIP_KEYBOARD_INSET_THRESHOLD ? obscured : 0;
+      const maxUsableInset = Math.max(
+        0,
+        window.innerHeight - NEW_TRIP_MIN_VISIBLE_SHEET_PX - NEW_TRIP_TOP_CLEARANCE_PX
+      );
+      const next = Math.min(candidate, maxUsableInset);
+
+      setLayoutViewportHeight((prev) => (prev === layoutHeight ? prev : layoutHeight));
+      setKeyboardInset((prev) => {
+        if (!sheetInputFocused) return prev === next ? prev : next;
+        if (next === 0) return prev === 0 ? prev : 0;
+        if (prev === 0) return next;
+        const stabilized = Math.max(prev, next);
+        return prev === stabilized ? prev : stabilized;
+      });
+      setIsKeyboardVisible((prev) => {
+        const visible = next > 0;
+        return prev === visible ? prev : visible;
+      });
+    };
+    const schedule = () => {
+      if (raf === null) raf = window.requestAnimationFrame(update);
+    };
+
+    update();
+    vv?.addEventListener('resize', schedule);
+    vv?.addEventListener('scroll', schedule);
+    window.addEventListener('resize', schedule);
+    window.addEventListener('orientationchange', schedule);
+    window.addEventListener('focusin', schedule);
+    window.addEventListener('focusout', schedule);
+    return () => {
+      vv?.removeEventListener('resize', schedule);
+      vv?.removeEventListener('scroll', schedule);
+      window.removeEventListener('resize', schedule);
+      window.removeEventListener('orientationchange', schedule);
+      window.removeEventListener('focusin', schedule);
+      window.removeEventListener('focusout', schedule);
+      if (raf !== null) window.cancelAnimationFrame(raf);
+    };
   }, []);
+
+  useEffect(() => {
+    const sheet = sheetRef.current;
+    if (!sheet || !agentOpen) return;
+
+    const findScrollableFromTarget = (target: EventTarget | null) => {
+      let node = target instanceof HTMLElement ? target : null;
+      while (node && node !== sheet) {
+        const style = window.getComputedStyle(node);
+        const isScrollableY = style.overflowY === 'auto' || style.overflowY === 'scroll';
+        if (isScrollableY && node.scrollHeight > node.clientHeight + 1) return node;
+        node = node.parentElement;
+      }
+      return null;
+    };
+
+    const handleTouchStart = (event: TouchEvent) => {
+      sheetTouchLastYRef.current = event.touches[0]?.clientY ?? null;
+      sheetTouchScrollableRef.current = findScrollableFromTarget(event.target);
+      const body = sheet.querySelector('.trip-new-agent-sheet-body') as HTMLElement | null;
+      const startedInBody = !!body && event.target instanceof Node && body.contains(event.target);
+      touchStartYRef.current =
+        startedInBody && body.scrollTop <= 0.5 ? event.touches[0]?.clientY ?? null : null;
+    };
+
+    const handleTouchMove = (event: TouchEvent) => {
+      const currentY = event.touches[0]?.clientY;
+      if (currentY === undefined) return;
+      const previousY = sheetTouchLastYRef.current ?? currentY;
+      const moveDeltaY = currentY - previousY;
+      sheetTouchLastYRef.current = currentY;
+
+      const scrollable = sheetTouchScrollableRef.current;
+      if (scrollable && scrollable.scrollHeight > scrollable.clientHeight + 1) {
+        const atTop = scrollable.scrollTop <= 0.5;
+        const atBottom =
+          scrollable.scrollTop + scrollable.clientHeight >= scrollable.scrollHeight - 0.5;
+        if ((moveDeltaY > 0 && atTop) || (moveDeltaY < 0 && atBottom) || moveDeltaY === 0) {
+          event.preventDefault();
+        }
+      } else {
+        event.preventDefault();
+      }
+
+      if (busy || isKeyboardVisible || touchStartYRef.current === null) return;
+      if (currentY - touchStartYRef.current > NEW_TRIP_SWIPE_CLOSE_THRESHOLD_PX) {
+        touchStartYRef.current = null;
+        closeAgentSheet();
+      }
+    };
+
+    const handleTouchEnd = () => {
+      touchStartYRef.current = null;
+      sheetTouchLastYRef.current = null;
+      sheetTouchScrollableRef.current = null;
+    };
+
+    sheet.addEventListener('touchstart', handleTouchStart, { passive: true });
+    sheet.addEventListener('touchmove', handleTouchMove, { passive: false });
+    sheet.addEventListener('touchend', handleTouchEnd, { passive: true });
+    sheet.addEventListener('touchcancel', handleTouchEnd, { passive: true });
+    return () => {
+      sheet.removeEventListener('touchstart', handleTouchStart);
+      sheet.removeEventListener('touchmove', handleTouchMove);
+      sheet.removeEventListener('touchend', handleTouchEnd);
+      sheet.removeEventListener('touchcancel', handleTouchEnd);
+      handleTouchEnd();
+    };
+  }, [agentOpen, busy, closeAgentSheet, isKeyboardVisible]);
 
   function setField<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -382,6 +564,7 @@ export default function NewTripCreator({ initialPreferences, profileComplete }: 
     setBusy(true);
     setError(null);
     setDraftUrl(null);
+    setCompletedTripUrl(null);
     setElapsedSeconds(0);
 
     try {
@@ -397,7 +580,9 @@ export default function NewTripCreator({ initialPreferences, profileComplete }: 
         throw new Error(draftBody.error ?? `HTTP ${draftRes.status}`);
       }
       draft = draftBody as DraftResponse;
-      setDraftUrl(`/t/${draft.share_id}`);
+      const tripUrl = `/t/${encodeURIComponent(draft.share_id)}`;
+      setDraftUrl(tripUrl);
+      router.prefetch(tripUrl);
 
       setGenerationStep('agent');
       setStatusText('Starting the travel agent with the destination, dates, travelers, profile context, and reference material...');
@@ -437,13 +622,15 @@ export default function NewTripCreator({ initialPreferences, profileComplete }: 
       }
 
       setGenerationStep('done');
-      setStatusText('Opening your completed first draft...');
+      setCompletedTripUrl(tripUrl);
+      setStatusText('Everything is finished. I am opening the new trip now.');
       await updateGeneration(draft.generation_session_id, {
         status: 'completed',
         chat_thread_id: threadId,
         turn_index: turn.turn_index,
       });
-      router.replace(`/t/${draft.share_id}`);
+      await sleep(TRIP_OPEN_DELAY_MS);
+      router.push(tripUrl);
     } catch (err) {
       setGenerationStep('error');
       const message = err instanceof Error ? err.message : 'Failed to create trip';
@@ -466,7 +653,7 @@ export default function NewTripCreator({ initialPreferences, profileComplete }: 
           <div className="trip-create-notice">
             <AlertCircle size={16} aria-hidden="true" />
             <span>Your travel profile is not finished yet.</span>
-            <Link href="/onboarding?next=/trips/new">Finish profile</Link>
+            <Link href={profileHref}>Finish profile</Link>
           </div>
         )}
 
@@ -672,8 +859,14 @@ export default function NewTripCreator({ initialPreferences, profileComplete }: 
                 busy={busy}
                 error={error}
                 draftUrl={draftUrl}
+                completedTripUrl={completedTripUrl}
                 onCreate={createTrip}
               />
+              {completed && (
+                <AgentBubble>
+                  Everything is finished. I am opening the new trip now.
+                </AgentBubble>
+              )}
             </div>
           )}
         </div>
@@ -684,7 +877,7 @@ export default function NewTripCreator({ initialPreferences, profileComplete }: 
           <Sparkles size={18} aria-hidden="true" />
           <div>
             <h2>Progress</h2>
-            <p>{busy ? `Working for ${formatElapsed(elapsedSeconds)}` : 'Agent-led setup'}</p>
+            <p>{completed ? 'Trip created' : busy ? `Working for ${formatElapsed(elapsedSeconds)}` : 'Agent-led setup'}</p>
           </div>
         </div>
 
@@ -696,27 +889,53 @@ export default function NewTripCreator({ initialPreferences, profileComplete }: 
           <StatusStep active={generationStep === 'done'} done={generationStep === 'done'} label="Open trip" />
         </ol>
 
-        <div className="trip-generation-now">
-          <Clock3 size={16} aria-hidden="true" />
+        <div className={`trip-generation-now ${completed ? 'is-success' : ''}`} aria-live="polite">
+          {completed ? (
+            <Check size={16} aria-hidden="true" />
+          ) : (
+            <Clock3 size={16} aria-hidden="true" />
+          )}
           <div>
             <strong>{statusText || 'I am asking for the details needed to create the trip.'}</strong>
             <p>
-              {busy
-                ? generationEstimate(dayCount, elapsedSeconds)
-                : 'Once generation starts, this panel will show what the agent is doing and how long it may still take.'}
+              {completed && completedTripUrl ? (
+                <>
+                  Taking you to the trip page. If the browser does not move,{' '}
+                  <Link href={completedTripUrl}>open the trip manually</Link>.
+                </>
+              ) : busy ? (
+                generationEstimate(dayCount, elapsedSeconds)
+              ) : (
+                'Once generation starts, this panel will show what the agent is doing and how long it may still take.'
+              )}
             </p>
           </div>
         </div>
+
+        {showExistingTripHint && (
+          <div className="trip-agent-context-hint">
+            <MessageCircle size={15} aria-hidden="true" />
+            <p>
+              Want to discuss an existing trip? Open that trip and start the chat there so the agent already has the itinerary, bookings, and trip context.
+            </p>
+          </div>
+        )}
 
         <BriefSnapshot form={form} dayCount={dayCount} />
       </aside>
     </div>
   );
+  const layoutViewportHeightCss = layoutViewportHeight ? `${layoutViewportHeight}px` : '100dvh';
+  const availableSheetHeight = `max(${NEW_TRIP_MIN_VISIBLE_SHEET_PX}px, calc(${layoutViewportHeightCss} - env(safe-area-inset-top, 0px) - ${NEW_TRIP_TOP_CLEARANCE_PX}px - ${keyboardInset}px))`;
+  const sheetRuntimeStyle = {
+    bottom: keyboardInset,
+    '--trip-new-agent-available-height': availableSheetHeight,
+  } as React.CSSProperties;
 
   return (
-    <div className="trip-new-agent-stage">
+    <div className={`trip-new-agent-stage ${showEntryButton ? '' : 'is-floating-only'}`}>
       <AnimatePresence>
-        {!agentOpen && (
+        {showEntryButton && !agentOpen && (
           <motion.button
             key="new-trip-entry"
             type="button"
@@ -746,15 +965,22 @@ export default function NewTripCreator({ initialPreferences, profileComplete }: 
               exit={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
               onClick={() => {
-                if (!busy) setAgentOpen(false);
+                if (isKeyboardVisible) {
+                  const activeElement = document.activeElement;
+                  if (activeElement instanceof HTMLElement) activeElement.blur();
+                  return;
+                }
+                closeAgentSheet();
               }}
             />
             <motion.section
               key="new-trip-sheet"
+              ref={sheetRef}
               role="dialog"
-              aria-label="Ask Travel Agent"
+              aria-label={sheetTitle}
               aria-modal="true"
               className="trip-new-agent-sheet"
+              style={sheetRuntimeStyle}
               initial={{ y: '100%' }}
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
@@ -764,7 +990,7 @@ export default function NewTripCreator({ initialPreferences, profileComplete }: 
                 type="button"
                 className="trip-new-agent-grabber"
                 onClick={() => {
-                  if (!busy) setAgentOpen(false);
+                  closeAgentSheet();
                 }}
                 disabled={busy}
                 aria-label="Minimize new trip agent"
@@ -773,10 +999,10 @@ export default function NewTripCreator({ initialPreferences, profileComplete }: 
               </button>
               <header className="trip-new-agent-sheet-header">
                 <span />
-                <div>Ask Travel Agent</div>
+                <div>{sheetTitle}</div>
                 <button
                   type="button"
-                  onClick={() => setAgentOpen(false)}
+                  onClick={closeAgentSheet}
                   disabled={busy}
                   aria-label="Close new trip agent"
                 >
@@ -1399,6 +1625,7 @@ function ReviewBrief({
   busy,
   error,
   draftUrl,
+  completedTripUrl,
   onCreate,
 }: {
   form: FormState;
@@ -1406,11 +1633,22 @@ function ReviewBrief({
   busy: boolean;
   error: string | null;
   draftUrl: string | null;
+  completedTripUrl: string | null;
   onCreate: () => void;
 }) {
   return (
     <div className="trip-agent-review">
       <BriefSnapshot form={form} dayCount={dayCount} />
+      {completedTripUrl && (
+        <div className="trip-create-success">
+          <Check size={16} aria-hidden="true" />
+          <div>
+            <strong>Everything is finished.</strong>
+            <span>I am opening the new trip now.</span>
+            <Link href={completedTripUrl}>Open trip</Link>
+          </div>
+        </div>
+      )}
       {error && (
         <div className="trip-create-error">
           <AlertCircle size={16} aria-hidden="true" />
@@ -1421,10 +1659,17 @@ function ReviewBrief({
         </div>
       )}
       <div className="trip-agent-control-actions">
-        <button className="trip-create-primary" type="button" disabled={busy || !form.destination.trim()} onClick={onCreate}>
-          {busy ? 'Creating trip...' : 'Create trip'}
-          <Sparkles size={16} aria-hidden="true" />
-        </button>
+        {completedTripUrl ? (
+          <Link className="trip-create-primary" href={completedTripUrl}>
+            Open trip
+            <ArrowRight size={16} aria-hidden="true" />
+          </Link>
+        ) : (
+          <button className="trip-create-primary" type="button" disabled={busy || !form.destination.trim()} onClick={onCreate}>
+            {busy ? 'Creating trip...' : 'Create trip'}
+            <Sparkles size={16} aria-hidden="true" />
+          </button>
+        )}
       </div>
     </div>
   );

@@ -250,6 +250,7 @@ Requirements:
 - First call get_trip with view="summary" to inspect the starter draft.
 - Use update_trip to replace the trip metadata and the full ordered days array.
 - Keep trip.dates.start exactly ${brief.start_date}, trip.dates.end exactly ${brief.end_date}, and create exactly ${dayCount} calendar day${dayCount === 1 ? '' : 's'}.
+- Include trip.route_points in the trip metadata with at least two coordinate-backed route/stay stops using label, lat, and lng. Add day, mode, and role where helpful so the overview map renders even if live Google place search is unavailable.
 - Use the OurTrips v2 quality contract: day intros, 3-6 programme items for full days, map-ready named places when known, meals, practical tips, statuses for open/booked items, and realistic pacing.
 - Prefer a complete useful first draft over exhaustive research. Use WebSearch only for current, specific recommendations where freshness matters.
 - Put uncertain assumptions in trip.notes or item notes instead of blocking generation.
