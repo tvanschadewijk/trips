@@ -225,6 +225,63 @@
   color: #1A1410;
 }
 .dash-profile-link:hover { background: #E8E1D6; }
+
+.dash-agent-entry {
+  position: fixed;
+  left: 50%;
+  bottom: calc(14px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: auto;
+  height: auto;
+  padding: 13px 22px;
+  background: #C14F2A;
+  color: #FBF7F1;
+  border: 1px solid #C14F2A;
+  border-radius: 999px;
+  cursor: pointer;
+  box-shadow: rgba(193, 79, 42, 0.28) 0 12px 32px -12px, rgba(26, 20, 16, 0.08) 0 1px 0 0;
+  z-index: 80;
+  white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
+  line-height: 1;
+  text-decoration: none;
+  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.dash-agent-entry:hover {
+  background: #A03E1F;
+  border-color: #A03E1F;
+  box-shadow: rgba(160, 62, 31, 0.32) 0 14px 34px -12px, rgba(26, 20, 16, 0.08) 0 1px 0 0;
+}
+
+.dash-agent-entry:active {
+  background: #A03E1F;
+  border-color: #A03E1F;
+  transform: translateX(-50%) scale(0.96);
+}
+
+.dash-agent-entry-icon {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+  color: #FBF7F1;
+}
+
+.dash-agent-entry-label {
+  display: inline;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  line-height: 1;
+  text-transform: uppercase;
+  margin-left: 8px;
+  color: #FBF7F1;
+}
+
 .dash-title {
   font-family: 'Fraunces', 'Iowan Old Style', 'Palatino', 'Georgia', serif;
   font-optical-sizing: auto;

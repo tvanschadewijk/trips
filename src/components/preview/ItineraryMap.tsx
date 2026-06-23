@@ -1,7 +1,7 @@
 'use client';
 
 import { importLibrary, setOptions } from '@googlemaps/js-api-loader';
-import { ExternalLink, MapPin, Minus, Plus } from 'lucide-react';
+import { ExternalLink, MapPin } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { flushSync } from 'react-dom';
@@ -41,6 +41,8 @@ interface PointDisplay {
   role: string;
   position: google.maps.LatLngLiteral;
   detail: ItineraryMapPointDetail;
+  googleMapsUrl?: string;
+  placeId?: string;
 }
 
 interface PopupOptions {
@@ -76,7 +78,6 @@ type ResolvedSearchTarget = {
 
 const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 const GOOGLE_MAPS_MAP_ID = process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID;
-const MAP_BACKGROUND_COLOR = '#EFE5D8';
 const MAP_POPOVER_Z_INDEX = 1_000_000;
 const HOVER_POPUP_CLOSE_DELAY_MS = 160;
 const EMPTY_SEARCH_TARGETS: ItineraryMapPoiSearchTarget[] = [];
@@ -87,8 +88,17 @@ const OVERVIEW_MAP_FIT_PADDING = { top: 28, right: 24, bottom: 28, left: 24 } sa
 const DAY_MAP_FIT_PADDING = { top: 68, right: 84, bottom: 76, left: 68 } satisfies google.maps.Padding;
 const DAY_MAP_REFIT_PADDING = { top: 76, right: 92, bottom: 84, left: 76 } satisfies google.maps.Padding;
 const PLACE_FALLBACK_MAX_DISTANCE_KM = 120;
-const POI_RESULT_BOUNDS_PAD_DEGREES = 0.04;
+const POI_RESULT_BOUNDS_PAD_DEGREES = 0.18;
 const SEARCH_CACHE = new Map<string, ResolvedSearchTarget | null>();
+const PLACE_DETAIL_FIELDS = [
+  'id',
+  'displayName',
+  'formattedAddress',
+  'googleMapsURI',
+  'location',
+  'primaryType',
+  'types',
+];
 const PLACE_AREA_TYPES = new Set([
   'administrative_area_level_1',
   'administrative_area_level_2',
@@ -182,10 +192,14 @@ function pointDataFor(atlas: TripRouteAtlas, variant: MapVariant, pointDetails?:
           : String(hasHomeStart ? point.index : point.index + 1),
       role: point.role ?? 'stop',
       position: toLatLng(point),
+      googleMapsUrl: detail.googleMapsUrl,
+      placeId: detail.placeId,
       detail: {
         title: detail.title ?? point.label,
         kicker: detail.kicker,
         body: detail.body,
+        googleMapsUrl: detail.googleMapsUrl,
+        placeId: detail.placeId,
       },
     };
   });
@@ -267,7 +281,6 @@ function searchResultFitsTarget(
 }
 
 function locationBiasFor(target: ItineraryMapPoiSearchTarget): google.maps.places.SearchByTextRequest['locationBias'] | undefined {
-  if (target.kind === 'poi' && target.bbox) return undefined;
   if (target.bbox) return boundsLiteralFor(target.bbox);
   if (!target.proximity) return undefined;
 
@@ -279,7 +292,11 @@ function locationBiasFor(target: ItineraryMapPoiSearchTarget): google.maps.place
 
 function locationRestrictionFor(target: ItineraryMapPoiSearchTarget): google.maps.places.SearchByTextRequest['locationRestriction'] | undefined {
   if (target.kind !== 'poi' || !target.bbox) return undefined;
-  return boundsLiteralFor(target.bbox);
+  // Day-map POI bounds are inferred from itinerary route context. Treat them as
+  // a ranking hint, not a hard wall, so nearby establishments just outside a
+  // broad place anchor (for example Como city vs. a Lake Como route point) can
+  // still resolve to their real Places result.
+  return undefined;
 }
 
 function placeCoordinates(place: google.maps.places.Place): google.maps.LatLngLiteral | undefined {
@@ -292,16 +309,37 @@ function placeCoordinates(place: google.maps.places.Place): google.maps.LatLngLi
   return { lat, lng };
 }
 
+function googleMapsUrlForPlace(place: google.maps.places.Place): string | undefined {
+  const url = place.googleMapsURI?.trim();
+  return url || undefined;
+}
+
+function placeIdForPlace(place: google.maps.places.Place): string | undefined {
+  const id = place.id?.trim();
+  return id || undefined;
+}
+
 function isAreaResult(place: google.maps.places.Place): boolean {
   const types = [place.primaryType, ...(place.types ?? [])].filter((type): type is string => Boolean(type));
   return types.some((type) => PLACE_AREA_TYPES.has(type));
+}
+
+function placeNameMatchesTarget(place: google.maps.places.Place, target: ItineraryMapPoiSearchTarget): boolean {
+  const placeName = normalizeSearchText(place.displayName ?? '');
+  const targetName = normalizeSearchText(target.label);
+  if (!placeName || !targetName) return false;
+  return placeName === targetName || placeName.includes(targetName) || targetName.includes(placeName);
 }
 
 function pickSearchPlace(places: google.maps.places.Place[] | undefined, target: ItineraryMapPoiSearchTarget): google.maps.places.Place | undefined {
   const candidates = (places ?? []).filter((place) => placeCoordinates(place));
   if (!candidates.length) return undefined;
   if (target.kind === 'place') return candidates[0];
-  if (target.placeType) return candidates.find((place) => !isAreaResult(place)) ?? candidates[0];
+  if (target.placeType) {
+    return candidates.find((place) => !isAreaResult(place) && placeNameMatchesTarget(place, target))
+      ?? candidates.find((place) => !isAreaResult(place))
+      ?? candidates[0];
+  }
 
   const targetText = normalizeSearchText(target.label);
   return candidates.find((place) => {
@@ -313,6 +351,13 @@ function pickSearchPlace(places: google.maps.places.Place[] | undefined, target:
 
 function resolvedTargetFromFallback(target: ItineraryMapPoiSearchTarget, index: number): ResolvedSearchTarget | null {
   if (!target.fallbackPoint) return null;
+  if (
+    target.kind === 'poi'
+    && target.fallbackPoint.source !== 'stored'
+    && (target.placeType === 'lodging' || target.placeType === 'restaurant')
+  ) {
+    return null;
+  }
 
   return {
     point: {
@@ -328,8 +373,54 @@ function resolvedTargetFromFallback(target: ItineraryMapPoiSearchTarget, index: 
       title: target.detail?.title ?? target.label,
       kicker: target.detail?.kicker,
       body: target.detail?.body,
+      googleMapsUrl: target.detail?.googleMapsUrl,
+      placeId: target.detail?.placeId,
     },
   };
+}
+
+function resolvedTargetFromPlace(
+  target: ItineraryMapPoiSearchTarget,
+  place: google.maps.places.Place,
+  position: google.maps.LatLngLiteral
+): ResolvedSearchTarget {
+  const displayName = place.displayName?.trim();
+  return {
+    point: {
+      id: target.id,
+      index: 0,
+      label: displayName || target.label,
+      lat: position.lat,
+      lng: position.lng,
+      role: target.role ?? 'stop',
+      source: 'derived',
+    },
+    detail: {
+      title: displayName || target.detail?.title || target.label,
+      kicker: target.detail?.kicker,
+      body: target.detail?.body || place.formattedAddress || '',
+      googleMapsUrl: googleMapsUrlForPlace(place) ?? target.detail?.googleMapsUrl,
+      placeId: placeIdForPlace(place) ?? target.detail?.placeId,
+    },
+  };
+}
+
+async function resolvePlaceIdTarget(
+  target: ItineraryMapPoiSearchTarget,
+  Place: typeof google.maps.places.Place
+): Promise<ResolvedSearchTarget | null> {
+  const placeId = target.detail?.placeId?.trim();
+  if (!placeId) return null;
+
+  try {
+    const place = new Place({ id: placeId });
+    const { place: fetchedPlace } = await place.fetchFields({ fields: PLACE_DETAIL_FIELDS });
+    const position = placeCoordinates(fetchedPlace);
+    if (!position) return null;
+    return resolvedTargetFromPlace(target, fetchedPlace, position);
+  } catch {
+    return null;
+  }
 }
 
 async function resolveSearchTarget(target: ItineraryMapPoiSearchTarget, apiKey: string): Promise<ResolvedSearchTarget | null> {
@@ -340,6 +431,8 @@ async function resolveSearchTarget(target: ItineraryMapPoiSearchTarget, apiKey: 
     bbox: target.bbox,
     kind: target.kind,
     placeType: target.placeType,
+    googleMapsUrl: target.detail?.googleMapsUrl,
+    placeId: target.detail?.placeId,
     fallbackPoint: target.fallbackPoint
       ? [target.fallbackPoint.lat, target.fallbackPoint.lng]
       : undefined,
@@ -363,12 +456,18 @@ async function resolveSearchTarget(target: ItineraryMapPoiSearchTarget, apiKey: 
     return null;
   }
 
+  const placeIdResult = await resolvePlaceIdTarget(target, Place);
+  if (placeIdResult) {
+    SEARCH_CACHE.set(cacheKey, placeIdResult);
+    return placeIdResult;
+  }
+
   for (const query of searchQueriesFor(target)) {
     try {
       const locationRestriction = locationRestrictionFor(target);
       const request: google.maps.places.SearchByTextRequest = {
         textQuery: query,
-        fields: ['displayName', 'formattedAddress', 'location', 'primaryType', 'types'],
+        fields: PLACE_DETAIL_FIELDS,
         language: 'en',
         maxResultCount: 5,
       };
@@ -390,22 +489,7 @@ async function resolveSearchTarget(target: ItineraryMapPoiSearchTarget, apiKey: 
       if (!place || !position) continue;
       if (!searchResultFitsTarget(target, position)) continue;
 
-      const resolved: ResolvedSearchTarget = {
-        point: {
-          id: target.id,
-          index: 0,
-          label: target.label,
-          lat: position.lat,
-          lng: position.lng,
-          role: target.role ?? 'stop',
-          source: 'derived',
-        },
-        detail: {
-          title: target.detail?.title ?? target.label,
-          kicker: target.detail?.kicker,
-          body: target.detail?.body || place.formattedAddress || '',
-        },
-      };
+      const resolved = resolvedTargetFromPlace(target, place, position);
       SEARCH_CACHE.set(cacheKey, resolved);
       return resolved;
     } catch {
@@ -472,14 +556,33 @@ function fitMap(map: google.maps.Map, atlas: TripRouteAtlas, variant: MapVariant
 }
 
 function googleMapsLinkFor(point: PointDisplay): string {
+  if (point.googleMapsUrl) return point.googleMapsUrl;
+  if (point.placeId) {
+    const query = encodeURIComponent(point.detail.title || point.label);
+    return `https://www.google.com/maps/search/?api=1&query=${query}&query_place_id=${encodeURIComponent(point.placeId)}`;
+  }
+
   const lat = point.position.lat.toFixed(6);
   const lng = point.position.lng.toFixed(6);
   return `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
 }
 
 function googleMapsSearchLinkForTarget(target: ItineraryMapPoiSearchTarget): string {
+  if (target.detail?.googleMapsUrl) return target.detail.googleMapsUrl;
+  if (target.detail?.placeId) {
+    const query = encodeURIComponent(target.detail.title || target.label);
+    return `https://www.google.com/maps/search/?api=1&query=${query}&query_place_id=${encodeURIComponent(target.detail.placeId)}`;
+  }
+
   const query = target.query && target.query.length <= 120 ? target.query : target.label;
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+}
+
+function popupKickerFor(point: PointDisplay): string {
+  if (point.detail.kicker) return point.detail.kicker;
+  if (point.role === 'home') return 'Start / finish';
+  if (point.marker) return `Stop ${point.marker}`;
+  return 'Route stop';
 }
 
 function ItineraryMapSearchFallback({ targets }: { targets: ItineraryMapPoiSearchTarget[] }) {
@@ -511,13 +614,6 @@ function ItineraryMapSearchFallback({ targets }: { targets: ItineraryMapPoiSearc
       ) : null}
     </div>
   );
-}
-
-function popupKickerFor(point: PointDisplay): string {
-  if (point.detail.kicker) return point.detail.kicker;
-  if (point.role === 'home') return 'Start / finish';
-  if (point.marker) return `Stop ${point.marker}`;
-  return 'Route stop';
 }
 
 function ItineraryMapStopPopup({
@@ -858,7 +954,7 @@ export default function ItineraryMap({
   );
   const effectiveLoadingLabel = waitingForSearch ? 'Finding day places' : loadingLabel;
   const effectiveLoadingHint = waitingForSearch ? 'Looking up hotels, restaurants and sights for this day.' : loadingHint;
-  const useCustomZoomControls = interactive;
+  const useCustomZoomControls = interactive && variant === 'day';
   const showCustomZoomControls = useCustomZoomControls && ready && !showFallback && !showDeferred && !failed;
 
   const zoomMap = (direction: 1 | -1) => {
@@ -959,26 +1055,18 @@ export default function ItineraryMap({
         if (cancelled || !mapContainer.isConnected) return;
 
         const map = new Map(mapContainer, {
-          backgroundColor: MAP_BACKGROUND_COLOR,
-          cameraControl: false,
+          backgroundColor: '#EFE5D8',
           center: centerFor(displayAtlas),
-          clickableIcons: false,
-          colorScheme: 'LIGHT',
-          controlSize: 30,
-          disableDefaultUI: true,
-          fullscreenControl: false,
-          gestureHandling: interactive ? 'cooperative' : 'none',
-          headingInteractionEnabled: false,
+          clickableIcons: interactive,
+          disableDefaultUI: !interactive,
+          fullscreenControl: interactive,
+          gestureHandling: interactive ? 'auto' : 'none',
           keyboardShortcuts: interactive,
           mapId: GOOGLE_MAPS_MAP_ID || undefined,
           mapTypeControl: false,
-          rotateControl: false,
-          scaleControl: false,
           streetViewControl: false,
-          tilt: 0,
-          tiltInteractionEnabled: false,
           zoom: displayAtlas.points.length === 1 ? 11 : 6,
-          zoomControl: false,
+          zoomControl: interactive && !useCustomZoomControls,
         });
 
         mapRef.current = map;
@@ -1085,7 +1173,7 @@ export default function ItineraryMap({
                 disabled={currentZoom !== null && currentZoom >= MAX_MAP_ZOOM}
                 onClick={() => zoomMap(1)}
               >
-                <Plus aria-hidden="true" />
+                +
               </button>
               <button
                 type="button"
@@ -1095,7 +1183,7 @@ export default function ItineraryMap({
                 disabled={currentZoom !== null && currentZoom <= MIN_MAP_ZOOM}
                 onClick={() => zoomMap(-1)}
               >
-                <Minus aria-hidden="true" />
+                -
               </button>
             </div>
           ) : null}

@@ -1,4 +1,4 @@
-import type { Accommodation, Day, Meal } from './types';
+import type { Accommodation, Day, ItineraryPlace, Meal } from './types';
 import {
   buildDayRouteMapSearchText,
   routePlaceTextMatches,
@@ -11,6 +11,8 @@ export interface ItineraryMapPointDetail {
   title?: string;
   kicker?: string;
   body?: string;
+  googleMapsUrl?: string;
+  placeId?: string;
 }
 
 export interface ItineraryMapPoiSearchTarget {
@@ -273,7 +275,11 @@ function mapSearchContext(day: Day, atlas: TripRouteAtlas | undefined, contextLa
     .filter((point) => point.role !== 'home')
     .map((point) => point.label)
     .slice(0, 3) ?? [];
-  return uniquePlaceLabels([...routeLabels, ...contextLabels, day.title]).join(' ');
+  const dayLocationLabels = [
+    day.accommodation?.detail?.address,
+    stayDestinationSearchText(day),
+  ].filter((value): value is string => Boolean(value));
+  return uniquePlaceLabels([...routeLabels, ...dayLocationLabels, ...contextLabels, day.title]).join(' ');
 }
 
 function normalizeMapSearchLabel(value: string): string {
@@ -368,6 +374,13 @@ function explicitFallbackPoint(place: { lat?: number; lng?: number } | undefined
   if (!place || typeof place.lat !== 'number' || typeof place.lng !== 'number') return undefined;
   if (!Number.isFinite(place.lat) || !Number.isFinite(place.lng)) return undefined;
   return { lat: place.lat, lng: place.lng, source: 'stored' };
+}
+
+function googleMapsDetailForPlace(place: ItineraryPlace | undefined): Pick<ItineraryMapPointDetail, 'googleMapsUrl' | 'placeId'> {
+  return {
+    googleMapsUrl: place?.google_maps_url,
+    placeId: place?.place_id,
+  };
 }
 
 function isPlaceholderAccommodationName(value: string): boolean {
@@ -506,9 +519,12 @@ function addDayMapTarget(
 
   seen.add(normalized);
   const context = mapSearchContext(day, atlas, options.contextLabels);
+  const needsExactPlaceSearch = options.placeType === 'lodging' || options.placeType === 'restaurant';
   const fallbackPoint = options.fallbackPoint
-    ?? matchingAtlasPoint(atlas, [trimmed, options.address].filter(Boolean).join(' '))
-    ?? approximateAtlasPoint(atlas, targets.length);
+    ?? (needsExactPlaceSearch
+      ? undefined
+      : matchingAtlasPoint(atlas, [trimmed, options.address].filter(Boolean).join(' '))
+        ?? approximateAtlasPoint(atlas, targets.length));
   targets.push({
     id: `day-${day.day_number}-poi-${targets.length}-${normalized.replace(/\s+/g, '-')}`,
     label: trimmed,
@@ -582,6 +598,7 @@ export function buildDayMapSearchTargets(
         title: block.place.name,
         kicker: `Day ${day.day_number} · Sight`,
         body: truncateMapDetail(block.place.note || block.detail?.why || block.detail?.body || block.content),
+        ...googleMapsDetailForPlace(block.place),
       }, {
         address: block.place.address,
         fallbackPoint: explicitFallbackPoint(block.place),
@@ -615,6 +632,7 @@ export function buildDayMapSearchTargets(
       title: mealLabel,
       kicker: `Day ${day.day_number} · ${meal.type}`,
       body: truncateMapDetail(meal.note || meal.detail?.why || meal.detail?.body || meal.detail?.address),
+      ...googleMapsDetailForPlace(meal.place),
     }, {
       address: meal.place?.address ?? meal.detail?.address,
       fallbackPoint: explicitFallbackPoint(meal.place),
@@ -666,6 +684,8 @@ function mapPointDetailsForTargets(targets: ItineraryMapPoiSearchTarget[]): Reco
       title: target.detail?.title ?? target.label,
       kicker: target.detail?.kicker,
       body: target.detail?.body,
+      googleMapsUrl: target.detail?.googleMapsUrl,
+      placeId: target.detail?.placeId,
     },
   ]));
 }

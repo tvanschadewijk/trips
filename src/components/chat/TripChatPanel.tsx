@@ -220,6 +220,65 @@ async function fetchLatestTripData(tripId: string): Promise<TripData | null> {
   return json.trip_data ?? null;
 }
 
+function isLocalProgressEvent(event: ChatProgressEvent): boolean {
+  return event.id.startsWith('local-progress-') || event.id.startsWith('inferred-progress-');
+}
+
+function stageForInferredStatus(message: string): ChatProgressEvent['stage'] {
+  if (/read|finding/i.test(message)) return 'reading';
+  if (/search|source|website|policy/i.test(message)) return 'researching';
+  if (/check|review/i.test(message)) return 'checking';
+  if (/saving|edit/i.test(message)) return 'editing';
+  if (/writing|reply/i.test(message)) return 'writing';
+  return 'thinking';
+}
+
+function buildInferredProgressEvents(
+  phases: readonly string[],
+  activeIndex: number,
+  turnIndex: number
+): ChatProgressEvent[] {
+  return phases.slice(0, activeIndex + 1).map((message, index) => ({
+    id: `inferred-progress-${turnIndex}-${index}`,
+    turn_index: turnIndex,
+    stage: stageForInferredStatus(message),
+    action: 'infer',
+    object_type: 'agent_activity',
+    status: index < activeIndex ? 'completed' : 'active',
+    confidence: 'inferred',
+    message,
+    created_at: '',
+  }));
+}
+
+function shouldUseInferredProgress(
+  latestProgress: ChatProgressEvent | undefined,
+  statusIdx: number
+): boolean {
+  if (!latestProgress) return true;
+  if (isLocalProgressEvent(latestProgress)) return true;
+  if (statusIdx === 0) return false;
+  return (
+    latestProgress.stage === 'queued' ||
+    latestProgress.stage === 'starting' ||
+    latestProgress.confidence === 'inferred'
+  );
+}
+
+function mergeProgressEvents(
+  primary: ChatProgressEvent[],
+  fallback: ChatProgressEvent[]
+): ChatProgressEvent[] {
+  const seen = new Set<string>();
+  return [...primary, ...fallback].filter((event) => {
+    if (event.stage === 'done') return false;
+    const key = `${event.stage}:${event.message}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 async function fetchChatHistoryPayload(
   tripId: string,
   threadId: string | null,
@@ -913,15 +972,29 @@ export default function TripChatPanel({
 
   const threadGroups = groupThreadsByRecency(threads);
   const latestProgress = turnProgress[turnProgress.length - 1];
+  const inferredProgress = loading
+    ? buildInferredProgressEvents(
+        statusPhases,
+        Math.min(statusIdx, statusPhases.length - 1),
+        latestProgress?.turn_index ?? 0
+      )
+    : [];
+  const useInferredProgress =
+    loading && shouldUseInferredProgress(latestProgress, statusIdx);
+  const concreteProgress = turnProgress.filter((event) => !isLocalProgressEvent(event));
   const activeProgress =
-    loading && latestProgress && latestProgress.stage !== 'done' ? latestProgress : undefined;
+    useInferredProgress
+      ? inferredProgress[inferredProgress.length - 1]
+      : loading && latestProgress && latestProgress.stage !== 'done'
+        ? latestProgress
+        : undefined;
   const activeStatusText =
-    activeProgress
-      ? activeProgress.message
-      : statusPhases[statusIdx] ?? statusPhases[statusPhases.length - 1];
-  const visibleProgress = turnProgress
-    .filter((event) => event.stage !== 'done')
-    .slice(-5);
+    activeProgress?.message ?? statusPhases[statusIdx] ?? statusPhases[statusPhases.length - 1];
+  const visibleProgress = (
+    useInferredProgress
+      ? mergeProgressEvents(concreteProgress, inferredProgress)
+      : turnProgress.filter((event) => event.stage !== 'done')
+  ).slice(-5);
   const layoutViewportHeightCss = layoutViewportHeight ? `${layoutViewportHeight}px` : '100dvh';
   const availableSheetHeight = `max(${MIN_VISIBLE_SHEET_PX}px, calc(${layoutViewportHeightCss} - env(safe-area-inset-top, 0px) - ${PANEL_TOP_CLEARANCE_PX}px - ${keyboardInset}px))`;
   const sheetRuntimeStyle = {

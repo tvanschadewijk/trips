@@ -173,7 +173,10 @@ export function threadContextForThread(
 ): ThreadContext | null {
   const explicitKey = compactText(thread.context_key);
   if (explicitKey) {
-    const label = compactText(thread.context_label) ?? inferThreadContextFromTitle(thread.title)?.label ?? explicitKey;
+    const label =
+      compactText(thread.context_label) ??
+      inferThreadContextFromTitle(thread.title)?.label ??
+      explicitKey;
     return { key: explicitKey, label };
   }
   return inferThreadContextFromTitle(thread.title);

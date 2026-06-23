@@ -5,7 +5,7 @@ const SHARE_ID = process.env.TEST_SHARE_ID ?? 'NyLNFNHxC9';
 
 test.describe('Explicit Save for offline', () => {
   async function openTripActions(page) {
-    await page.getByRole('button', { name: 'Trips options' }).click();
+    await page.getByRole('button', { name: 'Trip actions' }).click();
   }
 
   test('saves trip and persists manifest entry', async ({ page }) => {

@@ -269,7 +269,9 @@ const UPSERT_MEAL_DESCRIPTION = `Add or update one meal or restaurant without lo
 
 Use this after choosing one specific restaurant, cafe, bar, bakery, or food
 stop. For "find a nice restaurant", WebSearch first, then either ask the user
-to choose among options or save the clearly best fit with this tool.
+to choose among options or save the clearly best fit with this tool. When a
+source gives the exact venue address, include it in place.address instead of
+saving only a bare name; never invent coordinates for an unverified venue.
 
 Each meal row is one restaurant. If the user asks for multiple restaurant
 suggestions, return a concise shortlist in the chat first. Only save multiple
