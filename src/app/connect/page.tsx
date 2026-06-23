@@ -127,7 +127,7 @@ function ConnectInner() {
               <CircleX aria-hidden="true" />
             </div>
             <h2 className="connect-title">Invalid or expired link</h2>
-            <p className="connect-desc">This authorization link is no longer valid. Go back to Claude and try again.</p>
+            <p className="connect-desc">This authorization link is no longer valid. Return to the app or agent that opened it and try again.</p>
           </div>
         )}
 
@@ -201,7 +201,7 @@ function ConnectInner() {
               <CircleX aria-hidden="true" />
             </div>
             <h2 className="connect-title">Something went wrong</h2>
-            <p className="connect-desc">Please go back to Claude and try again.</p>
+            <p className="connect-desc">Please return to the app or agent that opened this flow and try again.</p>
           </div>
         )}
       </div>

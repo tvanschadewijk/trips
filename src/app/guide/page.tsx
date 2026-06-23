@@ -6,16 +6,16 @@ import AppTopBar from '@/components/ui/AppTopBar';
 import '@/styles/guide.css';
 
 export const metadata: Metadata = {
-  title: 'How to Connect OurTrips to Claude or Codex',
+  title: 'How to Start a Trip in OurTrips',
   description:
-    'Connect the OurTrips remote MCP server to Claude or Codex and turn AI travel planning conversations into shareable itineraries.',
+    'Start a trip in OurTrips, collect bookings and notes, and let the built-in travel agent create a portable day-by-day guide.',
   alternates: {
     canonical: 'https://ourtrips.to/guide',
   },
   openGraph: {
-    title: 'How to Connect OurTrips to Claude or Codex',
+    title: 'How to Start a Trip in OurTrips',
     description:
-      'Connect the OurTrips remote MCP server to Claude or Codex and turn AI travel planning conversations into shareable itineraries.',
+      'Start a trip in OurTrips, collect bookings and notes, and let the built-in travel agent create a portable day-by-day guide.',
     url: 'https://ourtrips.to/guide',
     siteName: 'OurTrips',
     locale: 'en_US',
@@ -23,9 +23,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'How to Connect OurTrips to Claude or Codex',
+    title: 'How to Start a Trip in OurTrips',
     description:
-      'Connect the OurTrips remote MCP server to Claude or Codex and turn AI travel planning conversations into shareable itineraries.',
+      'Start a trip in OurTrips, collect bookings and notes, and let the built-in travel agent create a portable day-by-day guide.',
   },
 };
 
@@ -36,8 +36,8 @@ export default function GuidePage() {
   return (
     <div className="guide">
       <AppTopBar
-        suffix="Connector guide"
-        actions={<Link href="/login" className="guide-btn-outline">Log in</Link>}
+        suffix="Start a trip"
+        actions={<Link href="/login?next=/dashboard%3Fagent%3Dnew" className="guide-btn-outline">Start</Link>}
       />
 
       <main className="guide-main">
@@ -47,11 +47,11 @@ export default function GuidePage() {
             Back
           </Link>
 
-          <h1 className="guide-title">Connect OurTrips to your agent</h1>
+          <h1 className="guide-title">Start with the messy trip pile.</h1>
           <p className="guide-intro">
-            The recommended setup is a remote MCP connector. It gives Claude or Codex a direct,
-            OAuth-secured OurTrips tool, so your itinerary can be saved without fighting agent
-            sandbox networking.
+            OurTrips now creates the trip from the beginning. Bring the bookings, notes,
+            questions, preferences, and reference material you already have; the travel agent
+            turns them into a portable guide you can keep refining.
           </p>
 
           <div className="guide-divider" />
@@ -59,20 +59,82 @@ export default function GuidePage() {
           <section className="guide-section">
             <div className="guide-section-header">
               <span className="guide-section-badge">Recommended</span>
-              <span className="guide-section-tag">Remote MCP</span>
+              <span className="guide-section-tag">In OurTrips</span>
             </div>
-            <h2 className="guide-section-title">Connect the OurTrips MCP server</h2>
+            <h2 className="guide-section-title">Create the trip inside OurTrips</h2>
             <p className="guide-section-desc">
-              Add this server URL as a custom MCP connector, then sign in with your OurTrips
-              account when your agent asks for authorization.
+              Start with a short travel-agent intake, then add the context that makes the trip real:
+              dates, travelers, origin, budget, pace, must-dos, existing bookings, notes, PDFs,
+              and open decisions.
             </p>
+
+            <div className="guide-network-grid">
+              <article className="guide-network-card">
+                <h3 className="guide-network-title">1. Collect the material</h3>
+                <ol className="guide-network-list">
+                  <li>Tell OurTrips where you are going and when.</li>
+                  <li>Add travelers, pace, budget, interests, and constraints.</li>
+                  <li>Paste notes or upload references so real details are not lost.</li>
+                </ol>
+              </article>
+
+              <article className="guide-network-card">
+                <h3 className="guide-network-title">2. Let the guide take shape</h3>
+                <ol className="guide-network-list">
+                  <li>The agent drafts a day-by-day plan from your material.</li>
+                  <li>It checks logistics, route points, stays, meals, and practical tips.</li>
+                  <li>You open the trip, share it, save it offline, and keep editing.</li>
+                </ol>
+              </article>
+            </div>
+
+            <div className="guide-cta">
+              <Link href="/login?next=/dashboard%3Fagent%3Dnew" className="guide-cta-link">
+                Start a trip in OurTrips
+                <ArrowRight size={16} aria-hidden="true" />
+              </Link>
+            </div>
+          </section>
+
+          <div className="guide-divider" />
+
+          <section className="guide-section">
+            <div className="guide-section-header">
+              <span className="guide-section-badge">What it produces</span>
+              <span className="guide-section-tag">Portable guide</span>
+            </div>
+            <h2 className="guide-section-title">A day-by-day trip you can actually use</h2>
+            <p className="guide-section-desc">
+              The finished trip is organized around the day you are in: plan, stays, transport,
+              restaurants, maps, reservation notes, tips, and the open decisions that still need attention.
+            </p>
+            <p className="guide-section-note">
+              This is the core change: OurTrips is no longer just a destination for an outside
+              planning conversation. It is the place where the trip starts, grows, and travels with you.
+            </p>
+          </section>
+
+          <div className="guide-divider" />
+
+          <section className="guide-section">
+            <div className="guide-section-header">
+              <span className="guide-section-badge">Optional</span>
+              <span className="guide-section-tag">External agents</span>
+            </div>
+            <h2 className="guide-section-title">Connect an outside planning conversation</h2>
+            <p className="guide-section-desc">
+              If you already plan in Claude, Codex, or another agent with remote MCP support,
+              you can still add the OurTrips connector and send that work into the same trip guide.
+              This is useful for continuing an existing agent thread, but it is no longer required.
+            </p>
+
             <div className="guide-code-block">
               <code>{mcpServerUrl}</code>
               <GuideCopyButton value={mcpServerUrl} />
             </div>
             <p className="guide-section-note">
-              The connector exposes trip save/edit tools, schema templates, Unsplash image search,
-              and generated cover assets. It uses OAuth, so you do not need to paste API keys into chats.
+              Add this server URL as a custom MCP connector, sign in when prompted, then ask the agent
+              to send or update the trip in OurTrips.
             </p>
 
             <div className="guide-network-grid">
@@ -97,37 +159,6 @@ export default function GuidePage() {
                 </div>
               </article>
             </div>
-          </section>
-
-          <div className="guide-divider" />
-
-          <section className="guide-section">
-            <div className="guide-section-header">
-              <span className="guide-section-badge">Why this helps</span>
-              <span className="guide-section-tag">No sandbox curl</span>
-            </div>
-            <h2 className="guide-section-title">The connector keeps API calls on OurTrips</h2>
-            <p className="guide-section-desc">
-              The remote MCP connector gives Claude or Codex a signed-in OurTrips tool surface.
-              The server handles saving, patching, image search, and generated image assets for the
-              signed-in user, so the setup does not depend on separate skill instructions.
-            </p>
-            <p className="guide-section-note">
-              That means the user setup is just: add connector, sign in, ask the agent to send the
-              trip to OurTrips.
-            </p>
-          </section>
-
-          <div className="guide-divider" />
-
-          <section className="guide-section">
-            <h2 className="guide-section-title">What happens next?</h2>
-            <p className="guide-section-desc">
-              Once OurTrips is connected, just plan your trip with Claude or Codex like you normally would.
-              When you&apos;re happy with the itinerary, say something like
-              <strong> &ldquo;Send it to OurTrips&rdquo;</strong> and your agent will create a shareable,
-              interactive itinerary you can pull up on your phone while traveling.
-            </p>
           </section>
 
           <div className="guide-cta">

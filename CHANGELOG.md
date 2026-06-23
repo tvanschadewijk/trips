@@ -4,6 +4,17 @@ Selected product updates for OurTrips.
 
 ## Unreleased
 
+## 2026-06-23 - Native trip creation and portable-guide messaging
+
+### Added
+- Repositioned the homepage around collecting messy travel information, planning with anticipation, and carrying a day-by-day guide on the road.
+- Added new journal articles for the native OurTrips planning flow, day-by-day access, information collection, and the built-in travel agent.
+
+### Improved
+- Made in-app trip creation the primary story so travelers no longer need Claude, Cowork, Codex, or the connector to begin.
+- Reframed the guide page so the connector is an optional external-agent path instead of the default setup.
+- Updated journal metadata, article calls to action, and connector authorization copy to match the new product direction.
+
 ## 2026-06-18 — Cloudflare hardening and trip chat feedback
 
 ### Added

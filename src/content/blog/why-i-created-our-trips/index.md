@@ -1,45 +1,63 @@
 ---
 title: "Why I Created OurTrips"
-subtitle: "My story of discovering AI tools that actually make stuff — and why trip planning needed something better than a markdown file."
-excerpt: "From messy ChatGPT itineraries in 2023 to building a full travel platform with remote agent connectors — the founding story of OurTrips."
+subtitle: "I wanted travel planning to preserve the messy, useful details and still turn into something beautiful enough to share."
+excerpt: "OurTrips began with AI-generated itineraries, but the real product is a portable home for the bookings, notes, ideas, and day-by-day details that make a trip work."
 tag: Story
 date: 2026-04-01
-lastUpdated: 2026-04-01
-readingTime: "4 min read"
+lastUpdated: 2026-06-23
+readingTime: "5 min read"
 ---
 
-I created my first trip with AI in early 2023, for a trip to Kenya we did that June. I was already amazed by how helpful AI could be for planning, but honestly — it was also a pretty messy process. Maybe not as messy as what we did before with scattered emails and various apps, but getting a really good overview was still hard. ChatGPT kept messing up dates and breaking the itinerary flow. Despite the mistakes, it helped me a lot.
+I created my first trip with AI in early 2023 for a trip to Kenya. Even then, it was obvious that AI could help with travel planning. It could suggest routes, organize days, and surface ideas faster than I could do it manually.
 
-Fast forward three years, and we live in a completely different era in terms of what AI can do.
+But the process was messy.
 
-## From information retrieval to actually building things
+Some of the mess came from the tools. Dates could be wrong. Day flow could break. Practical details got lost. But some of the mess was just travel itself. Real trips involve emails, hotel options, train times, restaurant links, preferences, budgets, opinions, and tiny constraints that only matter because they are yours.
 
-AI has gone from purely information retrieval systems to tools that can actually *do stuff* and *build stuff*. For me, the breakthrough came at the end of 2024 when [Lovable](https://lovable.dev) launched and I discovered how easy it had become to create a website just by speaking English. A few months later, Andrej Karpathy called this "vibe coding," and for most of 2025, vibe coding became my hobby. I created [Preppy.app](https://preppy.app), a really nice and quite advanced cooking app — totally vibe-coded.
+That is the problem I kept coming back to.
 
-But I kept thinking about itineraries.
+## A plan is more than a chat answer
 
-## Claude Cowork changed the game — almost
+AI tools became much better over the next few years. They could produce polished markdown plans, longer travel documents, and beautiful suggestions. I used them constantly.
 
-When Claude Cowork launched in early 2026, I immediately started using it to plan new trips. It was really good. It gave me a nice document — typically a markdown file with all the information laid out. But I realized I needed something better. Two things kept bothering me:
+Still, I did not want my trip to live as a chat thread or a markdown file.
 
-**Involving co-travelers**
+I wanted something visual enough to share with co-travelers, structured enough to use day by day, and practical enough to carry on the road. I wanted the plan to include the actual details: where we sleep, what is booked, what is undecided, what the map looks like, and what we need today.
 
-I need to involve and convince my co-travelers — like my wife. And reading through a markdown file is really not her thing. She likes to look at visuals.So during one of my first Cowork sessions, I asked Claude to create a travel-agent-style presentation, as if it needed to *sell* the trip to my wife. The results were amazing and looked fantastic. An added benefit of this visual presentation was that it was also a whole lot more accessible.and structured compared to a text document. It worked great on mobile, had nicely designed features to read it per day per activity type etcetera. 
+That is where OurTrips started.
 
-## The best of both worlds
+## The early version
 
-That experience made me think: how do we get the best of both worlds?
+The first version of OurTrips was mainly a way to turn an external AI planning conversation into a rich itinerary. You could plan somewhere else, connect the OurTrips MCP server, and send the trip into a beautiful mobile-friendly page.
 
-We can chat with the best AI tools available — and right now, Claude Cowork is definitely one of them — but the output should be a **rich, visual presentation**, not just a document. Sure, you *can* turn any document into a website. But if everyone has to do that repeatedly for every trip, it's a waste of tokens and effort.
+That was useful. It solved the "now what?" problem after a good AI planning session.
 
-That's how I came to **OurTrips.To** — a website to store all the itineraries we plan, for all kinds of destinations. The site now connects to Claude and Codex through a remote MCP connector. When you're finished planning, you simply ask your agent to send the details to OurTrips, and a beautiful visual presentation is created.
+But it still assumed the planning started elsewhere.
 
-```copy
-Install the connector to the MCP server: https://ourtrips.to/mcp
-```
+## The bigger insight
 
-## A passion project
+The more I used it, the more the core insight became obvious:
 
-That's the founding story. I'm making it available for free and have no interest in monetizing it right now — although I might add features in the future if many people start using it to pay for server costs etc.
+Travel planning is messy, and that mess is valuable.
 
-I hope you like it. If you do, feel free to reach out to me on @tvanschadewijk on X.
+The app should not only receive a finished plan. It should help collect the material from the beginning. It should ask the travel-agent questions, accept the bookings and notes, preserve preferences, track open decisions, and then turn all of that into a guide.
+
+So OurTrips changed.
+
+You can now start a trip inside OurTrips. The built-in agent creates the first draft, opens it as a day-by-day guide, and stays available to keep editing the real itinerary.
+
+## Why the day matters
+
+The day-by-day structure is central because travel changes once you leave.
+
+Before the trip, you care about the full arc. During the trip, you need today's information. Where are we going this morning? Where is dinner? What is booked? Where do we sleep? What is still open? Can I open this offline?
+
+OurTrips is designed for that moment.
+
+## Still a passion project
+
+OurTrips is still a passion project. I am building the product I wanted for my own trips: a place to gather information, enjoy the planning, involve other travelers, and carry the guide when the journey starts.
+
+The connector still exists for people who like planning in external agents, but the main story is now much simpler.
+
+Start in OurTrips. Bring the messy pile. Let the trip take shape. Take it with you.

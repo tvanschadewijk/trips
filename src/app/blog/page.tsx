@@ -6,16 +6,16 @@ import { getAllPosts } from '@/lib/blog/posts';
 import '@/styles/blog.css';
 
 export const metadata: Metadata = {
-  title: 'Blog — OurTrips',
+  title: 'Journal - OurTrips',
   description:
-    'Guides, tips, and tutorials on AI-powered trip planning with remote MCP connectors. Learn how to create beautiful, shareable travel itineraries.',
+    'Field notes on collecting messy travel information, planning better trips, and carrying a day-by-day guide with you on the road.',
   alternates: {
     canonical: 'https://ourtrips.to/blog',
   },
   openGraph: {
-    title: 'Blog — OurTrips',
+    title: 'Journal - OurTrips',
     description:
-      'Guides, tips, and tutorials on AI-powered trip planning with remote MCP connectors.',
+      'Field notes on collecting messy travel information, planning better trips, and carrying a day-by-day guide.',
     url: 'https://ourtrips.to/blog',
     siteName: 'OurTrips',
     locale: 'en_US',
@@ -23,14 +23,31 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Blog — OurTrips',
+    title: 'Journal - OurTrips',
     description:
-      'Guides, tips, and tutorials on AI-powered trip planning with remote MCP connectors.',
+      'Field notes on collecting messy travel information, planning better trips, and carrying a day-by-day guide.',
   },
 };
 
 export default function BlogIndex() {
   const posts = getAllPosts();
+  const focusAreas = [
+    {
+      label: 'Collect',
+      title: 'Make sense of the pile',
+      text: 'Bookings, notes, links, traveler preferences, PDFs, and half-decisions all need one place to land.',
+    },
+    {
+      label: 'Plan',
+      title: 'Enjoy the anticipation',
+      text: 'A good trip plan should feel like the journey has started, with room to refine, debate, and imagine.',
+    },
+    {
+      label: 'Carry',
+      title: 'Use the day you are in',
+      text: 'When you are traveling, the guide should open to what matters today instead of making you hunt.',
+    },
+  ];
 
   return (
     <div className="blog">
@@ -48,12 +65,22 @@ export default function BlogIndex() {
       <main className="blog-main">
         <div className="blog-content">
           <div className="blog-header">
-            <div className="blog-header-badge">Blog</div>
-            <h1 className="blog-header-title">AI Trip Planning Guides</h1>
+            <div className="blog-header-badge">Journal</div>
+            <h1 className="blog-header-title">Travel planning is messy. That is the point.</h1>
             <p className="blog-header-desc">
-              Learn how to use remote connectors, AI agents, and OurTrips to plan and share
-              beautiful travel itineraries.
+              Notes on collecting scattered trip information, shaping it into something worth
+              looking forward to, and carrying the right day with you when you leave.
             </p>
+          </div>
+
+          <div className="blog-focus-grid" aria-label="OurTrips journal themes">
+            {focusAreas.map((area) => (
+              <article className="blog-focus-card" key={area.label}>
+                <span>{area.label}</span>
+                <h2>{area.title}</h2>
+                <p>{area.text}</p>
+              </article>
+            ))}
           </div>
 
           <div className="blog-posts">

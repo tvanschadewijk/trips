@@ -20,7 +20,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const post = getPost(slug);
   if (!post) return {};
   return {
-    title: `${post.title} — OurTrips Blog`,
+    title: `${post.title} - OurTrips Journal`,
     description: post.excerpt,
     alternates: {
       canonical: `https://ourtrips.to/blog/${post.slug}`,
@@ -91,7 +91,7 @@ export default async function BlogPostPage({ params }: Props) {
         {
           '@type': 'ListItem',
           position: 2,
-          name: 'Blog',
+          name: 'Journal',
           item: 'https://ourtrips.to/blog',
         },
         {
@@ -126,7 +126,7 @@ export default async function BlogPostPage({ params }: Props) {
         actions={
           <div className="blog-nav-links">
             <Link href="/changelog" className="blog-nav-link">Changelog</Link>
-            <Link href="/blog" className="blog-nav-link">Blog</Link>
+            <Link href="/blog" className="blog-nav-link">Journal</Link>
             <Link href="/login" className="blog-btn-outline">Log in</Link>
           </div>
         }
@@ -191,10 +191,10 @@ export default async function BlogPostPage({ params }: Props) {
           <div className="blog-article-cta">
             <div className="blog-article-cta-title">Ready to try it?</div>
             <p className="blog-article-cta-desc">
-              Connect OurTrips and turn your next Claude or Codex conversation into a shareable itinerary.
+              Start in OurTrips, bring the messy planning material with you, and turn it into a day-by-day guide.
             </p>
-            <Link href="/guide" className="blog-article-cta-btn">
-              Get started
+            <Link href="/login?next=/dashboard%3Fagent%3Dnew" className="blog-article-cta-btn">
+              Start a trip
               <ArrowRight size={16} aria-hidden="true" />
             </Link>
           </div>
