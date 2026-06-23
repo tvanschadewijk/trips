@@ -196,6 +196,7 @@
   justify-content: center;
   gap: 8px;
   min-height: 38px;
+  border: 1px solid transparent;
   border-radius: 999px;
   padding: 9px 14px;
   text-decoration: none;
@@ -203,12 +204,20 @@
   font-weight: 580;
   line-height: 1;
   white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.1s;
 }
 .dash-new-trip-btn {
-  background: #C14F2A;
-  color: #FBF7F1;
+  background: #FFFFFF;
+  color: #1A1410;
+  border-color: #E8E1D6;
+  box-shadow: rgba(26, 20, 16, 0.06) 0 6px 16px -10px, rgba(26, 20, 16, 0.04) 0 1px 0 0;
 }
-.dash-new-trip-btn:hover { background: #A03E1F; }
+.dash-new-trip-btn:hover {
+  background: #F4EDE2;
+  border-color: #D4C8B4;
+}
+.dash-new-trip-btn:active { transform: translateY(1px); }
+.dash-new-trip-btn svg { color: #C14F2A; }
 .dash-profile-link {
   background: #F4EDE2;
   color: #1A1410;
@@ -225,47 +234,50 @@
   justify-content: center;
   width: auto;
   height: auto;
-  padding: 11px 18px;
-  background: #FFFFFF;
-  color: #1A1410;
-  border: 1px solid #E8E1D6;
+  padding: 13px 22px;
+  background: #C14F2A;
+  color: #FBF7F1;
+  border: 1px solid #C14F2A;
   border-radius: 999px;
   cursor: pointer;
-  box-shadow: rgba(26, 20, 16, 0.06) 0 6px 16px -4px, rgba(26, 20, 16, 0.04) 0 1px 0 0;
+  box-shadow: rgba(193, 79, 42, 0.28) 0 12px 32px -12px, rgba(26, 20, 16, 0.08) 0 1px 0 0;
   z-index: 80;
   white-space: nowrap;
   -webkit-tap-highlight-color: transparent;
   line-height: 1;
   text-decoration: none;
-  transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
 }
 
 .dash-agent-entry:hover {
-  background: #F4EDE2;
-  border-color: #D4C8B4;
+  background: #A03E1F;
+  border-color: #A03E1F;
+  box-shadow: rgba(160, 62, 31, 0.32) 0 14px 34px -12px, rgba(26, 20, 16, 0.08) 0 1px 0 0;
 }
 
 .dash-agent-entry:active {
+  background: #A03E1F;
+  border-color: #A03E1F;
   transform: translateX(-50%) scale(0.96);
 }
 
 .dash-agent-entry-icon {
-  width: 14px;
-  height: 14px;
+  width: 15px;
+  height: 15px;
   flex-shrink: 0;
-  color: #C14F2A;
+  color: #FBF7F1;
 }
 
 .dash-agent-entry-label {
   display: inline;
   font-family: 'Inter', system-ui, sans-serif;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.14em;
   line-height: 1;
   text-transform: uppercase;
-  margin-left: 6px;
-  color: #1A1410;
+  margin-left: 8px;
+  color: #FBF7F1;
 }
 
 .dash-title {
