@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, type MouseEvent } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -212,26 +212,6 @@ export default function DashboardClient({ initialAgentOpen = false }: DashboardC
     }
   }, [initialAgentOpen]);
 
-  function openNewTripAgent() {
-    setNewTripAgentOpen(true);
-  }
-
-  function handleNewTripAgentClick(event: MouseEvent<HTMLAnchorElement>) {
-    if (
-      event.defaultPrevented ||
-      event.button !== 0 ||
-      event.metaKey ||
-      event.ctrlKey ||
-      event.shiftKey ||
-      event.altKey
-    ) {
-      return;
-    }
-
-    event.preventDefault();
-    openNewTripAgent();
-  }
-
   function handleNewTripAgentOpenChange(nextOpen: boolean) {
     setNewTripAgentOpen(nextOpen);
     if (nextOpen || typeof window === 'undefined') return;
@@ -353,7 +333,7 @@ export default function DashboardClient({ initialAgentOpen = false }: DashboardC
                 <UserRound size={15} aria-hidden="true" />
                 Travel profile
               </Link>
-              <a href={NEW_TRIP_AGENT_HREF} className="dash-new-trip-btn" onClick={handleNewTripAgentClick}>
+              <a href={NEW_TRIP_AGENT_HREF} className="dash-new-trip-btn">
                 <Plus size={16} aria-hidden="true" />
                 New trip
               </a>
@@ -414,7 +394,7 @@ export default function DashboardClient({ initialAgentOpen = false }: DashboardC
 
             <div className="dash-onboard-footer">
               {travelProfileComplete ? (
-                <a href={NEW_TRIP_AGENT_HREF} className="dash-onboard-demo-link" onClick={handleNewTripAgentClick}>
+                <a href={NEW_TRIP_AGENT_HREF} className="dash-onboard-demo-link">
                   Create a trip
                   <ArrowRight size={14} aria-hidden="true" />
                 </a>
@@ -517,7 +497,6 @@ export default function DashboardClient({ initialAgentOpen = false }: DashboardC
         <a
           href={NEW_TRIP_AGENT_HREF}
           className="dash-agent-entry"
-          onClick={handleNewTripAgentClick}
           aria-label="Ask your Travel Agent to create a new trip"
         >
           <MessageCircle className="dash-agent-entry-icon" aria-hidden="true" />
