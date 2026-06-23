@@ -1,19 +1,23 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, type MouseEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   ArrowRight,
   ChartLine,
   Check,
+  CreditCard,
   LogOut,
   Map as MapIcon,
   MessageCircle,
   Plus,
+  Sparkles,
   Settings,
+  TicketPercent,
   UserRound,
   WifiOff,
+  X,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { normalizeTripData } from '@/lib/trip-data-normalize';
@@ -52,11 +56,235 @@ type DashboardClientProps = {
   initialAgentOpen?: boolean;
 };
 
+type BillingSummary = {
+  billing_enabled: boolean;
+  plan: 'free' | 'pro' | 'early_adopter' | 'admin';
+  status: string;
+  is_admin: boolean;
+  access_active: boolean;
+  can_create_trip: boolean;
+  trip_count: number;
+  free_trip_limit: number;
+  trips_remaining: number;
+  stripe_customer_id: string | null;
+  current_period_end: string | null;
+  cancel_at_period_end: boolean;
+  pro: {
+    price_label: string;
+  };
+  early_adopter: {
+    price_label: string;
+    years: number;
+    limit: number;
+    claimed: number;
+    remaining: number;
+    available: boolean;
+    claim_number: number | null;
+    expires_at: string | null;
+  };
+};
+
 function normalizeDashTrip(trip: DashTrip): DashTrip {
   return {
     ...trip,
     data: normalizeTripData(trip.data),
   };
+}
+
+function localBillingSummary(tripCount: number): BillingSummary {
+  const freeTripLimit = 3;
+  return {
+    billing_enabled: true,
+    plan: 'free',
+    status: 'local',
+    is_admin: false,
+    access_active: false,
+    can_create_trip: true,
+    trip_count: tripCount,
+    free_trip_limit: freeTripLimit,
+    trips_remaining: Math.max(0, freeTripLimit - tripCount),
+    stripe_customer_id: null,
+    current_period_end: null,
+    cancel_at_period_end: false,
+    pro: { price_label: '€7.95/month' },
+    early_adopter: {
+      price_label: '€29.95',
+      years: 3,
+      limit: 500,
+      claimed: 0,
+      remaining: 500,
+      available: true,
+      claim_number: null,
+      expires_at: null,
+    },
+  };
+}
+
+function formatBillingDate(value: string | null): string | null {
+  if (!value) return null;
+  return new Date(value).toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+}
+
+function BillingPanel({
+  billing,
+  busy,
+  message,
+  onCheckout,
+  onPortal,
+}: {
+  billing: BillingSummary;
+  busy: 'early_adopter' | 'pro' | 'portal' | null;
+  message: string | null;
+  onCheckout: (plan: 'early_adopter' | 'pro') => void;
+  onPortal: () => void;
+}) {
+  const progress = Math.min(100, (billing.trip_count / billing.free_trip_limit) * 100);
+  const periodEnd = formatBillingDate(billing.current_period_end);
+
+  if (billing.access_active || billing.is_admin) {
+    const title = billing.plan === 'early_adopter'
+      ? 'Founder deal active'
+      : billing.plan === 'admin'
+        ? 'Admin access active'
+        : 'Pro active';
+
+    return (
+      <section className="dash-billing-panel is-active" aria-label="Billing plan">
+        <div className="dash-billing-copy">
+          <div className="dash-billing-eyebrow">Plan</div>
+          <h2>{title}</h2>
+          <p>
+            {billing.plan === 'early_adopter' && billing.early_adopter.claim_number
+              ? `Early adopter #${billing.early_adopter.claim_number}${periodEnd ? `, active through ${periodEnd}` : ''}.`
+              : periodEnd
+                ? `Access renews through ${periodEnd}.`
+                : 'Unlimited trip creation is available.'}
+          </p>
+        </div>
+        {billing.stripe_customer_id && (
+          <button
+            className="dash-billing-secondary"
+            type="button"
+            disabled={busy !== null}
+            onClick={onPortal}
+          >
+            <CreditCard size={15} aria-hidden="true" />
+            Manage billing
+          </button>
+        )}
+      </section>
+    );
+  }
+
+  return (
+    <section className={`dash-billing-panel ${billing.can_create_trip ? '' : 'is-limit'}`} aria-label="Billing plan">
+      <div className="dash-billing-copy">
+        <div className="dash-billing-eyebrow">Free plan</div>
+        <h2>{billing.can_create_trip ? 'Three trips included' : 'Three trips used'}</h2>
+        <p>
+          {billing.trip_count} of {billing.free_trip_limit} trips used.
+          {' '}
+          {billing.can_create_trip
+            ? `${billing.trips_remaining} included trip${billing.trips_remaining === 1 ? '' : 's'} left.`
+            : 'Subscribe to create the next one.'}
+        </p>
+        <div className="dash-billing-meter" aria-hidden="true">
+          <span style={{ width: `${progress}%` }} />
+        </div>
+      </div>
+
+      <div className="dash-billing-deal">
+        <div className="dash-billing-deal-title">
+          <TicketPercent size={15} aria-hidden="true" />
+          <span>Early adopter</span>
+        </div>
+        <p>
+          {billing.early_adopter.price_label} for {billing.early_adopter.years} years.
+          {' '}
+          {billing.early_adopter.remaining} of {billing.early_adopter.limit} spots left.
+        </p>
+        {message && <div className="dash-billing-error">{message}</div>}
+        <div className="dash-billing-actions">
+          <button
+            className="dash-billing-primary"
+            type="button"
+            disabled={busy !== null || !billing.early_adopter.available}
+            onClick={() => onCheckout('early_adopter')}
+          >
+            <Sparkles size={15} aria-hidden="true" />
+            {busy === 'early_adopter' ? 'Opening...' : 'Lock in deal'}
+          </button>
+          <button
+            className="dash-billing-secondary"
+            type="button"
+            disabled={busy !== null}
+            onClick={() => onCheckout('pro')}
+          >
+            {busy === 'pro' ? 'Opening...' : billing.pro.price_label}
+          </button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function BillingLimitModal({
+  billing,
+  busy,
+  message,
+  onClose,
+  onCheckout,
+}: {
+  billing: BillingSummary;
+  busy: 'early_adopter' | 'pro' | 'portal' | null;
+  message: string | null;
+  onClose: () => void;
+  onCheckout: (plan: 'early_adopter' | 'pro') => void;
+}) {
+  return (
+    <div className="dash-billing-modal-backdrop" role="presentation">
+      <section className="dash-billing-modal" role="dialog" aria-modal="true" aria-labelledby="dash-billing-modal-title">
+        <button className="dash-billing-modal-close" type="button" onClick={onClose} aria-label="Close billing options">
+          <X size={18} aria-hidden="true" />
+        </button>
+        <div className="dash-billing-modal-icon">
+          <TicketPercent size={22} aria-hidden="true" />
+        </div>
+        <div className="dash-billing-eyebrow">Free limit reached</div>
+        <h2 id="dash-billing-modal-title">Create every next trip with Pro</h2>
+        <p>
+          Your first {billing.free_trip_limit} trips are included. The early adopter deal is still available:
+          {' '}
+          {billing.early_adopter.price_label} for {billing.early_adopter.years} years,
+          with {billing.early_adopter.remaining} spots left.
+        </p>
+        {message && <div className="dash-billing-error">{message}</div>}
+        <div className="dash-billing-modal-actions">
+          <button
+            className="dash-billing-primary"
+            type="button"
+            disabled={busy !== null || !billing.early_adopter.available}
+            onClick={() => onCheckout('early_adopter')}
+          >
+            <Sparkles size={15} aria-hidden="true" />
+            {busy === 'early_adopter' ? 'Opening checkout...' : 'Get early adopter deal'}
+          </button>
+          <button
+            className="dash-billing-secondary"
+            type="button"
+            disabled={busy !== null}
+            onClick={() => onCheckout('pro')}
+          >
+            {busy === 'pro' ? 'Opening checkout...' : `Subscribe ${billing.pro.price_label}`}
+          </button>
+        </div>
+      </section>
+    </div>
+  );
 }
 
 export default function DashboardClient({ initialAgentOpen = false }: DashboardClientProps) {
@@ -72,6 +300,10 @@ export default function DashboardClient({ initialAgentOpen = false }: DashboardC
     normalizeTravelProfilePreferences(null)
   ));
   const [newTripAgentOpen, setNewTripAgentOpen] = useState(initialAgentOpen);
+  const [billing, setBilling] = useState<BillingSummary | null>(null);
+  const [billingModalOpen, setBillingModalOpen] = useState(false);
+  const [billingBusy, setBillingBusy] = useState<'early_adopter' | 'pro' | 'portal' | null>(null);
+  const [billingMessage, setBillingMessage] = useState<string | null>(null);
   const savedOfflineIds = useSavedTripIds();
   const online = useOnlineStatus();
   const personalTrips = trips.filter(t => !isPublicItineraryShareId(t.share_id));
@@ -112,6 +344,7 @@ export default function DashboardClient({ initialAgentOpen = false }: DashboardC
       setEmail('local-preview@example.com');
       setTravelProfileComplete(true);
       setTravelPreferences(localPreferences);
+      setBilling(localBillingSummary(localTrips.length));
       sessionStorage.setItem('dash-email', 'local-preview@example.com');
       sessionStorage.setItem('dash-trips', JSON.stringify(localTrips));
       setLoading(false);
@@ -128,6 +361,12 @@ export default function DashboardClient({ initialAgentOpen = false }: DashboardC
 
     setEmail(user.email || null);
     sessionStorage.setItem('dash-email', user.email || '');
+
+    const billingRes = await fetch('/api/billing/summary', { cache: 'no-store' }).catch(() => null);
+    if (billingRes?.ok) {
+      const billingJson = await billingRes.json().catch(() => null);
+      if (billingJson?.billing) setBilling(billingJson.billing as BillingSummary);
+    }
 
     // Check admin role
     const { data: profile } = await supabase
@@ -212,7 +451,24 @@ export default function DashboardClient({ initialAgentOpen = false }: DashboardC
     }
   }, [initialAgentOpen]);
 
+  useEffect(() => {
+    if (!billing || loading || !newTripAgentOpen || billing.can_create_trip) return;
+    setNewTripAgentOpen(false);
+    setBillingModalOpen(true);
+    if (typeof window !== 'undefined') {
+      const currentUrl = new URL(window.location.href);
+      if (currentUrl.pathname === '/dashboard' && currentUrl.searchParams.get('agent') === 'new') {
+        router.replace('/dashboard', { scroll: false });
+      }
+    }
+  }, [billing, loading, newTripAgentOpen, router]);
+
   function handleNewTripAgentOpenChange(nextOpen: boolean) {
+    if (nextOpen && billing && !billing.can_create_trip) {
+      setBillingModalOpen(true);
+      return;
+    }
+
     setNewTripAgentOpen(nextOpen);
     if (nextOpen || typeof window === 'undefined') return;
 
@@ -220,6 +476,69 @@ export default function DashboardClient({ initialAgentOpen = false }: DashboardC
     if (currentUrl.pathname === '/dashboard' && currentUrl.searchParams.get('agent') === 'new') {
       router.replace('/dashboard', { scroll: false });
     }
+  }
+
+  function handleNewTripLinkClick(event: MouseEvent<HTMLAnchorElement>) {
+    if (!billing || billing.can_create_trip) return;
+    event.preventDefault();
+    setBillingMessage(null);
+    setBillingModalOpen(true);
+  }
+
+  async function refreshBilling() {
+    const res = await fetch('/api/billing/summary', { cache: 'no-store' }).catch(() => null);
+    if (!res?.ok) return;
+    const json = await res.json().catch(() => null);
+    if (json?.billing) setBilling(json.billing as BillingSummary);
+  }
+
+  async function startCheckout(plan: 'early_adopter' | 'pro') {
+    if (billingBusy) return;
+    setBillingBusy(plan);
+    setBillingMessage(null);
+    try {
+      const res = await fetch('/api/billing/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan }),
+      });
+      const json = await res.json().catch(() => ({}));
+      const nextBilling = json?.billing ?? json?.details?.billing;
+      if (nextBilling) setBilling(nextBilling as BillingSummary);
+      if (!res.ok || !json?.url) {
+        throw new Error(json?.error ?? 'Could not start checkout.');
+      }
+      window.location.href = json.url;
+    } catch (err) {
+      setBillingMessage(err instanceof Error ? err.message : 'Could not start checkout.');
+      void refreshBilling();
+    } finally {
+      setBillingBusy(null);
+    }
+  }
+
+  async function openBillingPortal() {
+    if (billingBusy) return;
+    setBillingBusy('portal');
+    setBillingMessage(null);
+    try {
+      const res = await fetch('/api/billing/portal', { method: 'POST' });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json?.url) {
+        throw new Error(json?.error ?? 'Could not open billing.');
+      }
+      window.location.href = json.url;
+    } catch (err) {
+      setBillingMessage(err instanceof Error ? err.message : 'Could not open billing.');
+    } finally {
+      setBillingBusy(null);
+    }
+  }
+
+  function handleUpgradeRequired(nextBilling?: unknown) {
+    if (nextBilling && typeof nextBilling === 'object') setBilling(nextBilling as BillingSummary);
+    setBillingMessage(null);
+    setBillingModalOpen(true);
   }
 
   async function handleSignOut() {
@@ -289,6 +608,16 @@ export default function DashboardClient({ initialAgentOpen = false }: DashboardC
                       Travel profile
                     </Link>
                   )}
+                  {online && billing?.stripe_customer_id && (
+                    <button
+                      className="dash-settings-item"
+                      onClick={() => { setSettingsOpen(false); void openBillingPortal(); }}
+                      disabled={billingBusy !== null}
+                    >
+                      <CreditCard size={16} aria-hidden="true" />
+                      Billing
+                    </button>
+                  )}
                   <button
                     className="dash-settings-item"
                     onClick={() => { if (!online) return; setSettingsOpen(false); handleSignOut(); }}
@@ -333,13 +662,23 @@ export default function DashboardClient({ initialAgentOpen = false }: DashboardC
                 <UserRound size={15} aria-hidden="true" />
                 Travel profile
               </Link>
-              <a href={NEW_TRIP_AGENT_HREF} className="dash-new-trip-btn">
+              <a href={NEW_TRIP_AGENT_HREF} className="dash-new-trip-btn" onClick={handleNewTripLinkClick}>
                 <Plus size={16} aria-hidden="true" />
                 New trip
               </a>
             </div>
           )}
         </div>
+
+        {online && billing?.billing_enabled && (
+          <BillingPanel
+            billing={billing}
+            busy={billingBusy}
+            message={billingMessage}
+            onCheckout={startCheckout}
+            onPortal={openBillingPortal}
+          />
+        )}
 
         {visibleTrips.length === 0 && !online ? (
           <div className="dash-offline-empty">
@@ -394,7 +733,7 @@ export default function DashboardClient({ initialAgentOpen = false }: DashboardC
 
             <div className="dash-onboard-footer">
               {travelProfileComplete ? (
-                <a href={NEW_TRIP_AGENT_HREF} className="dash-onboard-demo-link">
+                <a href={NEW_TRIP_AGENT_HREF} className="dash-onboard-demo-link" onClick={handleNewTripLinkClick}>
                   Create a trip
                   <ArrowRight size={14} aria-hidden="true" />
                 </a>
@@ -498,6 +837,7 @@ export default function DashboardClient({ initialAgentOpen = false }: DashboardC
           href={NEW_TRIP_AGENT_HREF}
           className="dash-agent-entry"
           aria-label="Ask your Travel Agent to create a new trip"
+          onClick={handleNewTripLinkClick}
         >
           <MessageCircle className="dash-agent-entry-icon" aria-hidden="true" />
           <span className="dash-agent-entry-label">Ask Your Travel Agent</span>
@@ -515,6 +855,16 @@ export default function DashboardClient({ initialAgentOpen = false }: DashboardC
           sheetTitle="Start a new trip with your travel agent."
           profileNextHref={NEW_TRIP_AGENT_HREF}
           showExistingTripHint
+          onUpgradeRequired={handleUpgradeRequired}
+        />
+      )}
+      {billingModalOpen && billing && (
+        <BillingLimitModal
+          billing={billing}
+          busy={billingBusy}
+          message={billingMessage}
+          onClose={() => setBillingModalOpen(false)}
+          onCheckout={startCheckout}
         />
       )}
     </div>

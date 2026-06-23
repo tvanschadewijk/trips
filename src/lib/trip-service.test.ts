@@ -97,6 +97,21 @@ test('saveTripForUser normalizes route point aliases and returns ingestion warni
           upsert: async () => ({ error: null }),
         };
       }
+      if (table === 'profiles') {
+        return {
+          select() { return this; },
+          eq() { return this; },
+          maybeSingle: async () => ({
+            data: { id: 'user-1', role: 'user', billing_status: 'free' },
+            error: null,
+          }),
+        };
+      }
+      if (table === 'billing_early_adopter_reservations') {
+        return {
+          select: async () => ({ data: [], error: null }),
+        };
+      }
 
       assert.equal(table, 'trips');
       let inserted = false;

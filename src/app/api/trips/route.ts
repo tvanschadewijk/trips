@@ -26,7 +26,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
     }
     if (err instanceof TripServiceError) {
-      return NextResponse.json({ error: err.message }, { status: err.status });
+      return NextResponse.json(
+        { error: err.message, code: err.code, details: err.details },
+        { status: err.status }
+      );
     }
 
     return NextResponse.json(
@@ -50,7 +53,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ trips });
   } catch (err) {
     if (err instanceof TripServiceError) {
-      return NextResponse.json({ error: err.message }, { status: err.status });
+      return NextResponse.json(
+        { error: err.message, code: err.code, details: err.details },
+        { status: err.status }
+      );
     }
     return NextResponse.json(
       { error: err instanceof Error ? err.message : 'Failed to list trips' },

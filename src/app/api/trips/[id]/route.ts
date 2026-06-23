@@ -25,7 +25,10 @@ export async function GET(
     return NextResponse.json(trip);
   } catch (err) {
     if (err instanceof TripServiceError) {
-      return NextResponse.json({ error: err.message }, { status: err.status });
+      return NextResponse.json(
+        { error: err.message, code: err.code, details: err.details },
+        { status: err.status }
+      );
     }
     return NextResponse.json(
       { error: err instanceof Error ? err.message : 'Failed to fetch trip' },
@@ -56,7 +59,10 @@ export async function PATCH(
       return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
     }
     if (err instanceof TripServiceError) {
-      return NextResponse.json({ error: err.message }, { status: err.status });
+      return NextResponse.json(
+        { error: err.message, code: err.code, details: err.details },
+        { status: err.status }
+      );
     }
     return NextResponse.json(
       { error: err instanceof Error ? err.message : 'Failed to update trip' },

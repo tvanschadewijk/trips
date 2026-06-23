@@ -54,6 +54,7 @@ type Props = {
   sheetTitle?: string;
   profileNextHref?: string;
   showExistingTripHint?: boolean;
+  onUpgradeRequired?: (billing?: unknown) => void;
 };
 
 type FormState = {
@@ -312,6 +313,7 @@ export default function NewTripCreator({
   sheetTitle = 'Ask Travel Agent',
   profileNextHref = DEFAULT_PROFILE_NEXT_HREF,
   showExistingTripHint = false,
+  onUpgradeRequired,
 }: Props) {
   const router = useRouter();
   const defaultStart = useMemo(() => addDaysIso(todayIso(), 60), []);
@@ -577,6 +579,9 @@ export default function NewTripCreator({
       });
       const draftBody = await draftRes.json().catch(() => ({}));
       if (!draftRes.ok) {
+        if (draftRes.status === 402 && draftBody.code === 'trip_limit_reached') {
+          onUpgradeRequired?.(draftBody.details?.billing);
+        }
         throw new Error(draftBody.error ?? `HTTP ${draftRes.status}`);
       }
       draft = draftBody as DraftResponse;

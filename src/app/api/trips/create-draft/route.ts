@@ -114,7 +114,10 @@ export async function POST(request: NextRequest) {
     }, { status: 201 });
   } catch (err) {
     if (err instanceof TripServiceError) {
-      return NextResponse.json({ error: err.message }, { status: err.status });
+      return NextResponse.json(
+        { error: err.message, code: err.code, details: err.details },
+        { status: err.status }
+      );
     }
     return NextResponse.json(
       { error: err instanceof Error ? err.message : 'Failed to create trip draft' },

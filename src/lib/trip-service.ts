@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { trySyncAccommodationReviewForTrip } from '@/lib/accommodation-review-store';
+import { getBillingSummary } from '@/lib/billing';
 import { normalizeTripData, normalizeTripDataWithWarnings } from '@/lib/trip-data-normalize';
 import { buildTripLogisticsLedger } from '@/lib/trip-logistics-ledger';
 import { auditTripLogistics, type TripLogisticsAudit } from '@/lib/trip-logistics';
@@ -20,7 +21,9 @@ type AdminClient = SupabaseClient;
 export class TripServiceError extends Error {
   constructor(
     message: string,
-    public readonly status = 500
+    public readonly status = 500,
+    public readonly code?: string,
+    public readonly details?: unknown
   ) {
     super(message);
   }
@@ -600,6 +603,16 @@ export async function saveTripForUser(
       logistics,
       accommodation_review: accommodationReview,
     };
+  }
+
+  const billing = await getBillingSummary(admin, userId);
+  if (!billing.can_create_trip) {
+    throw new TripServiceError(
+      `You have used the ${billing.free_trip_limit} trips included with the free plan. Subscribe to create another trip.`,
+      402,
+      'trip_limit_reached',
+      { billing }
+    );
   }
 
   const { data: newTrip, error } = await admin

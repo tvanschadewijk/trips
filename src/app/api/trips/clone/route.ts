@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { scrubAndAnchorTripData } from '@/lib/scrub-trip';
 import { isPublicItineraryShareId } from '@/lib/public-itineraries';
 import { trySyncAccommodationReviewForTrip } from '@/lib/accommodation-review-store';
+import { getBillingSummary } from '@/lib/billing';
 import type { TripData } from '@/lib/types';
 
 // POST /api/trips/clone — Remix a shared trip into the authenticated
@@ -57,6 +58,18 @@ export async function POST(request: NextRequest) {
       share_id: existing.share_id,
       status: 'already_saved',
     });
+  }
+
+  const billing = await getBillingSummary(admin, user.id);
+  if (!billing.can_create_trip) {
+    return NextResponse.json(
+      {
+        error: `You have used the ${billing.free_trip_limit} trips included with the free plan. Subscribe to save another trip.`,
+        code: 'trip_limit_reached',
+        details: { billing },
+      },
+      { status: 402 }
+    );
   }
 
   // Scrub PII and rebase dates to today before insert.

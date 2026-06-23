@@ -4,6 +4,15 @@ Selected product updates for OurTrips.
 
 ## Unreleased
 
+## 2026-06-23 - 0.2.0 - Stripe billing and early adopter plan
+
+### Added
+- Added Stripe Checkout, billing portal, and webhook routes for OurTrips subscriptions.
+- Added a free-plan limit of three trips with server-side enforcement before new trip creation.
+- Added a first-500 early adopter reservation flow for the three-year €29.95 founder deal.
+- Added dashboard billing surfaces that show free-trip progress, early adopter availability, and upgrade options.
+- Documented the monetization plan, Stripe setup, and subtle in-product promotion strategy.
+
 ## 2026-06-23 - 0.1.2 - Chat thread routing fix
 
 ### Fixed

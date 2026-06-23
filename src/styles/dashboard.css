@@ -226,6 +226,205 @@
 }
 .dash-profile-link:hover { background: #E8E1D6; }
 
+/* Billing */
+.dash-billing-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 18px;
+  margin: -12px 0 36px;
+  padding: 18px;
+  background: #FFFFFF;
+  border: 1px solid #E8E1D6;
+  border-radius: 12px;
+  box-shadow: rgba(26, 20, 16, 0.04) 0 1px 0 0, rgba(26, 20, 16, 0.06) 0 4px 16px -4px;
+}
+.dash-billing-panel.is-limit {
+  border-color: rgba(193, 79, 42, 0.34);
+  background: #FFFDFC;
+}
+.dash-billing-panel.is-active {
+  align-items: center;
+}
+.dash-billing-copy {
+  min-width: 0;
+}
+.dash-billing-eyebrow {
+  margin-bottom: 8px;
+  color: #C14F2A;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+.dash-billing-copy h2,
+.dash-billing-modal h2 {
+  margin: 0;
+  color: #1A1410;
+  font-family: 'Fraunces', 'Iowan Old Style', 'Palatino', 'Georgia', serif;
+  font-optical-sizing: auto;
+  font-variation-settings: 'SOFT' 44;
+  font-size: 26px;
+  font-weight: 390;
+  letter-spacing: -0.012em;
+  line-height: 1.1;
+}
+.dash-billing-copy p,
+.dash-billing-deal p,
+.dash-billing-modal p {
+  margin: 8px 0 0;
+  color: #3D352E;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.55;
+}
+.dash-billing-meter {
+  position: relative;
+  height: 7px;
+  margin-top: 14px;
+  overflow: hidden;
+  background: #F4EDE2;
+  border-radius: 999px;
+}
+.dash-billing-meter span {
+  display: block;
+  height: 100%;
+  background: #C14F2A;
+  border-radius: inherit;
+}
+.dash-billing-deal {
+  min-width: 0;
+  padding: 14px;
+  background: #F5E4DA;
+  border-radius: 10px;
+}
+.dash-billing-deal-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #A03E1F;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 620;
+  letter-spacing: 0.12em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+.dash-billing-deal-title svg {
+  flex-shrink: 0;
+}
+.dash-billing-actions,
+.dash-billing-modal-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+.dash-billing-primary,
+.dash-billing-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 38px;
+  border-radius: 999px;
+  padding: 9px 14px;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 580;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.1s;
+}
+.dash-billing-primary {
+  background: #C14F2A;
+  border: 1px solid #C14F2A;
+  color: #FBF7F1;
+}
+.dash-billing-primary:hover {
+  background: #A03E1F;
+  border-color: #A03E1F;
+}
+.dash-billing-secondary {
+  background: transparent;
+  border: 1px solid #1A1410;
+  color: #1A1410;
+}
+.dash-billing-secondary:hover {
+  background: #1A1410;
+  color: #FBF7F1;
+}
+.dash-billing-primary:active,
+.dash-billing-secondary:active {
+  transform: translateY(1px);
+}
+.dash-billing-primary:disabled,
+.dash-billing-secondary:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+.dash-billing-error {
+  margin-top: 10px;
+  color: #9B4F2E;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 13px;
+  line-height: 1.45;
+}
+.dash-billing-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(26, 20, 16, 0.38);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+}
+.dash-billing-modal {
+  position: relative;
+  width: min(100%, 480px);
+  padding: 28px;
+  background: #FFFFFF;
+  border: 1px solid #E8E1D6;
+  border-radius: 16px;
+  box-shadow: rgba(26, 20, 16, 0.12) 0 24px 64px -16px;
+}
+.dash-billing-modal-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: #6B6157;
+  cursor: pointer;
+}
+.dash-billing-modal-close:hover {
+  background: #F4EDE2;
+  color: #1A1410;
+}
+.dash-billing-modal-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  margin-bottom: 16px;
+  background: #F5E4DA;
+  border-radius: 999px;
+  color: #C14F2A;
+}
+
 .dash-agent-entry {
   position: fixed;
   left: 50%;
@@ -794,6 +993,21 @@
     justify-content: flex-start;
     width: 100%;
   }
+  .dash-billing-panel {
+    margin-top: -18px;
+  }
+  .dash-billing-actions,
+  .dash-billing-modal-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .dash-billing-primary,
+  .dash-billing-secondary {
+    width: 100%;
+  }
+  .dash-billing-modal {
+    padding: 24px;
+  }
 }
 
 @media (min-width: 768px) {
@@ -802,6 +1016,15 @@
   .dash-main { padding: 48px 40px 100px; }
   .dash-title { font-size: 52px; }
   .dash-header { margin-bottom: 44px; }
+  .dash-billing-panel {
+    grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+    align-items: stretch;
+    margin-bottom: 44px;
+    padding: 20px;
+  }
+  .dash-billing-panel.is-active {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
   .dash-grid { gap: 24px; }
   .dash-card:hover { transform: translateY(-2px); box-shadow: rgba(26, 20, 16, 0.06) 0 1px 0 0, rgba(26, 20, 16, 0.12) 0 18px 44px -10px; }
   .dash-card-hero { height: 240px; }
