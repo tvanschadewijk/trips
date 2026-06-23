@@ -101,6 +101,10 @@
   min-height: 420px;
 }
 
+.trip-new-agent-stage.is-floating-only {
+  min-height: 0;
+}
+
 .trip-ask-entry {
   position: fixed;
   left: 50%;
@@ -229,9 +233,7 @@
   font-size: 24px;
   font-weight: 420;
   line-height: 1.12;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
 }
 
 .trip-new-agent-sheet-header button {
@@ -1161,6 +1163,28 @@
   border-bottom: 1px solid rgba(47, 107, 74, 0.5);
 }
 
+.trip-agent-context-hint {
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr);
+  gap: 9px;
+  margin: 0 0 18px;
+  padding: 12px 13px;
+  border-radius: 14px;
+  background: #F5E4DA;
+  color: #3D352E;
+}
+
+.trip-agent-context-hint svg {
+  color: #C14F2A;
+  margin-top: 2px;
+}
+
+.trip-agent-context-hint p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
 .trip-brief-snapshot {
   display: grid;
   gap: 11px;
@@ -1249,6 +1273,10 @@
 @media (max-width: 640px) {
   .trip-new-agent-stage {
     min-height: 320px;
+  }
+
+  .trip-new-agent-stage.is-floating-only {
+    min-height: 0;
   }
 
   .trip-new-agent-sheet {

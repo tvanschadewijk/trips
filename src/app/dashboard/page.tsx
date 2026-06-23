@@ -27,6 +27,11 @@ import { useSavedTripIds } from '@/lib/offline';
 import { useOnlineStatus } from '@/lib/online-status';
 import { isPublicItineraryShareId } from '@/lib/public-itineraries';
 import AppTopBar from '@/components/ui/AppTopBar';
+import NewTripCreator from '@/components/trips/NewTripCreator';
+import {
+  normalizeTravelProfilePreferences,
+  type TravelProfilePreferences,
+} from '@/lib/travel-profile';
 import '@/styles/dashboard.css';
 
 interface DashTrip {
@@ -38,6 +43,10 @@ interface DashTrip {
   created_at: string;
   updated_at: string;
 }
+
+const NEW_TRIP_AGENT_HREF = '/dashboard?agent=new';
+const DASHBOARD_PROFILE_HREF = `/onboarding?next=${encodeURIComponent('/dashboard')}`;
+const NEW_TRIP_PROFILE_HREF = `/onboarding?next=${encodeURIComponent(NEW_TRIP_AGENT_HREF)}`;
 
 function normalizeDashTrip(trip: DashTrip): DashTrip {
   return {
@@ -74,6 +83,10 @@ export default function DashboardPage() {
   });
   const [isAdmin, setIsAdmin] = useState(false);
   const [travelProfileComplete, setTravelProfileComplete] = useState(false);
+  const [travelPreferences, setTravelPreferences] = useState<TravelProfilePreferences>(() => (
+    normalizeTravelProfilePreferences(null)
+  ));
+  const [newTripAgentOpen, setNewTripAgentOpen] = useState(false);
   const savedOfflineIds = useSavedTripIds();
   const online = useOnlineStatus();
   const personalTrips = trips.filter(t => !isPublicItineraryShareId(t.share_id));
@@ -109,9 +122,11 @@ export default function DashboardPage() {
   const loadTrips = useCallback(async () => {
     if (isLocalPreviewWithoutSupabase()) {
       const localTrips = getLocalPreviewTrips();
+      const localPreferences = normalizeTravelProfilePreferences(null);
       setTrips(localTrips);
       setEmail('local-preview@example.com');
       setTravelProfileComplete(true);
+      setTravelPreferences(localPreferences);
       sessionStorage.setItem('dash-email', 'local-preview@example.com');
       sessionStorage.setItem('dash-trips', JSON.stringify(localTrips));
       setLoading(false);
@@ -139,10 +154,12 @@ export default function DashboardPage() {
 
     const { data: travelProfile } = await supabase
       .from('travel_profiles')
-      .select('onboarding_completed_at')
+      .select('onboarding_completed_at, preferences')
       .eq('user_id', user.id)
       .maybeSingle();
+    const nextTravelPreferences = normalizeTravelProfilePreferences(travelProfile?.preferences);
     setTravelProfileComplete(Boolean(travelProfile?.onboarding_completed_at));
+    setTravelPreferences(nextTravelPreferences);
 
     // Try with share_mode (post-migration). If the column doesn't exist
     // yet, retry without it and default every trip to 'companion' — keeps
@@ -187,6 +204,28 @@ export default function DashboardPage() {
       void loadTrips();
     });
   }, [loadTrips]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('agent') === 'new') {
+      queueMicrotask(() => setNewTripAgentOpen(true));
+    }
+  }, []);
+
+  function openNewTripAgent() {
+    setNewTripAgentOpen(true);
+  }
+
+  function handleNewTripAgentOpenChange(nextOpen: boolean) {
+    setNewTripAgentOpen(nextOpen);
+    if (nextOpen || typeof window === 'undefined') return;
+
+    const currentUrl = new URL(window.location.href);
+    if (currentUrl.pathname === '/dashboard' && currentUrl.searchParams.get('agent') === 'new') {
+      router.replace('/dashboard', { scroll: false });
+    }
+  }
 
   async function handleSignOut() {
     if (isLocalPreviewWithoutSupabase()) {
@@ -250,7 +289,7 @@ export default function DashboardPage() {
                     </Link>
                   )}
                   {online && (
-                    <Link href="/onboarding?next=/dashboard" className="dash-settings-item" onClick={() => setSettingsOpen(false)}>
+                    <Link href={DASHBOARD_PROFILE_HREF} className="dash-settings-item" onClick={() => setSettingsOpen(false)}>
                       <UserRound size={16} aria-hidden="true" />
                       Travel profile
                     </Link>
@@ -295,16 +334,14 @@ export default function DashboardPage() {
           </div>
           {online && (
             <div className="dash-header-actions">
-              {!travelProfileComplete && (
-                <Link href="/onboarding?next=/trips/new" className="dash-profile-link">
-                  <UserRound size={15} aria-hidden="true" />
-                  Travel profile
-                </Link>
-              )}
-              <Link href="/trips/new" className="dash-new-trip-btn">
+              <Link href={DASHBOARD_PROFILE_HREF} className="dash-profile-link">
+                <UserRound size={15} aria-hidden="true" />
+                Travel profile
+              </Link>
+              <button type="button" className="dash-new-trip-btn" onClick={openNewTripAgent}>
                 <Plus size={16} aria-hidden="true" />
                 New trip
-              </Link>
+              </button>
             </div>
           )}
         </div>
@@ -332,7 +369,7 @@ export default function DashboardPage() {
                   <p className="dash-onboard-step-desc">
                     Set pace, food, lodging, transport, and practical preferences once.
                   </p>
-                  <Link href="/onboarding?next=/trips/new" className="dash-onboard-action-link">
+                  <Link href={NEW_TRIP_PROFILE_HREF} className="dash-onboard-action-link">
                     {travelProfileComplete ? 'Review profile' : 'Start profile'}
                     <ArrowRight size={14} aria-hidden="true" />
                   </Link>
@@ -361,10 +398,17 @@ export default function DashboardPage() {
             </div>
 
             <div className="dash-onboard-footer">
-              <Link href={travelProfileComplete ? '/trips/new' : '/onboarding?next=/trips/new'} className="dash-onboard-demo-link">
-                {travelProfileComplete ? 'Create a trip' : 'Create travel profile'}
-                <ArrowRight size={14} aria-hidden="true" />
-              </Link>
+              {travelProfileComplete ? (
+                <button type="button" className="dash-onboard-demo-link" onClick={openNewTripAgent}>
+                  Create a trip
+                  <ArrowRight size={14} aria-hidden="true" />
+                </button>
+              ) : (
+                <Link href={NEW_TRIP_PROFILE_HREF} className="dash-onboard-demo-link">
+                  Create travel profile
+                  <ArrowRight size={14} aria-hidden="true" />
+                </Link>
+              )}
             </div>
           </div>
         ) : (
@@ -455,14 +499,29 @@ export default function DashboardPage() {
       </main>
 
       {online && (
-        <Link
-          href="/trips/new"
+        <button
+          type="button"
           className="dash-agent-entry"
+          onClick={openNewTripAgent}
           aria-label="Ask your Travel Agent to create a new trip"
         >
           <MessageCircle className="dash-agent-entry-icon" aria-hidden="true" />
           <span className="dash-agent-entry-label">Ask Your Travel Agent</span>
-        </Link>
+        </button>
+      )}
+
+      {newTripAgentOpen && (
+        <NewTripCreator
+          initialPreferences={travelPreferences}
+          profileComplete={travelProfileComplete}
+          open={newTripAgentOpen}
+          autoOpen={false}
+          showEntryButton={false}
+          onOpenChange={handleNewTripAgentOpenChange}
+          sheetTitle="Start a new trip with your travel agent."
+          profileNextHref={NEW_TRIP_AGENT_HREF}
+          showExistingTripHint
+        />
       )}
     </div>
   );

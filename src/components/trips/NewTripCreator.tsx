@@ -46,6 +46,14 @@ import {
 type Props = {
   initialPreferences: TravelProfilePreferences;
   profileComplete: boolean;
+  open?: boolean;
+  defaultOpen?: boolean;
+  autoOpen?: boolean;
+  showEntryButton?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  sheetTitle?: string;
+  profileNextHref?: string;
+  showExistingTripHint?: boolean;
 };
 
 type FormState = {
@@ -112,6 +120,7 @@ type GenerationStep = 'idle' | 'draft' | 'agent' | 'poll' | 'done' | 'error';
 const POLL_INTERVAL_MS = 2400;
 const POLL_TIMEOUT_MS = 305_000;
 const TRIP_OPEN_DELAY_MS = 1500;
+const DEFAULT_PROFILE_NEXT_HREF = '/dashboard?agent=new';
 const questionOrder: BriefQuestion[] = [
   'destination',
   'dates',
@@ -282,7 +291,18 @@ async function pollForAssistant(tripId: string, threadId: string, turnIndex: num
   throw new Error('The trip creator is taking longer than expected. Open the draft trip and continue from there.');
 }
 
-export default function NewTripCreator({ initialPreferences, profileComplete }: Props) {
+export default function NewTripCreator({
+  initialPreferences,
+  profileComplete,
+  open,
+  defaultOpen = false,
+  autoOpen = true,
+  showEntryButton = true,
+  onOpenChange,
+  sheetTitle = 'Ask Travel Agent',
+  profileNextHref = DEFAULT_PROFILE_NEXT_HREF,
+  showExistingTripHint = false,
+}: Props) {
   const router = useRouter();
   const defaultStart = useMemo(() => addDaysIso(todayIso(), 60), []);
   const defaultEnd = useMemo(() => addDaysIso(defaultStart, 5), [defaultStart]);
@@ -314,7 +334,9 @@ export default function NewTripCreator({ initialPreferences, profileComplete }: 
   const [draftUrl, setDraftUrl] = useState<string | null>(null);
   const [completedTripUrl, setCompletedTripUrl] = useState<string | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
-  const [agentOpen, setAgentOpen] = useState(false);
+  const [uncontrolledAgentOpen, setUncontrolledAgentOpen] = useState(defaultOpen);
+  const agentOpen = open ?? uncontrolledAgentOpen;
+  const profileHref = `/onboarding?next=${encodeURIComponent(profileNextHref)}`;
 
   const currentQuestionIndex = questionOrder.indexOf(activeQuestion);
   const dayCount = inclusiveDayCount(form.start_date, form.end_date);
@@ -330,10 +352,19 @@ export default function NewTripCreator({ initialPreferences, profileComplete }: 
     return () => window.clearInterval(timer);
   }, [busy]);
 
+  function setAgentOpen(nextOpen: boolean) {
+    if (open === undefined) setUncontrolledAgentOpen(nextOpen);
+    onOpenChange?.(nextOpen);
+  }
+
   useEffect(() => {
-    const timer = window.setTimeout(() => setAgentOpen(true), 180);
+    if (open !== undefined || !autoOpen) return;
+    const timer = window.setTimeout(() => {
+      setUncontrolledAgentOpen(true);
+      onOpenChange?.(true);
+    }, 180);
     return () => window.clearTimeout(timer);
-  }, []);
+  }, [autoOpen, onOpenChange, open]);
 
   function setField<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -474,7 +505,7 @@ export default function NewTripCreator({ initialPreferences, profileComplete }: 
           <div className="trip-create-notice">
             <AlertCircle size={16} aria-hidden="true" />
             <span>Your travel profile is not finished yet.</span>
-            <Link href="/onboarding?next=/trips/new">Finish profile</Link>
+            <Link href={profileHref}>Finish profile</Link>
           </div>
         )}
 
@@ -733,15 +764,24 @@ export default function NewTripCreator({ initialPreferences, profileComplete }: 
           </div>
         </div>
 
+        {showExistingTripHint && (
+          <div className="trip-agent-context-hint">
+            <MessageCircle size={15} aria-hidden="true" />
+            <p>
+              Want to discuss an existing trip? Open that trip and start the chat there so the agent already has the itinerary, bookings, and trip context.
+            </p>
+          </div>
+        )}
+
         <BriefSnapshot form={form} dayCount={dayCount} />
       </aside>
     </div>
   );
 
   return (
-    <div className="trip-new-agent-stage">
+    <div className={`trip-new-agent-stage ${showEntryButton ? '' : 'is-floating-only'}`}>
       <AnimatePresence>
-        {!agentOpen && (
+        {showEntryButton && !agentOpen && (
           <motion.button
             key="new-trip-entry"
             type="button"
@@ -777,7 +817,7 @@ export default function NewTripCreator({ initialPreferences, profileComplete }: 
             <motion.section
               key="new-trip-sheet"
               role="dialog"
-              aria-label="Ask Travel Agent"
+              aria-label={sheetTitle}
               aria-modal="true"
               className="trip-new-agent-sheet"
               initial={{ y: '100%' }}
@@ -798,7 +838,7 @@ export default function NewTripCreator({ initialPreferences, profileComplete }: 
               </button>
               <header className="trip-new-agent-sheet-header">
                 <span />
-                <div>Ask Travel Agent</div>
+                <div>{sheetTitle}</div>
                 <button
                   type="button"
                   onClick={() => setAgentOpen(false)}

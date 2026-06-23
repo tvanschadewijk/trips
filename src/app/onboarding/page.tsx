@@ -24,7 +24,7 @@ type Props = {
 };
 
 function safeNextHref(value: string | undefined): string {
-  if (!value || !value.startsWith('/') || value.startsWith('//')) return '/trips/new';
+  if (!value || !value.startsWith('/') || value.startsWith('//')) return '/dashboard?agent=new';
   return value;
 }
 

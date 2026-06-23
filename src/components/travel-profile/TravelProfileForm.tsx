@@ -201,7 +201,7 @@ const usCityNames = [
 ];
 
 function safeNextHref(value: string): string {
-  if (!value.startsWith('/') || value.startsWith('//')) return '/trips/new';
+  if (!value.startsWith('/') || value.startsWith('//')) return '/dashboard?agent=new';
   return value;
 }
 
