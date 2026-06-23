@@ -1,101 +1,79 @@
 ---
-title: "How to Use the OurTrips Connector to Plan a Trip"
-subtitle: "Turn any Claude conversation into a shareable, interactive travel itinerary in under a minute."
-excerpt: "Connect the OurTrips remote MCP server to Claude or Codex, then turn any travel conversation into a beautiful, pocket-friendly itinerary you can share with anyone."
+title: "How to Plan a Trip With OurTrips"
+subtitle: "Start in OurTrips, add the messy travel context, and let the built-in agent create a portable day-by-day guide."
+excerpt: "OurTrips now plans trips from the beginning. You no longer need Claude, Cowork, or Codex to create a beautiful shareable itinerary."
 tag: Guide
 date: 2026-04-05
-lastUpdated: 2026-04-07
+lastUpdated: 2026-06-23
 readingTime: "6 min read"
 ---
 
-The **OurTrips connector** is a remote MCP server that turns any travel conversation into a shareable, mobile-friendly itinerary on [ourtrips.to](https://ourtrips.to). Connect it to Claude or Codex, plan your trip through conversation, and say "Send it to OurTrips" to get a link you can pull up on your phone or share with anyone.
+The fastest way to use OurTrips is now to start inside OurTrips.
 
-We've all been there. You spend 20 minutes going back and forth with Claude about your trip to Portugal, and you end up with a genuinely solid itinerary. Great restaurants, realistic timing, good mix of activities. But then what? You copy-paste it into Apple Notes. Or a Google Doc. Or you just... leave it in the chat and hope you'll find it later.
+You no longer need to open Claude, Cowork, Codex, or another agent first. Those tools can still connect through the optional MCP connector, but the main product now creates the trip from the beginning.
 
-That's the problem. The planning part is easy now. It's the *keeping and sharing* part that still sucks. **OurTrips.To fixes that with a remote connector.**
+That shift matters because travel planning is not just one conversation. It is a collection problem.
 
-## What is the OurTrips connector?
+## Step 1: Start a new trip
 
-The connector is a remote MCP server at:
+Create a trip in OurTrips and answer the basics:
+
+- Where you are going
+- Your dates
+- Who is traveling
+- Where you start from
+- Budget and pace
+- Must-do places
+- What is already booked
+
+This gives the travel agent the frame it needs. The plan should know whether you are building a slow city break, a multi-stop route, a family trip, a romantic weekend, or a long expedition.
+
+## Step 2: Add the messy context
+
+Real travel information arrives from everywhere. Bring it in.
+
+Paste notes. Add a restaurant list. Include hotel options, flight times, ticket constraints, or a copied plan from an old document. Mention the things that shape how you actually travel: "we like slow mornings," "one fancy dinner is enough," "avoid changing hotels too often," or "we need a swim stop for the kids."
+
+The agent can plan a better trip when it has your real constraints.
+
+## Step 3: Let OurTrips build the first guide
+
+OurTrips turns the material into a structured itinerary: days, places, stays, meals, transport, route points, maps, booking status, and practical tips.
+
+The first draft is meant to be a strong starting point. It gives you something visual and shareable to react to, instead of another wall of text.
+
+## Step 4: Refine through chat
+
+The trip chat is attached to the itinerary. That means you can keep improving the real guide:
+
+> Make Day 3 less packed.
+
+> We booked the second hotel option. Update the stay and check nearby dinner plans.
+
+> Add a rainy-day alternative for the museum day.
+
+> Find a casual lunch near the train station.
+
+The result is not only a reply. The trip itself changes.
+
+## Step 5: Take it with you
+
+When the plan looks good, share it with co-travelers and save it offline. On the road, open the day you are in. The guide keeps the practical details close: what is next, where it is, where you sleep, what is booked, and what still needs attention.
+
+## What about the connector?
+
+The remote connector still exists for people who already have a planning conversation elsewhere:
 
 ```copy
 https://ourtrips.to/mcp
 ```
 
-It gives Claude or Codex a signed-in OurTrips tool surface. The connector handles saving trips, editing them later, schema guidance, image search, and generated cover assets without asking you to download a local skill file.
+Use it when you want Claude, Codex, or another compatible agent to send an outside plan into OurTrips. But for most trips, the cleaner path is now simpler:
 
-## Step 1: Install the OurTrips connector
+1. Start in OurTrips
+2. Add your material
+3. Let the guide take shape
+4. Refine the actual itinerary
+5. Carry it with you
 
-In Claude, add the connector from **Customize** -> **Connectors** using this server URL:
-
-```copy
-https://ourtrips.to/mcp
-```
-
-In Codex, you can simply ask:
-
-```copy
-Install the connector to the MCP server: https://ourtrips.to/mcp
-```
-
-Then sign in when the authorization flow opens. That's it.
-
-## Step 2: Plan your trip like you normally would
-
-Nothing changes here. Just talk to Claude about your trip. Where you're going, how long, what you like, what you don't. The more specific you are, the better the result.
-
-Something like:
-
-> We're going to Tokyo for 5 days in May. Two of us. We're into street food, weird little record shops, and temples that aren't packed with tourists. Moderate budget - one fancy dinner, the rest casual. Staying in Shimokitazawa.
-
-Claude does the rest. It'll suggest places, organize your days, figure out what makes sense geographically so you're not zigzagging across the city. You can go back and forth, swap things, ask it to add more food spots or cut an activity that doesn't fit.
-
-A few things that actually make a difference:
-
-- **Turn on browser use** (with the Claude Chrome extension) - Claude can look up current prices, and whether that hotel you want still has availability.
-
-- **Use Extended Thinking** - the itineraries come out way more detailed and organized
-
-- **Teach Claude how you travel** - "we walk everywhere" or "we need a break after lunch" changes the whole plan. I fed Claude 7 years of travel history so it knows what we do and like. 
-
-  
-
-## Step 3: Say "Send it to OurTrips"
-
-That's literally it. When the itinerary looks good:
-
-> Send it to OurTrips
-
-Claude packages the whole thing up and sends it. You get a link back. Open it on your phone, your laptop, send it to whoever you're traveling with. No account needed to view it.
-
-What you get:
-
-- A day-by-day plan with times and descriptions
-- Hotel info with check-in/out and booking details
-- Transport - flights, trains, how to get between places
-- Restaurant picks with notes on reservations
-- Tips for each day
-- A nice hero photo of the destination (assuming Unsplash has it covered, otherwise it might sometimes be another image)
-
-It's 100% designed for mobile to be usable on the road.
-
-## Why use OurTrips instead of Google Docs?
-
-Sure, Google Docs exist. But a Google Doc is a wall of text on a white background. Try reading that on your phone while standing in Shibuya trying to figure out where lunch is.
-
-OurTrips gives you something that's actually designed to be used while traveling. Days you can swipe through. Tap on a restaurant to see the details. Everything in one place, loads fast, works offline.
-
-And the main thing - it takes one sentence to create. No formatting, no fiddling, no copy-pasting between apps.
-
-## What about ChatGPT?
-
-Right now, the connector works with agents that support remote MCP connectors, including Claude and Codex. ChatGPT support is something we're looking into.
-
-## Try it
-
-1. Add the OurTrips connector at `https://ourtrips.to/mcp`
-2. Plan your trip
-3. Say "Send it to OurTrips"
-4. Open the link
-
-Takes about a minute. Your next trip doesn't have to live in a chat thread.
+Your next trip does not need to live in a chat thread.

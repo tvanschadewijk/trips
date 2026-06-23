@@ -1,19 +1,15 @@
-## Are Claude skills free?
+## Do I need a Claude skill to use OurTrips?
 
-Most Claude skills are free. They're just files you install into your session. You do need access to Claude CoWork or Codex, which may require a Claude subscription.
+No. OurTrips now creates trips directly in the app, so no Claude skill is required.
 
-## Do Claude skills work with ChatGPT?
+## What is the difference between a Claude skill and an MCP connector?
 
-No. Claude skills (.skill files) only work with Claude CoWork and Codex. ChatGPT has its own extension system (Custom GPTs and plugins).
+A skill is an instruction bundle for Claude. An MCP connector is a live tool connection that lets an agent interact with an external service.
 
-## How do I install a Claude skill?
+## Does the OurTrips connector still work?
 
-Two ways: paste a fetch command like 'Fetch [URL] and add it to my skills' into your Claude chat, or manually upload the .skill file through the Customize panel in CoWork.
+Yes. The connector still works for compatible external agents, but it is optional.
 
-## What's the difference between a Claude skill and an MCP server?
+## When should I start in OurTrips instead of an external agent?
 
-MCP servers provide live tool connections, such as database access or API integrations. Skills are portable instruction files that bundle prompts, schemas, and reference docs. OurTrips now uses a remote MCP connector because it needs a signed-in live tool surface.
-
-## Can I build my own Claude skill?
-
-Yes. If you have a workflow you repeat often, you can package it as a .skill file with instructions, schemas, and API connections. Share it with anyone by sending them the file.
+Start in OurTrips when you are beginning a new trip and want to collect bookings, notes, preferences, and references before the guide is created.

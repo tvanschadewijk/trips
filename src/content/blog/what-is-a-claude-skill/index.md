@@ -1,114 +1,67 @@
 ---
-title: "What is a Claude Skill? A Beginner's Guide"
-subtitle: "Everything you need to know about Claude's skill system - what they are, how they work, and why they matter."
-excerpt: "Claude skills are portable files that give Claude new abilities. OurTrips now uses a remote MCP connector instead; here's how the two approaches differ."
-tag: Guide
+title: "What Is a Claude Skill? And Why OurTrips No Longer Needs One"
+subtitle: "Claude skills and MCP connectors are useful agent tools, but OurTrips now creates trips directly inside the app."
+excerpt: "A plain-English explanation of Claude skills, MCP connectors, and why the current OurTrips flow starts in the product instead of requiring an external agent."
+tag: Technical
 date: 2026-04-07
-lastUpdated: 2026-04-07
+lastUpdated: 2026-06-23
 readingTime: "5 min read"
 ---
 
-A **Claude skill** is a portable file (ending in `.skill`) that teaches Claude how to perform a specific task. Install one into your Claude app and Claude picks up a new ability - no prompting, no setup, no instructions to copy-paste every time.
+A **Claude skill** is a portable instruction bundle that teaches Claude how to do a specific kind of work. It can include prompts, schemas, examples, and reference material so Claude can follow a workflow more consistently.
 
-It's the difference between telling someone how to cook a recipe from scratch every time you want dinner, versus just handing them the cookbook.
+Skills are useful. MCP connectors are useful too. They let agents reach outside tools in a more structured way.
 
-## How are skills different from prompts or custom instructions?
+But for OurTrips, the product has moved beyond requiring either of them.
 
-Before skills existed, there were basically two ways to get Claude to do something specific:
+## What skills are good for
 
-**Prompts** - you write out exactly what you want every time. Works fine for one-off things, gets old fast when you need the same behavior repeatedly.
+Skills help when a task has a repeatable format.
 
-**Custom instructions** - you set some persistent context that Claude remembers across conversations. Better, but it's pretty limited. You can't include schemas, API calls, or complex logic.
+Instead of explaining the same workflow every time, you install a bundle once and Claude can follow the expected pattern. That can help with writing, analysis, formatting, coding workflows, or turning a messy input into a structured output.
 
-**Skills** sit a level above both. A `.skill` file bundles instructions, data schemas, API connections, and reference docs into one package. Install it once, and Claude just knows what to do.
+Before skills and connectors, the alternative was usually a long prompt that you had to paste over and over.
 
-| Approach | Persistence | Complexity | Portability |
-|----------|-------------|------------|-------------|
-| Prompt | Per-conversation | Low | Copy-paste |
-| Custom instructions | Persistent | Medium | Not shareable |
-| **Skill** | **Per-session** | **High** | **A file you can share** |
+## How MCP connectors are different
 
-## Where do Claude skills work?
+An MCP connector gives an agent access to live tools. Instead of only following instructions, the agent can call an external service, save data, fetch context, or update a record.
 
-Two places right now:
+That is why OurTrips introduced a remote MCP connector. It let external agents save a trip into OurTrips through an OAuth-secured tool surface.
 
-**Claude Cowork** - Anthropic's collaborative workspace. You chat with Claude, share files, work on stuff together. Skills will be triggered by certain keywords (like "Create my trip").
-
-**Codex** - the coding environment. Developers use skills here for things like deployment workflows, code patterns, or API integrations.
-
-## What's inside a skill file?
-
-A `.skill` file is a bundle. Depending on the skill, it might contain:
-
-- **Instructions** - what Claude should do and how to do it
-- **Schemas** - the shape of data Claude needs to produce
-- **API connections** - endpoints Claude can hit to send or receive data
-- **Reference docs** - examples and documentation Claude can lean on
-
-Once installed, Claude reads all of it. You don't have to explain anything. Just ask Claude to do the thing, and it knows how.
-
-## What kind of stuff can skills do?
-
-The ecosystem is still early but growing fast. A few categories:
-
-**Travel** - OurTrips now uses a remote MCP connector rather than a downloadable skill. Connect `https://ourtrips.to/mcp`, plan your trip, say "send it to OurTrips," and you get a rich mobile-friendly page with your full day-by-day plan.
-
-**Productivity** - skills that generate reports, format documents, create presentations. Instead of explaining the output format every single time, the skill just handles it.
-
-**Development** - code generation with specific patterns, deployment pipelines, database migrations. The skill bakes in best practices so Claude follows them without being told.
-
-**Data** - structured extraction, analysis workflows, formatted outputs for specific tools or dashboards.
-
-## How to install a Claude skill
-
-It takes 30 seconds. Two options:
-
-### Ask Claude to grab it
-
-If your session has internet access:
+The connector URL is still:
 
 ```copy
-Fetch [skill URL] and add it to my skills.
+https://ourtrips.to/mcp
 ```
 
-Claude downloads that skill file, installs it, done.
+If you are already planning in Claude, Codex, or another compatible agent, you can connect it and send the trip into OurTrips.
 
-### Or upload it yourself
+## Why OurTrips changed
 
-1. Download the `.skill` file from its creator
-2. Open **Customize** in your Cowork settings
-3. Hit **Add skill**, pick the file
+The connector solved one problem: turning an outside planning conversation into a shareable itinerary.
 
+But travel planning has a bigger problem. It starts messy.
 
+Bookings, notes, ideas, PDFs, preferences, restaurant links, hotel options, and open decisions all need to be collected before the itinerary can become truly useful. If the product only appears at the end, too much context can be lost along the way.
 
-## Where to find Claude skills
+So OurTrips now starts at the beginning.
 
-Still early days, but there are a few places:
+## The current OurTrips flow
 
-- **Directly from creators** - lots of tools publish their own skills
-- **Directories** - [agentskills.so](https://agentskills.so) and [mcpmarket.com](https://mcpmarket.com) list available skills
-- **GitHub** - developers share skills in repos and Claude communities
-- **Build your own** - if you have a workflow you repeat often, you can package it as a skill
+You can create a trip directly in OurTrips:
 
-## Why Claude skills matter
+1. Answer the travel-agent basics
+2. Add bookings, notes, references, and preferences
+3. Let the built-in agent create a day-by-day draft
+4. Refine the real itinerary through chat
+5. Share it, map it, and save it offline
 
-The big deal with skills is that they lower the bar. You don't need to be good at prompt engineering to get good output from Claude. Someone else already did that work and packaged it into a file you can install.
+No Claude skill required. No Cowork setup required. No Codex setup required.
 
-A few things that follow from that:
+## When to use the connector
 
-- **Anyone can use them.** Non-technical people get access to complex workflows by dragging in a file.
-- **Output is consistent.** The skill defines the format, so you get the same quality every time.
-- **They're shareable.** Send the file to a friend. They get the exact same capability.
-- **They stack.** Install multiple skills in one session and Claude can use all of them.
+Use the connector if you already have useful travel work in an external agent and you want to bring it into OurTrips.
 
-## Try OurTrips
+Start in OurTrips if you are beginning a new trip and want the product to collect the details, plan the route, and carry the guide from the start.
 
-OurTrips now uses the live connector path instead of a downloadable skill:
-
-1. Open a Claude Cowork session
-2. Connect the OurTrips remote MCP server at `https://ourtrips.to/mcp`
-3. Plan a trip
-4. Say "Send it to OurTrips"
-5. Open the link
-
-For Codex, ask: `Install the connector to the MCP server: https://ourtrips.to/mcp`.
+That is the important distinction. The connector is still a bridge. OurTrips is now the starting point.

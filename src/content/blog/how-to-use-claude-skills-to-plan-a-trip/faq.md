@@ -1,15 +1,15 @@
-## Does the OurTrips connector work with ChatGPT?
+## Do I need Claude or Codex to create a trip?
 
-Not yet. The OurTrips connector currently works with agents that support remote MCP connectors, including Claude and Codex.
+No. OurTrips can create the trip directly from the app. External agents are optional.
 
-## Do I need an account to view a trip?
+## What does the OurTrips connector do now?
 
-No. Anyone with the link can view the itinerary without creating an account.
+The connector lets compatible external agents send or update a trip in OurTrips. It is useful if you already planned somewhere else, but it is not required.
 
-## Is the OurTrips connector free?
+## Do I need an account to view a shared trip?
 
-Yes. The connector is free to install and use. You just need access to an agent that supports remote MCP connectors.
+No. Anyone with the share link can view the itinerary without creating an account.
 
-## Can I edit the itinerary after it's created?
+## Can I edit the itinerary after it is created?
 
-Yes. You can continue refining the itinerary in your Claude conversation and once Claude has created your trip on OurTrips it will keep updating that everytime you make an update. 
+Yes. Use the trip chat to keep refining days, hotels, meals, transport, activities, maps, and notes.

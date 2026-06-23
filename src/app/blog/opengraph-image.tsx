@@ -1,6 +1,6 @@
 import { ImageResponse } from 'next/og';
 
-export const alt = 'OurTrips Blog — AI Trip Planning Guides';
+export const alt = 'OurTrips Journal - travel planning notes';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 
@@ -15,7 +15,7 @@ export default async function Image() {
           flexDirection: 'column',
           justifyContent: 'center',
           padding: '80px',
-          background: 'linear-gradient(135deg, #1A1A1A 0%, #0F0F0F 50%, #1A1A2E 100%)',
+          background: '#FBF7F1',
           fontFamily: 'system-ui, -apple-system, sans-serif',
         }}
       >
@@ -31,8 +31,8 @@ export default async function Image() {
             style={{
               fontSize: '20px',
               fontWeight: 800,
-              color: '#FFFFFF',
-              letterSpacing: '-0.03em',
+              color: '#1A1410',
+              letterSpacing: '0',
             }}
           >
             OurTrips
@@ -40,38 +40,38 @@ export default async function Image() {
           <div
             style={{
               fontSize: '14px',
-              color: '#6AABF7',
-              background: 'rgba(43, 124, 233, 0.15)',
+              color: '#A03E1F',
+              background: '#F5E4DA',
               padding: '4px 12px',
               borderRadius: '12px',
               fontWeight: 600,
             }}
           >
-            Blog
+            Journal
           </div>
         </div>
         <div
           style={{
             fontSize: '52px',
             fontWeight: 800,
-            color: '#FFFFFF',
+            color: '#1A1410',
             lineHeight: 1.15,
-            letterSpacing: '-0.03em',
+            letterSpacing: '0',
             maxWidth: '900px',
             marginBottom: '16px',
           }}
         >
-          AI Trip Planning Guides
+          Travel planning is messy.
         </div>
         <div
           style={{
             fontSize: '22px',
-            color: 'rgba(255, 255, 255, 0.5)',
+            color: '#3D352E',
             lineHeight: 1.5,
             maxWidth: '800px',
           }}
         >
-          Learn how to use remote connectors to create beautiful, shareable travel itineraries.
+          Collect the pile, shape the route, and carry the right day with you.
         </div>
         <div
           style={{
@@ -79,7 +79,7 @@ export default async function Image() {
             bottom: '60px',
             left: '80px',
             fontSize: '16px',
-            color: 'rgba(255, 255, 255, 0.3)',
+            color: '#6B6157',
           }}
         >
           ourtrips.to

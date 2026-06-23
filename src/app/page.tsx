@@ -3,24 +3,37 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowRight } from 'lucide-react';
-import LogoSuffix from '@/components/ui/LogoSuffix';
+import {
+  ArrowRight,
+  BedDouble,
+  CalendarDays,
+  CheckCircle2,
+  FileText,
+  MapPinned,
+  MessageCircle,
+  Plane,
+  Sparkles,
+  UploadCloud,
+  Utensils,
+  WifiOff,
+} from 'lucide-react';
+import AppTopBar from '@/components/ui/AppTopBar';
 import { publicItineraries } from '@/lib/public-itineraries';
 import '@/styles/landing.css';
 
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
-  title: 'OurTrips — AI Travel Itineraries, Beautifully Presented',
+  title: 'OurTrips - Turn Travel Chaos Into a Portable Trip Guide',
   description:
-    'Create and share beautiful, interactive travel itineraries from AI planning conversations. Plan day-by-day, add places, save offline, and share with anyone.',
+    'Collect bookings, notes, ideas, and preferences in OurTrips. The built-in travel agent shapes them into a beautiful day-by-day itinerary you can share, map, edit, and save offline.',
   alternates: {
     canonical: 'https://ourtrips.to',
   },
   openGraph: {
-    title: 'OurTrips — AI Travel Itineraries, Beautifully Presented',
+    title: 'OurTrips - Turn Travel Chaos Into a Portable Trip Guide',
     description:
-      'Create and share beautiful, interactive travel itineraries from AI planning conversations. Plan day-by-day, add places, save offline, and share with anyone.',
+      'Collect the messy pile of travel planning and turn it into a beautiful day-by-day itinerary you can take with you.',
     url: 'https://ourtrips.to',
     siteName: 'OurTrips',
     locale: 'en_US',
@@ -30,18 +43,77 @@ export const metadata: Metadata = {
         url: '/og-image.png',
         width: 1200,
         height: 630,
-        alt: 'OurTrips — your trips, beautifully presented',
+        alt: 'OurTrips - your trips, beautifully presented',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'OurTrips — AI Travel Itineraries, Beautifully Presented',
+    title: 'OurTrips - Turn Travel Chaos Into a Portable Trip Guide',
     description:
-      'Create and share beautiful, interactive travel itineraries from AI planning conversations. Plan day-by-day, add places, save offline, and share with anyone.',
+      'Collect bookings, notes, ideas, and preferences in OurTrips. Turn them into a day-by-day guide for the road.',
     images: ['/og-image.png'],
   },
 };
+
+const planningInputs = [
+  { icon: Plane, label: 'Flights and trains', text: 'Arrival times, route ideas, rental cars, ferries, and transfers.' },
+  { icon: BedDouble, label: 'Hotels and stays', text: 'Booked rooms, open hotel decisions, check-in notes, and stay preferences.' },
+  { icon: Utensils, label: 'Food and plans', text: 'Restaurant links, must-do meals, tickets, walks, museums, and detours.' },
+  { icon: FileText, label: 'Loose material', text: 'PDFs, old plans, pasted notes, family requests, and the things you do not want to forget.' },
+];
+
+const carryFeatures = [
+  { icon: CalendarDays, title: 'Day-by-day guide', text: 'Each day has its own plan, stay, meals, transport, map, and practical tips.' },
+  { icon: MapPinned, title: 'Maps that match the plan', text: 'Route points and day maps keep places close when the trip stops being theoretical.' },
+  { icon: CheckCircle2, title: 'Open decisions stay visible', text: 'Booking statuses, hotel proposals, and action items keep the plan honest.' },
+  { icon: WifiOff, title: 'Made for the road', text: 'Save trips offline and open the day you need without digging through old messages.' },
+];
+
+const agentMoments = [
+  'Build the first complete draft from your brief.',
+  'Make tomorrow lighter without rewriting the whole trip.',
+  'Find dinner near the hotel and save the reservation note.',
+  'Mark a stay booked and review surrounding days for stale plans.',
+];
+
+function ProductGuideMockup() {
+  return (
+    <div className="landing-guide-mockup" aria-label="OurTrips trip guide preview">
+      <div className="landing-guide-top">
+        <span>Today</span>
+        <strong>Day 3 · Kyoto</strong>
+      </div>
+      <div className="landing-guide-map">
+        <span className="landing-map-pin landing-map-pin-a" />
+        <span className="landing-map-pin landing-map-pin-b" />
+        <span className="landing-map-pin landing-map-pin-c" />
+        <span className="landing-map-route" />
+      </div>
+      <div className="landing-guide-section">
+        <div>
+          <span className="landing-guide-kicker">Morning</span>
+          <strong>Philosopher&apos;s Path before the crowds</strong>
+          <p>Quiet temples, coffee nearby, and a slower start after yesterday&apos;s long transfer.</p>
+        </div>
+      </div>
+      <div className="landing-guide-grid">
+        <div>
+          <span><BedDouble size={15} aria-hidden="true" /> Stay</span>
+          <strong>Ryokan booked</strong>
+        </div>
+        <div>
+          <span><Utensils size={15} aria-hidden="true" /> Dinner</span>
+          <strong>Reserve today</strong>
+        </div>
+      </div>
+      <div className="landing-guide-chat">
+        <MessageCircle size={16} aria-hidden="true" />
+        <span>Ask: make Day 4 less packed</span>
+      </div>
+    </div>
+  );
+}
 
 export default async function Home() {
   if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
@@ -78,11 +150,11 @@ export default async function Home() {
         redirect('/dashboard');
       }
     } catch (err) {
-      // redirect() throws to signal navigation — re-throw so Next.js handles it
+      // redirect() throws to signal navigation; re-throw so Next.js handles it.
       if (err && typeof err === 'object' && 'digest' in err && typeof (err as { digest: unknown }).digest === 'string' && (err as { digest: string }).digest.startsWith('NEXT_REDIRECT')) {
         throw err;
       }
-      // Supabase unavailable — show landing page
+      // Supabase unavailable; show landing page.
     }
   }
 
@@ -112,70 +184,212 @@ export default async function Home() {
 
   return (
     <div className="landing">
-      <nav className="landing-nav">
-        <div className="landing-nav-inner">
-          <Link href="/" className="landing-logo">OurTrips<LogoSuffix /></Link>
+      <AppTopBar
+        suffix="Trip guide"
+        actions={
           <div className="landing-nav-links">
-            <Link href="/itineraries" className="landing-nav-link">Itineraries</Link>
-            <Link href="/changelog" className="landing-nav-link">Changelog</Link>
+            <Link href="/itineraries" className="landing-nav-link">Examples</Link>
             <Link href="/blog" className="landing-nav-link">Journal</Link>
+            <Link href="/changelog" className="landing-nav-link">Changelog</Link>
             <Link href="/login" className="landing-btn-outline">Log in</Link>
           </div>
-        </div>
-      </nav>
+        }
+      />
 
       <section className="landing-hero">
         <div className="landing-hero-inner">
           <div className="landing-hero-text">
-            <div className="landing-hero-badge">An Itinerary, Rediscovered</div>
+            <div className="landing-hero-badge">Collect · Plan · Carry</div>
             <h1 className="landing-hero-title">
-              Your next trip, <em>beautifully</em> planned.
+              Turn travel chaos into a trip you can actually take with you.
             </h1>
             <p className="landing-hero-subtitle">
-              Built for agentic AI — Claude CoWork, Codex, and agents that connect to remote MCP servers.
-              Talk your trip through, then say the word: OurTrips turns the conversation into
-              a shareable, day-by-day itinerary — photographs, bookings, addresses, all in
-              one place.
+              Gather your bookings, ideas, notes, preferences, and half-formed plans.
+              OurTrips helps shape them into a beautiful day-by-day guide, then keeps
+              everything close when you are on the road.
             </p>
             <div className="landing-hero-actions">
-              <Link href="/login" className="landing-btn-primary">Start a trip</Link>
-              <Link href="/itineraries" className="landing-btn-secondary">See an itinerary</Link>
+              <Link href="/login?next=/dashboard%3Fagent%3Dnew" className="landing-btn-primary">Start a trip</Link>
+              <Link href="/itineraries" className="landing-btn-secondary">See an example</Link>
             </div>
           </div>
 
-          <figure className="landing-hero-figure">
-            <div className="landing-hero-image-wrap">
-              <img
-                src="https://images.unsplash.com/photo-1528127269322-539801943592?w=1400&h=1750&fit=crop&crop=center&q=85"
-                alt="Limestone karsts rising from the water in Hạ Long Bay"
-                className="landing-hero-image"
-                loading="eager"
-              />
+          <figure className="landing-hero-figure landing-hero-product">
+            <div className="landing-paper-stack">
+              <div className="landing-loose-note landing-loose-note-a">
+                <UploadCloud size={15} aria-hidden="true" />
+                <span>Hotel PDF</span>
+              </div>
+              <div className="landing-loose-note landing-loose-note-b">
+                <MapPinned size={15} aria-hidden="true" />
+                <span>Food list</span>
+              </div>
+              <ProductGuideMockup />
             </div>
             <figcaption className="landing-hero-caption">
-              <span className="place">Hạ Long Bay, Vietnam</span>
+              <span className="place">A travel-ready guide</span>
+              <span className="meta">built from the messy pile</span>
             </figcaption>
           </figure>
         </div>
       </section>
 
-      <div className="landing-rule"><hr /></div>
+      <section className="landing-pillars">
+        <div className="landing-section-header">
+          <div>
+            <div className="landing-section-eyebrow">The real problem</div>
+            <h2 className="landing-section-title">Travel planning starts messy. The trip should not stay that way.</h2>
+          </div>
+          <p className="landing-section-copy">
+            OurTrips is a home for the weeks before you leave and the day you are actually there:
+            collecting the details, shaping the route, and carrying the guide in your pocket.
+          </p>
+        </div>
+
+        <div className="landing-pillar-grid">
+          <article className="landing-pillar">
+            <span className="landing-pillar-num">1</span>
+            <h3>Collect everything</h3>
+            <p>Bring together bookings, ideas, uploaded references, traveler profiles, and loose notes before they scatter across apps and chats.</p>
+          </article>
+          <article className="landing-pillar">
+            <span className="landing-pillar-num">2</span>
+            <h3>Shape the trip</h3>
+            <p>The built-in travel agent turns your material into a day-by-day plan with route logic, pacing, maps, meals, stays, and open decisions.</p>
+          </article>
+          <article className="landing-pillar">
+            <span className="landing-pillar-num">3</span>
+            <h3>Carry it with you</h3>
+            <p>On the road, open the day you need: where to go, where you sleep, what is booked, what is still open, and what works offline.</p>
+          </article>
+        </div>
+      </section>
+
+      <section className="landing-collect">
+        <div className="landing-collect-inner">
+          <div>
+            <div className="landing-section-eyebrow">Information collection</div>
+            <h2 className="landing-section-title">Bring the whole trip pile.</h2>
+            <p className="landing-section-copy">
+              Travel information rarely arrives neatly. OurTrips gives every useful detail a place
+              to land, so the agent can plan from what is real instead of starting from a blank prompt.
+            </p>
+          </div>
+          <div className="landing-input-grid">
+            {planningInputs.map((item) => {
+              const Icon = item.icon;
+              return (
+                <article className="landing-input-card" key={item.label}>
+                  <span className="landing-input-icon"><Icon size={18} aria-hidden="true" /></span>
+                  <h3>{item.label}</h3>
+                  <p>{item.text}</p>
+                </article>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      <section className="landing-steps">
+        <div className="landing-steps-header">
+          <div>
+            <div className="landing-steps-eyebrow">Trip planning</div>
+            <h2 className="landing-steps-heading">
+              The planning part should feel like the trip has already begun.
+            </h2>
+          </div>
+          <p className="landing-steps-subheading">
+            Start inside OurTrips. Answer a few travel-agent questions, add your context,
+            and watch a first draft become something you can share and refine.
+          </p>
+        </div>
+
+        <div className="landing-steps-inner">
+          <div className="landing-step">
+            <span className="landing-step-num">1</span>
+            <h3 className="landing-step-title">Tell the basics</h3>
+            <p className="landing-step-desc">
+              Destination, dates, travelers, origin, pace, budget, must-dos, and what is already booked.
+            </p>
+          </div>
+          <div className="landing-step">
+            <span className="landing-step-num">2</span>
+            <h3 className="landing-step-title">Add the messy context</h3>
+            <p className="landing-step-desc">
+              Paste notes or upload references so the agent can preserve real constraints and preferences.
+            </p>
+          </div>
+          <div className="landing-step">
+            <span className="landing-step-num">3</span>
+            <h3 className="landing-step-title">Open the guide</h3>
+            <p className="landing-step-desc">
+              OurTrips builds the itinerary, checks quality and logistics, and opens the finished first draft.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section className="landing-agent">
+        <div className="landing-agent-card">
+          <div>
+            <div className="landing-section-eyebrow">The agent stays with the trip</div>
+            <h2 className="landing-section-title">Keep improving the real itinerary.</h2>
+            <p className="landing-section-copy">
+              The chat is not a separate planning thread. It can read the trip, edit the right day,
+              update one restaurant or hotel, create booking links, and keep maps and logistics aligned.
+            </p>
+          </div>
+          <div className="landing-agent-list">
+            {agentMoments.map((moment) => (
+              <div className="landing-agent-item" key={moment}>
+                <Sparkles size={16} aria-hidden="true" />
+                <span>{moment}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="landing-carry">
+        <div className="landing-section-header">
+          <div>
+            <div className="landing-section-eyebrow">On-the-go access</div>
+            <h2 className="landing-section-title">When you travel, the day is the interface.</h2>
+          </div>
+          <p className="landing-section-copy">
+            The finished trip is not a document you have to decode. It is a guide organized around
+            the thing travelers need most: what matters today.
+          </p>
+        </div>
+        <div className="landing-carry-grid">
+          {carryFeatures.map((feature) => {
+            const Icon = feature.icon;
+            return (
+              <article className="landing-carry-card" key={feature.title}>
+                <Icon size={20} aria-hidden="true" />
+                <h3>{feature.title}</h3>
+                <p>{feature.text}</p>
+              </article>
+            );
+          })}
+        </div>
+      </section>
 
       <section className="landing-itineraries">
         <div className="landing-itineraries-header">
           <div>
-            <div className="landing-itineraries-eyebrow">Inspiration library</div>
+            <div className="landing-itineraries-eyebrow">Example guides</div>
             <h2 className="landing-itineraries-heading">
-              Start from a trip that already has a point of view.
+              See what a trip looks like after the planning mess has been shaped.
             </h2>
           </div>
           <div className="landing-itineraries-copy">
             <p>
-              Public sample itineraries across reefs, food cities, family nature loops,
+              Sample trips across reefs, food cities, family nature loops,
               romantic coastlines, safaris, and expedition travel.
             </p>
             <Link href="/itineraries" className="landing-tell-more">
-              Browse all itineraries
+              Browse all examples
               <ArrowRight size={14} strokeWidth={1.6} aria-hidden="true" />
             </Link>
           </div>
@@ -195,7 +409,7 @@ export default async function Home() {
                 <h3>{itinerary.name}</h3>
                 <p>{itinerary.subtitle}</p>
                 <Link href={itinerary.canonicalPath} className="landing-itinerary-link">
-                  Open itinerary
+                  Open guide
                   <ArrowRight size={14} strokeWidth={1.7} aria-hidden="true" />
                 </Link>
               </div>
@@ -204,50 +418,19 @@ export default async function Home() {
         </div>
       </section>
 
-      <section className="landing-steps">
-        <div className="landing-steps-header">
+      <section className="landing-connector">
+        <div className="landing-connector-inner">
           <div>
-            <div className="landing-steps-eyebrow">How it works</div>
-            <h2 className="landing-steps-heading">
-              Plans live everywhere. <span className="landing-steps-heading-accent">OurTrips gathers them.</span>
-            </h2>
-          </div>
-          <p className="landing-steps-subheading">
-            Three steps between a sprawling chat thread and a pocket-sized trip you can actually share.
-          </p>
-        </div>
-
-        <div className="landing-steps-inner">
-          <div className="landing-step">
-            <span className="landing-step-num">1</span>
-            <h3 className="landing-step-title">Install the connector</h3>
-            <p className="landing-step-desc">
-              Add the OurTrips remote MCP server in Claude or Codex, sign in, and your agent gets the OurTrips tools.
-            </p>
-            <Link href="/guide" className="landing-btn-primary landing-btn-sm" style={{ gap: '8px' }}>
-              Connect OurTrips
-              <ArrowRight size={14} strokeWidth={1.7} aria-hidden="true" />
-            </Link>
-          </div>
-          <div className="landing-step">
-            <span className="landing-step-num">2</span>
-            <h3 className="landing-step-title">Plan out loud</h3>
-            <p className="landing-step-desc">
-              Talk your trip through with Claude. Flights, stays, food, detours — whatever you&apos;d naturally type.
+            <div className="landing-section-eyebrow">Already planning elsewhere?</div>
+            <h2>External agents still work.</h2>
+            <p>
+              If you already use Claude, Codex, or another agent with remote MCP support,
+              you can still connect OurTrips and send an outside planning conversation into
+              the same portable guide.
             </p>
           </div>
-          <div className="landing-step">
-            <span className="landing-step-num">3</span>
-            <h3 className="landing-step-title">Send it to OurTrips</h3>
-            <p className="landing-step-desc">
-              Say the words. Your trip gets a link you can share with everyone travelling with you.
-            </p>
-          </div>
-        </div>
-
-        <div className="landing-tell-more-wrap">
           <Link href="/guide" className="landing-tell-more">
-            Read the full guide
+            Read the connector guide
             <ArrowRight size={14} strokeWidth={1.6} aria-hidden="true" />
           </Link>
         </div>
@@ -257,10 +440,12 @@ export default async function Home() {
         <div className="landing-cta-inner">
           <span className="landing-cta-eyebrow">Begin</span>
           <h2 className="landing-cta-title">
-            Somewhere new is <em>closer</em> than it looks.
+            Put the whole trip in one place.
           </h2>
-          <p className="landing-cta-desc">Free to use. Set up in under a minute.</p>
-          <Link href="/login" className="landing-btn-primary">Create your account</Link>
+          <p className="landing-cta-desc">
+            Free to use. Start with a few answers, then let the guide take shape.
+          </p>
+          <Link href="/login?next=/dashboard%3Fagent%3Dnew" className="landing-btn-primary">Start a trip</Link>
         </div>
       </section>
 

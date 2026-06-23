@@ -1,15 +1,15 @@
 ## Why was OurTrips created?
 
-OurTrips was built to solve a specific problem: AI tools like Claude are great at planning trips through conversation, but the output — usually a markdown file — isn't visual or shareable enough for co-travelers. OurTrips turns that conversation into a rich, mobile-friendly itinerary.
+OurTrips was created to turn messy travel planning material into a visual, day-by-day guide that is easy to share and use on the road.
 
 ## Is OurTrips free to use?
 
-Yes. OurTrips is a free passion project with no monetization. Affiliate links may be added in the future to cover server costs, but the core product is free.
+Yes. OurTrips is a free passion project. Affiliate links or paid features may be added later to cover server costs, but the core product is currently free.
 
-## How does OurTrips connect to Claude?
+## Does OurTrips still connect to external agents?
 
-OurTrips uses a remote MCP connector. Add `https://ourtrips.to/mcp` as a custom connector in Claude or Codex, sign in, and then ask your agent to send your itinerary to OurTrips.
+Yes. The remote MCP connector still works for compatible agents, but it is optional because OurTrips can now create a trip directly.
 
 ## Do I need technical skills to use OurTrips?
 
-No. You just chat with Claude or Codex about your trip like you normally would, then say "Send it to OurTrips." The connector handles the save flow — no coding or formatting required.
+No. Start a trip in the app, answer the travel-agent questions, add your notes or bookings, and let OurTrips create the guide.
