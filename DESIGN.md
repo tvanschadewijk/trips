@@ -328,6 +328,14 @@ The in-app day view uses the **Variant B Magazine Spread** pattern from the desi
 - Map: use the existing itinerary map component or atlas fallback. In the top band it is borderless except for the vertical rule between photo and map. Map label sits in the top-left as an uppercase overline.
 - Keep the map and photo equal height on desktop. On mobile, stack photo above map as separate soft product cards.
 
+### Compliant Google Maps Styling
+- The base map is styled through **Google Cloud-based maps styling** associated with `NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID`. Do not pass an inline `styles` array when a Map ID is present.
+- Use `docs/ourtrips-google-map-style.json` as the importable starting style for the Google Cloud map style attached to the production Map ID.
+- Target map style: warm paper land, low-contrast warm roads, soft green parks, muted blue-green water, subdued POI density, and labels in warm ink/taupe. Keep the Google map recognizably Google.
+- OurTrips-owned overlays may carry the editorial language: terracotta numbered markers, paper popovers, warm route lines, and custom zoom controls.
+- Hide optional Google UI controls when the app supplies equivalent controls, but never hide, recolor, crop, cover, or obscure Google attribution, logo, copyright, or terms links.
+- Keep any labels or badges that sit over the map in OurTrips UI layers away from Google attribution areas.
+
 ### Floating Ask-Agent Pill
 - The real Ask Travel Agent control stays fixed, centered, and functional. Do not duplicate it inside the day content.
 - Desktop day-view position: about `26px` from the bottom plus safe-area inset. Hide swipe dots on true desktop so the pill owns that center-bottom anchor.

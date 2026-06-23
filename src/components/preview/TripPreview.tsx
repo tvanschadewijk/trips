@@ -1179,6 +1179,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     };
   }, [trip, days]);
   const isHero = currentSlide === 0;
+  const dateRailStopCount = routeStopCountFor(overviewMapAtlas) || routeStopCountFor(routeAtlas) || days.length;
   const shouldRenderSlideContent = useCallback(
     (slideIndex: number) => (
       Math.abs(currentSlide - slideIndex) <= NEARBY_SLIDE_RENDER_RADIUS
@@ -2810,39 +2811,31 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     const dayIntro = getDayIntro(day);
     const dayTitleId = `day-title-${day.day_number}`;
 
-    const statsChips = day.stats?.length ? (
-      <div className="hero-stats-row">
-        {day.stats.map((s, i) => (
-          <div key={i} className="hero-stat-chip">
-            <span className="hero-stat-chip-icon"><Icon name={s.icon} /></span>
-            <span>{s.value}</span>
-          </div>
-        ))}
-      </div>
-    ) : null;
+    const fallbackStoryStats = [
+      stayDateLabel ? { label: 'Stay', value: stayDateLabel } : null,
+      hasDayMapLocations ? { label: dayMapSearchTargets.length ? 'Places' : 'Stops', value: dayMapCountLabel } : null,
+      day.subtitle ? { label: 'Base', value: day.subtitle } : null,
+    ].filter((item): item is { label: string; value: string } => Boolean(item?.value));
+    const dayStoryStats = [
+      ...(day.stats ?? [])
+        .map((stat) => ({ label: trimDisplayText(stat.label), value: trimDisplayText(stat.value) }))
+        .filter((stat) => stat.label && stat.value),
+      ...fallbackStoryStats,
+    ].slice(0, 4);
+    const dayLeadText = trimDisplayText(dayIntro.body) || trimDisplayText(dayIntro.title) || trimDisplayText(day.description) || trimDisplayText(day.subtitle);
+    const dayLeadChars = Array.from(dayLeadText);
+    const dayStandfirst = dayIntro.title && dayIntro.body ? dayIntro.title : '';
 
-    const heroSection = day.hero_image ? (
-      <div className="day-hero">
+    const dayPhotoSection = day.hero_image ? (
+      <figure className="day-spread-photo">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={day.hero_image} alt={day.title} style={{ opacity: brokenImages.has(day.hero_image) ? 0 : 1 }} onError={() => onImgError(day.hero_image!)} loading="lazy" />
-        <div className="day-hero-gradient" />
-        <div className="day-hero-text">
-          <p className="text-label" style={{ margin: '0 0 4px' }}>Day {day.day_number} &middot; {dateStr}</p>
-          <h2 className="text-card-title-light day-hero-title" id={dayTitleId} style={{ margin: 0 }}>{day.title}</h2>
-          {dayIntro.title && <p className="day-hero-intro-title">{dayIntro.title}</p>}
-          {dayIntro.body && <p className="day-hero-intro">{dayIntro.body}</p>}
-          {heroMeta && <p className="text-hero-subtitle day-hero-meta" style={{ margin: '5px 0 0' }}>{heroMeta}</p>}
-          {statsChips}
-        </div>
-      </div>
+        <figcaption>{day.subtitle || day.title}</figcaption>
+      </figure>
     ) : (
-      <div className="day-header-plain">
-        <p className="text-label-dark">Day {day.day_number} &middot; {dateStr}</p>
-        <h2 className="text-card-title" id={dayTitleId} style={{ marginTop: 4 }}>{day.title}</h2>
-        {dayIntro.title && <p className="day-header-plain-intro-title">{dayIntro.title}</p>}
-        {dayIntro.body && <p className="day-header-plain-intro">{dayIntro.body}</p>}
-        {day.subtitle && <p className="text-body-italic" style={{ marginTop: 4 }}>{day.subtitle}</p>}
-        {statsChips}
+      <div className="day-spread-photo day-spread-photo-empty">
+        <span>Day {day.day_number}</span>
+        <strong>{dateStr}</strong>
       </div>
     );
 
@@ -2880,12 +2873,12 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
       </div>
     ) : null;
 
-    const visualSection = dayMapSection ? (
-      <div className="day-visual-stack">
-        {heroSection}
+    const topBandSection = (
+      <div className={`day-spread-topband ${dayMapSection ? 'has-map' : 'photo-only'}`}>
+        {dayPhotoSection}
         {dayMapSection}
       </div>
-    ) : heroSection;
+    );
 
     const displayBlocks = (day.blocks ?? []).map(getDisplayableBlock).filter((block) => block !== null);
     const visibleMeals = displayableMeals(day.meals);
@@ -3249,34 +3242,6 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
       );
     })() : null;
 
-    const hasBriefItems = Boolean(todayModeCard || seeAndDoBlock || stayCard || mealCard);
-    const briefSection = (
-      <section className="day-brief" aria-labelledby={dayTitleId}>
-        <div className="day-brief-header">
-          <p className="day-brief-overline">Day {day.day_number} &middot; {dateStr}</p>
-          <p className="day-brief-heading" aria-hidden="true">
-            <span>{day.title}</span>
-          </p>
-          <div className="day-brief-meta-row">
-            <span>{stayDateLabel}</span>
-            {day.subtitle && <em>{day.subtitle}</em>}
-          </div>
-        </div>
-        {hasBriefItems && (
-          <div className="day-brief-body">
-            {todayModeCard}
-            {seeAndDoBlock}
-            {(stayCard || mealCard) && (
-              <div className="day-brief-card-list">
-                {stayCard}
-                {mealCard}
-              </div>
-            )}
-          </div>
-        )}
-      </section>
-    );
-
     const transSection = day.transport?.length ? (
       <div className="day-section">
         <div className="day-section-title">
@@ -3378,15 +3343,75 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
       </div>
     ) : null;
 
+    const dayOrderNodes: ReactNode[] = [];
+    const appendOrderNode = (node: ReactNode | ReactNode[] | null | undefined) => {
+      if (Array.isArray(node)) {
+        node.forEach(appendOrderNode);
+        return;
+      }
+      if (node) dayOrderNodes.push(node);
+    };
+
+    appendOrderNode(todayModeCard);
+    appendOrderNode(seeAndDoBlock);
+    appendOrderNode(stayCard);
+    appendOrderNode(mealCard);
+    appendOrderNode(transSection);
+    appendOrderNode(servicesSection);
+    appendOrderNode(tipsSection);
+
+    const dayOrderTitleId = `day-order-title-${day.day_number}`;
+    const dayOrderPanel = dayOrderNodes.length ? (
+      <section className="day-order-panel" aria-labelledby={dayOrderTitleId}>
+        <div className="day-order-header">
+          <h3 id={dayOrderTitleId}>The day</h3>
+          <span>{dayOrderNodes.length} thing{dayOrderNodes.length === 1 ? '' : 's'}</span>
+        </div>
+        <div className="day-order-list">
+          {dayOrderNodes.map((node, index) => (
+            <div className="day-order-entry" key={index}>
+              <div className={`day-order-number ${index === 0 ? 'is-primary' : ''}`}>{index + 1}</div>
+              <div className="day-order-entry-body">{node}</div>
+            </div>
+          ))}
+        </div>
+      </section>
+    ) : null;
+
+    const dayStorySection = (
+      <section className="day-spread-story" aria-labelledby={dayTitleId}>
+        <p className="day-spread-overline">Day {day.day_number} &middot; {dateStr}{nightLabel ? ` · ${nightLabel}` : ''}</p>
+        <h2 id={dayTitleId}>{day.title}</h2>
+        {dayStandfirst && <p className="day-spread-standfirst">{dayStandfirst}</p>}
+        {dayLeadText && (
+          <p className="day-spread-lead">
+            {dayLeadChars.length > 36 && (
+              <span className="day-spread-dropcap">{dayLeadChars[0]}</span>
+            )}
+            {dayLeadChars.length > 36 ? dayLeadChars.slice(1).join('') : dayLeadText}
+          </p>
+        )}
+        {heroMeta && <p className="day-spread-meta">{heroMeta}</p>}
+        {dayStoryStats.length ? (
+          <div className="day-spread-facts">
+            {dayStoryStats.map((stat, index) => (
+              <div className="day-spread-fact" key={`${stat.label}-${index}`}>
+                <span>{stat.label}</span>
+                <strong>{stat.value}</strong>
+              </div>
+            ))}
+          </div>
+        ) : null}
+      </section>
+    );
+
     return (
       <div key={day.day_number} className={`slide ${currentSlide === slideIndex ? 'active' : ''}`}>
         <div className="day-slide">
-          {visualSection}
-          <div className="day-content-stack">
-            {briefSection}
-            {transSection}
-            {servicesSection}
-            {tipsSection}
+          {topBandSection}
+          <div className="day-spread-body">
+            {dayStorySection}
+            {dayOrderPanel}
           </div>
         </div>
       </div>
@@ -3495,24 +3520,34 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
           {/* Date Strip */}
           <div className={`date-strip ${isHero ? 'hidden' : ''}`}>
             <div className="date-strip-inner" ref={dateStripRef}>
+              <div className="date-strip-label" aria-hidden="true">Itinerary</div>
               {days.map((day, dayIndex) => {
                 const date = new Date(day.date + 'T12:00:00');
                 const wd = date.toLocaleDateString('en-GB', { weekday: 'short' });
                 const d = date.getDate();
                 const tripDayNumber = dayIndex + 1;
                 const slideIndex = dayIndex + 1;
-                const isLastDay = days.length > 1 && dayIndex === days.length - 1;
-                const dayLabel = isLastDay ? 'Last day' : `Day ${tripDayNumber}`;
                 return (
                   <button key={day.day_number} className={`date-btn ${currentSlide === slideIndex ? 'active' : ''}`}
                     onClick={() => { if (!dateStripDragged.current) goTo(slideIndex); }}
                     aria-current={currentSlide === slideIndex ? 'date' : undefined}
-                    aria-label={`${dayLabel}, ${date.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}`}>
-                    <span className="date-btn-day">{dayLabel}</span>
-                    <span className="date-btn-date">{wd} {d}</span>
+                    aria-label={`Day ${tripDayNumber}, ${date.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}`}>
+                    <span className="date-btn-number-row">
+                      <span className="date-btn-trip-day">{tripDayNumber}</span>
+                      <span className="date-btn-day-label">Day {tripDayNumber}</span>
+                      <span className="date-btn-date-stack">
+                        <span className="date-btn-wd">{wd}</span>
+                        <span className="date-btn-d">{d}</span>
+                        <span className="date-btn-date-label">{wd} {d}</span>
+                      </span>
+                    </span>
                   </button>
                 );
               })}
+              <div className="date-strip-summary">
+                {days.length} day{days.length === 1 ? '' : 's'}
+                {dateRailStopCount ? ` · ${dateRailStopCount} stop${dateRailStopCount === 1 ? '' : 's'}` : ''}
+              </div>
             </div>
           </div>
 

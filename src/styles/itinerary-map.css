@@ -1,5 +1,11 @@
 /* Shared itinerary maps. Google Maps is primary; the SVG atlas keeps previews useful without an API key. */
 .itinerary-map {
+  --map-paper: #F4EDE2;
+  --map-paper-bright: #FBF7F1;
+  --map-rule: #D4C8B4;
+  --map-ink: #1A1410;
+  --map-ink-muted: #6B6157;
+  --map-water: #DDEAE5;
   --map-marker-color: #C14F2A;
   --map-marker-color-deep: #A03E1F;
   --map-marker-shadow: rgba(193, 79, 42, 0.26);
@@ -9,13 +15,16 @@
   height: 100%;
   min-height: 0;
   overflow: hidden;
-  background: var(--color-surface-deep, #F4EDE2);
+  background:
+    linear-gradient(135deg, rgba(251, 247, 241, 0.52), transparent 42%),
+    var(--map-paper, #F4EDE2);
   isolation: isolate;
 }
 
 .itinerary-map-canvas {
   position: absolute;
   inset: 0;
+  background: var(--map-paper, #F4EDE2);
   opacity: 1;
   z-index: 1;
 }
@@ -27,14 +36,14 @@
   z-index: 3;
   display: grid;
   overflow: hidden;
-  border: 1px solid rgba(212, 200, 180, 0.72);
-  border-radius: 8px;
-  background: rgba(251, 247, 241, 0.94);
+  border: 1px solid rgba(212, 200, 180, 0.82);
+  border-radius: 10px;
+  background: rgba(251, 247, 241, 0.96);
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.72) inset,
-    0 16px 32px -24px rgba(26, 20, 16, 0.68);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+    0 14px 28px -22px rgba(26, 20, 16, 0.64);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 
 .itinerary-map-zoom-button {
@@ -49,10 +58,15 @@
   color: var(--color-text-primary, #1A1410);
   cursor: pointer;
   font-family: var(--font-sans, 'Inter', system-ui, sans-serif);
-  font-size: 22px;
   font-weight: 520;
   line-height: 1;
   place-items: center;
+}
+
+.itinerary-map-zoom-button svg {
+  width: 16px;
+  height: 16px;
+  stroke-width: 2;
 }
 
 .itinerary-map-zoom-button + .itinerary-map-zoom-button {
@@ -197,8 +211,10 @@
   height: 24px;
   border: 2px solid var(--map-marker-color, #C14F2A);
   border-radius: 999px;
-  background: rgba(251, 247, 241, 0.95);
-  box-shadow: 0 7px 18px -10px rgba(26, 20, 16, 0.85);
+  background: rgba(251, 247, 241, 0.98);
+  box-shadow:
+    0 0 0 5px rgba(251, 247, 241, 0.48),
+    0 10px 20px -12px rgba(26, 20, 16, 0.82);
   place-items: center;
 }
 
@@ -209,6 +225,7 @@
   background: var(--map-marker-color, #C14F2A);
   box-shadow:
     0 0 0 1px var(--map-marker-shadow, rgba(193, 79, 42, 0.26)),
+    0 0 0 7px rgba(251, 247, 241, 0.38),
     0 11px 24px -13px rgba(26, 20, 16, 0.9);
 }
 
@@ -239,12 +256,13 @@
 }
 
 .itinerary-map-marker-day .itinerary-map-marker-halo {
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   border-color: rgba(251, 247, 241, 0.96);
   background: var(--map-marker-color, #C14F2A);
   box-shadow:
     0 0 0 1px var(--map-marker-shadow, rgba(193, 79, 42, 0.26)),
+    0 0 0 7px rgba(251, 247, 241, 0.4),
     0 9px 22px -12px rgba(26, 20, 16, 0.88);
 }
 
@@ -285,30 +303,30 @@
   max-width: min(340px, calc(100vw - 48px)) !important;
   padding: 0 !important;
   overflow: hidden;
-  border: 1px solid rgba(26, 20, 16, 0.08);
-  border-radius: 18px;
-  background: #FFFFFF;
+  border: 1px solid rgba(212, 200, 180, 0.78);
+  border-radius: 14px;
+  background: var(--map-paper-bright, #FBF7F1);
   box-shadow:
-    rgba(26, 20, 16, 0.04) 0 1px 0 0,
-    rgba(26, 20, 16, 0.08) 0 12px 32px -8px;
+    rgba(255, 255, 255, 0.72) 0 1px 0 0 inset,
+    rgba(26, 20, 16, 0.10) 0 18px 42px -18px;
 }
 
 .itinerary-map-day .gm-style-iw-c {
   min-width: min(260px, calc(100vw - 48px));
   max-width: min(340px, calc(100vw - 48px)) !important;
-  border-radius: 18px;
+  border-radius: 14px;
   box-shadow:
-    rgba(26, 20, 16, 0.04) 0 1px 0 0,
-    rgba(26, 20, 16, 0.08) 0 12px 32px -8px;
+    rgba(255, 255, 255, 0.72) 0 1px 0 0 inset,
+    rgba(26, 20, 16, 0.10) 0 18px 42px -18px;
 }
 
 .itinerary-map-overview-card .gm-style-iw-c {
   min-width: min(300px, calc(100vw - 64px));
   max-width: min(380px, calc(100vw - 64px)) !important;
-  border-radius: 18px;
+  border-radius: 14px;
   box-shadow:
-    rgba(26, 20, 16, 0.04) 0 1px 0 0,
-    rgba(26, 20, 16, 0.08) 0 12px 32px -8px;
+    rgba(255, 255, 255, 0.72) 0 1px 0 0 inset,
+    rgba(26, 20, 16, 0.10) 0 18px 42px -18px;
 }
 
 .itinerary-map .gm-style-iw-d {
@@ -324,8 +342,8 @@
 }
 
 .itinerary-map .gm-style-iw-tc::after {
-  background: #FFFFFF;
-  box-shadow: 1px 1px 0 rgba(26, 20, 16, 0.08);
+  background: var(--map-paper-bright, #FBF7F1);
+  box-shadow: 1px 1px 0 rgba(212, 200, 180, 0.78);
 }
 
 .itinerary-map-stop-popup {
@@ -467,18 +485,6 @@
   min-height: 34px;
   font-size: 13px;
 }
-
-.itinerary-map .gm-style-cc {
-  background: rgba(251, 247, 241, 0.76);
-  color: var(--color-text-muted, #6B6157);
-  font-family: var(--font-sans, 'Inter', system-ui, sans-serif);
-  font-size: 9px;
-  line-height: 1.2;
-}
-
-.itinerary-map .gm-style-cc a,
-.itinerary-map .gm-style a[href^="https://maps.google.com"],
-.itinerary-map .gm-style a[href^="https://www.google.com/maps"] { color: var(--color-text-secondary, #3D352E) !important; }
 
 .itinerary-map-fallback {
   position: absolute;
@@ -704,11 +710,6 @@
   font-size: 12px;
   font-weight: 560;
   letter-spacing: 0;
-}
-
-.itinerary-map-overview-card .gm-style-cc {
-  max-width: 70%;
-  font-size: 7px;
 }
 
 .itinerary-map-overview-card .itinerary-map-fallback .route-atlas-stage {
