@@ -126,6 +126,8 @@ const NEW_TRIP_KEYBOARD_INSET_THRESHOLD = 100;
 const NEW_TRIP_TOP_CLEARANCE_PX = 8;
 const NEW_TRIP_MIN_VISIBLE_SHEET_PX = 176;
 const NEW_TRIP_SWIPE_CLOSE_THRESHOLD_PX = 68;
+const NEW_TRIP_AGENT_SHEET_ENTER_MS = 500;
+const NEW_TRIP_AGENT_SHEET_EXIT_MS = 320;
 
 function isEditableElement(value: Element | null): value is HTMLElement {
   if (!(value instanceof HTMLElement)) return false;
@@ -348,11 +350,16 @@ export default function NewTripCreator({
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [uncontrolledAgentOpen, setUncontrolledAgentOpen] = useState(defaultOpen);
   const agentOpen = open ?? uncontrolledAgentOpen;
+  const [agentSheetMounted, setAgentSheetMounted] = useState(() => Boolean(open ?? defaultOpen));
+  const [agentSheetClosing, setAgentSheetClosing] = useState(false);
+  const [agentSheetSettled, setAgentSheetSettled] = useState(false);
   const profileHref = `/onboarding?next=${encodeURIComponent(profileNextHref)}`;
   const [layoutViewportHeight, setLayoutViewportHeight] = useState<number | null>(null);
   const [keyboardInset, setKeyboardInset] = useState(0);
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const sheetRef = useRef<HTMLElement | null>(null);
+  const sheetCloseTimerRef = useRef<number | null>(null);
+  const sheetSettleTimerRef = useRef<number | null>(null);
   const touchStartYRef = useRef<number | null>(null);
   const sheetTouchLastYRef = useRef<number | null>(null);
   const sheetTouchScrollableRef = useRef<HTMLElement | null>(null);
@@ -380,6 +387,58 @@ export default function NewTripCreator({
     if (busy) return;
     setAgentOpen(false);
   }, [busy, setAgentOpen]);
+
+  useEffect(() => {
+    if (agentOpen) {
+      if (sheetCloseTimerRef.current !== null) {
+        window.clearTimeout(sheetCloseTimerRef.current);
+        sheetCloseTimerRef.current = null;
+      }
+
+      setAgentSheetMounted(true);
+      setAgentSheetClosing(false);
+      setAgentSheetSettled(false);
+
+      const settleTimer = window.setTimeout(() => {
+        setAgentSheetSettled(true);
+        sheetSettleTimerRef.current = null;
+      }, NEW_TRIP_AGENT_SHEET_ENTER_MS + 80);
+      sheetSettleTimerRef.current = settleTimer;
+
+      return () => {
+        if (sheetSettleTimerRef.current === settleTimer) {
+          window.clearTimeout(settleTimer);
+          sheetSettleTimerRef.current = null;
+        }
+      };
+    }
+
+    if (sheetSettleTimerRef.current !== null) {
+      window.clearTimeout(sheetSettleTimerRef.current);
+      sheetSettleTimerRef.current = null;
+    }
+    setAgentSheetSettled(false);
+
+    if (!agentSheetMounted) {
+      setAgentSheetClosing((current) => (current ? false : current));
+      return;
+    }
+
+    setAgentSheetClosing(true);
+    const closeTimer = window.setTimeout(() => {
+      setAgentSheetMounted(false);
+      setAgentSheetClosing(false);
+      sheetCloseTimerRef.current = null;
+    }, NEW_TRIP_AGENT_SHEET_EXIT_MS);
+    sheetCloseTimerRef.current = closeTimer;
+
+    return () => {
+      if (sheetCloseTimerRef.current === closeTimer) {
+        window.clearTimeout(closeTimer);
+        sheetCloseTimerRef.current = null;
+      }
+    };
+  }, [agentOpen, agentSheetMounted]);
 
   useEffect(() => {
     if (open !== undefined || !autoOpen) return;
@@ -936,14 +995,16 @@ export default function NewTripCreator({
     bottom: keyboardInset,
     '--trip-new-agent-available-height': availableSheetHeight,
   } as React.CSSProperties;
+  const agentSheetState = agentSheetClosing ? 'closed' : 'open';
 
   return (
     <div
       className={`trip-new-agent-stage ${showEntryButton ? '' : 'is-floating-only'}`}
       data-agent-open={agentOpen ? 'true' : undefined}
+      data-agent-sheet-mounted={agentSheetMounted ? 'true' : undefined}
     >
       <AnimatePresence>
-        {showEntryButton && !agentOpen && (
+        {showEntryButton && !agentOpen && !agentSheetMounted && (
           <motion.button
             key="new-trip-entry"
             type="button"
@@ -962,68 +1023,61 @@ export default function NewTripCreator({
         )}
       </AnimatePresence>
 
-      <AnimatePresence>
-        {agentOpen && (
-          <>
-            <motion.div
-              key="new-trip-backdrop"
-              className="trip-new-agent-backdrop"
-              initial={false}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
+      {agentSheetMounted && (
+        <>
+          <div
+            className="trip-new-agent-backdrop"
+            data-state={agentSheetState}
+            data-settled={agentSheetSettled ? 'true' : undefined}
+            onClick={() => {
+              if (isKeyboardVisible) {
+                const activeElement = document.activeElement;
+                if (activeElement instanceof HTMLElement) activeElement.blur();
+                return;
+              }
+              closeAgentSheet();
+            }}
+          />
+          <section
+            ref={sheetRef}
+            role="dialog"
+            aria-label={sheetTitle}
+            aria-modal="true"
+            aria-hidden={agentSheetClosing ? true : undefined}
+            className="trip-new-agent-sheet"
+            data-state={agentSheetState}
+            data-settled={agentSheetSettled ? 'true' : undefined}
+            style={sheetRuntimeStyle}
+          >
+            <button
+              type="button"
+              className="trip-new-agent-grabber"
               onClick={() => {
-                if (isKeyboardVisible) {
-                  const activeElement = document.activeElement;
-                  if (activeElement instanceof HTMLElement) activeElement.blur();
-                  return;
-                }
                 closeAgentSheet();
               }}
-            />
-            <motion.section
-              key="new-trip-sheet"
-              ref={sheetRef}
-              role="dialog"
-              aria-label={sheetTitle}
-              aria-modal="true"
-              className="trip-new-agent-sheet"
-              style={sheetRuntimeStyle}
-              initial={false}
-              animate={{ y: 0 }}
-              exit={{ y: '100%' }}
-              transition={{ type: 'spring', damping: 22, stiffness: 380, mass: 0.7 }}
+              disabled={busy}
+              aria-label="Minimize new trip agent"
             >
+              <span aria-hidden="true" />
+            </button>
+            <header className="trip-new-agent-sheet-header">
+              <span />
+              <div>{sheetTitle}</div>
               <button
                 type="button"
-                className="trip-new-agent-grabber"
-                onClick={() => {
-                  closeAgentSheet();
-                }}
+                onClick={closeAgentSheet}
                 disabled={busy}
-                aria-label="Minimize new trip agent"
+                aria-label="Close new trip agent"
               >
-                <span aria-hidden="true" />
+                <X size={17} strokeWidth={2.2} aria-hidden="true" />
               </button>
-              <header className="trip-new-agent-sheet-header">
-                <span />
-                <div>{sheetTitle}</div>
-                <button
-                  type="button"
-                  onClick={closeAgentSheet}
-                  disabled={busy}
-                  aria-label="Close new trip agent"
-                >
-                  <X size={17} strokeWidth={2.2} aria-hidden="true" />
-                </button>
-              </header>
-              <div className="trip-new-agent-sheet-body">
-                {creatorContent}
-              </div>
-            </motion.section>
-          </>
-        )}
-      </AnimatePresence>
+            </header>
+            <div className="trip-new-agent-sheet-body">
+              {creatorContent}
+            </div>
+          </section>
+        </>
+      )}
     </div>
   );
 }

@@ -479,10 +479,32 @@ export default function DashboardClient({ initialAgentOpen = false }: DashboardC
   }
 
   function handleNewTripLinkClick(event: MouseEvent<HTMLAnchorElement>) {
-    if (!billing || billing.can_create_trip) return;
+    if (billing && !billing.can_create_trip) {
+      event.preventDefault();
+      setBillingMessage(null);
+      setBillingModalOpen(true);
+      return;
+    }
+
+    if (
+      event.button !== 0 ||
+      event.metaKey ||
+      event.ctrlKey ||
+      event.shiftKey ||
+      event.altKey ||
+      typeof window === 'undefined'
+    ) {
+      return;
+    }
+
     event.preventDefault();
     setBillingMessage(null);
-    setBillingModalOpen(true);
+    setNewTripAgentOpen(true);
+
+    const currentUrl = new URL(window.location.href);
+    if (currentUrl.pathname !== '/dashboard' || currentUrl.searchParams.get('agent') !== 'new') {
+      router.push(NEW_TRIP_AGENT_HREF, { scroll: false });
+    }
   }
 
   async function refreshBilling() {
@@ -844,7 +866,7 @@ export default function DashboardClient({ initialAgentOpen = false }: DashboardC
         </a>
       )}
 
-      {newTripAgentOpen && (
+      {online && (
         <NewTripCreator
           initialPreferences={travelPreferences}
           profileComplete={travelProfileComplete}

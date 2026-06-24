@@ -4,6 +4,11 @@ Selected product updates for OurTrips.
 
 ## Unreleased
 
+## 2026-06-24 - 0.2.4 - Dashboard agent sheet transition
+
+### Improved
+- Matched the dashboard new-trip travel agent sheet to Preppy's smooth sheet transition pattern with CSS-owned open and close animations, while preserving real link fallbacks for the dashboard CTAs.
+
 ## 2026-06-24 - 0.2.3 - Dashboard travel agent buttons
 
 ### Fixed

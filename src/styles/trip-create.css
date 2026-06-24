@@ -164,11 +164,21 @@
   background: rgba(26, 20, 16, 0.32);
   backdrop-filter: blur(2px);
   -webkit-backdrop-filter: blur(2px);
+  opacity: 0;
   z-index: 899;
 }
 
-.trip-new-agent-stage[data-agent-open="true"] .trip-new-agent-backdrop {
-  opacity: 1 !important;
+.trip-new-agent-backdrop[data-state="open"] {
+  animation: trip-new-agent-fade-in 200ms ease-out both;
+}
+
+.trip-new-agent-backdrop[data-state="closed"] {
+  animation: trip-new-agent-fade-out 200ms ease-in both;
+  pointer-events: none;
+}
+
+.trip-new-agent-backdrop[data-state="open"][data-settled="true"] {
+  opacity: 1;
 }
 
 .trip-new-agent-sheet {
@@ -194,10 +204,21 @@
   z-index: 900;
   font-family: 'Inter', system-ui, sans-serif;
   padding-bottom: env(safe-area-inset-bottom);
+  transform: translate3d(0, 100%, 0);
+  will-change: transform;
 }
 
-.trip-new-agent-stage[data-agent-open="true"] .trip-new-agent-sheet {
-  transform: translate3d(0, 0, 0) !important;
+.trip-new-agent-sheet[data-state="open"] {
+  animation: trip-new-agent-slide-in 500ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.trip-new-agent-sheet[data-state="closed"] {
+  animation: trip-new-agent-slide-out 300ms cubic-bezier(0.32, 0.72, 0, 1) both;
+  pointer-events: none;
+}
+
+.trip-new-agent-sheet[data-state="open"][data-settled="true"] {
+  transform: translate3d(0, 0, 0);
 }
 
 .trip-new-agent-grabber {
@@ -1254,6 +1275,51 @@
 @keyframes trip-create-spin {
   to {
     transform: rotate(360deg);
+  }
+}
+
+@keyframes trip-new-agent-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes trip-new-agent-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes trip-new-agent-slide-in {
+  from {
+    transform: translate3d(0, 100%, 0);
+  }
+  to {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes trip-new-agent-slide-out {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(0, 100%, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .trip-new-agent-backdrop[data-state="open"],
+  .trip-new-agent-backdrop[data-state="closed"],
+  .trip-new-agent-sheet[data-state="open"],
+  .trip-new-agent-sheet[data-state="closed"] {
+    animation-duration: 1ms;
   }
 }
 
