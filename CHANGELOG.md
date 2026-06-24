@@ -4,6 +4,11 @@ Selected product updates for OurTrips.
 
 ## Unreleased
 
+## 2026-06-24 - 0.3.1 - Continuous cover route summary
+
+### Fixed
+- Kept long road-trip cover routes anchored from the first stop through the final stop instead of stopping the summary at an early midpoint.
+
 ## 2026-06-24 - 0.3.0 - Paste-first trip creation
 
 ### Added

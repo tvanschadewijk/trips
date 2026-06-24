@@ -27,6 +27,9 @@ export interface TripRouteAtlas {
   };
 }
 
+export const TRIP_ROUTE_SUMMARY_ELLIPSIS = '…';
+const DEFAULT_TRIP_ROUTE_SUMMARY_LABEL_LIMIT = 7;
+
 interface GazetteerEntry {
   label: string;
   lat: number;
@@ -186,6 +189,92 @@ function sanitizeMode(mode?: string): string {
 
 function routePointText(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
+}
+
+function cleanRouteSummaryLabel(value: unknown): string {
+  const text = routePointText(value)
+    .replace(/\s*\([A-Z]{3}\)\s*/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!text) return '';
+
+  return text
+    .replace(/\b(?:airport|terminal|station|centraal|central)\b/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim() || text;
+}
+
+function routeSummaryKey(value: string): string {
+  return normalizePlace(cleanRouteSummaryLabel(value));
+}
+
+function addSequentialRouteSummaryLabel(labels: string[], value: unknown): void {
+  const label = cleanRouteSummaryLabel(value);
+  if (!label) return;
+
+  const previous = labels[labels.length - 1];
+  if (previous && routeSummaryKey(previous) === routeSummaryKey(label)) return;
+
+  labels.push(label);
+}
+
+function destinationFromDayTitle(title: string | undefined): string {
+  const parts = routePointText(title)
+    .replace(/[–—]/g, '→')
+    .split('→')
+    .map((part) => part.trim())
+    .filter(Boolean);
+  return cleanRouteSummaryLabel(parts[parts.length - 1] || title);
+}
+
+function fallbackRouteSummaryLabels(days: Day[]): string[] {
+  const labels: string[] = [];
+
+  for (const day of days) {
+    for (const transport of day.transport ?? []) {
+      addSequentialRouteSummaryLabel(labels, transport.from);
+      addSequentialRouteSummaryLabel(labels, transport.to);
+    }
+    addSequentialRouteSummaryLabel(labels, destinationFromDayTitle(day.title));
+  }
+
+  return labels;
+}
+
+export function compactTripRouteSummaryLabels(
+  labels: string[],
+  maxLabels = DEFAULT_TRIP_ROUTE_SUMMARY_LABEL_LIMIT
+): string[] {
+  const cleaned: string[] = [];
+  for (const label of labels) addSequentialRouteSummaryLabel(cleaned, label);
+
+  const limit = Math.max(2, Math.floor(maxLabels));
+  if (cleaned.length <= limit) return cleaned;
+  if (limit <= 3) {
+    return [cleaned[0], TRIP_ROUTE_SUMMARY_ELLIPSIS, cleaned[cleaned.length - 1]].filter(Boolean);
+  }
+
+  const visibleWithoutEllipsis = limit - 1;
+  const prefixCount = Math.max(1, Math.ceil(visibleWithoutEllipsis / 2));
+  const suffixCount = Math.max(1, visibleWithoutEllipsis - prefixCount);
+
+  return [
+    ...cleaned.slice(0, prefixCount),
+    TRIP_ROUTE_SUMMARY_ELLIPSIS,
+    ...cleaned.slice(cleaned.length - suffixCount),
+  ];
+}
+
+export function buildTripRouteSummaryLabels(
+  atlas: TripRouteAtlas | undefined,
+  days: Day[] = [],
+  maxLabels = DEFAULT_TRIP_ROUTE_SUMMARY_LABEL_LIMIT
+): string[] {
+  const labels = atlas?.points.length
+    ? atlas.points.map((point) => point.label)
+    : fallbackRouteSummaryLabels(days);
+
+  return compactTripRouteSummaryLabels(labels, maxLabels);
 }
 
 function routePointNumber(value: unknown): number | undefined {

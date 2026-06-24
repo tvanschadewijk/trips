@@ -12,7 +12,13 @@ import { renderTripMarkdown } from '@/lib/render-trip-markdown';
 import { normalizeTripData } from '@/lib/trip-data-normalize';
 import { createClient } from '@/lib/supabase/client';
 import AppTopBar from '@/components/ui/AppTopBar';
-import { buildTripOverviewRouteAtlas, buildTripRouteAtlas, type TripRouteAtlas as TripRouteAtlasData } from '@/lib/trip-route';
+import {
+  buildTripOverviewRouteAtlas,
+  buildTripRouteAtlas,
+  buildTripRouteSummaryLabels,
+  TRIP_ROUTE_SUMMARY_ELLIPSIS,
+  type TripRouteAtlas as TripRouteAtlasData,
+} from '@/lib/trip-route';
 import {
   buildDayMapDataByNumber,
   EMPTY_DAY_MAP_ATLAS,
@@ -106,11 +112,6 @@ function routeStopCountFor(atlas: ReturnType<typeof buildTripRouteAtlas>): numbe
   return tripStops.length || atlas.points.length;
 }
 
-type OverviewRouteGroups = {
-  outbound: string[];
-  returnVia: string[];
-};
-
 type CoverRouteSketchPoint = {
   x: number;
   y: number;
@@ -155,82 +156,13 @@ function tripNightCount(startStr: string, endStr: string): number {
   return Math.max(0, Math.round((end.getTime() - start.getTime()) / 86400000));
 }
 
-function cleanedRouteLabel(value: unknown): string {
-  const text = trimDisplayText(value)
-    .replace(/\s*\([A-Z]{3}\)\s*/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-  if (!text) return '';
-
-  return text
-    .replace(/\b(?:airport|terminal|station|centraal|central)\b/gi, '')
-    .replace(/\s+/g, ' ')
-    .trim() || text;
-}
-
 function addUniqueText(list: string[], value: unknown, max = Number.POSITIVE_INFINITY): void {
   if (list.length >= max) return;
-  const label = cleanedRouteLabel(value);
+  const label = trimDisplayText(value);
   if (!label) return;
   const key = normalizeMapFocusLabel(label);
   if (!key || list.some((item) => normalizeMapFocusLabel(item) === key)) return;
   list.push(label);
-}
-
-function destinationFromDayTitle(title: string): string {
-  const parts = title
-    .replace(/[–—]/g, '→')
-    .split('→')
-    .map((part) => part.trim())
-    .filter(Boolean);
-  return cleanedRouteLabel(parts[parts.length - 1] || title);
-}
-
-function fallbackRouteLabels(days: Day[]): string[] {
-  const labels: string[] = [];
-  for (const day of days) {
-    for (const transport of day.transport ?? []) {
-      addUniqueText(labels, transport.from, 8);
-      addUniqueText(labels, transport.to, 8);
-    }
-    addUniqueText(labels, destinationFromDayTitle(day.title), 8);
-  }
-  return labels;
-}
-
-function overviewRouteGroups(atlas: TripRouteAtlasData | undefined, days: Day[]): OverviewRouteGroups {
-  const points = atlas?.points ?? [];
-  if (!points.length) return { outbound: fallbackRouteLabels(days).slice(0, 6), returnVia: [] };
-
-  const firstLabel = cleanedRouteLabel(points[0]?.label);
-  const firstKey = normalizeMapFocusLabel(firstLabel);
-  let returnStartIndex = points.findIndex((point, index) => index > 0 && point.role === 'return');
-
-  if (returnStartIndex < 0 && firstKey && points.length > 5) {
-    const lastKey = normalizeMapFocusLabel(points[points.length - 1]?.label);
-    if (lastKey === firstKey) returnStartIndex = Math.max(2, Math.ceil((points.length - 1) / 2));
-  }
-
-  const outboundPoints = returnStartIndex >= 0 ? points.slice(0, returnStartIndex) : points;
-  const returnPoints = returnStartIndex >= 0 ? points.slice(returnStartIndex) : [];
-  const outbound: string[] = [];
-  const returnVia: string[] = [];
-
-  for (const point of outboundPoints) addUniqueText(outbound, point.label, 7);
-  for (const point of returnPoints) {
-    const key = normalizeMapFocusLabel(point.label);
-    if (key && key === firstKey) continue;
-    addUniqueText(returnVia, point.label, 6);
-  }
-
-  if (!outbound.length) return { outbound: fallbackRouteLabels(days).slice(0, 6), returnVia };
-  return { outbound, returnVia };
-}
-
-function overviewRouteLabels(groups: OverviewRouteGroups): string[] {
-  return [...groups.outbound, ...groups.returnVia]
-    .map(trimDisplayText)
-    .filter(Boolean);
 }
 
 function renderCoverRouteSketch(labels: string[]): ReactNode {
@@ -2487,11 +2419,11 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     const heroImageIsBroken = brokenImages.has(heroImage);
     const routeStopCount = routeStopCountFor(overviewMapAtlas);
     const nights = tripNightCount(trip.dates.start, trip.dates.end);
-    const routeGroups = overviewRouteGroups(routeAtlas, days);
-    const displayRouteGroups = routeGroups.outbound.length
-      ? routeGroups
-      : { outbound: [trip.name], returnVia: [] };
-    const routeSketchLabels = overviewRouteLabels(displayRouteGroups);
+    const routeFlowLabels = buildTripRouteSummaryLabels(routeAtlas, days);
+    const displayRouteLabels = routeFlowLabels.length ? routeFlowLabels : [trip.name];
+    const routeSketchLabels = displayRouteLabels
+      .map(trimDisplayText)
+      .filter((label) => label && label !== TRIP_ROUTE_SUMMARY_ELLIPSIS);
     const metrics = overviewMetrics(days, overviewMapAtlas ?? routeAtlas, nights, routeSketchLabels.length);
     const overviewSections = buildOverviewSections();
     const overviewSummary = overviewSummaryText(trip.summary);
@@ -2579,17 +2511,8 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
                 <div>
                   <h2>Route</h2>
                   <div className="trip-overview-route-flow">
-                    {renderOverviewRouteFlow(displayRouteGroups.outbound)}
+                    {renderOverviewRouteFlow(displayRouteLabels)}
                   </div>
-                  {displayRouteGroups.returnVia.length ? (
-                    <>
-                      <div className="trip-overview-return-rule" />
-                      <p className="trip-overview-return-label">Return via</p>
-                      <div className="trip-overview-route-flow trip-overview-route-flow-return">
-                        {renderOverviewRouteFlow(displayRouteGroups.returnVia)}
-                      </div>
-                    </>
-                  ) : null}
                 </div>
               </section>
 

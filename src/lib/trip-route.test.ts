@@ -4,8 +4,10 @@ import {
   buildDayRouteMapSearchText,
   buildTripOverviewRouteAtlas,
   buildTripRouteAtlas,
+  buildTripRouteSummaryLabels,
   lookupRoutePlace,
   routePlaceTextMatches,
+  TRIP_ROUTE_SUMMARY_ELLIPSIS,
 } from './trip-route';
 import type { TripData } from './types';
 
@@ -140,6 +142,77 @@ test('stored route_points accept name aliases and skip malformed entries', () =>
   assert.ok(atlas);
   assert.deepEqual(atlas.points.map((point) => point.label), ['Mumbai', 'Jaipur']);
   assert.equal(atlas.legs[0].mode, 'flight');
+});
+
+test('buildTripRouteSummaryLabels keeps a short same-city loop endpoint', () => {
+  const trip = {
+    ...baseTrip([]),
+    trip: {
+      ...baseTrip([]).trip,
+      route_points: [
+        { label: 'Amsterdam', lat: 52.3676, lng: 4.9041, role: 'home' },
+        { label: 'Lake Como', lat: 45.984, lng: 9.261, mode: 'car' },
+        { label: 'Amsterdam', lat: 52.3676, lng: 4.9041, mode: 'car', role: 'return' },
+      ],
+    },
+  } satisfies TripData;
+
+  const atlas = buildTripRouteAtlas(trip);
+  assert.ok(atlas);
+
+  assert.deepEqual(
+    buildTripRouteSummaryLabels(atlas, trip.days),
+    ['Amsterdam', 'Lake Como', 'Amsterdam']
+  );
+});
+
+test('buildTripRouteSummaryLabels summarizes long road trips as one continuous route', () => {
+  const trip = {
+    ...baseTrip([]),
+    trip: {
+      ...baseTrip([]).trip,
+      route_points: [
+        { label: 'Amsterdam', lat: 52.3676, lng: 4.9041, role: 'home' },
+        { label: 'Lake Como', lat: 45.984, lng: 9.261, mode: 'car' },
+        { label: 'Ravenna', lat: 44.4184, lng: 12.2035, mode: 'car' },
+        { label: 'Gargano', lat: 41.946, lng: 16.016, mode: 'car' },
+        { label: 'Brindisi', lat: 40.6327, lng: 17.9418, mode: 'car' },
+        { label: 'Igoumenitsa', lat: 39.5034, lng: 20.2656, mode: 'ferry' },
+        { label: 'Meteora', lat: 39.704, lng: 21.626, mode: 'car' },
+        { label: 'Pelion', lat: 39.388, lng: 23.173, mode: 'car' },
+        { label: 'Thessaloniki', lat: 40.6401, lng: 22.9444, mode: 'car' },
+        { label: 'Kavala', lat: 40.9376, lng: 24.4129, mode: 'car' },
+        { label: 'Xanthi', lat: 41.1349, lng: 24.888, mode: 'car' },
+        { label: 'Edirne', lat: 41.6771, lng: 26.5557, mode: 'car' },
+        { label: 'Tekirdag Wine Coast', lat: 40.978, lng: 27.511, mode: 'car' },
+        { label: 'Istanbul', lat: 41.0082, lng: 28.9784, mode: 'car' },
+        { label: 'Plovdiv', lat: 42.1354, lng: 24.7453, mode: 'car' },
+        { label: 'Hotel Ramonda / Rtanj', lat: 43.77, lng: 21.91, mode: 'car' },
+        { label: 'Novi Sad / Boutique Macchiato Rooms', lat: 45.2671, lng: 19.8335, mode: 'car' },
+        { label: 'Plitvice Lakes / Lakeside Hotel Plitvice', lat: 44.8654, lng: 15.582, mode: 'car' },
+        { label: 'Lake Bled', lat: 46.3683, lng: 14.1146, mode: 'car' },
+        { label: 'Salzburg', lat: 47.8095, lng: 13.055, mode: 'car' },
+        { label: 'Heidelberg', lat: 49.3988, lng: 8.6724, mode: 'car' },
+        { label: 'Amsterdam', lat: 52.3676, lng: 4.9041, mode: 'car', role: 'return' },
+      ],
+    },
+  } satisfies TripData;
+
+  const atlas = buildTripRouteAtlas(trip);
+  assert.ok(atlas);
+
+  assert.deepEqual(
+    buildTripRouteSummaryLabels(atlas, trip.days),
+    [
+      'Amsterdam',
+      'Lake Como',
+      'Ravenna',
+      TRIP_ROUTE_SUMMARY_ELLIPSIS,
+      'Salzburg',
+      'Heidelberg',
+      'Amsterdam',
+    ]
+  );
 });
 
 test('trip overview route atlas hides flight-only home endpoints', () => {
