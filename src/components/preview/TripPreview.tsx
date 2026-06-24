@@ -926,7 +926,6 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
   const [brokenImages, setBrokenImages] = useState<Set<string>>(new Set());
   const [dayMapFocusRequest, setDayMapFocusRequest] = useState<DayMapFocusRequest | null>(null);
   const [dayMapViewAllRequest, setDayMapViewAllRequest] = useState<DayMapViewAllRequest | null>(null);
-  const [topbarHidden, setTopbarHidden] = useState(false);
   const [offlineSaved, setOfflineSaved] = useState(false);
   const onImgError = useCallback((src: string) => {
     setBrokenImages(prev => { const next = new Set(prev); next.add(src); return next; });
@@ -1073,46 +1072,6 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
   useEffect(() => {
     setCoverMenuOpen(false);
   }, [activeTripIndex, currentSlide]);
-
-  useEffect(() => {
-    setTopbarHidden(false);
-  }, [activeTripIndex, currentSlide]);
-
-  useEffect(() => {
-    if (activeTripIndex === null) return;
-    const slide = trackRef.current?.querySelectorAll('.slide')[currentSlide] as HTMLElement | undefined;
-    if (!slide) return;
-
-    let previousScrollTop = slide.scrollTop;
-    let ticking = false;
-
-    const syncTopbar = () => {
-      ticking = false;
-      const nextScrollTop = slide.scrollTop;
-      const scrollingDown = nextScrollTop > previousScrollTop;
-
-      if (nextScrollTop <= 12 || nextScrollTop < previousScrollTop) {
-        setTopbarHidden(false);
-      } else if (nextScrollTop > 32 && scrollingDown) {
-        setTopbarHidden(true);
-      }
-
-      previousScrollTop = nextScrollTop;
-    };
-
-    const onScroll = () => {
-      if (ticking) return;
-      ticking = true;
-      window.requestAnimationFrame(syncTopbar);
-    };
-
-    slide.addEventListener('scroll', onScroll, { passive: true });
-    syncTopbar();
-
-    return () => {
-      slide.removeEventListener('scroll', onScroll);
-    };
-  }, [activeTripIndex, currentSlide, days.length]);
 
   useEffect(() => {
     if (!coverMenuOpen) return;
@@ -3499,7 +3458,10 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
           <AppTopBar
             href={homeHref}
             suffix={trip?.name}
-            className={`trip-topbar ${topbarHidden ? 'is-scroll-hidden' : ''}`}
+            className="trip-topbar"
+            hideOnScroll
+            scrollRootSelector=".slide.active"
+            scrollRootKey={currentSlide}
             actions={
               <>
                 {!isHero ? (

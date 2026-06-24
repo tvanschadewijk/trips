@@ -12,6 +12,7 @@
     opacity 180ms ease,
     background 180ms ease,
     border-color 180ms ease;
+  will-change: transform, opacity;
 }
 
 .app-topbar .app-topbar-inner {
@@ -80,6 +81,12 @@
   transform: translateY(-100%);
   opacity: 0;
   pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-topbar {
+    transition-duration: 1ms;
+  }
 }
 
 @media (max-width: 560px) {

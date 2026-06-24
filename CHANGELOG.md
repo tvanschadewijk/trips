@@ -4,6 +4,11 @@ Selected product updates for OurTrips.
 
 ## Unreleased
 
+## 2026-06-24 - 0.2.12 - Scroll-hiding trip top bar
+
+### Improved
+- Made the trip top bar animate away while scrolling down and return only after upward scroll, using the active itinerary slide as its scroll source.
+
 ## 2026-06-24 - 0.2.11 - Chat activity labels
 
 ### Changed
