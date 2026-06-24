@@ -4,6 +4,12 @@ Selected product updates for OurTrips.
 
 ## Unreleased
 
+## 2026-06-24 - 0.2.8 - Split trip cover
+
+### Changed
+- Reworked the trip cover into the variant 2 split photo/map masthead with a stat strip, editorial route summary, and day-by-day CTA.
+- Added a route-sketch fallback for trips without coordinate-backed overview maps so the cover still keeps the split route panel.
+
 ## 2026-06-24 - 0.2.7 - Pricing page draft copy
 
 ### Changed

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import { flushSync } from 'react-dom';
 import type { TripData, Day, Transport, Accommodation, Tip, Meal, Block, RichDetail, Service } from '@/lib/types';
 import { TripIcon as Icon } from './icons';
@@ -110,9 +110,10 @@ type OverviewRouteGroups = {
   returnVia: string[];
 };
 
-type OverviewHighlight = {
-  icon: string;
-  label: string;
+type CoverRouteSketchPoint = {
+  x: number;
+  y: number;
+  anchor: 'left' | 'right';
 };
 
 type OverviewMetric = {
@@ -120,6 +121,15 @@ type OverviewMetric = {
   value: string;
   label: string;
 };
+
+const COVER_ROUTE_SKETCH_POINTS: CoverRouteSketchPoint[] = [
+  { x: 24, y: 20, anchor: 'left' },
+  { x: 70, y: 30, anchor: 'right' },
+  { x: 34, y: 49, anchor: 'left' },
+  { x: 76, y: 62, anchor: 'right' },
+  { x: 42, y: 78, anchor: 'left' },
+  { x: 82, y: 84, anchor: 'right' },
+];
 
 function formatHeroDateRange(startStr: string, endStr: string): string {
   const start = new Date(`${startStr}T12:00:00`);
@@ -216,36 +226,48 @@ function overviewRouteGroups(atlas: TripRouteAtlasData | undefined, days: Day[])
   return { outbound, returnVia };
 }
 
-function overviewHighlightIcon(label: string): string {
-  const normalized = normalizeMapFocusLabel(label);
-  if (/\b(wine|vineyard|winery)\b/.test(normalized)) return 'wine';
-  if (/\b(lake|coast|beach|sea|river|island)\b/.test(normalized)) return 'map';
-  if (/\b(mountain|peak|trail|park|forest|glen|valley|way)\b/.test(normalized)) return 'mountain';
-  if (/\b(restaurant|dinner|lunch|food|market|cafe|bakery)\b/.test(normalized)) return 'fork';
-  if (/\b(hotel|stay|camp|lodge)\b/.test(normalized)) return 'hotel';
-  return 'binoculars';
+function overviewRouteLabels(groups: OverviewRouteGroups): string[] {
+  return [...groups.outbound, ...groups.returnVia]
+    .map(trimDisplayText)
+    .filter(Boolean);
 }
 
-function overviewHighlights(atlas: TripRouteAtlasData | undefined, days: Day[]): OverviewHighlight[] {
-  const labels: string[] = [];
-  const routePoints = (atlas?.points ?? []).filter((point) => point.role !== 'home' && point.role !== 'return');
-  for (const point of routePoints) addUniqueText(labels, point.label, 6);
+function renderCoverRouteSketch(labels: string[]): ReactNode {
+  const stops = labels.slice(0, COVER_ROUTE_SKETCH_POINTS.length);
+  if (stops.length < 2) return null;
 
-  for (const day of days) {
-    addUniqueText(labels, day.description_title, 6);
-    addUniqueText(labels, day.subtitle, 6);
-    addUniqueText(labels, destinationFromDayTitle(day.title), 6);
+  const routePath = stops
+    .map((_, index) => {
+      const point = COVER_ROUTE_SKETCH_POINTS[index];
+      return `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`;
+    })
+    .join(' ');
 
-    for (const block of day.blocks ?? []) {
-      addUniqueText(labels, block.place?.name, 6);
-      addUniqueText(labels, block.detail?.title, 6);
-    }
-  }
+  return (
+    <div className="hero-cover-route-sketch">
+      <svg className="hero-cover-route-sketch-svg" viewBox="0 0 100 100" aria-hidden="true" focusable="false">
+        <path className="hero-cover-route-sketch-line" d={routePath} />
+      </svg>
+      {stops.map((label, index) => {
+        const point = COVER_ROUTE_SKETCH_POINTS[index];
+        const style = {
+          '--route-x': `${point.x}%`,
+          '--route-y': `${point.y}%`,
+        } as CSSProperties;
 
-  return labels.slice(0, 6).map((label) => ({
-    label,
-    icon: overviewHighlightIcon(label),
-  }));
+        return (
+          <div
+            className={`hero-cover-route-sketch-stop anchor-${point.anchor}`}
+            key={`${label}-${index}`}
+            style={style}
+          >
+            <span className="hero-cover-route-sketch-pin">{index + 1}</span>
+            <strong>{label}</strong>
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 function dominantTransportSummary(days: Day[]): { icon: string; label: string } {
@@ -277,25 +299,18 @@ function formatKm(value: number): string {
   return '';
 }
 
-function overviewMetrics(days: Day[], atlas: TripRouteAtlasData | undefined, nights: number): OverviewMetric[] {
+function overviewMetrics(
+  days: Day[],
+  atlas: TripRouteAtlasData | undefined,
+  nights: number,
+  fallbackStopCount = 0
+): OverviewMetric[] {
   const hotelNames: string[] = [];
-  const natureLabels: string[] = [];
   let distanceKm = 0;
 
   for (const day of days) {
     const accommodationName = trimDisplayText(day.accommodation?.name);
     if (accommodationName && !isPlaceholderAccommodationName(accommodationName)) addUniqueText(hotelNames, accommodationName);
-
-    const natureText = [
-      day.title,
-      day.subtitle,
-      day.description_title,
-      day.description,
-      ...(day.blocks ?? []).flatMap((block) => [block.content, block.detail?.title]),
-    ].join(' ');
-    if (/\b(?:national park|park|lake|mountain|trail|forest|coast|beach|island|valley|glen|way)\b/i.test(natureText)) {
-      addUniqueText(natureLabels, destinationFromDayTitle(day.title));
-    }
 
     for (const transport of day.transport ?? []) {
       distanceKm += distanceKmFromText(transport.distance);
@@ -303,33 +318,19 @@ function overviewMetrics(days: Day[], atlas: TripRouteAtlasData | undefined, nig
   }
 
   const routeStops = routeStopCountFor(atlas);
-  const metrics: OverviewMetric[] = [];
+  const hotelCount = hotelNames.length;
+  const stopCount = routeStops || fallbackStopCount || days.length;
 
-  if (hotelNames.length) {
-    metrics.push({ icon: 'hotel', value: String(hotelNames.length), label: hotelNames.length === 1 ? 'Hotel' : 'Hotels' });
-  } else {
-    metrics.push({ icon: 'moon', value: String(nights), label: nights === 1 ? 'Night' : 'Nights' });
-  }
-
-  metrics.push({
-    icon: 'mountain',
-    value: String(natureLabels.length || Math.max(1, days.filter((day) => day.blocks?.length || day.meals?.length).length)),
-    label: natureLabels.length ? 'Nature stops' : 'Planned days',
-  });
-
-  metrics.push({
-    icon: 'map',
-    value: String(routeStops || days.length),
-    label: routeStops === 1 ? 'Route stop' : 'Route stops',
-  });
-
-  metrics.push({
-    icon: dominantTransportSummary(days).icon,
-    value: formatKm(distanceKm) || String(days.length),
-    label: distanceKm > 0 ? 'km logged' : 'days planned',
-  });
-
-  return metrics;
+  return [
+    { icon: 'moon', value: String(nights), label: nights === 1 ? 'Night' : 'Nights' },
+    { icon: 'route', value: String(stopCount), label: stopCount === 1 ? 'Stop' : 'Stops' },
+    { icon: 'hotel', value: String(hotelCount), label: hotelCount === 1 ? 'Hotel' : 'Hotels' },
+    {
+      icon: dominantTransportSummary(days).icon,
+      value: formatKm(distanceKm) || String(days.length),
+      label: distanceKm > 0 ? 'km logged' : 'days planned',
+    },
+  ];
 }
 
 function overviewSummaryText(summary: string | undefined): string {
@@ -907,7 +908,6 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
   const [slideDirection, setSlideDirection] = useState<SlideDirection>('none');
   const [transitionAnchorSlide, setTransitionAnchorSlide] = useState<number | null>(null);
   const [overviewFaded, setOverviewFaded] = useState(autoOpen ? true : false);
-  const [showOverviewMap, setShowOverviewMap] = useState(false);
   const [showFullJourneyMap, setShowFullJourneyMap] = useState(false);
   const [isDesktopPreview, setIsDesktopPreview] = useState<boolean | null>(null);
   const [showArchive, setShowArchive] = useState(false);
@@ -974,14 +974,12 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     routeAtlas && tripGeographyAtlas && tripGeographyAtlas.points.length < routeAtlas.points.length
   );
   const overviewMapAtlas = showFullJourneyMap && routeAtlas ? routeAtlas : tripGeographyAtlas;
-  const hasOverviewMapAtlas = Boolean(overviewMapAtlas);
   const overviewRoutePointDetails = useMemo(
     () => mapPointDetailsForTrip(overviewMapAtlas, days),
     [overviewMapAtlas, days]
   );
 
   useEffect(() => {
-    setShowOverviewMap(false);
     setShowFullJourneyMap(false);
     setTransitionAnchorSlide(null);
   }, [activeTripIndex]);
@@ -1001,11 +999,6 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
 
     return () => query.removeEventListener('change', syncPreviewMode);
   }, []);
-
-  useEffect(() => {
-    if (isDesktopPreview === false) setShowOverviewMap(false);
-    if (isDesktopPreview === true && hasOverviewMapAtlas) setShowOverviewMap(true);
-  }, [activeTripIndex, hasOverviewMapAtlas, isDesktopPreview]);
 
   const dayMapDataByNumber = useMemo(
     () => buildDayMapDataByNumber(
@@ -2533,92 +2526,92 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     const displayRouteGroups = routeGroups.outbound.length
       ? routeGroups
       : { outbound: [trip.name], returnVia: [] };
-    const highlights = overviewHighlights(overviewMapAtlas ?? routeAtlas, days);
-    const displayHighlights = highlights.length
-      ? highlights
-      : [{ icon: 'info', label: trimDisplayText(trip.subtitle) || overviewSummaryText(trip.summary) || trip.name }];
-    const metrics = overviewMetrics(days, overviewMapAtlas ?? routeAtlas, nights);
-    const transportSummary = dominantTransportSummary(days);
+    const routeSketchLabels = overviewRouteLabels(displayRouteGroups);
+    const metrics = overviewMetrics(days, overviewMapAtlas ?? routeAtlas, nights, routeSketchLabels.length);
     const overviewSections = buildOverviewSections();
-    const desktopOverviewMapVisible = Boolean(showOverviewMap && overviewMapAtlas && isDesktopPreview);
+    const overviewSummary = overviewSummaryText(trip.summary);
+    const hasCoverMapPanel = Boolean(overviewMapAtlas || routeSketchLabels.length >= 2);
+    const coverMapStopCount = routeStopCountFor(overviewMapAtlas ?? routeAtlas) || routeSketchLabels.length || days.length;
     const overviewMapScopeAria = showFullJourneyMap
       ? 'Hide access legs from overview map'
       : 'Show full journey on overview map';
 
     return (
       <div key="cover" className={`slide ${currentSlide === 0 ? 'active' : ''}`}>
-        <div className="hero-slide">
-          <div
-            className={`hero-frame${desktopOverviewMapVisible ? ' is-map-visible' : ''}`}
-          >
-            {desktopOverviewMapVisible && overviewMapAtlas ? (
-              <div className="hero-map-stage">
-                <ItineraryMap
-                  atlas={overviewMapAtlas}
-                  title={`${trip.name} itinerary map`}
-                  variant="overview-card"
-                  interactive
-                  pointDetails={overviewRoutePointDetails}
-                  showLines
-                  enabled={currentSlide === 0 && desktopOverviewMapVisible}
-                  loadingLabel="Loading overview map"
-                  loadingHint={routeStopCount >= 12 ? 'This might take a minute with this many stops.' : undefined}
-                  fallback={<TripRouteAtlas atlas={overviewMapAtlas} />}
+        <div className={`hero-slide ${hasCoverMapPanel ? 'has-cover-map' : 'photo-only'}`}>
+          <div className={`hero-cover-duo ${hasCoverMapPanel ? 'has-map' : 'photo-only'}`}>
+            <figure className="hero-cover-photo">
+              <div className="hero-cover-photo-media">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={heroImage}
+                  alt={trip.name}
+                  draggable={false}
+                  style={{ opacity: heroImageIsBroken ? 0 : 1 }}
+                  onError={() => onImgError(heroImage)}
                 />
               </div>
-            ) : (
-              <>
-                <div className="hero-bg">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={heroImage}
-                    alt={trip.name}
-                    draggable={false}
-                    style={{ opacity: heroImageIsBroken ? 0 : 1 }}
-                    onError={() => onImgError(heroImage)}
+              <div className="hero-cover-photo-overlay" />
+              <figcaption className="hero-cover-photo-caption">{trimDisplayText(trip.subtitle) || trip.name}</figcaption>
+              <div className="hero-cover-photo-title">
+                <p className="hero-cover-kicker">{formatHeroDateRange(trip.dates.start, trip.dates.end)}</p>
+                <h1>{trip.name}</h1>
+              </div>
+            </figure>
+
+            {hasCoverMapPanel ? (
+              <section className="hero-cover-map-panel" aria-label="Trip route map">
+                {overviewMapAtlas ? (
+                  <ItineraryMap
+                    atlas={overviewMapAtlas}
+                    title={`${trip.name} itinerary map`}
+                    variant="overview-card"
+                    interactive
+                    pointDetails={overviewRoutePointDetails}
+                    showLines
+                    enabled={currentSlide === 0 && isDesktopPreview === true}
+                    loadingLabel="Loading overview map"
+                    loadingHint={coverMapStopCount >= 12 ? 'This might take a minute with this many stops.' : undefined}
+                    fallback={<TripRouteAtlas atlas={overviewMapAtlas} />}
                   />
+                ) : renderCoverRouteSketch(routeSketchLabels)}
+                <div className="hero-cover-map-label">
+                  <Icon name="route" />
+                  <span>The route</span>
                 </div>
-                <div className="hero-overlay" />
-              </>
-            )}
-            {desktopOverviewMapVisible && overviewMapHidesAccess ? (
-              <button
-                type="button"
-                className="hero-map-scope-toggle"
-                onClick={() => setShowFullJourneyMap((value) => !value)}
-                aria-pressed={showFullJourneyMap}
-                aria-label={overviewMapScopeAria}
-                title={overviewMapScopeAria}
-              >
-                <span aria-hidden="true"><Icon name="plane" /></span>
-                <span>Full journey</span>
-              </button>
-            ) : null}
-            {overviewMapAtlas ? (
-              <button
-                type="button"
-                className="hero-map-toggle"
-                onClick={() => setShowOverviewMap((value) => !value)}
-                aria-pressed={showOverviewMap}
-                aria-label={showOverviewMap ? 'Show trip photo' : 'Show itinerary map'}
-              >
-                <span aria-hidden="true"><Icon name={showOverviewMap ? 'mountain' : 'route'} /></span>
-                <span>{showOverviewMap ? 'Photo' : 'Map'}</span>
-              </button>
+                <div className="hero-cover-map-controls">
+                  {overviewMapHidesAccess ? (
+                    <button
+                      type="button"
+                      className="hero-cover-map-scope"
+                      onClick={() => setShowFullJourneyMap((value) => !value)}
+                      aria-pressed={showFullJourneyMap}
+                      aria-label={overviewMapScopeAria}
+                      title={overviewMapScopeAria}
+                    >
+                      <Icon name="plane" />
+                      <span>Full journey</span>
+                    </button>
+                  ) : null}
+                  <span className="hero-cover-map-count">{coverMapStopCount} stop{coverMapStopCount === 1 ? '' : 's'}</span>
+                </div>
+              </section>
             ) : null}
           </div>
+
           <div className="hero-body">
-            <h1 className="trip-title-sr-only">{trip.name}</h1>
-            <p className="hero-date-range">{formatHeroDateRange(trip.dates.start, trip.dates.end)}</p>
-            <div className="hero-meta-chips" aria-label="Trip highlights">
-              <span className="hero-meta-chip"><Icon name="moon" />{nights} {nights === 1 ? 'Night' : 'Nights'}</span>
-              <span className="hero-meta-chip"><Icon name="route" />{routeStopCount || days.length} {routeStopCount === 1 ? 'Stop' : 'Stops'}</span>
-              <span className="hero-meta-chip"><Icon name={transportSummary.icon} />{transportSummary.label}</span>
+            <div className="hero-cover-stats" aria-label="Trip stats">
+              {metrics.map((metric) => (
+                <div className="hero-cover-stat" key={`${metric.label}-${metric.value}`}>
+                  <strong>{metric.value}</strong>
+                  <span>{metric.label}</span>
+                </div>
+              ))}
             </div>
 
-            <div className="trip-overview-dossier">
-              <div className="trip-overview-dossier-main">
-                <section className="trip-overview-route" aria-label="Route">
+            <div className="hero-cover-editorial">
+              <section className="hero-cover-route" aria-label="Route">
+                <div>
                   <h2>Route</h2>
                   <div className="trip-overview-route-flow">
                     {renderOverviewRouteFlow(displayRouteGroups.outbound)}
@@ -2632,56 +2625,32 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
                       </div>
                     </>
                   ) : null}
-                </section>
+                </div>
+              </section>
 
-                <section className="trip-overview-highlights" aria-label="Highlights">
-                  <h2>Highlights</h2>
-                  <ul>
-                    {displayHighlights.map((highlight) => (
-                      <li key={highlight.label}>
-                        <span className="trip-overview-highlight-icon"><Icon name={highlight.icon} /></span>
-                        <span>{highlight.label}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </section>
-              </div>
-
-              <div className="trip-overview-metrics" aria-label="Trip metrics">
-                {metrics.map((metric) => (
-                  <div className="trip-overview-metric" key={`${metric.label}-${metric.value}`}>
-                    <span className="trip-overview-metric-icon"><Icon name={metric.icon} /></span>
-                    <strong>{metric.value}</strong>
-                    <span>{metric.label}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <button
-              type="button"
-              className="trip-overview-action"
-              onClick={() => openTripOverview(overviewSections)}
-              aria-label="Open trip overview details"
-            >
-              <span className="trip-overview-action-icon"><Icon name="doc" /></span>
-              <span className="trip-overview-action-copy">
-                <span>Trip overview</span>
-                <small>{overviewSummaryText(trip.summary)}</small>
-              </span>
-              <Icon name="chevron" />
-            </button>
-
-            {totalSlides > 1 && (
-              <>
-                <button className="hero-day-by-day-cta" type="button" onClick={() => goTo(1)} aria-label="Open day by day itinerary">
-                  <span className="hero-day-by-day-icon"><Icon name="calendar" /></span>
-                  <span>View day-by-day itinerary</span>
+              <section className="hero-cover-summary" aria-label="Trip overview">
+                <h2>Trip overview</h2>
+                <p>{overviewSummary}</p>
+                <button
+                  type="button"
+                  className="hero-cover-detail-link"
+                  onClick={() => openTripOverview(overviewSections)}
+                  aria-label="Open trip overview details"
+                >
+                  <span><Icon name="doc" />Trip details</span>
                   <Icon name="chevron" />
                 </button>
-                <p className="hero-day-by-day-helper">See the full plan, driving times, stays and activities for each day.</p>
-              </>
-            )}
+
+                {totalSlides > 1 && (
+                  <button className="hero-day-by-day-cta" type="button" onClick={() => goTo(1)} aria-label="Open day by day itinerary">
+                    <span className="hero-day-by-day-icon"><Icon name="calendar" /></span>
+                    <span>View day-by-day itinerary</span>
+                    <Icon name="chevron" />
+                  </button>
+                )}
+              </section>
+            </div>
+
             {todayInfo && (
               <button
                 className="hero-today-cta"
@@ -2697,7 +2666,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
               </button>
             )}
             {overviewMapAtlas ? (
-              <div className="hero-route-map-card">
+              <div className="hero-route-map-card hero-route-map-card-mobile">
                 <div className="hero-route-map-header">
                   <span className="text-section-title"><span className="section-icon"><Icon name="route" /></span>Itinerary map</span>
                   <span className="hero-route-map-actions">
@@ -2731,6 +2700,14 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
                     fallback={<TripRouteAtlas atlas={overviewMapAtlas} />}
                   />
                 </div>
+              </div>
+            ) : hasCoverMapPanel ? (
+              <div className="hero-route-map-card hero-route-map-card-mobile hero-route-sketch-card">
+                <div className="hero-route-map-header">
+                  <span className="text-section-title"><span className="section-icon"><Icon name="route" /></span>Route map</span>
+                  <span className="hero-route-map-actions">{coverMapStopCount} stop{coverMapStopCount === 1 ? '' : 's'}</span>
+                </div>
+                {renderCoverRouteSketch(routeSketchLabels)}
               </div>
             ) : null}
             {displayableTripNotes.length ? (
