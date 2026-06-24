@@ -31,6 +31,7 @@ import {
 } from '@/lib/trip-service';
 import { buildTripLogisticsLedger } from '@/lib/trip-logistics-ledger';
 import { normalizeTripData } from '@/lib/trip-data-normalize';
+import { enrichTripPlaces } from '@/lib/trip-place-enrichment';
 import { auditTripLogistics, ISO_DATE_RE, isIsoDateString } from '@/lib/trip-logistics';
 import {
   COORDINATE_BACKED_ROUTE_POINTS_REQUIRED_MESSAGE,
@@ -936,6 +937,7 @@ async function readTripData(ctx: TripToolContext): Promise<TripData> {
 }
 
 async function writeTripData(ctx: TripToolContext, next: TripData): Promise<void> {
+  await enrichTripPlaces(next);
   const { error } = await ctx.supabase
     .from('trips')
     .update({ data: next, updated_at: new Date().toISOString() })
@@ -2104,6 +2106,7 @@ export function createTripEditorMcpServer(
         );
       }
       const cascadeReview = buildAccommodationCascadeReview(before, after);
+      await enrichTripPlaces(after);
 
       // 2. Write back. The service-role client is trusted (admin route has
       //    already checked role); we update only the JSONB column + bump
@@ -2193,6 +2196,7 @@ export function createTripEditorMcpServer(
       if (!result.ok) {
         return textToolError(result.error);
       }
+      await enrichTripPlaces(result.next);
 
       const write = await ctx.supabase
         .from('trips')
@@ -2267,6 +2271,7 @@ export function createTripEditorMcpServer(
       if (!result.ok) {
         return textToolError(result.error);
       }
+      await enrichTripPlaces(result.next);
 
       const write = await ctx.supabase
         .from('trips')
@@ -2589,6 +2594,7 @@ export function createTripEditorMcpServer(
             parsed.data.candidate_id,
             parsed.data.booking as AccommodationCandidateBooking | undefined
           );
+          await enrichTripPlaces(afterTrip);
           const writeTrip = await ctx.supabase
             .from('trips')
             .update({ data: afterTrip, updated_at: new Date().toISOString() })
@@ -2657,6 +2663,7 @@ export function createTripEditorMcpServer(
           parsed.data.candidate_id,
           parsed.data.booking as AccommodationCandidateBooking | undefined
         );
+        await enrichTripPlaces(afterTrip);
         const writeTrip = await ctx.supabase
           .from('trips')
           .update({ data: afterTrip, updated_at: new Date().toISOString() })

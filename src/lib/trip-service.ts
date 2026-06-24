@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { trySyncAccommodationReviewForTrip } from '@/lib/accommodation-review-store';
 import { getBillingSummary } from '@/lib/billing';
+import { enrichTripPlaces } from '@/lib/trip-place-enrichment';
 import { normalizeTripData, normalizeTripDataWithWarnings } from '@/lib/trip-data-normalize';
 import { buildTripLogisticsLedger } from '@/lib/trip-logistics-ledger';
 import { auditTripLogistics, type TripLogisticsAudit } from '@/lib/trip-logistics';
@@ -497,6 +498,7 @@ export async function saveTripForUser(
   origin: string
 ): Promise<TripSaveResult> {
   const { tripBody, quality, warnings } = buildTripBody(input);
+  await enrichTripPlaces(tripBody);
   const logistics = quality?.logistics ?? auditTripLogistics(tripBody);
   const tripName = String(input.trip?.name);
 
@@ -764,6 +766,9 @@ async function mutateTripForUser(
   const trip = await getTripForUser(admin, userId, tripId);
   const nextData = asMutableTripData(trip.data);
   const details = mutate(nextData, trip);
+  if (mutationTouchesMapPlaces(details.changed_paths)) {
+    await enrichTripPlaces(nextData as unknown as TripData);
+  }
   const updated = await persistTripDataForUser(
     admin,
     userId,
@@ -776,6 +781,19 @@ async function mutateTripForUser(
     record: updated,
     summary: buildMutationSummary(updated, origin, details),
   };
+}
+
+function mutationTouchesMapPlaces(paths: string[]): boolean {
+  return paths.some((path) => (
+    path === 'trip' ||
+    path === 'days' ||
+    /^days\[day_number=\d+\]$/.test(path) ||
+    path === 'trip.route_points' ||
+    path.startsWith('trip.route_points.') ||
+    path.includes('.blocks') ||
+    path.includes('.meals') ||
+    path.includes('.accommodation')
+  ));
 }
 
 export async function patchTripForUser(

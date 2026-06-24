@@ -150,6 +150,37 @@ test('day map targets preserve stored Google Maps place links for meal places', 
   assert.equal(target.detail?.placeId, 'ChIJExamplePlaceId');
 });
 
+test('day map targets use cached accommodation coordinates without live lookup', () => {
+  const trip = baseTrip([
+    {
+      day_number: 1,
+      date: '2026-07-03',
+      title: 'Tsagarada',
+      blocks: [],
+      accommodation: {
+        name: 'Amanita Guesthouse',
+        status: 'booked',
+        detail: {
+          address: 'Tsagarada, Greece',
+          lat: 39.38912,
+          lng: 23.17645,
+          google_maps_url: 'https://www.google.com/maps/search/?api=1&query=Amanita&query_place_id=ChIJHotel',
+          place_id: 'ChIJHotel',
+        },
+      },
+    },
+  ]);
+
+  const dayMapData = buildDayMapDataByNumber(undefined, trip.days)[1];
+  const target = dayMapData.searchTargets.find((candidate) => candidate.label === 'Amanita Guesthouse');
+
+  assert.ok(target);
+  assert.deepEqual(target.fallbackPoint, { lat: 39.38912, lng: 23.17645, source: 'stored' });
+  assert.equal(target.detail?.googleMapsUrl, 'https://www.google.com/maps/search/?api=1&query=Amanita&query_place_id=ChIJHotel');
+  assert.equal(target.detail?.placeId, 'ChIJHotel');
+  assert.deepEqual(dayMapData.atlas?.points.map((point) => point.label), ['Amanita Guesthouse']);
+});
+
 test('day map route places are anchored to known atlas coordinates before text search', () => {
   const trip = baseTrip([
     {

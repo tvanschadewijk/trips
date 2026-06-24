@@ -383,6 +383,17 @@ function googleMapsDetailForPlace(place: ItineraryPlace | undefined): Pick<Itine
   };
 }
 
+function accommodationFallbackPoint(accommodation: Accommodation | undefined | null): ItineraryMapPoiSearchTarget['fallbackPoint'] {
+  return explicitFallbackPoint(accommodation?.detail);
+}
+
+function googleMapsDetailForAccommodation(accommodation: Accommodation | undefined | null): Pick<ItineraryMapPointDetail, 'googleMapsUrl' | 'placeId'> {
+  return {
+    googleMapsUrl: accommodation?.detail?.google_maps_url,
+    placeId: accommodation?.detail?.place_id,
+  };
+}
+
 function isPlaceholderAccommodationName(value: string): boolean {
   const normalized = normalizeMapSearchLabel(value);
   return (
@@ -483,6 +494,7 @@ function accommodationDetail(accommodation: Accommodation | undefined | null, da
     title: accommodation.name,
     kicker: `Day ${dayNumber} · Hotel`,
     body: truncateMapDetail(accommodation.note || accommodation.detail?.why || accommodation.detail?.body || accommodation.detail?.address),
+    ...googleMapsDetailForAccommodation(accommodation),
   };
 }
 
@@ -558,6 +570,7 @@ export function buildDayMapSearchTargets(
   if (previousStayDetail) {
     addDayMapTarget(targets, seen, day, atlas, previousDay?.accommodation?.name, 'poi', 'stay', previousStayDetail, {
       address: previousDay?.accommodation?.detail?.address,
+      fallbackPoint: accommodationFallbackPoint(previousDay?.accommodation),
       placeType: 'lodging',
       queryPrefix: 'Hotel',
       contextLabels,
@@ -584,8 +597,10 @@ export function buildDayMapSearchTargets(
       title: day.accommodation.name,
       kicker: `Day ${day.day_number} · Hotel`,
       body: truncateMapDetail(day.accommodation.note || day.accommodation.detail?.why || day.accommodation.detail?.body || day.accommodation.detail?.address),
+      ...googleMapsDetailForAccommodation(day.accommodation),
     }, {
       address: day.accommodation.detail?.address,
+      fallbackPoint: accommodationFallbackPoint(day.accommodation),
       placeType: 'lodging',
       queryPrefix: 'Hotel',
       contextLabels,

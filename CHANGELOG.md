@@ -4,6 +4,12 @@ Selected product updates for OurTrips.
 
 ## Unreleased
 
+## 2026-06-24 - 0.2.5 - Cached itinerary map places
+
+### Changed
+- Stopped trip preview day maps from running live Google Places lookups while someone views a trip.
+- Added optional server-side Places enrichment on trip writes so hotels, restaurants, and sights can cache coordinates and place IDs for future map rendering.
+
 ## 2026-06-24 - 0.2.4 - Dashboard agent sheet transition
 
 ### Improved

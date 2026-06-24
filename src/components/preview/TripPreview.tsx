@@ -2785,14 +2785,17 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
       const normalized = normalizeMapFocusLabel(label);
       if (!normalized) return undefined;
 
-      const searchTarget = dayMapSearchTargets.find((target) => (
-        normalizeMapFocusLabel(target.label) === normalized
-        || normalizeMapFocusLabel(target.detail?.title) === normalized
-      ));
-      if (searchTarget) return { id: searchTarget.id, label: searchTarget.label };
-
       const atlasPoint = dayMapAtlas?.points.find((point) => normalizeMapFocusLabel(point.label) === normalized);
-      return atlasPoint ? { id: atlasPoint.id, label: atlasPoint.label } : undefined;
+      if (atlasPoint) return { id: atlasPoint.id, label: atlasPoint.label };
+
+      const searchTarget = dayMapSearchTargets.find((target) => (
+        target.fallbackPoint &&
+        (
+          normalizeMapFocusLabel(target.label) === normalized
+          || normalizeMapFocusLabel(target.detail?.title) === normalized
+        )
+      ));
+      return searchTarget ? { id: searchTarget.id, label: searchTarget.label } : undefined;
     };
     const focusDayMapTarget = (target: { id?: string; label?: string } | undefined) => {
       if (!target) return;
@@ -2865,8 +2868,8 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
             viewAllRequest={dayMapViewAllRequest?.dayNumber === day.day_number ? dayMapViewAllRequest : undefined}
             showLines={false}
             enabled={currentSlide === slideIndex}
-            loadingLabel={dayMapSearchTargets.length ? 'Finding day places' : 'Loading day map'}
-            loadingHint={dayMapSearchTargets.length ? 'Looking up hotels, restaurants and sights for this day.' : undefined}
+            loadingLabel="Loading day map"
+            loadingHint={dayMapSearchTargets.length ? 'Opening saved map locations for this day.' : undefined}
             fallback={dayMapAtlas ? <TripRouteAtlas atlas={dayMapAtlas} numberStart /> : undefined}
           />
         </div>
@@ -3005,7 +3008,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
       if (!text) return null;
 
       const candidates = dayMapSearchTargets
-        .filter((target) => target.role === 'excursion')
+        .filter((target) => target.role === 'excursion' && target.fallbackPoint)
         .map((target) => ({
           label: trimDisplayText(target.detail?.title) || trimDisplayText(target.label),
           target: { id: target.id, label: target.label },

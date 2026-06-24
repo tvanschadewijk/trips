@@ -164,6 +164,9 @@ export interface ItineraryPlace {
   lng?: number;
   google_maps_url?: string;
   place_id?: string;
+  map_lookup_status?: 'resolved' | 'not_found' | 'skipped' | string;
+  map_lookup_at?: string;
+  map_lookup_query?: string;
   note?: string;
 }
 
@@ -264,6 +267,13 @@ export interface AccommodationDetail extends RichDetail {
   check_out?: string;
   room_type?: string;
   address?: string;
+  lat?: number;
+  lng?: number;
+  google_maps_url?: string;
+  place_id?: string;
+  map_lookup_status?: 'resolved' | 'not_found' | 'skipped' | string;
+  map_lookup_at?: string;
+  map_lookup_query?: string;
   phone?: string;
   direct_website_url?: string;
   direct_website_label?: string;
