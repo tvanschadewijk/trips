@@ -114,6 +114,7 @@ const RAIL_PREF_STORAGE_KEY = 'trip-chat-rail-open';
 const CHAT_CONTEXT_STORAGE_KEY = 'trip-chat-context';
 const MOBILE_RAIL_QUERY = '(max-width: 719px)';
 const TRIP_DATA_UPDATED_EVENT = 'ourtrips:trip-data-updated';
+const OPEN_TRIP_CHAT_EVENT = 'ourtrips:open-trip-chat';
 
 type ChatTurnResponse = {
   status?: 'queued' | 'fast_lane';
@@ -593,6 +594,11 @@ export default function TripChatPanel({
       }
     }
   }, [loading, threads]);
+
+  useEffect(() => {
+    window.addEventListener(OPEN_TRIP_CHAT_EVENT, openPanel);
+    return () => window.removeEventListener(OPEN_TRIP_CHAT_EVENT, openPanel);
+  }, [openPanel]);
 
   const minimize = useCallback(() => {
     setState('minimized');

@@ -4,6 +4,12 @@ Selected product updates for OurTrips.
 
 ## Unreleased
 
+## 2026-06-24 - 0.2.9 - Desktop cover travel agent CTA
+
+### Changed
+- Aligned the desktop cover Travel Agent CTA with the day-by-day itinerary CTA so owner trips show both actions in the same editorial row.
+- Kept the floating Travel Agent pill as the fallback on smaller screens and non-cover itinerary views.
+
 ## 2026-06-24 - 0.2.8 - Split trip cover
 
 ### Changed

@@ -32,6 +32,7 @@ function extractIataCodes(s: string): string[] {
 const SHARE_MODE_OPTIONS = ['companion', 'remix', 'private'] as const;
 type ShareMode = (typeof SHARE_MODE_OPTIONS)[number];
 const TRIP_DATA_UPDATED_EVENT = 'ourtrips:trip-data-updated';
+const OPEN_TRIP_CHAT_EVENT = 'ourtrips:open-trip-chat';
 
 type TripDataUpdatedEventDetail = {
   tripId?: string;
@@ -1022,6 +1023,11 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
         });
       });
     }
+  }, []);
+
+  const openTripChat = useCallback(() => {
+    if (typeof window === 'undefined') return;
+    window.dispatchEvent(new CustomEvent(OPEN_TRIP_CHAT_EVENT));
   }, []);
 
   const viewAllDayMapLocations = useCallback((dayNumber: number) => {
@@ -2640,15 +2646,31 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
                   <span><Icon name="doc" />Trip details</span>
                   <Icon name="chevron" />
                 </button>
+              </section>
 
-                {totalSlides > 1 && (
+              <div className="hero-cover-agent-cta-slot">
+                {tripId ? (
+                  <button
+                    className="hero-cover-agent-cta"
+                    type="button"
+                    onClick={openTripChat}
+                    aria-label="Ask Travel Agent"
+                  >
+                    <Icon name="message" />
+                    <span>Ask Travel Agent</span>
+                  </button>
+                ) : null}
+              </div>
+
+              {totalSlides > 1 && (
+                <div className="hero-cover-day-cta-slot">
                   <button className="hero-day-by-day-cta" type="button" onClick={() => goTo(1)} aria-label="Open day by day itinerary">
                     <span className="hero-day-by-day-icon"><Icon name="calendar" /></span>
                     <span>View day-by-day itinerary</span>
                     <Icon name="chevron" />
                   </button>
-                )}
-              </section>
+                </div>
+              )}
             </div>
 
             {todayInfo && (
