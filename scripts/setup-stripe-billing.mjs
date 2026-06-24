@@ -211,3 +211,4 @@ if (webhookResult.created && webhookResult.endpoint.secret) {
   console.log('STRIPE_WEBHOOK_SECRET=<copy the endpoint signing secret from Stripe Workbench>');
 }
 console.log(`OURTRIPS_PUBLIC_ORIGIN=${PUBLIC_ORIGIN}`);
+console.log('OURTRIPS_BILLING_ENABLED=true # set only after the Supabase billing migration and Cloudflare secrets are ready');

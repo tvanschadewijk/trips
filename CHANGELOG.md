@@ -4,6 +4,12 @@ Selected product updates for OurTrips.
 
 ## Unreleased
 
+## 2026-06-24 - 0.2.2 - Billing launch flag
+
+### Changed
+- Put Stripe billing, fourth-trip enforcement, checkout, portal access, and webhook processing behind `OURTRIPS_BILLING_ENABLED`.
+- Documented the final billing launch switch in the Stripe setup guide and environment examples.
+
 ## 2026-06-24 - 0.2.1 - Stripe setup automation
 
 ### Added

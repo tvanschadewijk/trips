@@ -9,6 +9,7 @@ import {
   type StripeSubscription,
   verifyStripeWebhookEvent,
 } from '@/lib/stripe';
+import { isBillingFeatureEnabled } from '@/lib/billing';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 export const dynamic = 'force-dynamic';
@@ -184,6 +185,10 @@ async function handleInvoicePaymentSucceeded(admin: AdminClient, object: Record<
 }
 
 export async function POST(request: NextRequest) {
+  if (!isBillingFeatureEnabled()) {
+    return NextResponse.json({ received: true, ignored: true, code: 'billing_disabled' });
+  }
+
   const payload = await request.text();
 
   let event;

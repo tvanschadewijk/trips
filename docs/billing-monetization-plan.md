@@ -10,6 +10,8 @@ OurTrips uses a freemium trip-count model:
 
 The limit is enforced server-side before any new trip insert. Existing trips can still be opened, edited, synced, and shared.
 
+Billing is gated by `OURTRIPS_BILLING_ENABLED`. Leave it unset or set to `false` while Stripe, Cloudflare secrets, and the Supabase billing migration are still being prepared. Set it to `true` only as the final launch switch.
+
 ## Stripe Setup
 
 Create or rename the Stripe sandbox to `ourtrips.to`.
@@ -33,6 +35,7 @@ Create two recurring prices:
 
 Required environment variables:
 
+- `OURTRIPS_BILLING_ENABLED=true`
 - `STRIPE_SECRET_KEY`
 - `STRIPE_WEBHOOK_SECRET`
 - `STRIPE_PRO_PRICE_ID`
@@ -65,6 +68,8 @@ The early adopter offer should feel like a founding-user thank-you, not a blocki
 - Fourth-trip moment: shows the hard paywall only when the user tries to create the fourth trip.
 - Settings menu: exposes billing only after a Stripe customer exists.
 - Copy: use “early adopter” and “founder deal” language, with remaining spots visible as social proof.
+
+When `OURTRIPS_BILLING_ENABLED` is off, the dashboard offer, checkout links, billing portal, webhook processing, and fourth-trip enforcement stay disabled even if Stripe secrets are present.
 
 ## Launch Tactics
 

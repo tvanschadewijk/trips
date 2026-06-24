@@ -2,11 +2,45 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
   billingProfileHasActiveAccess,
+  isBillingFeatureEnabled,
   normalizeBillingPlan,
   type BillingProfile,
 } from './billing';
 
 const now = new Date('2026-06-23T12:00:00.000Z');
+
+test('billing feature flag is off by default', () => {
+  const previous = process.env.OURTRIPS_BILLING_ENABLED;
+  delete process.env.OURTRIPS_BILLING_ENABLED;
+
+  try {
+    assert.equal(isBillingFeatureEnabled(), false);
+  } finally {
+    if (previous === undefined) delete process.env.OURTRIPS_BILLING_ENABLED;
+    else process.env.OURTRIPS_BILLING_ENABLED = previous;
+  }
+});
+
+test('billing feature flag only enables from explicit true-like values', () => {
+  const previous = process.env.OURTRIPS_BILLING_ENABLED;
+
+  try {
+    process.env.OURTRIPS_BILLING_ENABLED = 'true';
+    assert.equal(isBillingFeatureEnabled(), true);
+
+    process.env.OURTRIPS_BILLING_ENABLED = 'enabled';
+    assert.equal(isBillingFeatureEnabled(), true);
+
+    process.env.OURTRIPS_BILLING_ENABLED = 'false';
+    assert.equal(isBillingFeatureEnabled(), false);
+
+    process.env.OURTRIPS_BILLING_ENABLED = 'ready-soon';
+    assert.equal(isBillingFeatureEnabled(), false);
+  } finally {
+    if (previous === undefined) delete process.env.OURTRIPS_BILLING_ENABLED;
+    else process.env.OURTRIPS_BILLING_ENABLED = previous;
+  }
+});
 
 test('active subscription status grants billing access', () => {
   const profile: BillingProfile = {

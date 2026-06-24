@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
   let summary = await getBillingSummary(admin, user.id);
   if (!summary.billing_enabled) {
     return NextResponse.json(
-      { error: 'Billing is not configured yet.', code: 'billing_not_configured', billing: summary },
+      { error: 'Billing is not enabled yet.', code: 'billing_not_enabled', billing: summary },
       { status: 503 }
     );
   }

@@ -67,8 +67,14 @@ type EarlyAdopterClaimCount = {
 
 const ACTIVE_BILLING_STATUSES = new Set(['active', 'trialing']);
 const GRACE_BILLING_STATUSES = new Set(['past_due']);
+const ENABLED_FLAG_VALUES = new Set(['1', 'true', 'yes', 'on', 'enabled']);
 
-function billingConfigReady(): boolean {
+export function isBillingFeatureEnabled(): boolean {
+  const value = process.env.OURTRIPS_BILLING_ENABLED?.trim().toLowerCase();
+  return value ? ENABLED_FLAG_VALUES.has(value) : false;
+}
+
+function stripeBillingConfigReady(): boolean {
   return Boolean(
     process.env.STRIPE_SECRET_KEY?.trim()
     && process.env.STRIPE_WEBHOOK_SECRET?.trim()
@@ -164,6 +170,17 @@ export async function loadBillingProfile(admin: AdminClient, userId: string): Pr
   return data ? { ...(data as unknown as BillingProfile), billing_schema_ready: true } : null;
 }
 
+async function loadBillingBaseProfile(admin: AdminClient, userId: string): Promise<Pick<BillingProfile, 'id' | 'role'> | null> {
+  const { data, error } = await admin
+    .from('profiles')
+    .select('id, role')
+    .eq('id', userId)
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  return data ? data as Pick<BillingProfile, 'id' | 'role'> : null;
+}
+
 async function countEarlyAdopterClaims(admin: AdminClient, now = new Date()): Promise<EarlyAdopterClaimCount> {
   const { data, error } = await admin
     .from('billing_early_adopter_reservations')
@@ -185,8 +202,55 @@ async function countEarlyAdopterClaims(admin: AdminClient, now = new Date()): Pr
   return { claimed, schemaReady: true };
 }
 
+function disabledBillingSummary(
+  profile: Pick<BillingProfile, 'id' | 'role'> | null,
+  tripCount: number
+): BillingSummary {
+  const isAdmin = profile?.role === 'admin';
+  const tripsRemaining = Math.max(0, FREE_TRIP_LIMIT - tripCount);
+
+  return {
+    billing_enabled: false,
+    plan: isAdmin ? 'admin' : 'free',
+    status: isAdmin ? 'admin' : 'free',
+    is_admin: isAdmin,
+    access_active: isAdmin,
+    can_create_trip: true,
+    trip_count: tripCount,
+    free_trip_limit: FREE_TRIP_LIMIT,
+    trips_remaining: tripsRemaining,
+    stripe_customer_id: null,
+    stripe_subscription_id: null,
+    current_period_end: null,
+    cancel_at_period_end: false,
+    pro: {
+      price_label: process.env.OURTRIPS_PRO_PRICE_LABEL?.trim() || PRO_PRICE_LABEL,
+    },
+    early_adopter: {
+      price_label: process.env.OURTRIPS_EARLY_ADOPTER_PRICE_LABEL?.trim() || EARLY_ADOPTER_PRICE_LABEL,
+      years: EARLY_ADOPTER_YEARS,
+      limit: EARLY_ADOPTER_LIMIT,
+      claimed: 0,
+      remaining: EARLY_ADOPTER_LIMIT,
+      available: false,
+      claim_number: null,
+      expires_at: null,
+    },
+  };
+}
+
 export async function getBillingSummary(admin: AdminClient, userId: string): Promise<BillingSummary> {
   const now = new Date();
+
+  if (!isBillingFeatureEnabled()) {
+    const [profile, tripCount] = await Promise.all([
+      loadBillingBaseProfile(admin, userId),
+      countPersonalTrips(admin, userId),
+    ]);
+
+    return disabledBillingSummary(profile, tripCount);
+  }
+
   const [profile, tripCount, earlyAdopterClaims] = await Promise.all([
     loadBillingProfile(admin, userId),
     countPersonalTrips(admin, userId),
@@ -195,7 +259,7 @@ export async function getBillingSummary(admin: AdminClient, userId: string): Pro
 
   const isAdmin = profile?.role === 'admin';
   const schemaReady = (profile?.billing_schema_ready ?? true) && earlyAdopterClaims.schemaReady;
-  const enabled = billingConfigReady() && schemaReady;
+  const enabled = stripeBillingConfigReady() && schemaReady;
   const accessActive = billingProfileHasActiveAccess(profile, now);
   const tripsRemaining = Math.max(0, FREE_TRIP_LIMIT - tripCount);
   const plan = normalizeBillingPlan(profile, accessActive);

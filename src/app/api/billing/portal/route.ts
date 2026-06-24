@@ -24,6 +24,13 @@ export async function POST(request: NextRequest) {
 
   try {
     const billing = await getBillingSummary(createAdminClient(), user.id);
+    if (!billing.billing_enabled) {
+      return NextResponse.json(
+        { error: 'Billing is not enabled yet.', code: 'billing_not_enabled', billing },
+        { status: 503 }
+      );
+    }
+
     if (!billing.stripe_customer_id) {
       return NextResponse.json(
         { error: 'No Stripe customer exists for this account yet.' },

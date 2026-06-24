@@ -94,7 +94,7 @@ function normalizeDashTrip(trip: DashTrip): DashTrip {
 function localBillingSummary(tripCount: number): BillingSummary {
   const freeTripLimit = 3;
   return {
-    billing_enabled: true,
+    billing_enabled: false,
     plan: 'free',
     status: 'local',
     is_admin: false,
@@ -113,7 +113,7 @@ function localBillingSummary(tripCount: number): BillingSummary {
       limit: 500,
       claimed: 0,
       remaining: 500,
-      available: true,
+      available: false,
       claim_number: null,
       expires_at: null,
     },
@@ -608,7 +608,7 @@ export default function DashboardClient({ initialAgentOpen = false }: DashboardC
                       Travel profile
                     </Link>
                   )}
-                  {online && billing?.stripe_customer_id && (
+                  {online && billing?.billing_enabled && billing.stripe_customer_id && (
                     <button
                       className="dash-settings-item"
                       onClick={() => { setSettingsOpen(false); void openBillingPortal(); }}
