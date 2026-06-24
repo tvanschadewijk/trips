@@ -37,7 +37,6 @@ import {
   type TravelProfilePreferences,
 } from '@/lib/travel-profile';
 import '@/styles/dashboard.css';
-import '@/styles/trip-create.css';
 
 interface DashTrip {
   id: string;
