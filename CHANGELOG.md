@@ -4,6 +4,11 @@ Selected product updates for OurTrips.
 
 ## Unreleased
 
+## 2026-06-24 - 0.2.11 - Chat activity labels
+
+### Changed
+- Hid the internal inferred-confidence chip from the travel agent activity trail.
+
 ## 2026-06-24 - 0.2.10 - Dashboard card corners
 
 ### Changed

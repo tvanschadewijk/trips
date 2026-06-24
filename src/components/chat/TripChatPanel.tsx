@@ -1435,7 +1435,6 @@ function ProgressIcon({ event, size = 14 }: { event: ChatProgressEvent; size?: n
 function progressMeta(event: ChatProgressEvent): string[] {
   return [
     event.source_label,
-    event.confidence === 'inferred' ? 'Inferred' : null,
     event.status === 'completed' ? 'Done' : null,
   ].filter((value): value is string => Boolean(value));
 }
