@@ -4,6 +4,11 @@ Selected product updates for OurTrips.
 
 ## Unreleased
 
+## 2026-06-24 - 0.2.10 - Dashboard card corners
+
+### Changed
+- Matched dashboard trip cards to the trip cover's sharper paper-card geometry with smaller corners and the same warm body surface.
+
 ## 2026-06-24 - 0.2.9 - Desktop cover travel agent CTA
 
 ### Changed

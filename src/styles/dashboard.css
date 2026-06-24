@@ -569,10 +569,10 @@
 /* Card — white paper sheet on warm paper canvas */
 .dash-card {
   position: relative;
-  background: #F8F2E8;
+  background: #FBF7F1;
   border: 1px solid #E8E1D6;
-  border-radius: 12px;
-  overflow: visible;
+  border-radius: 4px;
+  overflow: hidden;
   transition: border-color 0.2s, transform 0.25s, box-shadow 0.25s;
   box-shadow: rgba(26, 20, 16, 0.04) 0 1px 0 0, rgba(26, 20, 16, 0.06) 0 4px 16px -4px;
 }
@@ -589,7 +589,7 @@
   position: relative;
   height: 220px;
   overflow: hidden;
-  border-radius: 11px 11px 0 0;
+  border-radius: 3px 3px 0 0;
 }
 .dash-card-hero-frame {
   position: relative;
