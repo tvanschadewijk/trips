@@ -5,9 +5,9 @@ const PRODUCT_NAME = process.env.OURTRIPS_STRIPE_PRODUCT_NAME || 'OurTrips Pro';
 const PRODUCT_METADATA_KEY = 'ourtrips_app';
 const PRODUCT_METADATA_VALUE = 'ourtrips';
 const PRO_LOOKUP_KEY = process.env.STRIPE_PRO_LOOKUP_KEY || 'ourtrips_pro_monthly';
-const EARLY_LOOKUP_KEY = process.env.STRIPE_EARLY_ADOPTER_LOOKUP_KEY || 'ourtrips_early_adopter_3y';
+const EARLY_LOOKUP_KEY = process.env.STRIPE_EARLY_ADOPTER_LOOKUP_KEY || 'ourtrips_early_adopter_annual_249';
 const PRO_AMOUNT_CENTS = Number(process.env.OURTRIPS_PRO_MONTHLY_AMOUNT_CENTS || 795);
-const EARLY_AMOUNT_CENTS = Number(process.env.OURTRIPS_EARLY_ADOPTER_AMOUNT_CENTS || 2995);
+const EARLY_AMOUNT_CENTS = Number(process.env.OURTRIPS_EARLY_ADOPTER_AMOUNT_CENTS || 2988);
 const PUBLIC_ORIGIN = (process.env.OURTRIPS_PUBLIC_ORIGIN || 'https://ourtrips.to').replace(/\/+$/, '');
 const WEBHOOK_URL = process.env.STRIPE_WEBHOOK_URL || `${PUBLIC_ORIGIN}/api/stripe/webhook`;
 const WEBHOOK_EVENTS = [
@@ -26,7 +26,7 @@ function usage() {
 Optional env:
   OURTRIPS_PUBLIC_ORIGIN=https://ourtrips.to
   OURTRIPS_PRO_MONTHLY_AMOUNT_CENTS=795
-  OURTRIPS_EARLY_ADOPTER_AMOUNT_CENTS=2995
+  OURTRIPS_EARLY_ADOPTER_AMOUNT_CENTS=2988
   STRIPE_PRO_LOOKUP_KEY=${PRO_LOOKUP_KEY}
   STRIPE_EARLY_ADOPTER_LOOKUP_KEY=${EARLY_LOOKUP_KEY}
   STRIPE_WEBHOOK_URL=${WEBHOOK_URL}
@@ -182,10 +182,10 @@ const proResult = await ensurePrice({
 const earlyResult = await ensurePrice({
   productId: productResult.product.id,
   lookupKey: EARLY_LOOKUP_KEY,
-  nickname: 'OurTrips Early Adopter - 3 years',
+  nickname: 'OurTrips Early Adopter Annual',
   amount: EARLY_AMOUNT_CENTS,
   interval: 'year',
-  intervalCount: 3,
+  intervalCount: 1,
 });
 const webhookResult = await ensureWebhookEndpoint();
 

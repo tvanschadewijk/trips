@@ -5,8 +5,9 @@ type AdminClient = SupabaseClient;
 
 export const FREE_TRIP_LIMIT = 3;
 export const EARLY_ADOPTER_LIMIT = 500;
-export const EARLY_ADOPTER_YEARS = 3;
-export const EARLY_ADOPTER_PRICE_LABEL = '€29.95';
+export const EARLY_ADOPTER_PRICE_LABEL = '€2,49/month';
+export const EARLY_ADOPTER_ANNUAL_PRICE_LABEL = '€29,88/year';
+export const EARLY_ADOPTER_BILLING_NOTE = 'paid annually';
 export const PRO_PRICE_LABEL = '€7.95/month';
 
 export type BillingPlan = 'free' | 'pro' | 'early_adopter' | 'admin';
@@ -45,7 +46,7 @@ export type BillingSummary = {
   };
   early_adopter: {
     price_label: string;
-    years: number;
+    billing_note: string;
     limit: number;
     claimed: number;
     remaining: number;
@@ -228,7 +229,7 @@ function disabledBillingSummary(
     },
     early_adopter: {
       price_label: process.env.OURTRIPS_EARLY_ADOPTER_PRICE_LABEL?.trim() || EARLY_ADOPTER_PRICE_LABEL,
-      years: EARLY_ADOPTER_YEARS,
+      billing_note: process.env.OURTRIPS_EARLY_ADOPTER_BILLING_NOTE?.trim() || EARLY_ADOPTER_BILLING_NOTE,
       limit: EARLY_ADOPTER_LIMIT,
       claimed: 0,
       remaining: EARLY_ADOPTER_LIMIT,
@@ -284,7 +285,7 @@ export async function getBillingSummary(admin: AdminClient, userId: string): Pro
     },
     early_adopter: {
       price_label: process.env.OURTRIPS_EARLY_ADOPTER_PRICE_LABEL?.trim() || EARLY_ADOPTER_PRICE_LABEL,
-      years: EARLY_ADOPTER_YEARS,
+      billing_note: process.env.OURTRIPS_EARLY_ADOPTER_BILLING_NOTE?.trim() || EARLY_ADOPTER_BILLING_NOTE,
       limit: EARLY_ADOPTER_LIMIT,
       claimed: earlyAdopterClaims.claimed,
       remaining: earlyAdopterRemaining,

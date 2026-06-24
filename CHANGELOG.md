@@ -4,6 +4,13 @@ Selected product updates for OurTrips.
 
 ## Unreleased
 
+## 2026-06-24 - 0.2.6 - Annual early adopter pricing
+
+### Changed
+- Changed the early adopter offer to €2,49 per month, paid annually at €29,88/year.
+- Added a public pricing page and updated dashboard billing copy to present the annual early adopter plan clearly.
+- Updated the Stripe setup script, billing docs, and environment examples for the new annual early adopter price.
+
 ## 2026-06-24 - 0.2.5 - Cached itinerary map places
 
 ### Changed

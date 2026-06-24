@@ -74,7 +74,7 @@ type BillingSummary = {
   };
   early_adopter: {
     price_label: string;
-    years: number;
+    billing_note: string;
     limit: number;
     claimed: number;
     remaining: number;
@@ -108,8 +108,8 @@ function localBillingSummary(tripCount: number): BillingSummary {
     cancel_at_period_end: false,
     pro: { price_label: '€7.95/month' },
     early_adopter: {
-      price_label: '€29.95',
-      years: 3,
+      price_label: '€2,49/month',
+      billing_note: 'paid annually',
       limit: 500,
       claimed: 0,
       remaining: 500,
@@ -203,7 +203,7 @@ function BillingPanel({
           <span>Early adopter</span>
         </div>
         <p>
-          {billing.early_adopter.price_label} for {billing.early_adopter.years} years.
+          {billing.early_adopter.price_label}, {billing.early_adopter.billing_note}.
           {' '}
           {billing.early_adopter.remaining} of {billing.early_adopter.limit} spots left.
         </p>
@@ -259,7 +259,7 @@ function BillingLimitModal({
         <p>
           Your first {billing.free_trip_limit} trips are included. The early adopter deal is still available:
           {' '}
-          {billing.early_adopter.price_label} for {billing.early_adopter.years} years,
+          {billing.early_adopter.price_label}, {billing.early_adopter.billing_note},
           with {billing.early_adopter.remaining} spots left.
         </p>
         {message && <div className="dash-billing-error">{message}</div>}

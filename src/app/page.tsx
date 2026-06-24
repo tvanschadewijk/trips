@@ -189,6 +189,7 @@ export default async function Home() {
         actions={
           <div className="landing-nav-links">
             <Link href="/itineraries" className="landing-nav-link">Examples</Link>
+            <Link href="/pricing" className="landing-nav-link">Pricing</Link>
             <Link href="/blog" className="landing-nav-link">Journal</Link>
             <Link href="/changelog" className="landing-nav-link">Changelog</Link>
             <Link href="/login" className="landing-btn-outline">Log in</Link>
