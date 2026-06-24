@@ -4,6 +4,11 @@ Selected product updates for OurTrips.
 
 ## Unreleased
 
+## 2026-06-24 - 0.3.0 - Paste-first trip creation
+
+### Added
+- Added a paste-first new-trip path so travelers can paste an existing itinerary, markdown plan, or agent draft, auto-fill core details when possible, and create the trip without completing the full guided brief.
+
 ## 2026-06-24 - 0.2.12 - Scroll-hiding trip top bar
 
 ### Improved

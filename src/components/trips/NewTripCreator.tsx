@@ -36,8 +36,10 @@ import {
   referenceFileIsImage,
   type TripReferenceSource,
 } from '@/lib/trip-references';
+import { inferPastedItineraryDetails } from '@/lib/pasted-itinerary';
 import {
   createBlankTravelerProfile,
+  legacyTravelersToProfiles,
   summarizeTravelerProfiles,
   type TravelerProfile,
   type TravelProfilePreferences,
@@ -128,6 +130,8 @@ const NEW_TRIP_MIN_VISIBLE_SHEET_PX = 176;
 const NEW_TRIP_SWIPE_CLOSE_THRESHOLD_PX = 68;
 const NEW_TRIP_AGENT_SHEET_ENTER_MS = 500;
 const NEW_TRIP_AGENT_SHEET_EXIT_MS = 320;
+const PASTED_ITINERARY_NOTE =
+  'The user pasted an existing itinerary or agent draft at trip creation. Treat the pasted reference material as the primary source, preserving explicit day order, dates, stays, bookings, place names, and open decisions while converting it into an OurTrips guide.';
 
 function isEditableElement(value: Element | null): value is HTMLElement {
   if (!(value instanceof HTMLElement)) return false;
@@ -246,8 +250,8 @@ function clampEndAfterStart(startDate: string, endDate: string): string {
   return addDaysIso(startDate, 5);
 }
 
-function travelerSummary(profiles: TravelerProfile[]): string {
-  return summarizeTravelerProfiles(profiles) || 'No travelers selected';
+function travelerSummary(profiles: TravelerProfile[], fallback = ''): string {
+  return summarizeTravelerProfiles(profiles) || fallback.trim() || 'No travelers selected';
 }
 
 function referenceAnswerSummary(referenceText: string, sources: TripReferenceSource[]): string {
@@ -265,6 +269,11 @@ function generationEstimate(dayCount: number, elapsedSeconds: number): string {
   }
   const remainingMinutes = Math.max(1, Math.ceil(remainingSeconds / 60));
   return `Trips this size usually take ${dayCount > 14 ? '4-6' : '3-5'} minutes. Roughly ${remainingMinutes} minute${remainingMinutes === 1 ? '' : 's'} may remain.`;
+}
+
+function withPastedItineraryNote(notes: string): string {
+  const trimmed = notes.trim();
+  return trimmed ? `${PASTED_ITINERARY_NOTE}\n\n${trimmed}` : PASTED_ITINERARY_NOTE;
 }
 
 async function updateGeneration(
@@ -340,6 +349,7 @@ export default function NewTripCreator({
     reference_sources: [],
   });
   const [activeQuestion, setActiveQuestion] = useState<BriefQuestion>('destination');
+  const [entryMode, setEntryMode] = useState<'guided' | 'pasted'>('guided');
   const [completedQuestions, setCompletedQuestions] = useState<BriefQuestion[]>([]);
   const [busy, setBusy] = useState(false);
   const [generationStep, setGenerationStep] = useState<GenerationStep>('idle');
@@ -363,11 +373,21 @@ export default function NewTripCreator({
   const touchStartYRef = useRef<number | null>(null);
   const sheetTouchLastYRef = useRef<number | null>(null);
   const sheetTouchScrollableRef = useRef<HTMLElement | null>(null);
+  const pasteAutofillRef = useRef({
+    destination: '',
+    start_date: '',
+    end_date: '',
+    travelers: '',
+  });
 
   const currentQuestionIndex = questionOrder.indexOf(activeQuestion);
   const dayCount = inclusiveDayCount(form.start_date, form.end_date);
   const working = generationStep !== 'idle' && generationStep !== 'error';
   const completed = generationStep === 'done' && Boolean(completedTripUrl);
+  const pastedItineraryDetails = useMemo(
+    () => inferPastedItineraryDetails(form.reference_text),
+    [form.reference_text]
+  );
 
   useEffect(() => {
     if (!busy) return;
@@ -588,7 +608,71 @@ export default function NewTripCreator({
     }));
   }
 
+  function setTravelerText(value: string) {
+    const profiles = legacyTravelersToProfiles(value);
+    setForm((current) => ({
+      ...current,
+      travelers: value,
+      traveler_profiles: profiles,
+    }));
+  }
+
+  function setPastedItineraryText(value: string) {
+    const inferred = inferPastedItineraryDetails(value);
+
+    setForm((current) => {
+      const previousAutofill = pasteAutofillRef.current;
+      const next = { ...current, reference_text: value };
+      const nextAutofill = { ...previousAutofill };
+
+      if (
+        inferred.destination &&
+        (!current.destination.trim() || current.destination === previousAutofill.destination)
+      ) {
+        next.destination = inferred.destination;
+        nextAutofill.destination = inferred.destination;
+      }
+
+      if (
+        inferred.start_date &&
+        inferred.end_date &&
+        (
+          (current.start_date === previousAutofill.start_date &&
+            current.end_date === previousAutofill.end_date) ||
+          (current.start_date === defaultStart && current.end_date === defaultEnd)
+        )
+      ) {
+        next.start_date = inferred.start_date;
+        next.end_date = inferred.end_date;
+        nextAutofill.start_date = inferred.start_date;
+        nextAutofill.end_date = inferred.end_date;
+      }
+
+      const hasNamedTravelers = current.traveler_profiles.some((profile) => profile.full_name.trim());
+      if (
+        inferred.travelers &&
+        !hasNamedTravelers &&
+        (!current.travelers.trim() || current.travelers === previousAutofill.travelers)
+      ) {
+        next.travelers = inferred.travelers;
+        next.traveler_profiles = legacyTravelersToProfiles(inferred.travelers);
+        nextAutofill.travelers = inferred.travelers;
+      }
+
+      pasteAutofillRef.current = nextAutofill;
+      return next;
+    });
+  }
+
+  function jumpToPastedReview(nextForm = form) {
+    setForm(nextForm);
+    setCompletedQuestions(questionOrder.filter((question) => question !== 'review'));
+    setEntryMode('pasted');
+    setActiveQuestion('review');
+  }
+
   function completeQuestion(question: BriefQuestion, next: BriefQuestion) {
+    setEntryMode('guided');
     setCompletedQuestions((current) => (
       current.includes(question) ? current : [...current, question]
     ));
@@ -596,12 +680,20 @@ export default function NewTripCreator({
   }
 
   function goBack() {
+    if (entryMode === 'pasted' && activeQuestion === 'review') {
+      setEntryMode('guided');
+      setActiveQuestion('references');
+      return;
+    }
+
     const index = questionOrder.indexOf(activeQuestion);
     if (index <= 0 || busy) return;
     setActiveQuestion(questionOrder[index - 1]);
   }
 
   function isVisible(question: BriefQuestion) {
+    if (entryMode === 'pasted' && activeQuestion === 'review') return question === 'review';
+
     const index = questionOrder.indexOf(question);
     return index <= currentQuestionIndex || completedQuestions.includes(question);
   }
@@ -610,15 +702,23 @@ export default function NewTripCreator({
     return completedQuestions.includes(question);
   }
 
-  async function createTrip() {
+  async function createTrip(options: {
+    formOverride?: FormState;
+    source?: 'guided' | 'pasted';
+  } = {}) {
     if (busy) return;
 
-    const travelers = summarizeTravelerProfiles(form.traveler_profiles);
+    const sourceForm = options.formOverride ?? form;
+    const profileTravelers = summarizeTravelerProfiles(sourceForm.traveler_profiles);
+    const travelers = profileTravelers || sourceForm.travelers;
     const payload = {
-      ...form,
+      ...sourceForm,
       travelers,
-      traveler_profiles: form.traveler_profiles.filter((profile) => profile.full_name.trim()),
-      end_date: clampEndAfterStart(form.start_date, form.end_date),
+      traveler_profiles: sourceForm.traveler_profiles.filter((profile) => profile.full_name.trim()),
+      notes: options.source === 'pasted'
+        ? withPastedItineraryNote(sourceForm.notes)
+        : sourceForm.notes,
+      end_date: clampEndAfterStart(sourceForm.start_date, sourceForm.end_date),
     };
 
     let draft: DraftResponse | null = null;
@@ -630,7 +730,9 @@ export default function NewTripCreator({
 
     try {
       setGenerationStep('draft');
-      setStatusText('Creating the trip workspace and saving your brief...');
+      setStatusText(options.source === 'pasted'
+        ? 'Creating the trip workspace from your pasted itinerary...'
+        : 'Creating the trip workspace and saving your brief...');
       const draftRes = await fetch('/api/trips/create-draft', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -649,7 +751,9 @@ export default function NewTripCreator({
       router.prefetch(tripUrl);
 
       setGenerationStep('agent');
-      setStatusText('Starting the travel agent with the destination, dates, travelers, profile context, and reference material...');
+      setStatusText(options.source === 'pasted'
+        ? 'Starting the travel agent with the pasted itinerary, dates, travelers, profile context, and reference material...'
+        : 'Starting the travel agent with the destination, dates, travelers, profile context, and reference material...');
       const chatRes = await fetch(`/api/trips/${draft.trip_id}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -710,6 +814,17 @@ export default function NewTripCreator({
     }
   }
 
+  function createFromPastedItinerary() {
+    const pastedForm = {
+      ...form,
+      reference_text: form.reference_text.trim(),
+      destination: form.destination.trim(),
+      end_date: clampEndAfterStart(form.start_date, form.end_date),
+    };
+    jumpToPastedReview(pastedForm);
+    void createTrip({ formOverride: pastedForm, source: 'pasted' });
+  }
+
   const creatorContent = (
     <div className="trip-create-shell">
       <section className="trip-create-main trip-agent-panel" aria-label="New trip agent questions">
@@ -741,6 +856,36 @@ export default function NewTripCreator({
         </div>
 
         <div className="trip-agent-chat" data-trip-agent-chat>
+          <PasteItineraryLauncher
+            referenceText={form.reference_text}
+            destination={form.destination}
+            startDate={form.start_date}
+            endDate={form.end_date}
+            travelers={summarizeTravelerProfiles(form.traveler_profiles) || form.travelers}
+            detectedDestination={pastedItineraryDetails.destination}
+            detectedStartDate={pastedItineraryDetails.start_date}
+            detectedEndDate={pastedItineraryDetails.end_date}
+            disabled={busy}
+            onReferenceTextChange={setPastedItineraryText}
+            onDestinationChange={(value) => setField('destination', value)}
+            onStartDateChange={(value) => {
+              setForm((current) => ({
+                ...current,
+                start_date: value,
+                end_date: clampEndAfterStart(value, current.end_date),
+              }));
+            }}
+            onEndDateChange={(value) => setField('end_date', clampEndAfterStart(form.start_date, value))}
+            onTravelersChange={setTravelerText}
+            onReview={() => jumpToPastedReview({
+              ...form,
+              reference_text: form.reference_text.trim(),
+              destination: form.destination.trim(),
+              end_date: clampEndAfterStart(form.start_date, form.end_date),
+            })}
+            onCreate={createFromPastedItinerary}
+          />
+
           <AgentBubble>
             I will gather the brief in the same place the trip gets built. Once the basics are clear, I will start the travel agent and keep you posted while it works.
           </AgentBubble>
@@ -791,7 +936,7 @@ export default function NewTripCreator({
             complete={isComplete('travelers')}
             active={activeQuestion === 'travelers'}
             question="Who is traveling?"
-            answer={travelerSummary(form.traveler_profiles)}
+            answer={travelerSummary(form.traveler_profiles, form.travelers)}
           >
             <TravelerAnswerControl
               profiles={form.traveler_profiles}
@@ -924,7 +1069,7 @@ export default function NewTripCreator({
                 error={error}
                 draftUrl={draftUrl}
                 completedTripUrl={completedTripUrl}
-                onCreate={createTrip}
+                onCreate={() => void createTrip({ source: entryMode === 'pasted' ? 'pasted' : 'guided' })}
               />
               {completed && (
                 <AgentBubble>
@@ -1393,6 +1538,144 @@ function ReferenceAnswerControl({
   );
 }
 
+function PasteItineraryLauncher({
+  referenceText,
+  destination,
+  startDate,
+  endDate,
+  travelers,
+  detectedDestination,
+  detectedStartDate,
+  detectedEndDate,
+  disabled,
+  onReferenceTextChange,
+  onDestinationChange,
+  onStartDateChange,
+  onEndDateChange,
+  onTravelersChange,
+  onReview,
+  onCreate,
+}: {
+  referenceText: string;
+  destination: string;
+  startDate: string;
+  endDate: string;
+  travelers: string;
+  detectedDestination: string;
+  detectedStartDate: string;
+  detectedEndDate: string;
+  disabled: boolean;
+  onReferenceTextChange: (value: string) => void;
+  onDestinationChange: (value: string) => void;
+  onStartDateChange: (value: string) => void;
+  onEndDateChange: (value: string) => void;
+  onTravelersChange: (value: string) => void;
+  onReview: () => void;
+  onCreate: () => void;
+}) {
+  const hasPaste = referenceText.trim().length >= 20;
+  const hasDestination = destination.trim().length >= 2;
+  const hasDates = compareIsoDates(startDate, endDate) < 0;
+  const canCreate = hasPaste && hasDestination && hasDates && !disabled;
+  const detectedItems = [
+    detectedDestination ? `Destination: ${detectedDestination}` : null,
+    detectedStartDate && detectedEndDate ? `Dates: ${detectedStartDate} to ${detectedEndDate}` : null,
+  ].filter((item): item is string => Boolean(item));
+
+  return (
+    <section className="trip-paste-launcher" aria-label="Paste an existing itinerary">
+      <div className="trip-paste-heading">
+        <span className="trip-paste-icon">
+          <FileText size={16} aria-hidden="true" />
+        </span>
+        <div>
+          <h3>Already have an itinerary?</h3>
+          <p>Paste markdown, doc text, or an agent draft and start from that.</p>
+        </div>
+      </div>
+
+      <textarea
+        value={referenceText}
+        placeholder="Paste your itinerary, markdown, booking notes, or agent draft"
+        rows={6}
+        disabled={disabled}
+        onChange={(event) => onReferenceTextChange(event.target.value)}
+      />
+
+      {referenceText.trim() && (
+        <>
+          {detectedItems.length > 0 && (
+            <div className="trip-paste-detected" aria-label="Detected itinerary details">
+              {detectedItems.map((item) => <span key={item}>{item}</span>)}
+            </div>
+          )}
+
+          <div className="trip-paste-quick-fields">
+            <label>
+              <span>Trip title</span>
+              <input
+                value={destination}
+                placeholder="Japan, Sicily, Patagonia"
+                disabled={disabled}
+                onChange={(event) => onDestinationChange(event.target.value)}
+              />
+            </label>
+            <label>
+              <span>Start</span>
+              <input
+                type="date"
+                value={startDate}
+                disabled={disabled}
+                onChange={(event) => onStartDateChange(event.target.value)}
+              />
+            </label>
+            <label>
+              <span>End</span>
+              <input
+                type="date"
+                value={endDate}
+                min={addDaysIso(startDate, 1)}
+                disabled={disabled}
+                onChange={(event) => onEndDateChange(event.target.value)}
+              />
+            </label>
+            <label>
+              <span>Travelers</span>
+              <input
+                value={travelers}
+                placeholder="Optional"
+                disabled={disabled}
+                onChange={(event) => onTravelersChange(event.target.value)}
+              />
+            </label>
+          </div>
+        </>
+      )}
+
+      <div className="trip-agent-control-actions">
+        <button
+          className="trip-agent-secondary"
+          type="button"
+          disabled={disabled || !hasPaste}
+          onClick={onReview}
+        >
+          <FileText size={15} aria-hidden="true" />
+          Review first
+        </button>
+        <button
+          className="trip-create-primary"
+          type="button"
+          disabled={!canCreate}
+          onClick={onCreate}
+        >
+          Create from paste
+          <Sparkles size={16} aria-hidden="true" />
+        </button>
+      </div>
+    </section>
+  );
+}
+
 function StyleAnswerControl({
   budget,
   pace,
@@ -1742,7 +2025,7 @@ function BriefSnapshot({ form, dayCount }: { form: FormState; dayCount: number }
     ['Destination', form.destination || 'Not set'],
     ['Dates', `${formatDisplayDate(form.start_date)} to ${formatDisplayDate(form.end_date)}`],
     ['Length', `${dayCount} days`],
-    ['Travelers', travelerSummary(form.traveler_profiles)],
+    ['Travelers', travelerSummary(form.traveler_profiles, form.travelers)],
     ['Origin', form.origin || 'Not specified'],
     ['Style', `${form.budget || 'Profile budget'} / ${form.pace.replace(/_/g, ' ')}`],
     ['References', referenceAnswerSummary(form.reference_text, form.reference_sources)],
