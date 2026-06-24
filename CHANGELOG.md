@@ -4,6 +4,11 @@ Selected product updates for OurTrips.
 
 ## Unreleased
 
+## 2026-06-24 - 0.2.3 - Dashboard travel agent buttons
+
+### Fixed
+- Fixed the dashboard New trip and Ask Your Travel Agent buttons so they load the trip creator styles and open the new-trip agent sheet visibly from `/dashboard?agent=new`.
+
 ## 2026-06-24 - 0.2.2 - Billing launch flag
 
 ### Changed
