@@ -4,6 +4,11 @@ Selected product updates for OurTrips.
 
 ## Unreleased
 
+## 2026-06-24 - 0.3.2 - Bonaire reef cover refresh
+
+### Changed
+- Replaced the Bonaire Reef Week public itinerary cover with a cleaner Bonaire reef diving image.
+
 ## 2026-06-24 - 0.3.1 - Continuous cover route summary
 
 ### Fixed
