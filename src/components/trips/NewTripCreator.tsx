@@ -938,7 +938,10 @@ export default function NewTripCreator({
   } as React.CSSProperties;
 
   return (
-    <div className={`trip-new-agent-stage ${showEntryButton ? '' : 'is-floating-only'}`}>
+    <div
+      className={`trip-new-agent-stage ${showEntryButton ? '' : 'is-floating-only'}`}
+      data-agent-open={agentOpen ? 'true' : undefined}
+    >
       <AnimatePresence>
         {showEntryButton && !agentOpen && (
           <motion.button
@@ -965,7 +968,7 @@ export default function NewTripCreator({
             <motion.div
               key="new-trip-backdrop"
               className="trip-new-agent-backdrop"
-              initial={{ opacity: 0 }}
+              initial={false}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
@@ -986,7 +989,7 @@ export default function NewTripCreator({
               aria-modal="true"
               className="trip-new-agent-sheet"
               style={sheetRuntimeStyle}
-              initial={{ y: '100%' }}
+              initial={false}
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
               transition={{ type: 'spring', damping: 22, stiffness: 380, mass: 0.7 }}

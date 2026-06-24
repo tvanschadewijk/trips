@@ -167,6 +167,10 @@
   z-index: 899;
 }
 
+.trip-new-agent-stage[data-agent-open="true"] .trip-new-agent-backdrop {
+  opacity: 1 !important;
+}
+
 .trip-new-agent-sheet {
   position: fixed;
   left: 0;
@@ -190,6 +194,10 @@
   z-index: 900;
   font-family: 'Inter', system-ui, sans-serif;
   padding-bottom: env(safe-area-inset-bottom);
+}
+
+.trip-new-agent-stage[data-agent-open="true"] .trip-new-agent-sheet {
+  transform: translate3d(0, 0, 0) !important;
 }
 
 .trip-new-agent-grabber {
