@@ -66,7 +66,7 @@ Events handled:
 The early adopter offer should feel like a founding-user thank-you, not a blocking ad.
 
 - Dashboard panel: shows the free trip meter and the early adopter offer while users still have free trips left.
-- Pricing page: presents the early adopter plan as €2,49 per month, paid annually, with the annual total visible nearby.
+- Pricing page draft: presents the early adopter plan as €2,49 per month, paid annually, with the annual total visible nearby. Keep it outside public routes until launch timing and copy are approved.
 - Fourth-trip moment: shows the hard paywall only when the user tries to create the fourth trip.
 - Settings menu: exposes billing only after a Stripe customer exists.
 - Copy: use “early adopter” and “founder deal” language, with remaining spots visible as social proof.

@@ -4,6 +4,12 @@ Selected product updates for OurTrips.
 
 ## Unreleased
 
+## 2026-06-24 - 0.2.7 - Pricing page draft copy
+
+### Changed
+- Reworked the pricing page draft copy to make the free plan feel like a useful starting point instead of a looming limit.
+- Moved the pricing page into an unrouted draft component and removed the public `/pricing` nav and sitemap entries until launch timing is approved.
+
 ## 2026-06-24 - 0.2.6 - Annual early adopter pricing
 
 ### Changed
