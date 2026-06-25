@@ -25,7 +25,19 @@ test('accepts a realistic trip-meta edit', () => {
   assert.equal(result.success, true, result.success ? '' : JSON.stringify(result.error.issues));
 });
 
-test('accepts a full-days replacement', () => {
+test('accepts day patches keyed by day_number', () => {
+  const result = UpdateTripInputSchema.safeParse({
+    days: [
+      {
+        day_number: 1,
+        hero_image: 'https://images.unsplash.com/photo-ravenna?w=800&h=500&fit=crop&q=80',
+      },
+    ],
+  });
+  assert.equal(result.success, true, result.success ? '' : JSON.stringify(result.error.issues));
+});
+
+test('accepts a full day when a structural rewrite needs one', () => {
   const result = UpdateTripInputSchema.safeParse({
     days: [
       {
@@ -34,17 +46,7 @@ test('accepts a full-days replacement', () => {
         title: 'Arrival',
         description_title: 'First landing',
         description: 'Keep the first day easy: arrive, transfer cleanly, and save the city for tomorrow.',
-        blocks: [
-          { time_label: 'Morning', type: 'travel', content: 'Land at ICN' },
-        ],
-      },
-      {
-        day_number: 2,
-        date: '2026-05-02',
-        title: 'A slower day',
-        blocks: [
-          { time_label: 'Late morning', type: 'walk', content: 'Ihwa Mural Village' },
-        ],
+        blocks: [{ time_label: 'Morning', type: 'travel', content: 'Land at ICN' }],
       },
     ],
   });

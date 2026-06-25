@@ -342,6 +342,12 @@ const DaySchema = z
   })
   .passthrough();
 
+const DayPatchSchema = DaySchema.partial()
+  .extend({
+    day_number: z.number().int().positive(),
+  })
+  .passthrough();
+
 // ---------- top-level editable trip ----------
 
 /**
@@ -354,8 +360,8 @@ export const TripMetaEditableSchema = z
     subtitle: z.string().optional(),
     dates: z
       .object({
-        start: IsoDateString.describe('ISO 8601 YYYY-MM-DD'),
-        end: IsoDateString.describe('ISO 8601 YYYY-MM-DD'),
+        start: IsoDateString.describe('ISO 8601 YYYY-MM-DD').optional(),
+        end: IsoDateString.describe('ISO 8601 YYYY-MM-DD').optional(),
       })
       .optional(),
     travelers: z.array(z.string()).optional(),
@@ -378,10 +384,9 @@ export const TripMetaEditableSchema = z
  *
  *   - `trip`: partial merge into `data.trip`. Only the provided fields are
  *     updated; others are preserved.
- *   - `days`: full replacement of `data.days`. If provided, the agent must
- *     send the COMPLETE ordered array of days. Arrays can't be partial-patched
- *     cleanly under JSON Merge Patch semantics, so touching days = replacing
- *     days.
+ *   - `days`: partial day patches keyed by `day_number`. Omitted days are
+ *     preserved. Omitted fields on a patched day are preserved. Arrays inside a
+ *     patched day still replace when touched.
  *
  * The tool rejects empty objects and rejects unknown top-level keys. Immutable
  * DB columns (`id`, `user_id`, `share_id`, `created_at`, `updated_at`, and
@@ -395,7 +400,7 @@ export const TripMetaEditableSchema = z
  */
 export const UpdateTripInputShape = {
   trip: TripMetaEditableSchema.optional(),
-  days: z.array(DaySchema).optional(),
+  days: z.array(DayPatchSchema).optional(),
   /**
    * Optional updated markdown source. Sent verbatim from the agent and
    * stored verbatim. Empty string clears the field. Cap: 256 KB.

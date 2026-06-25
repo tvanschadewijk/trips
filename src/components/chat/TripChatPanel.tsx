@@ -39,6 +39,7 @@ import {
   Compass,
   Globe2,
   Hotel,
+  Image as ImageIcon,
   Link as LinkIcon,
   MapPin,
   MessageCircle,
@@ -1404,6 +1405,10 @@ function ProgressIcon({ event, size = 14 }: { event: ChatProgressEvent; size?: n
         ? CheckCircle2
         : event.stage === 'researching' && event.source === 'web'
           ? Globe2
+          : event.source === 'unsplash' ||
+              event.source === 'imagegen' ||
+              objectType.includes('image')
+            ? ImageIcon
           : event.stage === 'researching'
             ? Search
             : event.stage === 'booking'

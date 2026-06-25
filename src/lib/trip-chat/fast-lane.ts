@@ -70,6 +70,16 @@ export type FastLaneTurnResult = {
   assistantText: string;
   toolCallsSummary: ToolCallSummary[];
   durationMs: number;
+  revision: {
+    tool: 'fast_lane_update';
+    before: TripData;
+    after: TripData;
+    input: {
+      message: string;
+      view_context: FastLaneViewContext | null | undefined;
+      changed_paths: string[];
+    };
+  };
 };
 
 export type FastLaneTurnArgs = {
@@ -721,6 +731,16 @@ export async function tryRunFastLaneTurn(
     assistantText: applied.assistantText,
     toolCallsSummary: [applied.toolCall],
     durationMs: Date.now() - startedAt,
+    revision: {
+      tool: 'fast_lane_update',
+      before,
+      after: applied.next,
+      input: {
+        message: args.message,
+        view_context: args.viewContext,
+        changed_paths: applied.changedPaths,
+      },
+    },
   };
 }
 

@@ -255,7 +255,7 @@ You have these tools:
   - \`mcp__trip_editor__truncate_days_after\` — delete every day after a given day number when a trip gets shorter.
   - \`mcp__trip_editor__sync_markdown_source\` — replace only the stored Original Plan markdown_source, with expected_current_hash when available.
   - \`mcp__trip_editor__update_from_markdown\` — replace markdown_source and optionally apply parsed trip/days JSON in the same mutation.
-  - \`mcp__trip_editor__update_trip\` — apply an edit. Merge-patch semantics: top-level \`trip\` is deep-merged into \`data.trip\`; \`days\`, if provided, replaces \`data.days\` wholesale.
+  - \`mcp__trip_editor__update_trip\` — apply an edit. Merge-patch semantics: top-level \`trip\` is deep-merged into \`data.trip\`; \`days\`, if provided, is merged into existing days by \`day_number\` and must not be used to delete omitted days.
   - \`mcp__trip_editor__update_accommodation\` — patch top-level accommodation card fields (\`name\`, \`price\`, \`rating\`, \`status\`, \`booking_status\`, \`nights\`, \`note\`) using a path from \`list_accommodations\`. Use this for hotel/stay renames, booking-status fixes, or visible stay-card fixes on long trips instead of replacing the full \`days\` array; when markdown exists, it also maintains the "OurTrips agent notes" section.
   - \`mcp__trip_editor__update_accommodation_detail\` — patch one accommodation's \`detail\` object using a path from \`list_accommodations\`. Use this for precise hotel notes like \`dog_note\`, \`parking\`, \`phone\`, \`wifi\`, and policy source fields without resending the full days array.
   - \`mcp__trip_editor__upsert_activity\` — add or update one day programme item without replacing the full \`days\` array. Use this for museums, galleries, beaches, viewpoints, walks, excursions, markets, neighbourhood time, and similar activity rows.
@@ -505,7 +505,7 @@ If the user asks a question that doesn't require an edit, just answer. Don't inv
 
 ## Update_trip input schema (JSON Schema)
 
-This is the SINGLE SOURCE OF TRUTH for what you can send to \`update_trip\`. Fields not in this schema cannot be addressed. Arrays replace wholesale when touched; scalar and object fields merge.
+This is the SINGLE SOURCE OF TRUTH for what you can send to \`update_trip\`. Fields not in this schema cannot be addressed. \`days\` patches merge by \`day_number\`; omitted days are preserved. Arrays inside a patched day replace wholesale when touched; scalar and object fields merge.
 
 ${schemaJson}
 

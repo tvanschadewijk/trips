@@ -19,6 +19,15 @@ export const POLICY_RESEARCH_STATUS_PHASES = [
   'Writing the reply...',
 ] as const;
 
+export const IMAGE_EDIT_STATUS_PHASES = [
+  'Reading your image request...',
+  'Checking current image coverage...',
+  'Searching image sources...',
+  'Preparing the selected image update...',
+  'Saving trip photography...',
+  'Writing the reply...',
+] as const;
+
 export type ChatProgressStage =
   | 'queued'
   | 'starting'
@@ -56,6 +65,7 @@ export interface ChatProgressEvent extends ChatProgressUpdate {
 }
 
 const POLICY_RESEARCH_RE = /\b(dog|dogs|pet|pets|policy|policies|allowed|hotel|hotels|stay|stays|accommodation|accommodations)\b/i;
+const IMAGE_EDIT_RE = /\b(image|images|photo|photos|picture|pictures|photography|hero|cover|aerial|drone|unsplash|afbeelding|afbeeldingen|foto|fotos|luchtfoto|hero-image)\b/i;
 
 function normalizeToolName(toolName: string): string {
   return toolName.replace(/^mcp__trip_editor__/, '');
@@ -173,6 +183,22 @@ function webSearchLabel(input: Record<string, unknown> | null): string | undefin
   );
 }
 
+function imageSearchLabel(input: Record<string, unknown> | null): string | undefined {
+  return (
+    queryLabel(input?.query) ??
+    queryLabel(input?.q) ??
+    queryLabel(input?.destination) ??
+    queryLabel(input?.place)
+  );
+}
+
+function imageTargetLabel(input: Record<string, unknown> | null): string | undefined {
+  const target = cleanLabel(input?.target);
+  const dayNumber = numberField(input, 'day_number');
+  if (target === 'day_hero' && dayNumber) return `Day ${dayNumber}`;
+  return target?.replace(/_/g, ' ');
+}
+
 function policyName(policyType: string | undefined): string {
   return policyType === 'pet_policy' ? 'pet policy' : 'dog policy';
 }
@@ -240,9 +266,9 @@ function getTripProgress(input: Record<string, unknown> | null): ChatProgressUpd
 }
 
 export function getChatStatusPhases(message: string): readonly string[] {
-  return POLICY_RESEARCH_RE.test(message)
-    ? POLICY_RESEARCH_STATUS_PHASES
-    : DEFAULT_CHAT_STATUS_PHASES;
+  if (IMAGE_EDIT_RE.test(message)) return IMAGE_EDIT_STATUS_PHASES;
+  if (POLICY_RESEARCH_RE.test(message)) return POLICY_RESEARCH_STATUS_PHASES;
+  return DEFAULT_CHAT_STATUS_PHASES;
 }
 
 export function getToolProgressUpdate(
@@ -306,6 +332,30 @@ export function getToolProgressUpdate(
       action: 'list',
       object_type: 'accommodation_review',
       message: 'Reading the accommodation shortlist...',
+    });
+  }
+  if (normalized === 'get_image_status') {
+    return observed({
+      stage: 'checking',
+      action: 'check',
+      object_type: 'trip_images',
+      source: 'ourtrips_image_tools',
+      source_label: 'Image status tool',
+      message: 'Checking trip image coverage...',
+    });
+  }
+  if (normalized === 'search_trip_images') {
+    const label = imageSearchLabel(input);
+    return observed({
+      stage: 'researching',
+      action: 'search',
+      object_type: label ? 'image_query' : 'trip_images',
+      object_label: label,
+      source: 'unsplash',
+      source_label: 'Image search',
+      message: label
+        ? `Searching trip images for "${label}"...`
+        : 'Searching trip images...',
     });
   }
   if (normalized === 'research_place_policy') {
@@ -531,23 +581,37 @@ export function getToolProgressUpdate(
     });
   }
   if (normalized === 'set_trip_image') {
-    const target = cleanLabel(input?.target);
+    const target = imageTargetLabel(input);
     return observed({
       stage: 'editing',
       action: 'save',
       object_type: 'trip_image',
       object_label: target,
+      source: 'ourtrips_image_tools',
+      source_label: 'Image save tool',
       message: target
-        ? `Saving ${target.replace(/_/g, ' ')} photography...`
+        ? `Saving ${target} photography...`
         : 'Saving trip photography...',
     });
   }
   if (normalized === 'complete_missing_images') {
     return observed({
-      stage: 'editing',
-      action: 'save',
+      stage: 'researching',
+      action: 'complete',
       object_type: 'trip_images',
+      source: 'unsplash',
+      source_label: 'Image completion tool',
       message: 'Filling missing trip photography...',
+    });
+  }
+  if (normalized === 'get_trip_image_prompts') {
+    return observed({
+      stage: 'checking',
+      action: 'prepare',
+      object_type: 'image_prompts',
+      source: 'ourtrips_image_tools',
+      source_label: 'Image prompt tool',
+      message: 'Preparing generated-image prompts...',
     });
   }
   if (normalized === 'save_trip_image_asset') {
@@ -557,6 +621,8 @@ export function getToolProgressUpdate(
       action: 'save',
       object_type: 'trip_image_asset',
       object_label: slot,
+      source: 'imagegen',
+      source_label: 'Generated image asset',
       message: slot ? `Saving ${slot.replace(/_/g, ' ')} image asset...` : 'Saving image asset...',
     });
   }
@@ -842,14 +908,16 @@ export function getAppliedToolProgressUpdate(
     });
   }
   if (normalized === 'set_trip_image') {
-    const target = cleanLabel(input?.target);
+    const target = imageTargetLabel(input);
     return completed({
       stage: 'reviewing',
       action: 'saved',
       object_type: 'trip_image',
       object_label: target,
+      source: 'ourtrips_image_tools',
+      source_label: 'Image save tool',
       message: target
-        ? `Saved ${target.replace(/_/g, ' ')} photography.`
+        ? `Saved ${target} photography.`
         : 'Saved trip photography.',
     });
   }
@@ -858,7 +926,19 @@ export function getAppliedToolProgressUpdate(
       stage: 'reviewing',
       action: 'saved',
       object_type: 'trip_images',
+      source: 'unsplash',
+      source_label: 'Image completion tool',
       message: 'Updated missing trip photography.',
+    });
+  }
+  if (normalized === 'get_trip_image_prompts') {
+    return completed({
+      stage: 'reviewing',
+      action: 'prepared',
+      object_type: 'image_prompts',
+      source: 'ourtrips_image_tools',
+      source_label: 'Image prompt tool',
+      message: 'Prepared generated-image prompts.',
     });
   }
   if (normalized === 'save_trip_image_asset') {
@@ -868,6 +948,8 @@ export function getAppliedToolProgressUpdate(
       action: 'saved',
       object_type: 'trip_image_asset',
       object_label: slot,
+      source: 'imagegen',
+      source_label: 'Generated image asset',
       message: slot ? `Saved ${slot.replace(/_/g, ' ')} image asset.` : 'Saved image asset.',
     });
   }

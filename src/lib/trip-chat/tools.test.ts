@@ -18,6 +18,7 @@ const {
   DeleteDayInputShape,
   extractPolicySnippets,
   inferPolicyFromText,
+  mergeTrip,
   ReplaceAccommodationInputShape,
   ReplaceBookedAccommodationCandidateInputShape,
   ReplaceDayInputShape,
@@ -300,6 +301,63 @@ test('structural day and markdown schemas support safe rewrites', () => {
       mode: 'merge',
     }).success,
     true
+  );
+});
+
+test('update_trip day patches preserve unrelated itinerary days', () => {
+  const next = mergeTrip(sampleTrip, {
+    days: [
+      {
+        day_number: 3,
+        hero_image: 'https://images.unsplash.com/photo-ravenna?w=800&h=500&fit=crop&q=80',
+      },
+    ],
+  });
+
+  assert.equal(next.days.length, 3);
+  assert.deepEqual(
+    next.days.map((day) => day.day_number),
+    [1, 2, 3]
+  );
+  assert.equal(next.days[0].title, 'Amsterdam -> Glasgow');
+  assert.equal(next.days[1].title, 'Glasgow');
+  assert.equal(next.days[2].title, 'Glasgow -> Bridge of Orchy');
+  assert.deepEqual(next.days[2].blocks, sampleTrip.days[2].blocks);
+  assert.equal(
+    next.days[2].hero_image,
+    'https://images.unsplash.com/photo-ravenna?w=800&h=500&fit=crop&q=80'
+  );
+  assert.deepEqual(next.trip, sampleTrip.trip);
+});
+
+test('update_trip deep-merges trip metadata patches', () => {
+  const next = mergeTrip(sampleTrip, {
+    trip: {
+      dates: {
+        end: '2026-05-02',
+      },
+    },
+  });
+
+  assert.deepEqual(next.trip.dates, {
+    start: '2026-04-24',
+    end: '2026-05-02',
+  });
+  assert.equal(next.trip.name, 'Scotland');
+});
+
+test('update_trip rejects incomplete new-day patches', () => {
+  assert.throws(
+    () =>
+      mergeTrip(sampleTrip, {
+        days: [
+          {
+            day_number: 4,
+            hero_image: 'https://images.unsplash.com/photo-ravenna?w=800&h=500&fit=crop&q=80',
+          },
+        ],
+      }),
+    /Cannot add day 4 with a partial day patch/
   );
 });
 

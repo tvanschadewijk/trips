@@ -4,6 +4,17 @@ Selected product updates for OurTrips.
 
 ## Unreleased
 
+## 2026-06-25 - 0.5.2 - Trip chat edit safety
+
+### Fixed
+- Changed broad trip-chat day edits so `update_trip.days` patches existing days by `day_number` instead of replacing the entire itinerary when omitted days are not present.
+- Allowed true partial day patches for scoped edits such as a single hero image while preserving unrelated day fields and all other itinerary days.
+- Deep-merged trip metadata patches so nested fields such as dates cannot lose sibling values during small edits.
+
+### Improved
+- Added explicit image-search/image-save activity labels for trip chat so image requests show Unsplash, generated image, and image tool activity instead of generic progress text.
+- Added chat-originated trip edit revision snapshots with before/after JSON so future destructive edits have a database restore point.
+
 ## 2026-06-25 - 0.5.1 - Day spread typography
 
 ### Changed

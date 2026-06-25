@@ -29,6 +29,7 @@ import {
   completeMissingTripImagesForUser,
   deleteDayForUser,
   deleteDayItemInTripData,
+  deepMerge,
   formatTripForRead,
   getTripImagePromptsForUser,
   replaceDayForUser,
@@ -64,6 +65,7 @@ import type {
 import {
   GetTripInputShape,
   GetTripInputSchema,
+  type UpdateTripInput,
   UpdateTripInputShape,
   UpdateTripInputSchema,
 } from './schema';
@@ -126,7 +128,8 @@ accommodation's existing detail object and preserves every other trip field.
 
 Use this for precise hotel updates such as dog_note, parking, phone, check-in,
 wifi, or policy-source notes. Prefer this over update_trip when only one hotel
-detail field changes because update_trip has to replace the full days array.
+detail field changes because the focused tool is more precise and records
+accommodation-specific markdown notes.
 
 If this changes the accommodation address or another stay-location field, you
 must follow the returned cascade_review instructions: read the changed day(s)
@@ -149,8 +152,8 @@ Use this when the user asks to rename a hotel/stay, mark a stay booked/open, or
 fix visible accommodation card text on a long trip. For repeated nights of the
 same stay, set match to "same_current_name" so the same patch applies to every
 day whose current accommodation name matches the path's accommodation name.
-This avoids the large update_trip days-array replacement that can exceed
-context limits.
+This avoids broad update_trip payloads that can exceed context limits or
+accidentally touch unrelated itinerary content.
 
 If this changes the stay name, treat it as a possible location/base change. You
 must follow the returned cascade_review instructions: read the changed day(s)
@@ -986,7 +989,7 @@ cannot request a different trip.`;
 
 const UPDATE_TRIP_DESCRIPTION = `Apply an edit to the current trip. The trip_id is pinned server-side.
 
-## Semantics: JSON Merge Patch with array-level replacement
+## Semantics: JSON Merge Patch with day-number patches
 
 You pass any combination of:
 
@@ -995,10 +998,11 @@ You pass any combination of:
     this for copy edits (summary, subtitle), metadata tweaks (dates,
     travelers), or adding/editing nested non-array fields.
 
-  - \`days\`: if provided, REPLACES \`data.days\` wholesale. Arrays can't be
-    partial-patched cleanly, so touching days means sending the complete
-    ordered array of every day. If you need to change one day, re-read the
-    trip with get_trip first and resend all days with that one modified.
+  - \`days\`: if provided, patches existing days by \`day_number\` and
+    preserves omitted days. Arrays inside a patched day still replace
+    wholesale, so prefer \`replace_day_section\` for one section and the
+    focused upsert/delete tools for one activity/meal/transport row. Use
+    \`delete_day\` or \`truncate_days_after\` for intentional day removal.
 
   - \`markdown_source\`: REPLACES the stored markdown source verbatim. This is
     the long-form, free-text version of the trip the user shared (or the
@@ -1130,17 +1134,16 @@ state before continuing.`;
 
 function mergeTrip(
   existing: TripData,
-  input: {
-    trip?: Partial<TripData['trip']>;
-    days?: TripData['days'];
-    markdown_source?: string;
-  }
+  input: Pick<UpdateTripInput, 'trip' | 'days' | 'markdown_source'>
 ): TripData {
   const next: TripData = {
     trip: input.trip
-      ? ({ ...existing.trip, ...input.trip } as TripData['trip'])
+      ? (deepMerge(
+          existing.trip as unknown as Record<string, unknown>,
+          input.trip as unknown as Record<string, unknown>
+        ) as unknown as TripData['trip'])
       : existing.trip,
-    days: input.days !== undefined ? input.days : existing.days,
+    days: input.days !== undefined ? mergeDaysByNumber(existing.days, input.days) : existing.days,
   };
   // markdown_source: undefined = keep existing, '' = clear, otherwise replace.
   if (input.markdown_source === undefined) {
@@ -1149,6 +1152,30 @@ function mergeTrip(
     next.markdown_source = input.markdown_source;
   }
   return next;
+}
+
+function mergeDaysByNumber(
+  existingDays: TripData['days'],
+  dayPatches: NonNullable<UpdateTripInput['days']>
+): TripData['days'] {
+  const nextDays = existingDays.map((day) => ({ ...day }));
+  for (const patchDay of dayPatches) {
+    const index = nextDays.findIndex((day) => day.day_number === patchDay.day_number);
+    if (index >= 0) {
+      nextDays[index] = deepMerge(
+        nextDays[index] as unknown as Record<string, unknown>,
+        patchDay as unknown as Record<string, unknown>
+      ) as unknown as TripData['days'][number];
+    } else {
+      if (!patchDay.date || !patchDay.title) {
+        throw new Error(
+          `Cannot add day ${patchDay.day_number} with a partial day patch. Include date and title, or use replace_day for full-day writes.`
+        );
+      }
+      nextDays.push(patchDay as TripData['days'][number]);
+    }
+  }
+  return nextDays.sort((a, b) => a.day_number - b.day_number);
 }
 
 function jsonToolResponse(data: unknown, isError = false) {
@@ -2872,7 +2899,12 @@ export function createTripEditorMcpServer(
       }
 
       const before = normalizeTripData(read.data.data);
-      const after = mergeTrip(before, input);
+      let after: TripData;
+      try {
+        after = mergeTrip(before, input);
+      } catch (err) {
+        return textToolError(err instanceof Error ? err.message : String(err));
+      }
       if (input.trip !== undefined && input.days !== undefined && !hasCoordinateBackedTripRoute(after)) {
         return textToolError(
           `Full-trip updates must include route coordinates. ${COORDINATE_BACKED_ROUTE_POINTS_REQUIRED_MESSAGE} Add trip.route_points for the main origin, stays, route stops, and return/end point, then retry the same update.`
@@ -3591,6 +3623,7 @@ export const _internal = {
   DeleteAccommodationInputShape,
   extractPolicySnippets,
   inferPolicyFromText,
+  mergeTrip,
   DeleteActivityInputShape,
   DeleteDayInputShape,
   DeleteMealInputShape,

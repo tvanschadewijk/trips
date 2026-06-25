@@ -48,6 +48,7 @@ import { join } from 'node:path';
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import type { Options } from '@anthropic-ai/claude-agent-sdk';
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -126,6 +127,13 @@ interface RunAgentTurnArgs {
   viewContext: ChatRequestBody['view_context'];
   priorTurns: PriorTurn[];
 }
+
+type TripRevisionSnapshot = {
+  tool: string;
+  input: unknown;
+  before?: unknown;
+  after?: unknown;
+};
 
 interface UiChatMessage {
   id: string;
@@ -331,6 +339,13 @@ export async function POST(
     viewContext: body.view_context,
   });
   if (fastLane) {
+    await recordTripEditRevision(admin, {
+      sessionRowId,
+      tripId,
+      userId: access.userId,
+      turnIndex,
+    }, fastLane.revision);
+
     const insertAssistant = await admin.from('trip_chat_messages').insert({
       session_id: sessionRowId,
       trip_id: tripId,
@@ -569,6 +584,43 @@ async function insertTurnProgress(
   }
 }
 
+function revisionSchemaMissing(errorMessage: string): boolean {
+  return /trip_edit_revisions|schema cache|relation .* does not exist|could not find .* column|column .* does not exist/i.test(
+    errorMessage
+  );
+}
+
+function inputKeys(input: unknown): string[] {
+  return input && typeof input === 'object' && !Array.isArray(input)
+    ? Object.keys(input as Record<string, unknown>)
+    : [];
+}
+
+async function recordTripEditRevision(
+  admin: SupabaseClient,
+  scope: TurnProgressScope,
+  snapshot: TripRevisionSnapshot
+): Promise<void> {
+  if (snapshot.before === undefined || snapshot.after === undefined) return;
+
+  const { error } = await admin.from('trip_edit_revisions').insert({
+    trip_id: scope.tripId,
+    user_id: scope.userId,
+    session_id: scope.sessionRowId,
+    turn_index: scope.turnIndex,
+    source: 'trip_chat',
+    tool: snapshot.tool,
+    input_keys: inputKeys(snapshot.input),
+    input_json: snapshot.input ?? null,
+    before_data: snapshot.before,
+    after_data: snapshot.after,
+  });
+
+  if (error && !revisionSchemaMissing(error.message)) {
+    console.error('trip-chat: failed to record trip edit revision', error.message);
+  }
+}
+
 type ProgressRow = {
   id: unknown;
   turn_index: unknown;
@@ -780,9 +832,16 @@ async function runAgentTurn(args: RunAgentTurnArgs): Promise<void> {
     supabase: admin,
     userId: args.userId,
     origin: args.origin,
-    onUpdateApplied: async ({ tool, input }) => {
+    onUpdateApplied: async ({ tool, input, before, after }) => {
+      const resolvedTool = tool ?? 'update_trip';
+      await recordTripEditRevision(admin, args, {
+        tool: resolvedTool,
+        input,
+        before,
+        after,
+      });
       toolCallsSummary.push({
-        tool: tool ?? 'update_trip',
+        tool: resolvedTool,
         ok: true,
         input_keys: Object.keys(input as Record<string, unknown>),
       });
