@@ -4,6 +4,12 @@ Selected product updates for OurTrips.
 
 ## Unreleased
 
+## 2026-06-25 - 0.6.1 - Accommodation booking status repair
+
+### Fixed
+- Recovered booked accommodation review states from existing booking notes, confirmations, and `booking_status` fields so imported stays do not fall back to proposals.
+- Restored the Turkey Road Trip accommodation review board after structured booked flags were missing from several already-booked stays.
+
 ## 2026-06-25 - 0.6.0 - Trip recovery safeguards
 
 ### Added

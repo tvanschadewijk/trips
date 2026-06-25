@@ -108,6 +108,52 @@ test('buildInitialAccommodationReview groups consecutive stay nights into one ca
   assert.equal(review.accommodations[0].parking, 'Private lot listed.');
 });
 
+test('buildInitialAccommodationReview treats booking evidence in stay notes as booked', () => {
+  const trip = singleStayTrip({
+    dayNumber: 5,
+    date: '2026-07-01',
+    title: 'Ravenna -> Gargano / Peschici',
+    accommodationName: 'Vila SEJUDA Alberghetto',
+    nights: 2,
+  });
+  trip.days[0].accommodation = {
+    ...trip.days[0].accommodation!,
+    status: undefined,
+    booking_status: undefined,
+    note: 'Booked via Booking.com for 1-3 Jul after cancelling Masseria Procacci; no accommodation action remains.',
+  };
+
+  const review = buildInitialAccommodationReview(trip);
+  const candidate = review.accommodations[0];
+
+  assert.equal(candidate.lane, 'booked');
+  assert.equal(candidate.status, 'booked');
+  assert.equal(candidate.booking?.note, trip.days[0].accommodation.note);
+});
+
+test('buildInitialAccommodationReview keeps not-booked stay notes as proposals', () => {
+  const trip = singleStayTrip({
+    dayNumber: 33,
+    date: '2026-07-29',
+    title: 'Lake Bled',
+    accommodationName: 'Hotel Triglav Bled',
+    nights: 2,
+  });
+  trip.days[0].accommodation = {
+    ...trip.days[0].accommodation!,
+    status: undefined,
+    booking_status: undefined,
+    note: 'Recommended: historic lake-view hotel with pool/sauna; dogs EUR 20/night. Not booked yet.',
+  };
+
+  const review = buildInitialAccommodationReview(trip);
+  const candidate = review.accommodations[0];
+
+  assert.equal(candidate.lane, 'considering');
+  assert.equal(candidate.status, undefined);
+  assert.equal(candidate.booking, undefined);
+});
+
 test('buildInitialAccommodationReview orders stay stops by date when days were inserted out of array order', () => {
   const trip: TripData = {
     ...sampleTrip,

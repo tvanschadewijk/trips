@@ -87,13 +87,39 @@ function formatDateRange(startDate?: string, endDate?: string): string | undefin
   return `${formatDate(startDate)}-${formatDate(endDate)}`;
 }
 
+function normalizedText(value: unknown): string {
+  return typeof value === 'string' ? value.trim().toLowerCase() : '';
+}
+
+function accommodationHasBookedEvidence(accommodation: Accommodation): boolean {
+  const evidence = [
+    accommodation.note,
+    accommodation.detail?.booking_note,
+    accommodation.detail?.note,
+  ].filter(Boolean).join(' ');
+
+  if (!evidence) return false;
+  if (/\b(?:not|isn'?t|is not|still not|pending|recommended)\s+booked\b/i.test(evidence)) {
+    return false;
+  }
+  if (/\bnot booked yet\b/i.test(evidence)) return false;
+
+  return /\b(?:booked|confirmed|reserved|prepaid|deposit paid|paid by|no accommodation action remains|no action remains)\b/i.test(
+    evidence
+  );
+}
+
 function isBookedAccommodation(accommodation: Accommodation): boolean {
-  const status = accommodation.status?.toLowerCase();
-  return status === 'booked' || status === 'confirmed';
+  const status = normalizedText(accommodation.status);
+  const bookingStatus = normalizedText(accommodation.booking_status);
+  if (status === 'booked' || status === 'confirmed') return true;
+  if (bookingStatus === 'booked' || bookingStatus === 'confirmed') return true;
+  if (accommodation.detail?.confirmation) return true;
+  return accommodationHasBookedEvidence(accommodation);
 }
 
 function laneFromAccommodation(accommodation: Accommodation): AccommodationReviewLane {
-  const status = accommodation.status?.toLowerCase();
+  const status = normalizedText(accommodation.status ?? accommodation.booking_status);
   if (isBookedAccommodation(accommodation)) return 'booked';
   if (status === 'rejected' || status === 'dismissed') return 'dismissed';
   if (status === 'pending' || status === 'reserved') return 'considering';
@@ -265,7 +291,7 @@ function candidateFromAccommodation(args: {
     dates: destination.dates,
     nights: accommodation.nights ?? destination.nights,
     lane: laneFromAccommodation(accommodation),
-    status: accommodation.status,
+    status: accommodation.status ?? accommodation.booking_status ?? (isBookedAccommodation(accommodation) ? 'booked' : undefined),
     candidate: accommodation.name,
     price: accommodation.price,
     dog: detail?.dog_note,
