@@ -3499,9 +3499,6 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
             href={homeHref}
             suffix={trip?.name}
             className="trip-topbar"
-            hideOnScroll
-            scrollRootSelector=".slide.active"
-            scrollRootKey={currentSlide}
             actions={
               <>
                 {!isHero ? (

@@ -4,6 +4,11 @@ Selected product updates for OurTrips.
 
 ## Unreleased
 
+## 2026-06-26 - 0.7.3 - Mobile top navigation
+
+### Fixed
+- Kept the trip top navigation and iOS safe-area backdrop fixed while scrolling mobile day views, preventing itinerary photos from sliding behind the Dynamic Island area.
+
 ## 2026-06-26 - 0.7.2 - Mobile hero metadata cleanup
 
 ### Fixed
