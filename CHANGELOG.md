@@ -4,6 +4,15 @@ Selected product updates for OurTrips.
 
 ## Unreleased
 
+## 2026-06-25 - 0.4.0 - Robust trip image completion
+
+### Added
+- Added an owner/admin trip image completion flow that fills missing trip, overview, and day hero photos from real Unsplash-backed results while preserving existing images by default.
+- Added matching image-completion tools for the in-app travel agent and OurTrips MCP connector so broad "fill missing photos" requests become one idempotent repair action.
+
+### Improved
+- Added a trip preview repair control for owners when hero photography is incomplete, with partial-success feedback instead of silently doing nothing.
+
 ## 2026-06-24 - 0.3.2 - Bonaire reef cover refresh
 
 ### Changed

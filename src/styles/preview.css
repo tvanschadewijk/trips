@@ -1691,6 +1691,102 @@
   color: var(--color-accent);
 }
 
+.hero-cover-image-repair {
+  display: grid;
+  gap: 14px;
+  margin-top: 14px;
+  padding: 14px;
+  border-radius: 14px;
+  background: var(--color-surface-deep);
+}
+
+.hero-cover-image-repair-copy {
+  min-width: 0;
+}
+
+.hero-cover-image-repair-label {
+  display: block;
+  color: var(--color-accent);
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.hero-cover-image-repair strong {
+  display: block;
+  margin-top: 7px;
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  font-weight: 620;
+  line-height: 1.25;
+}
+
+.hero-cover-image-repair p {
+  margin: 5px 0 0;
+  color: var(--color-text-secondary);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 430;
+  line-height: 1.45;
+}
+
+.hero-cover-image-repair small {
+  display: block;
+  margin-top: 6px;
+  color: var(--color-text-tertiary);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.hero-cover-image-repair-btn {
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 15px;
+  border: 0;
+  border-radius: 999px;
+  background: #1F66AE;
+  color: #FBF7F1;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 620;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  text-transform: uppercase;
+  transition: background var(--motion-fast) var(--ease-standard), transform var(--motion-fast) var(--ease-standard), opacity var(--motion-fast) var(--ease-standard);
+}
+
+.hero-cover-image-repair-btn svg {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+}
+
+.hero-cover-image-repair-btn:disabled {
+  cursor: wait;
+  opacity: 0.68;
+}
+
+.hero-cover-image-repair-btn:active:not(:disabled) {
+  background: #15518F;
+  transform: translateY(1px);
+}
+
+@media (hover: hover) {
+  .hero-cover-image-repair-btn:hover:not(:disabled) {
+    background: #15518F;
+  }
+}
+
 .hero-cover-day-cta-slot {
   min-width: 0;
 }
@@ -6390,6 +6486,12 @@ button.day-brief-place:active {
     min-height: 48px;
     margin-top: 20px;
     padding: 0;
+  }
+
+  .hero-cover-image-repair {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    margin-top: 18px;
   }
 
   .hero-cover-agent-cta-slot {

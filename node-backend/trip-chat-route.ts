@@ -778,6 +778,7 @@ async function runAgentTurn(args: RunAgentTurnArgs): Promise<void> {
   const mcpServer = createTripEditorMcpServer({
     tripId: args.tripId,
     supabase: admin,
+    userId: args.userId,
     origin: args.origin,
     onUpdateApplied: async ({ tool, input }) => {
       toolCallsSummary.push({

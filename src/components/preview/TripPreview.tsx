@@ -37,6 +37,7 @@ function extractIataCodes(s: string): string[] {
 
 const SHARE_MODE_OPTIONS = ['companion', 'remix', 'private'] as const;
 type ShareMode = (typeof SHARE_MODE_OPTIONS)[number];
+type ImageCompletionState = 'idle' | 'running' | 'complete' | 'partial' | 'error';
 const TRIP_DATA_UPDATED_EVENT = 'ourtrips:trip-data-updated';
 const OPEN_TRIP_CHAT_EVENT = 'ourtrips:open-trip-chat';
 
@@ -852,6 +853,8 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
   const [coverDeleteBusy, setCoverDeleteBusy] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'already_saved' | 'already_owned' | 'error'>('idle');
+  const [imageCompletionState, setImageCompletionState] = useState<ImageCompletionState>('idle');
+  const [imageCompletionMessage, setImageCompletionMessage] = useState<string | null>(null);
   const [currentShareMode, setCurrentShareMode] = useState<ShareMode>(shareMode ?? 'companion');
   const [inlineBookingKey, setInlineBookingKey] = useState<string | null>(null);
   const [inlineBookingErrorKey, setInlineBookingErrorKey] = useState<string | null>(null);
@@ -882,6 +885,18 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
   const activeTripData = activeTripIndex !== null ? trips[activeTripIndex] : undefined;
   const trip = activeTripData?.trip ?? null;
   const days = useMemo(() => activeTripData?.days ?? [], [activeTripData]);
+  const missingDayImageNumbers = useMemo(
+    () => days
+      .filter((day) => !trimDisplayText(day.hero_image))
+      .map((day) => day.day_number),
+    [days]
+  );
+  const missingImageTargetCount =
+    missingDayImageNumbers.length
+    + (trip && !trimDisplayText(trip.hero_image) ? 1 : 0)
+    + (trip && !trimDisplayText(trip.overview_image) ? 1 : 0);
+  const imageCompletionTotalCount = days.length + 2;
+  const imageCompletionPresentCount = Math.max(0, imageCompletionTotalCount - missingImageTargetCount);
   const offlineTripMeta = useMemo(() => activeTripData ? {
     name: activeTripData.trip.name,
     subtitle: activeTripData.trip.subtitle,
@@ -914,6 +929,8 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
   useEffect(() => {
     setShowFullJourneyMap(false);
     setTransitionAnchorSlide(null);
+    setImageCompletionState('idle');
+    setImageCompletionMessage(null);
   }, [activeTripIndex]);
 
   useEffect(() => {
@@ -1256,6 +1273,66 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     setCoverToast(message);
     if (coverToastTimerRef.current) window.clearTimeout(coverToastTimerRef.current);
     coverToastTimerRef.current = window.setTimeout(() => setCoverToast(null), 2200);
+  }
+
+  async function handleCompleteMissingImages() {
+    if (!tripId || activeTripIndex === null || imageCompletionState === 'running') return;
+
+    setImageCompletionState('running');
+    setImageCompletionMessage('Searching for missing trip photography...');
+    try {
+      const res = await fetch(`/api/trips/${tripId}/images/complete`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ include_overview: true }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(data?.error || 'Image completion failed');
+      }
+
+      if (data?.trip_data) {
+        const nextTripData = normalizeTripData(data.trip_data);
+        setTrips((prev) => {
+          const updated = [...prev];
+          updated[activeTripIndex] = nextTripData;
+          return updated;
+        });
+        window.dispatchEvent(
+          new CustomEvent(TRIP_DATA_UPDATED_EVENT, {
+            detail: { tripId, tripData: nextTripData },
+          })
+        );
+      }
+
+      const updatedCount = Array.isArray(data?.updated_targets)
+        ? data.updated_targets.length
+        : 0;
+      const failedCount = Array.isArray(data?.failed_targets)
+        ? data.failed_targets.length
+        : 0;
+      if (data?.status === 'partial' || failedCount > 0) {
+        setImageCompletionState('partial');
+        setImageCompletionMessage(
+          updatedCount
+            ? `Added ${updatedCount} photo${updatedCount === 1 ? '' : 's'}; ${failedCount || 'some'} still need attention.`
+            : 'No new photos were added. Check Unsplash configuration or try again later.'
+        );
+        showCoverActionToast('Photos partially updated');
+      } else {
+        setImageCompletionState('complete');
+        setImageCompletionMessage(
+          updatedCount
+            ? `Added ${updatedCount} photo${updatedCount === 1 ? '' : 's'}.`
+            : 'Trip photos were already complete.'
+        );
+        showCoverActionToast(updatedCount ? 'Trip photos added' : 'Photos already complete');
+      }
+    } catch (err) {
+      setImageCompletionState('error');
+      setImageCompletionMessage(err instanceof Error ? err.message : 'Image completion failed');
+      showCoverActionToast('Could not add photos');
+    }
   }
 
   async function handleCopyShareLink() {
@@ -2528,6 +2605,31 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
                   <span><Icon name="doc" />Trip details</span>
                   <Icon name="chevron" />
                 </button>
+                {tripId && missingImageTargetCount > 0 ? (
+                  <div className={`hero-cover-image-repair is-${imageCompletionState}`}>
+                    <div className="hero-cover-image-repair-copy">
+                      <span className="hero-cover-image-repair-label">Photos</span>
+                      <strong>{imageCompletionPresentCount}/{imageCompletionTotalCount} ready</strong>
+                      <p>
+                        {missingDayImageNumbers.length
+                          ? `${missingDayImageNumbers.length} day photo${missingDayImageNumbers.length === 1 ? '' : 's'} missing.`
+                          : 'Trip cover photography needs attention.'}
+                      </p>
+                      {imageCompletionMessage ? (
+                        <small>{imageCompletionMessage}</small>
+                      ) : null}
+                    </div>
+                    <button
+                      type="button"
+                      className="hero-cover-image-repair-btn"
+                      onClick={handleCompleteMissingImages}
+                      disabled={imageCompletionState === 'running'}
+                    >
+                      <Icon name={imageCompletionState === 'complete' ? 'check' : 'plus'} />
+                      <span>{imageCompletionState === 'running' ? 'Adding photos...' : 'Fill missing photos'}</span>
+                    </button>
+                  </div>
+                ) : null}
               </section>
 
               <div className="hero-cover-agent-cta-slot">

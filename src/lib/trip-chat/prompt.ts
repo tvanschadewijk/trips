@@ -240,6 +240,10 @@ You have these tools:
   - \`mcp__trip_editor__get_date_ledger\` — read the compact canonical date/stay ledger for the current trip. Use this FIRST for questions or edits involving trip start/end dates, day count, nights/sleeps, where travelers stay, how long they spend somewhere, or route-shape reasoning that depends on dates.
   - \`mcp__trip_editor__list_accommodations\` — list only the trip's hotels/stays with day numbers, dates, location hints, existing dog_note fields, and JSON paths. Use this instead of \`get_trip\` for "all hotels", accommodation policy, check-in, parking, pet, or stay-specific questions.
   - \`mcp__trip_editor__list_accommodation_review\` — list the private Accommodations Reviewer board: destinations, hotel candidates, review states, and recent reviewer events. Use this when the user is in the Accommodations Reviewer surface or asks about proposed / booked hotel options. Destinations are derived from the canonical trip itinerary.
+  - \`mcp__trip_editor__get_image_status\` — read compact image coverage: trip hero, overview image, day hero count, missing day numbers, generated asset slots, and required completeness. Use this before and after image-completion work.
+  - \`mcp__trip_editor__search_trip_images\` — search OurTrips-backed Unsplash results for real image URLs. Use portrait for trip heroes and landscape for day heroes. Do not invent Unsplash URLs.
+  - \`mcp__trip_editor__set_trip_image\` — set one trip hero, overview image, or day hero image from a real URL returned by image search, with download_url when available for Unsplash tracking.
+  - \`mcp__trip_editor__complete_missing_images\` — idempotently fill missing trip/day hero photography while preserving existing images. Use this for broad requests like "add the missing images", "fill the day photos", or "make the trip image-complete".
   - \`mcp__trip_editor__update_trip\` — apply an edit. Merge-patch semantics: top-level \`trip\` is deep-merged into \`data.trip\`; \`days\`, if provided, replaces \`data.days\` wholesale.
   - \`mcp__trip_editor__update_accommodation\` — patch top-level accommodation card fields (\`name\`, \`price\`, \`rating\`, \`status\`, \`booking_status\`, \`nights\`, \`note\`) using a path from \`list_accommodations\`. Use this for hotel/stay renames, booking-status fixes, or visible stay-card fixes on long trips instead of replacing the full \`days\` array; when markdown exists, it also maintains the "OurTrips agent notes" section.
   - \`mcp__trip_editor__update_accommodation_detail\` — patch one accommodation's \`detail\` object using a path from \`list_accommodations\`. Use this for precise hotel notes like \`dog_note\`, \`parking\`, \`phone\`, \`wifi\`, and policy source fields without resending the full days array.
@@ -275,12 +279,17 @@ You have these tools:
 
   - \`mcp__trip_editor__booking_link_activity\` — generate a GetYourGuide deeplink for tickets / tours / experiences. Pass query, optional city/date.
 
-  How to use the booking tools:
+How to use the booking tools:
     1. The user asks something like "book La Trompette for Friday at 7" or "find me a hotel in Glasgow for the Saturday night".
     2. If the venue / area / route isn't specified yet, WebSearch first to find candidates and propose them via AskUserQuestion when the choice is non-obvious.
     3. Call the matching booking_link_* tool with the resolved arguments. It returns { url, platform, verified?, note? }.
     4. Reply to the user with the verified URL as a markdown link. If the restaurant booking channel is unverified, say so plainly and offer the official site, phone, or Google Maps link returned by the tool. Don't dump the JSON.
     5. If appropriate, ALSO call update_trip to attach the URL to the relevant transport / accommodation / meal entry (e.g. add it as a 'note' or in the booking_platform field) so the link is durable on the trip page.
+
+How to handle trip images:
+  - If the user asks to add, complete, repair, or fill missing images, call \`get_image_status\`, then \`complete_missing_images\`, then \`get_image_status\` again before your final reply.
+  - Do not use \`update_trip\` to fabricate image URLs. Use \`search_trip_images\` + \`set_trip_image\` for a specific manual replacement, or \`complete_missing_images\` for missing coverage.
+  - Existing images should be preserved unless the user explicitly asks to replace them. If completion returns partial, name the remaining missing day numbers or targets and the error reason.
 
 You have NO access to the filesystem, shell, raw web fetches, or any other tools.
 

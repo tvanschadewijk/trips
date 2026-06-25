@@ -466,6 +466,26 @@ export function getToolProgressUpdate(
       message: 'Promoting the booked stay into the trip...',
     });
   }
+  if (normalized === 'set_trip_image') {
+    const target = cleanLabel(input?.target);
+    return observed({
+      stage: 'editing',
+      action: 'save',
+      object_type: 'trip_image',
+      object_label: target,
+      message: target
+        ? `Saving ${target.replace(/_/g, ' ')} photography...`
+        : 'Saving trip photography...',
+    });
+  }
+  if (normalized === 'complete_missing_images') {
+    return observed({
+      stage: 'editing',
+      action: 'save',
+      object_type: 'trip_images',
+      message: 'Filling missing trip photography...',
+    });
+  }
   if (normalized === 'booking_link_restaurant') {
     const label = cleanLabel(input?.name);
     return observed({
@@ -684,6 +704,26 @@ export function getAppliedToolProgressUpdate(
       action: 'promoted',
       object_type: 'accommodation_candidate',
       message: 'Promoted the booked stay into the trip.',
+    });
+  }
+  if (normalized === 'set_trip_image') {
+    const target = cleanLabel(input?.target);
+    return completed({
+      stage: 'reviewing',
+      action: 'saved',
+      object_type: 'trip_image',
+      object_label: target,
+      message: target
+        ? `Saved ${target.replace(/_/g, ' ')} photography.`
+        : 'Saved trip photography.',
+    });
+  }
+  if (normalized === 'complete_missing_images') {
+    return completed({
+      stage: 'reviewing',
+      action: 'saved',
+      object_type: 'trip_images',
+      message: 'Updated missing trip photography.',
     });
   }
 

@@ -184,6 +184,7 @@ export type TruncateDaysAfterInput = {
 };
 
 export type TripImageSearchOrientation = 'landscape' | 'portrait' | 'squarish';
+export type TripImageCompletionTargetKind = 'trip_hero' | 'trip_overview' | 'day_hero';
 
 export type TripImageSearchResult = {
   id: string;
@@ -212,6 +213,12 @@ export type SaveTripImageAssetInput = {
   response_mode?: TripResponseMode;
 };
 
+export type TripImageStatusTarget = {
+  target: TripImageCompletionTargetKind;
+  label: string;
+  day_number?: number;
+};
+
 export type TripImageStatus = {
   trip_hero_image: { present: boolean; url?: string };
   overview_image: { present: boolean; url?: string };
@@ -231,6 +238,48 @@ export type TripImageStatus = {
       model?: string;
     }
   >;
+  required: {
+    complete: boolean;
+    missing_targets: TripImageStatusTarget[];
+  };
+  optional: {
+    missing_targets: TripImageStatusTarget[];
+  };
+};
+
+export type TripImageCompletionInput = {
+  replace_existing?: boolean;
+  include_overview?: boolean;
+  max_updates?: number;
+};
+
+export type TripImageCompletionTarget = TripImageStatusTarget & {
+  orientation: TripImageSearchOrientation;
+  query: string;
+};
+
+export type TripImageCompletionApplied = TripImageCompletionTarget & {
+  changed_path: string;
+  url: string;
+  photo_id: string;
+  photographer: string;
+};
+
+export type TripImageCompletionFailure = TripImageCompletionTarget & {
+  error: string;
+};
+
+export type TripImageCompletionResult = {
+  trip_id: string;
+  share_id: string;
+  url: string;
+  status: 'complete' | 'partial' | 'unchanged';
+  changed_paths: string[];
+  updated_targets: TripImageCompletionApplied[];
+  failed_targets: TripImageCompletionFailure[];
+  skipped_targets: TripImageCompletionTarget[];
+  image_status: TripImageStatus;
+  trip_data?: TripData;
 };
 
 export type SyncMarkdownSourceInput = {
@@ -343,18 +392,43 @@ function isNonEmptyString(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0;
 }
 
+function displayLabel(value: unknown, fallback: string): string {
+  return isNonEmptyString(value) ? value.trim() : fallback;
+}
+
 export function summarizeTripImages(data: unknown): TripImageStatus {
   const trip = isRecord(data) && isRecord(data.trip) ? data.trip : {};
   const days = isRecord(data) && Array.isArray(data.days) ? data.days.filter(isRecord) : [];
   const assets = isRecord(trip.image_assets) ? trip.image_assets : {};
   const missingDayNumbers: number[] = [];
+  const missingRequiredTargets: TripImageStatusTarget[] = [];
+  const missingOptionalTargets: TripImageStatusTarget[] = [];
   let presentDayImages = 0;
+
+  if (!isNonEmptyString(trip.hero_image)) {
+    missingRequiredTargets.push({
+      target: 'trip_hero',
+      label: displayLabel(trip.name, 'Trip hero'),
+    });
+  }
+
+  if (!isNonEmptyString(trip.overview_image)) {
+    missingOptionalTargets.push({
+      target: 'trip_overview',
+      label: displayLabel(trip.name, 'Trip overview'),
+    });
+  }
 
   for (const day of days) {
     if (isNonEmptyString(day.hero_image)) {
       presentDayImages += 1;
     } else if (typeof day.day_number === 'number') {
       missingDayNumbers.push(day.day_number);
+      missingRequiredTargets.push({
+        target: 'day_hero',
+        day_number: day.day_number,
+        label: displayLabel(day.title, `Day ${day.day_number}`),
+      });
     }
   }
 
@@ -388,6 +462,13 @@ export function summarizeTripImages(data: unknown): TripImageStatus {
         ];
       })
     ) as TripImageStatus['image_assets'],
+    required: {
+      complete: missingRequiredTargets.length === 0,
+      missing_targets: missingRequiredTargets,
+    },
+    optional: {
+      missing_targets: missingOptionalTargets,
+    },
   };
 }
 
@@ -2036,6 +2117,247 @@ function isUnsplashDownloadLocation(downloadUrl: string): boolean {
   } catch {
     return false;
   }
+}
+
+const DEFAULT_IMAGE_COMPLETION_MAX_UPDATES = 24;
+
+function cleanImageQueryPart(value: unknown): string {
+  if (!isNonEmptyString(value)) return '';
+  return value
+    .replace(/https?:\/\/\S+/g, ' ')
+    .replace(/[|()[\]{}]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function addQueryPart(parts: string[], value: unknown, limit = 80): void {
+  const cleaned = cleanImageQueryPart(value);
+  if (!cleaned) return;
+  const truncated = cleaned.length > limit ? cleaned.slice(0, limit).trimEnd() : cleaned;
+  const normalized = truncated.toLocaleLowerCase();
+  if (parts.some((part) => part.toLocaleLowerCase() === normalized)) return;
+  parts.push(truncated);
+}
+
+function routeDestinationFromTitle(title: unknown): string {
+  const cleaned = cleanImageQueryPart(title);
+  if (!cleaned) return '';
+  const parts = cleaned
+    .split(/\s*(?:→|->|–>|—>| to )\s*/i)
+    .map((part) => part.trim())
+    .filter(Boolean);
+  return parts.length >= 2 ? parts[parts.length - 1] : cleaned;
+}
+
+function collectDayImageQueryParts(day: Record<string, unknown>): string[] {
+  const parts: string[] = [];
+  addQueryPart(parts, routeDestinationFromTitle(day.title));
+  addQueryPart(parts, day.subtitle);
+  addQueryPart(parts, day.description_title);
+
+  if (isRecord(day.accommodation)) {
+    addQueryPart(parts, day.accommodation.name, 60);
+    if (isRecord(day.accommodation.detail)) {
+      addQueryPart(parts, day.accommodation.detail.address, 60);
+    }
+  }
+
+  const blocks = Array.isArray(day.blocks) ? day.blocks.filter(isRecord) : [];
+  for (const block of blocks.slice(0, 2)) {
+    if (isRecord(block.place)) {
+      addQueryPart(parts, block.place.name, 60);
+      addQueryPart(parts, block.place.address, 60);
+    }
+    if (isRecord(block.detail)) {
+      addQueryPart(parts, block.detail.title, 60);
+    }
+    addQueryPart(parts, block.content, 60);
+  }
+
+  const meals = Array.isArray(day.meals) ? day.meals.filter(isRecord) : [];
+  for (const meal of meals.slice(0, 1)) {
+    if (isRecord(meal.place)) {
+      addQueryPart(parts, meal.place.name, 60);
+    }
+  }
+
+  return parts;
+}
+
+function buildTripImageQuery(trip: Record<string, unknown>, suffix: string): string {
+  const parts: string[] = [];
+  addQueryPart(parts, trip.name);
+  addQueryPart(parts, trip.subtitle);
+  addQueryPart(parts, trip.summary, 90);
+  addQueryPart(parts, suffix);
+  return parts.filter(Boolean).join(' ');
+}
+
+function buildDayImageQuery(
+  trip: Record<string, unknown>,
+  day: Record<string, unknown>
+): string {
+  const parts: string[] = [];
+  for (const part of collectDayImageQueryParts(day)) {
+    addQueryPart(parts, part);
+  }
+  addQueryPart(parts, trip.name, 60);
+  addQueryPart(parts, 'travel photography');
+  return parts.filter(Boolean).slice(0, 5).join(' ');
+}
+
+export function buildTripImageCompletionTargets(
+  data: unknown,
+  input: TripImageCompletionInput = {}
+): TripImageCompletionTarget[] {
+  const nextData = asMutableTripData(data);
+  const replaceExisting = input.replace_existing === true;
+  const includeOverview = input.include_overview !== false;
+  const targets: TripImageCompletionTarget[] = [];
+
+  if (replaceExisting || !isNonEmptyString(nextData.trip.hero_image)) {
+    targets.push({
+      target: 'trip_hero',
+      label: displayLabel(nextData.trip.name, 'Trip hero'),
+      orientation: 'portrait',
+      query: buildTripImageQuery(nextData.trip, 'travel destination portrait'),
+    });
+  }
+
+  if (includeOverview && (replaceExisting || !isNonEmptyString(nextData.trip.overview_image))) {
+    targets.push({
+      target: 'trip_overview',
+      label: displayLabel(nextData.trip.name, 'Trip overview'),
+      orientation: 'landscape',
+      query: buildTripImageQuery(nextData.trip, 'travel landscape'),
+    });
+  }
+
+  for (const day of nextData.days) {
+    if (!replaceExisting && isNonEmptyString(day.hero_image)) continue;
+    const dayNumber = typeof day.day_number === 'number' ? day.day_number : undefined;
+    if (typeof dayNumber !== 'number') continue;
+    targets.push({
+      target: 'day_hero',
+      day_number: dayNumber,
+      label: displayLabel(day.title, `Day ${dayNumber}`),
+      orientation: 'landscape',
+      query: buildDayImageQuery(nextData.trip, day),
+    });
+  }
+
+  return targets;
+}
+
+function selectedImageUrlForTarget(
+  result: TripImageSearchResult,
+  target: TripImageCompletionTarget
+): string {
+  return target.orientation === 'portrait' ? result.portrait : result.landscape;
+}
+
+function applyTripImageCompletionTarget(
+  data: MutableTripData,
+  target: TripImageCompletionTarget,
+  url: string
+): string {
+  if (target.target === 'trip_hero') {
+    data.trip.hero_image = url;
+    return 'trip.hero_image';
+  }
+
+  if (target.target === 'trip_overview') {
+    data.trip.overview_image = url;
+    return 'trip.overview_image';
+  }
+
+  const day = data.days.find((candidate) => candidate.day_number === target.day_number);
+  if (!day) {
+    throw new TripServiceError(`Day ${target.day_number} not found`, 404);
+  }
+  day.hero_image = url;
+  return `${dayPathForNumber(target.day_number as number)}.hero_image`;
+}
+
+export async function completeMissingTripImagesForUser(
+  admin: AdminClient,
+  userId: string,
+  tripId: string,
+  input: TripImageCompletionInput,
+  origin: string
+): Promise<TripImageCompletionResult> {
+  const trip = await getTripForUser(admin, userId, tripId);
+  const nextData = asMutableTripData(trip.data);
+  const allTargets = buildTripImageCompletionTargets(nextData, input);
+  const maxUpdates = Math.max(
+    0,
+    Math.min(
+      input.max_updates ?? DEFAULT_IMAGE_COMPLETION_MAX_UPDATES,
+      DEFAULT_IMAGE_COMPLETION_MAX_UPDATES
+    )
+  );
+  const targets = allTargets.slice(0, maxUpdates);
+  const skippedTargets = allTargets.slice(maxUpdates);
+  const updatedTargets: TripImageCompletionApplied[] = [];
+  const failedTargets: TripImageCompletionFailure[] = [];
+  const changedPaths: string[] = [];
+
+  for (const target of targets) {
+    try {
+      const search = await searchTripImages(target.query, target.orientation);
+      const selected = search.results[0];
+      if (!selected) {
+        throw new TripServiceError('No image results found', 404);
+      }
+
+      const selectedUrl = selectedImageUrlForTarget(selected, target);
+      if (!isNonEmptyString(selectedUrl)) {
+        throw new TripServiceError('Selected image result did not include a usable URL', 502);
+      }
+
+      if (isNonEmptyString(selected.download_url)) {
+        await trackTripImageDownload(selected.download_url);
+      }
+
+      const changedPath = applyTripImageCompletionTarget(nextData, target, selectedUrl);
+      changedPaths.push(changedPath);
+      updatedTargets.push({
+        ...target,
+        changed_path: changedPath,
+        url: selectedUrl,
+        photo_id: selected.id,
+        photographer: selected.photographer,
+      });
+    } catch (err) {
+      failedTargets.push({
+        ...target,
+        error: err instanceof Error ? err.message : 'Image completion failed',
+      });
+    }
+  }
+
+  const updated = changedPaths.length > 0
+    ? await persistTripDataForUser(admin, userId, tripId, nextData)
+    : trip;
+  const finalData = changedPaths.length > 0 ? updated.data : trip.data;
+  const imageStatus = summarizeTripImages(finalData);
+  const shareId = String(updated.share_id ?? trip.share_id ?? '');
+  const status = imageStatus.required.complete && failedTargets.length === 0 && skippedTargets.length === 0
+    ? (changedPaths.length > 0 ? 'complete' : 'unchanged')
+    : 'partial';
+
+  return {
+    trip_id: String(updated.id ?? tripId),
+    share_id: shareId,
+    url: tripUrl(origin, shareId),
+    status,
+    changed_paths: unique(changedPaths),
+    updated_targets: updatedTargets,
+    failed_targets: failedTargets,
+    skipped_targets: skippedTargets,
+    image_status: imageStatus,
+    trip_data: normalizeTripData(finalData),
+  };
 }
 
 export async function setTripHeroImageForUser(

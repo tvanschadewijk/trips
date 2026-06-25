@@ -526,7 +526,7 @@ Hero images appear in:
 - `trip.overview_image`
 - `days[].hero_image`
 
-The connector asks agents to search for real images through `search_trip_images`, then save the selected URL through `set_trip_image`.
+The connector asks agents to search for real images through `search_trip_images`, then save the selected URL through `set_trip_image`. For broad repair work such as "fill the missing images", agents should use `complete_missing_trip_images`, which preserves existing images by default and reports updated, failed, skipped, and still-missing targets.
 
 Search result URLs include:
 
@@ -567,8 +567,8 @@ Asset fields:
 
 Recommended image workflow:
 
-1. Use `search_trip_images` for real Unsplash trip/day hero images.
-2. Use `set_trip_image` for selected trip, overview, or day hero images.
+1. Use `get_trip_image_status` to check coverage.
+2. Use `complete_missing_trip_images` for broad missing-image repair, or `search_trip_images` plus `set_trip_image` for a specific selected trip, overview, or day hero image.
 3. Use `get_trip_image_prompts` to generate grounded cover/social prompts.
 4. Create and host generated images outside this MCP.
 5. Use `save_trip_image_asset` to save the hosted generated image URL.
@@ -721,6 +721,7 @@ Match fields:
 | `search_trip_images` | Finding real Unsplash-backed image URLs. | Search query and optional orientation. |
 | `set_trip_image` | Saving a trip hero, overview image, or day hero image. | `trip_id`, target, URL, optional day number, optional Unsplash download URL. |
 | `get_trip_image_status` | Checking image coverage. | `trip_id`. |
+| `complete_missing_trip_images` | Idempotently filling missing trip/day hero photography while preserving existing images by default. | `trip_id`, optional `replace_existing`, `include_overview`, and `max_updates`. |
 | `get_trip_image_prompts` | Getting grounded prompts for generated covers/social assets. | `trip_id`. |
 | `save_trip_image_asset` | Saving an externally generated/hosted image asset. | `trip_id`, slot, asset. |
 | `verify_trip_public_data` | Checking the public trip endpoint and page. | `trip_id` or `share_id`, optional page check flag. |

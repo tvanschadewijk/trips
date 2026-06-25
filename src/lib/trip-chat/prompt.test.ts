@@ -44,6 +44,15 @@ test('system prompt forbids assuming OpenTable for restaurants', () => {
   assert.match(prompt, /booking channel is unverified/);
 });
 
+test('system prompt gives the agent a durable image completion workflow', () => {
+  const prompt = buildSystemPrompt();
+
+  assert.match(prompt, /mcp__trip_editor__get_image_status/);
+  assert.match(prompt, /mcp__trip_editor__complete_missing_images/);
+  assert.match(prompt, /get_image_status`, then `complete_missing_images`, then `get_image_status/);
+  assert.match(prompt, /Do not use `update_trip` to fabricate image URLs/);
+});
+
 test('intent ledger catches booked hotel and restaurant booking request in one turn', () => {
   const message = `[The user is currently viewing Day 7 (2026-07-26) — "Novi Sad". If their question is ambiguous about which day, default to this one.]
 

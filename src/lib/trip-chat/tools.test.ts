@@ -10,10 +10,13 @@ const {
   buildAccommodationCascadeReview,
   buildPolicySearchQuery,
   collectAccommodations,
+  CompleteMissingImagesInputShape,
   CreateAccommodationCandidateInputShape,
   DeleteActivityInputShape,
   extractPolicySnippets,
   inferPolicyFromText,
+  SearchTripImagesInputShape,
+  SetTripImageInputShape,
   UpdateAccommodationCandidateInputShape,
   UpsertActivityInputShape,
   upsertAccommodationAgentNote,
@@ -184,6 +187,43 @@ test('focused day item schemas support activities, meals, and transport edits', 
       match: { title: 'Kelvingrove Art Gallery and Museum' },
     }).success,
     true
+  );
+});
+
+test('image tool schemas support search, single set, and bulk completion', () => {
+  const searchSchema = z.object(SearchTripImagesInputShape);
+  assert.equal(
+    searchSchema.safeParse({
+      query: 'Glasgow Scotland travel photography',
+      orientation: 'landscape',
+    }).success,
+    true
+  );
+
+  const setSchema = z.object(SetTripImageInputShape);
+  assert.equal(
+    setSchema.safeParse({
+      target: 'day_hero',
+      day_number: 2,
+      url: 'https://images.unsplash.com/photo-abc?w=800&h=500&fit=crop&q=80',
+      download_url: 'https://api.unsplash.com/photos/abc/download',
+    }).success,
+    true
+  );
+
+  const completeSchema = z.object(CompleteMissingImagesInputShape);
+  assert.equal(
+    completeSchema.safeParse({
+      include_overview: true,
+      max_updates: 12,
+    }).success,
+    true
+  );
+  assert.equal(
+    completeSchema.safeParse({
+      max_updates: 999,
+    }).success,
+    false
   );
 });
 

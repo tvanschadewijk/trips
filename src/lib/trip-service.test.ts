@@ -1,6 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  buildTripImageCompletionTargets,
+  completeMissingTripImagesForUser,
   deleteDayItemInTripData,
   formatTripLogisticsLedgerForRead,
   formatTripForRead,
@@ -577,6 +579,129 @@ test('saveTripImageAssetInTripData stores generated asset metadata', () => {
   assert.deepEqual(result.changed_paths, ['trip.image_assets.cover_portrait']);
   assert.equal(data.trip.image_assets?.cover_portrait?.url, 'https://example.com/generated.png');
   assert.equal(summarizeTripImages(data).image_assets.cover_portrait.present, true);
+});
+
+test('buildTripImageCompletionTargets preserves existing images by default', () => {
+  const data = fixtureData();
+  data.trip.overview_image = 'https://example.com/overview.jpg';
+  data.days[0].hero_image = 'https://example.com/day-1.jpg';
+
+  const targets = buildTripImageCompletionTargets(data);
+
+  assert.deepEqual(
+    targets.map((target) => [target.target, target.day_number ?? null]),
+    [['day_hero', 2]]
+  );
+  assert.match(targets[0].query, /East London/);
+});
+
+test('completeMissingTripImagesForUser fills missing trip and day images without replacing existing images', async () => {
+  const originalFetch = globalThis.fetch;
+  const originalKey = process.env.UNSPLASH_ACCESS_KEY;
+  const stored = {
+    ...fixtureRecord(),
+    user_id: 'user-1',
+    data: fixtureData(),
+  };
+  stored.data.trip.hero_image = '';
+  stored.data.days[1].hero_image = 'https://example.com/existing-day-2.jpg';
+  const fetchedUrls: string[] = [];
+
+  const admin = {
+    from(table: string) {
+      if (table === 'trip_accommodation_reviews') {
+        return {
+          select() { return this; },
+          eq() { return this; },
+          maybeSingle: async () => ({ data: null, error: null }),
+          upsert: async () => ({ error: null }),
+        };
+      }
+
+      assert.equal(table, 'trips');
+      return {
+        select() { return this; },
+        eq() { return this; },
+        update(payload: { data?: typeof stored.data; updated_at?: string; name?: string }) {
+          if (payload.data) stored.data = payload.data;
+          if (payload.updated_at) stored.updated_at = payload.updated_at;
+          if (payload.name) stored.name = payload.name;
+          return this;
+        },
+        single: async () => ({ data: stored, error: null }),
+      };
+    },
+  };
+
+  process.env.UNSPLASH_ACCESS_KEY = 'test-key';
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    const url = String(input);
+    fetchedUrls.push(url);
+    if (url.startsWith('https://api.unsplash.com/search/photos')) {
+      const parsed = new URL(url);
+      const query = parsed.searchParams.get('query') ?? 'trip';
+      const id = query.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'trip';
+      return new Response(
+        JSON.stringify({
+          results: [
+            {
+              id,
+              description: query,
+              urls: { raw: `https://images.unsplash.com/photo-${id}` },
+              links: { download_location: `https://api.unsplash.com/photos/${id}/download` },
+              user: {
+                name: 'Photo Person',
+                links: { html: 'https://unsplash.com/@photo' },
+              },
+            },
+          ],
+        }),
+        {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }
+      );
+    }
+
+    if (url.startsWith('https://api.unsplash.com/photos/') && url.endsWith('/download')) {
+      return new Response('{}', {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+
+    throw new Error(`Unexpected fetch: ${url}`);
+  }) as typeof fetch;
+
+  try {
+    const result = await completeMissingTripImagesForUser(
+      admin as never,
+      'user-1',
+      'trip-1',
+      {},
+      'https://ourtrips.to'
+    );
+
+    assert.equal(result.status, 'complete');
+    assert.deepEqual(
+      result.updated_targets.map((target) => target.target),
+      ['trip_hero', 'trip_overview', 'day_hero']
+    );
+    assert.equal(stored.data.trip.hero_image.startsWith('https://images.unsplash.com/photo-'), true);
+    assert.equal(stored.data.trip.overview_image?.startsWith('https://images.unsplash.com/photo-'), true);
+    assert.equal(stored.data.days[0].hero_image?.startsWith('https://images.unsplash.com/photo-'), true);
+    assert.equal(stored.data.days[1].hero_image, 'https://example.com/existing-day-2.jpg');
+    assert.equal(result.image_status.required.complete, true);
+    assert.deepEqual(result.image_status.day_hero_images.missing_day_numbers, []);
+    assert.equal(fetchedUrls.filter((url) => url.includes('/download')).length, 3);
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalKey === undefined) {
+      delete process.env.UNSPLASH_ACCESS_KEY;
+    } else {
+      process.env.UNSPLASH_ACCESS_KEY = originalKey;
+    }
+  }
 });
 
 test('trackTripImageDownload rejects non-Unsplash download URLs before fetching', async () => {

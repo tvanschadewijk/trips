@@ -25,8 +25,12 @@ import {
   trySyncAccommodationReviewForTrip,
 } from '@/lib/accommodation-review-store';
 import {
+  completeMissingTripImagesForUser,
   deleteDayItemInTripData,
   formatTripForRead,
+  searchTripImages,
+  setTripHeroImageForUser,
+  summarizeTripImages,
   upsertDayItemInTripData,
 } from '@/lib/trip-service';
 import { buildTripLogisticsLedger } from '@/lib/trip-logistics-ledger';
@@ -58,6 +62,7 @@ import { TRIP_EDITOR_TOOL_NAMES } from './tool-names';
 export interface TripToolContext {
   tripId: string;
   supabase: SupabaseClient;
+  userId?: string;
   origin?: string;
   /** Called with the computed patch after a successful update, for diff logging. */
   onUpdateApplied?: (applied: {
@@ -248,6 +253,40 @@ Use this before answering or editing anything about:
 This is derived from the structured trip JSON and logistics audit. It is the
 first source of truth for date reasoning. No arguments. The trip_id is pinned
 by the server.`;
+
+const GET_IMAGE_STATUS_DESCRIPTION = `Return compact image coverage for this trip.
+
+Use this when the user asks about photos, hero images, cover imagery, missing
+images, or whether the trip visually looks complete. It reports trip hero,
+overview image, day hero coverage, missing day numbers, generated asset slots,
+and a required.complete flag.
+
+No arguments. The trip_id is pinned by the server.`;
+
+const SEARCH_TRIP_IMAGES_DESCRIPTION = `Search OurTrips-backed Unsplash results for real image URLs.
+
+Use this only when you need to choose a specific image manually. Use portrait
+for trip heroes and landscape for day heroes. Do not invent Unsplash URLs.
+After choosing a result, call set_trip_image with the selected portrait or
+landscape URL and the result's download_url so Unsplash tracking is recorded.`;
+
+const SET_TRIP_IMAGE_DESCRIPTION = `Set one trip hero, overview image, or day hero image from a real URL.
+
+Use a URL returned by search_trip_images whenever possible. Pass the Unsplash
+download_url from the same result so download tracking is recorded. Prefer
+complete_missing_images for "fill all missing images" requests.`;
+
+const COMPLETE_MISSING_IMAGES_DESCRIPTION = `Fill missing trip/day hero photography for the current trip.
+
+Use this for requests like "add the missing images", "complete the photos",
+"fill the day hero images", or "make the trip image-complete". The tool is
+idempotent by default: it preserves existing trip and day images, searches for
+missing trip hero / overview / day hero targets, saves real Unsplash-backed
+URLs, records download tracking when possible, and returns exact updated,
+failed, skipped, and remaining-missing targets.
+
+After this tool returns partial, call get_image_status before the final reply
+and tell the user exactly which targets are still missing and why.`;
 
 const UPSERT_ACTIVITY_DESCRIPTION = `Add or update one day programme item without loading or replacing the full itinerary.
 
@@ -711,6 +750,26 @@ const PromoteAccommodationCandidateInputShape = {
   message: z.string().optional(),
 } as const;
 
+const ImageOrientationSchema = z.enum(['landscape', 'portrait', 'squarish']);
+
+const SearchTripImagesInputShape = {
+  query: z.string().min(1),
+  orientation: ImageOrientationSchema.optional(),
+} as const;
+
+const SetTripImageInputShape = {
+  target: z.enum(['trip_hero', 'trip_overview', 'day_hero']),
+  day_number: z.number().int().positive().optional(),
+  url: z.string().min(1),
+  download_url: z.string().optional(),
+} as const;
+
+const CompleteMissingImagesInputShape = {
+  replace_existing: z.boolean().optional(),
+  include_overview: z.boolean().optional(),
+  max_updates: z.number().int().positive().max(24).optional(),
+} as const;
+
 const GET_TRIP_DESCRIPTION = `Read the current trip the user is editing, with compact views by default.
 
 Use this before answering trip-data questions. Do not ask the user to paste
@@ -920,6 +979,13 @@ function textToolError(text: string) {
     content: [{ type: 'text' as const, text }],
     isError: true,
   };
+}
+
+function requireContextUserId(ctx: TripToolContext): string {
+  if (!ctx.userId) {
+    throw new Error('Trip editor user context is missing for this write tool.');
+  }
+  return ctx.userId;
 }
 
 async function readTripData(ctx: TripToolContext): Promise<TripData> {
@@ -2057,6 +2123,144 @@ export function createTripEditorMcpServer(
     }
   );
 
+  const getImageStatus = tool(
+    'get_image_status',
+    GET_IMAGE_STATUS_DESCRIPTION,
+    {},
+    async () => {
+      try {
+        const trip = await readTripData(ctx);
+        return jsonToolResponse({
+          image_status: summarizeTripImages(trip),
+        });
+      } catch (err) {
+        return textToolError(err instanceof Error ? err.message : String(err));
+      }
+    }
+  );
+
+  const searchTripImagesTool = tool(
+    'search_trip_images',
+    SEARCH_TRIP_IMAGES_DESCRIPTION,
+    SearchTripImagesInputShape,
+    async (rawArgs) => {
+      const parsed = z.object(SearchTripImagesInputShape).safeParse(rawArgs);
+      if (!parsed.success) {
+        return textToolError(`Invalid input: ${formatZodIssues(parsed.error)}`);
+      }
+
+      try {
+        const result = await searchTripImages(
+          parsed.data.query,
+          parsed.data.orientation ?? 'landscape'
+        );
+        return jsonToolResponse({
+          ...result,
+          next_step:
+            'Pick a matching result, then call set_trip_image with the chosen landscape or portrait URL and its download_url so Unsplash tracking is recorded.',
+        });
+      } catch (err) {
+        return textToolError(err instanceof Error ? err.message : String(err));
+      }
+    }
+  );
+
+  const setTripImage = tool(
+    'set_trip_image',
+    SET_TRIP_IMAGE_DESCRIPTION,
+    SetTripImageInputShape,
+    async (rawArgs) => {
+      const parsed = z.object(SetTripImageInputShape).safeParse(rawArgs);
+      if (!parsed.success) {
+        return textToolError(`Invalid input: ${formatZodIssues(parsed.error)}`);
+      }
+
+      if (parsed.data.target === 'day_hero' && typeof parsed.data.day_number !== 'number') {
+        return textToolError('day_number is required when target is day_hero');
+      }
+
+      try {
+        const userId = requireContextUserId(ctx);
+        const before = await readTripData(ctx);
+        const result = await setTripHeroImageForUser(
+          ctx.supabase,
+          userId,
+          ctx.tripId,
+          {
+            target:
+              parsed.data.target === 'day_hero'
+                ? { kind: 'day', day_number: parsed.data.day_number as number }
+                : {
+                    kind: 'trip',
+                    field: parsed.data.target === 'trip_overview'
+                      ? 'overview_image'
+                      : 'hero_image',
+                  },
+            url: parsed.data.url,
+            download_url: parsed.data.download_url,
+          },
+          ctx.origin ?? ''
+        );
+        if (ctx.onUpdateApplied) {
+          try {
+            await ctx.onUpdateApplied({
+              tool: 'set_trip_image',
+              before,
+              after: normalizeTripData(result.record.data),
+              input: parsed.data,
+            });
+          } catch {
+            // Telemetry errors must not fail the tool call.
+          }
+        }
+        return jsonToolResponse(result.summary);
+      } catch (err) {
+        return textToolError(err instanceof Error ? err.message : String(err));
+      }
+    }
+  );
+
+  const completeMissingImages = tool(
+    'complete_missing_images',
+    COMPLETE_MISSING_IMAGES_DESCRIPTION,
+    CompleteMissingImagesInputShape,
+    async (rawArgs) => {
+      const parsed = z.object(CompleteMissingImagesInputShape).safeParse(rawArgs ?? {});
+      if (!parsed.success) {
+        return textToolError(`Invalid input: ${formatZodIssues(parsed.error)}`);
+      }
+
+      try {
+        const userId = requireContextUserId(ctx);
+        const before = await readTripData(ctx);
+        const result = await completeMissingTripImagesForUser(
+          ctx.supabase,
+          userId,
+          ctx.tripId,
+          parsed.data,
+          ctx.origin ?? ''
+        );
+        if (ctx.onUpdateApplied && result.changed_paths.length > 0) {
+          try {
+            await ctx.onUpdateApplied({
+              tool: 'complete_missing_images',
+              before,
+              after: result.trip_data,
+              input: parsed.data,
+            });
+          } catch {
+            // Telemetry errors must not fail the tool call.
+          }
+        }
+        const summary = { ...result };
+        delete summary.trip_data;
+        return jsonToolResponse(summary);
+      } catch (err) {
+        return textToolError(err instanceof Error ? err.message : String(err));
+      }
+    }
+  );
+
   const updateTrip = tool(
     'update_trip',
     UPDATE_TRIP_DESCRIPTION,
@@ -2712,6 +2916,10 @@ export function createTripEditorMcpServer(
       getDateLedger,
       listAccommodations,
       listAccommodationReview,
+      getImageStatus,
+      searchTripImagesTool,
+      setTripImage,
+      completeMissingImages,
       updateTrip,
       updateAccommodation,
       updateAccommodationDetail,
@@ -2739,12 +2947,15 @@ export const _internal = {
   buildAccommodationCascadeReview,
   buildPolicySearchQuery,
   collectAccommodations,
+  CompleteMissingImagesInputShape,
   CreateAccommodationCandidateInputShape,
   extractPolicySnippets,
   inferPolicyFromText,
   DeleteActivityInputShape,
   DeleteMealInputShape,
   DeleteTransportInputShape,
+  SearchTripImagesInputShape,
+  SetTripImageInputShape,
   UpdateAccommodationCandidateInputShape,
   UpsertActivityInputShape,
   upsertAccommodationAgentNote,
