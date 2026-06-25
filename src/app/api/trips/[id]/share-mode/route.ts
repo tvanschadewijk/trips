@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
+import { recordTripMutationRevision, TripServiceError } from '@/lib/trip-service';
 
 const VALID_MODES = ['private', 'companion', 'remix'] as const;
 type ShareMode = (typeof VALID_MODES)[number];
@@ -38,8 +39,9 @@ export async function POST(
   // Verify ownership first.
   const { data: trip, error: fetchErr } = await admin
     .from('trips')
-    .select('id, user_id')
+    .select('*')
     .eq('id', id)
+    .is('deleted_at', null)
     .single();
 
   if (fetchErr || !trip) {
@@ -49,10 +51,35 @@ export async function POST(
     return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
   }
 
+  const updatedAt = new Date().toISOString();
+  try {
+    await recordTripMutationRevision(admin, {
+      tripId: id,
+      userId: user.id,
+      source: 'api',
+      action: 'share_mode',
+      tool: 'update_share_mode',
+      changedPaths: ['share_mode'],
+      input: { share_mode: next },
+      beforeRecord: trip,
+      afterRecord: {
+        ...trip,
+        share_mode: next,
+        updated_at: updatedAt,
+      },
+    });
+  } catch (err) {
+    if (err instanceof TripServiceError) {
+      return NextResponse.json({ error: err.message }, { status: err.status });
+    }
+    return NextResponse.json({ error: 'Failed to record trip revision' }, { status: 500 });
+  }
+
   const { error: updateErr } = await admin
     .from('trips')
-    .update({ share_mode: next, updated_at: new Date().toISOString() })
-    .eq('id', id);
+    .update({ share_mode: next, updated_at: updatedAt })
+    .eq('id', id)
+    .is('deleted_at', null);
 
   if (updateErr) {
     return NextResponse.json({ error: updateErr.message }, { status: 500 });

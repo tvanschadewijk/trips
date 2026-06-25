@@ -124,7 +124,8 @@ export async function countPersonalTrips(admin: AdminClient, userId: string): Pr
   const { data, error } = await admin
     .from('trips')
     .select('share_id')
-    .eq('user_id', userId);
+    .eq('user_id', userId)
+    .is('deleted_at', null);
 
   if (error) throw new Error(error.message);
 

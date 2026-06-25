@@ -8,6 +8,7 @@ import {
   normalizeActionItemStatus,
   normalizeActionItemType,
 } from '@/lib/trip-action-items';
+import { recordTripMutationRevision, TripServiceError } from '@/lib/trip-service';
 import type { TripData } from '@/lib/types';
 
 // POST /api/trips/toggle-status — Toggle an action item by share id.
@@ -31,8 +32,9 @@ export async function POST(request: NextRequest) {
   const admin = createAdminClient();
   const { data: trip, error: fetchError } = await admin
     .from('trips')
-    .select('id, user_id, data')
+    .select('*')
     .eq('share_id', shareId)
+    .is('deleted_at', null)
     .single();
 
   if (fetchError || !trip) {
@@ -54,10 +56,35 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: result.error }, { status: result.statusCode });
   }
 
+  const updatedAt = new Date().toISOString();
+  try {
+    await recordTripMutationRevision(admin, {
+      tripId: trip.id,
+      userId: user.id,
+      source: 'api',
+      action: 'action_status',
+      tool: 'toggle_action_item_status_by_share_id',
+      changedPaths: [`days[day_number=${day_number}].${itemType}[${item_index}]`],
+      input: { share_id: shareId, day_number, item_type: itemType, item_index, new_status: statusValue },
+      beforeRecord: trip,
+      afterRecord: {
+        ...trip,
+        data,
+        updated_at: updatedAt,
+      },
+    });
+  } catch (err) {
+    if (err instanceof TripServiceError) {
+      return NextResponse.json({ error: err.message }, { status: err.status });
+    }
+    return NextResponse.json({ error: 'Failed to record trip revision' }, { status: 500 });
+  }
+
   const { error: updateError } = await admin
     .from('trips')
-    .update({ data, updated_at: new Date().toISOString() })
-    .eq('id', trip.id);
+    .update({ data, updated_at: updatedAt })
+    .eq('id', trip.id)
+    .is('deleted_at', null);
 
   if (updateError) {
     return NextResponse.json({ error: updateError.message }, { status: 500 });

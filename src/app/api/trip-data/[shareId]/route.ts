@@ -23,6 +23,7 @@ export async function GET(
       .select('id, share_id, data, user_id, share_mode, updated_at')
       .eq('share_id', shareId)
       .in('share_mode', ['companion', 'remix'])
+      .is('deleted_at', null)
       .single();
 
     if (error || !data) {

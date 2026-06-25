@@ -12,6 +12,7 @@ import { syncAccommodationReviewForTrip } from '@/lib/accommodation-review-store
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { normalizeTripData } from '@/lib/trip-data-normalize';
+import { recordTripMutationRevision } from '@/lib/trip-service';
 import type {
   AccommodationCandidate,
   AccommodationCandidateBooking,
@@ -108,6 +109,8 @@ type Access =
   | {
       admin: ReturnType<typeof createAdminClient>;
       tripId: string;
+      userId: string;
+      tripRecord: Record<string, unknown>;
       tripData: TripData;
     }
   | { response: NextResponse };
@@ -127,8 +130,9 @@ async function requireAccommodationReviewAccess(
   const admin = createAdminClient();
   const { data: trip, error } = await admin
     .from('trips')
-    .select('id, user_id, data')
+    .select('*')
     .eq('id', tripId)
+    .is('deleted_at', null)
     .single();
 
   if (error || !trip) {
@@ -152,6 +156,8 @@ async function requireAccommodationReviewAccess(
   return {
     admin,
     tripId,
+    userId: String(trip.user_id),
+    tripRecord: trip as Record<string, unknown>,
     tripData: normalizeTripData(trip.data),
   };
 }
@@ -249,13 +255,29 @@ export async function PATCH(
           body.candidate_id,
           body.booking as AccommodationCandidateBooking | undefined
         );
+        const updatedAt = new Date().toISOString();
+        await recordTripMutationRevision(access.admin, {
+          tripId: access.tripId,
+          userId: access.userId,
+          source: 'api',
+          tool: 'move_accommodation_candidate',
+          changedPaths: ['days.accommodation'],
+          input: { action: body.action, candidate_id: body.candidate_id, lane: body.lane },
+          beforeRecord: access.tripRecord,
+          afterRecord: {
+            ...access.tripRecord,
+            data: nextTripData,
+            updated_at: updatedAt,
+          },
+        });
         const { error: tripError } = await access.admin
           .from('trips')
           .update({
             data: nextTripData,
-            updated_at: new Date().toISOString(),
+            updated_at: updatedAt,
           })
-          .eq('id', access.tripId);
+          .eq('id', access.tripId)
+          .is('deleted_at', null);
 
         if (tripError) {
           throw new Error(tripError.message);
@@ -275,13 +297,29 @@ export async function PATCH(
         body.candidate_id,
         body.booking as AccommodationCandidateBooking | undefined
       );
+      const updatedAt = new Date().toISOString();
+      await recordTripMutationRevision(access.admin, {
+        tripId: access.tripId,
+        userId: access.userId,
+        source: 'api',
+        tool: 'replace_booked_accommodation_candidate',
+        changedPaths: ['days.accommodation'],
+        input: { action: body.action, candidate_id: body.candidate_id },
+        beforeRecord: access.tripRecord,
+        afterRecord: {
+          ...access.tripRecord,
+          data: nextTripData,
+          updated_at: updatedAt,
+        },
+      });
       const { error: tripError } = await access.admin
         .from('trips')
         .update({
           data: nextTripData,
-          updated_at: new Date().toISOString(),
+          updated_at: updatedAt,
         })
-        .eq('id', access.tripId);
+        .eq('id', access.tripId)
+        .is('deleted_at', null);
 
       if (tripError) {
         throw new Error(tripError.message);

@@ -10,7 +10,6 @@ import ItineraryMap, { type ItineraryMapFocusRequest, type ItineraryMapViewAllRe
 import AccommodationReviewBoard from './AccommodationReviewBoard';
 import { renderTripMarkdown } from '@/lib/render-trip-markdown';
 import { normalizeTripData } from '@/lib/trip-data-normalize';
-import { createClient } from '@/lib/supabase/client';
 import AppTopBar from '@/components/ui/AppTopBar';
 import {
   buildTripOverviewRouteAtlas,
@@ -1407,9 +1406,8 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     setCoverDeleteBusy(true);
     try {
       if (tripId) {
-        const supabase = createClient();
-        const { error } = await supabase.from('trips').delete().eq('id', tripId);
-        if (error) throw error;
+        const res = await fetch(`/api/trips/${tripId}`, { method: 'DELETE' });
+        if (!res.ok) throw new Error('Failed to delete trip');
       } else {
         onDelete?.(activeTripIndex);
       }

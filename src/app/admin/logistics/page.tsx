@@ -95,6 +95,7 @@ export default async function AdminLogisticsPage({
   const { data: recentTrips, error: recentTripsError } = await admin
     .from('trips')
     .select('id, name, share_id, share_mode, created_at, updated_at, data')
+    .is('deleted_at', null)
     .order('updated_at', { ascending: false })
     .limit(100);
 
@@ -111,6 +112,7 @@ export default async function AdminLogisticsPage({
       .from('trips')
       .select('id, name, share_id, share_mode, created_at, updated_at, data')
       .eq('id', selectedTripId)
+      .is('deleted_at', null)
       .single();
 
     if (!exactTripError && exactTrip) {

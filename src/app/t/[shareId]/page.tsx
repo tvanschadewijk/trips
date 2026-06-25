@@ -45,6 +45,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       .from('trips')
       .select('data, user_id, share_mode')
       .eq('share_id', shareId)
+      .is('deleted_at', null)
       .single();
     if (data?.data) {
       if (data.share_mode === 'private') {
@@ -111,6 +112,7 @@ async function fetchTripAndViewer(shareId: string): Promise<{
       .from('trips')
       .select('id, data, user_id, share_mode')
       .eq('share_id', shareId)
+      .is('deleted_at', null)
       .single();
 
     if (error || !data) return null;

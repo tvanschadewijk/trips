@@ -23,7 +23,8 @@ async function uniqueTripName(
     .from('trips')
     .select('name')
     .eq('user_id', userId)
-    .ilike('name', `${baseName}%`);
+    .ilike('name', `${baseName}%`)
+    .is('deleted_at', null);
 
   const existing = new Set((data ?? []).map((row) => String(row.name)));
   if (!existing.has(baseName)) return baseName;

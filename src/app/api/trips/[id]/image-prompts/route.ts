@@ -25,6 +25,7 @@ export async function GET(
     .select('id, data')
     .eq('id', id)
     .eq('user_id', userId)
+    .is('deleted_at', null)
     .single();
 
   if (error || !data) {

@@ -305,6 +305,26 @@ type MutationDetails = {
   warnings?: string[];
 };
 
+export type TripRevisionAction =
+  | 'update'
+  | 'soft_delete'
+  | 'share_mode'
+  | 'action_status';
+
+export type TripRevisionInput = {
+  tripId: string;
+  userId: string;
+  source?: string;
+  action?: TripRevisionAction;
+  tool: string;
+  changedPaths?: string[];
+  input?: unknown;
+  beforeRecord?: Record<string, unknown> | null;
+  afterRecord?: Record<string, unknown> | null;
+  beforeData?: unknown;
+  afterData?: unknown;
+};
+
 export type TripSaveResult = {
   trip_id: string;
   share_id: string;
@@ -351,6 +371,54 @@ function asMutableTripData(data: unknown): MutableTripData {
 
 function unique(values: string[]): string[] {
   return Array.from(new Set(values.filter(Boolean)));
+}
+
+function revisionSchemaMissing(errorMessage: string): boolean {
+  return /trip_edit_revisions|schema cache|relation .* does not exist|could not find .* column|column .* does not exist/i.test(
+    errorMessage
+  );
+}
+
+function inputKeys(input: unknown): string[] {
+  return input && typeof input === 'object' && !Array.isArray(input)
+    ? Object.keys(input as Record<string, unknown>)
+    : [];
+}
+
+function recordDataFrom(record: Record<string, unknown> | null | undefined): unknown {
+  return isRecord(record?.data) || Array.isArray(record?.data) ? record.data : undefined;
+}
+
+export async function recordTripMutationRevision(
+  admin: AdminClient,
+  input: TripRevisionInput
+): Promise<void> {
+  const beforeData = input.beforeData ?? recordDataFrom(input.beforeRecord);
+  const afterData = input.afterData ?? recordDataFrom(input.afterRecord) ?? beforeData;
+
+  if (beforeData === undefined || afterData === undefined) {
+    return;
+  }
+
+  const { error } = await admin.from('trip_edit_revisions').insert({
+    trip_id: input.tripId,
+    user_id: input.userId,
+    source: input.source ?? 'trip_service',
+    action: input.action ?? 'update',
+    tool: input.tool,
+    changed_paths: unique(input.changedPaths ?? []),
+    input_keys: inputKeys(input.input),
+    input_json: input.input ?? null,
+    before_data: beforeData,
+    after_data: afterData,
+    before_record: input.beforeRecord ?? null,
+    after_record: input.afterRecord ?? null,
+  });
+
+  if (error) {
+    if (revisionSchemaMissing(error.message)) return;
+    throw new TripServiceError(`Failed to record trip recovery snapshot: ${error.message}`, 500);
+  }
 }
 
 function tripUrl(origin: string, shareId: string): string {
@@ -586,22 +654,46 @@ export async function saveTripForUser(
   if (input.trip_id) {
     const { data: existing } = await admin
       .from('trips')
-      .select('id, share_id, data')
+      .select('*')
       .eq('id', input.trip_id)
       .eq('user_id', userId)
+      .is('deleted_at', null)
       .single();
 
     if (existing) {
       assertFullSaveDoesNotDropExistingDays(existing.data, tripBody);
+      const updatedAt = new Date().toISOString();
+      const afterRecord = {
+        ...existing,
+        name: tripName,
+        data: tripBody,
+        updated_at: updatedAt,
+      };
+
+      await recordTripMutationRevision(admin, {
+        tripId: existing.id,
+        userId,
+        source: 'save_trip',
+        tool: 'save_trip',
+        changedPaths: ['trip', 'days'],
+        input: {
+          trip_id: input.trip_id,
+          mode: 'full_save',
+          day_count: Array.isArray(tripBody.days) ? tripBody.days.length : 0,
+        },
+        beforeRecord: existing,
+        afterRecord,
+      });
 
       const { error } = await admin
         .from('trips')
         .update({
           name: tripName,
           data: tripBody,
-          updated_at: new Date().toISOString(),
+          updated_at: updatedAt,
         })
-        .eq('id', existing.id);
+        .eq('id', existing.id)
+        .is('deleted_at', null);
 
       if (error) {
         throw new TripServiceError(error.message, 500);
@@ -634,10 +726,11 @@ export async function saveTripForUser(
   if (typeof startDate === 'string' && startDate.length > 0) {
     const { data } = await admin
       .from('trips')
-      .select('id, share_id, data')
+      .select('*')
       .eq('user_id', userId)
       .eq('name', tripName)
       .eq('data->trip->dates->>start', startDate)
+      .is('deleted_at', null)
       .single();
     existingByName = data;
   }
@@ -645,24 +738,48 @@ export async function saveTripForUser(
   if (!existingByName) {
     const { data } = await admin
       .from('trips')
-      .select('id, share_id, data')
+      .select('*')
       .eq('user_id', userId)
       .eq('name', tripName)
+      .is('deleted_at', null)
       .single();
     existingByName = data;
   }
 
   if (existingByName) {
     assertFullSaveDoesNotDropExistingDays(existingByName.data, tripBody);
+    const updatedAt = new Date().toISOString();
+    const afterRecord = {
+      ...existingByName,
+      name: tripName,
+      data: tripBody,
+      updated_at: updatedAt,
+    };
+
+    await recordTripMutationRevision(admin, {
+      tripId: existingByName.id,
+      userId,
+      source: 'save_trip',
+      tool: 'save_trip',
+      changedPaths: ['trip', 'days'],
+      input: {
+        mode: 'full_save',
+        matched_by: typeof startDate === 'string' && startDate.length > 0 ? 'name_start_date' : 'name',
+        day_count: Array.isArray(tripBody.days) ? tripBody.days.length : 0,
+      },
+      beforeRecord: existingByName,
+      afterRecord,
+    });
 
     const { error } = await admin
       .from('trips')
       .update({
         name: tripName,
         data: tripBody,
-        updated_at: new Date().toISOString(),
+        updated_at: updatedAt,
       })
-      .eq('id', existingByName.id);
+      .eq('id', existingByName.id)
+      .is('deleted_at', null);
 
     if (error) {
       throw new TripServiceError(error.message, 500);
@@ -742,6 +859,7 @@ export async function listTripsForUser(
     .from('trips')
     .select('id, name, share_id, share_mode, created_at, updated_at')
     .eq('user_id', userId)
+    .is('deleted_at', null)
     .order('updated_at', { ascending: false });
 
   if (error) {
@@ -771,6 +889,7 @@ export async function getTripForUser(
     .select('*')
     .eq('id', tripId)
     .eq('user_id', userId)
+    .is('deleted_at', null)
     .single();
 
   if (error || !trip) {
@@ -790,6 +909,7 @@ async function getTripByShareIdForUser(
     .select('*')
     .eq('share_id', shareId)
     .eq('user_id', userId)
+    .is('deleted_at', null)
     .single();
 
   if (error || !trip) {
@@ -799,14 +919,93 @@ async function getTripByShareIdForUser(
   return trip;
 }
 
+export async function softDeleteTripForUser(
+  admin: AdminClient,
+  userId: string,
+  tripId: string,
+  input: { source?: string; tool?: string; reason?: string } = {}
+): Promise<Record<string, unknown>> {
+  const trip = await getTripForUser(admin, userId, tripId);
+  const deletedAt = new Date().toISOString();
+  const afterRecord = {
+    ...trip,
+    deleted_at: deletedAt,
+    deleted_by: userId,
+    updated_at: deletedAt,
+  };
+
+  await recordTripMutationRevision(admin, {
+    tripId,
+    userId,
+    source: input.source ?? 'trip_service',
+    action: 'soft_delete',
+    tool: input.tool ?? 'soft_delete_trip',
+    changedPaths: ['deleted_at'],
+    input: { reason: input.reason ?? 'user_delete' },
+    beforeRecord: trip,
+    afterRecord,
+  });
+
+  const { data: updated, error } = await admin
+    .from('trips')
+    .update({
+      deleted_at: deletedAt,
+      deleted_by: userId,
+      updated_at: deletedAt,
+    })
+    .eq('id', tripId)
+    .eq('user_id', userId)
+    .is('deleted_at', null)
+    .select()
+    .single();
+
+  if (error || !updated) {
+    throw new TripServiceError(error?.message ?? 'Failed to delete trip', 500);
+  }
+
+  return updated as Record<string, unknown>;
+}
+
 async function persistTripDataForUser(
   admin: AdminClient,
   userId: string,
   tripId: string,
   nextData: MutableTripData,
-  expectedUpdatedAt?: string
+  options?: string | {
+    expectedUpdatedAt?: string;
+    beforeRecord?: Record<string, unknown>;
+    source?: string;
+    tool?: string;
+    input?: unknown;
+    changedPaths?: string[];
+  }
 ): Promise<Record<string, unknown>> {
+  const persistOptions = typeof options === 'string'
+    ? { expectedUpdatedAt: options }
+    : options ?? {};
   const updatedName = nextData.trip.name;
+  const updatedAt = new Date().toISOString();
+  const beforeRecord = persistOptions.beforeRecord ?? await getTripForUser(admin, userId, tripId);
+  const afterRecord = {
+    ...beforeRecord,
+    data: nextData,
+    ...(typeof updatedName === 'string' && updatedName.length > 0
+      ? { name: updatedName }
+      : {}),
+    updated_at: updatedAt,
+  };
+
+  await recordTripMutationRevision(admin, {
+    tripId,
+    userId,
+    source: persistOptions.source ?? 'trip_service',
+    tool: persistOptions.tool ?? 'persist_trip_data',
+    changedPaths: persistOptions.changedPaths,
+    input: persistOptions.input,
+    beforeRecord,
+    afterRecord,
+  });
+
   let query = admin
     .from('trips')
     .update({
@@ -814,19 +1013,20 @@ async function persistTripDataForUser(
       ...(typeof updatedName === 'string' && updatedName.length > 0
         ? { name: updatedName }
         : {}),
-      updated_at: new Date().toISOString(),
+      updated_at: updatedAt,
     })
     .eq('id', tripId)
-    .eq('user_id', userId);
+    .eq('user_id', userId)
+    .is('deleted_at', null);
 
-  if (expectedUpdatedAt) {
-    query = query.eq('updated_at', expectedUpdatedAt);
+  if (persistOptions.expectedUpdatedAt) {
+    query = query.eq('updated_at', persistOptions.expectedUpdatedAt);
   }
 
   const { data: updated, error } = await query.select().single();
 
   if (error) {
-    if (expectedUpdatedAt) {
+    if (persistOptions.expectedUpdatedAt) {
       throw new TripServiceError('Trip changed while applying expected markdown hash', 409);
     }
     throw new TripServiceError(error.message, 500);
@@ -855,7 +1055,14 @@ async function mutateTripForUser(
     userId,
     tripId,
     nextData,
-    options.compareUpdatedAt ? String(trip.updated_at ?? '') : undefined
+    {
+      expectedUpdatedAt: options.compareUpdatedAt ? String(trip.updated_at ?? '') : undefined,
+      beforeRecord: trip,
+      source: 'trip_service',
+      tool: 'mutate_trip_data',
+      input: { changed_paths: details.changed_paths },
+      changedPaths: details.changed_paths,
+    }
   );
 
   return {

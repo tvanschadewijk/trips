@@ -25,6 +25,7 @@ import {
   getTripForUser,
   listTripsForUser,
   patchTripForUserWithResult,
+  recordTripMutationRevision,
   replaceDayForUser,
   replaceDaySectionForUser,
   saveTripImageAssetForUser,
@@ -551,15 +552,34 @@ async function persistPromotedAccommodationTripData(
   tripId: string,
   nextTripData: TripData
 ): Promise<Record<string, unknown>> {
+  const beforeRecord = await getTripForUser(admin, userId, tripId);
+  const updatedAt = new Date().toISOString();
+  await recordTripMutationRevision(admin, {
+    tripId,
+    userId,
+    source: 'mcp',
+    tool: 'promote_accommodation_candidate',
+    changedPaths: ['days.accommodation'],
+    input: { source: 'accommodation_review' },
+    beforeRecord,
+    afterRecord: {
+      ...beforeRecord,
+      data: nextTripData,
+      name: nextTripData.trip.name,
+      updated_at: updatedAt,
+    },
+  });
+
   const { data, error } = await admin
     .from('trips')
     .update({
       data: nextTripData,
       name: nextTripData.trip.name,
-      updated_at: new Date().toISOString(),
+      updated_at: updatedAt,
     })
     .eq('id', tripId)
     .eq('user_id', userId)
+    .is('deleted_at', null)
     .select()
     .single();
 

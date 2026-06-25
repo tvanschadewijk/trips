@@ -20,6 +20,7 @@ export default async function Image({ params }: Props) {
       .select('data')
       .eq('share_id', shareId)
       .in('share_mode', ['companion', 'remix'])
+      .is('deleted_at', null)
       .single();
     if (!error && data?.data?.trip) {
       return renderTripOgImage(data.data as TripData);

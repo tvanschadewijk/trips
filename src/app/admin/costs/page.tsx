@@ -189,7 +189,8 @@ async function loadCostDashboard(admin: AdminClient, range: AdminCostRange) {
       const query = withCreatedRange(
         admin
           .from('trips')
-          .select('id, user_id, created_at, updated_at'),
+          .select('id, user_id, created_at, updated_at')
+          .is('deleted_at', null),
         range
       ).order('created_at', { ascending: false });
       return asRangeQuery<AdminCostTripRow>(query);

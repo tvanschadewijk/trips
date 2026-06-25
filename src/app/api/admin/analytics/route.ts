@@ -74,7 +74,10 @@ export async function GET(request: NextRequest) {
   });
 
   // --- Trips ---
-  let tripsQuery = supabase.from('trips').select('id, user_id, created_at');
+  let tripsQuery = supabase
+    .from('trips')
+    .select('id, user_id, created_at')
+    .is('deleted_at', null);
   if (from) tripsQuery = tripsQuery.gte('created_at', from);
   if (to) tripsQuery = tripsQuery.lte('created_at', to + 'T23:59:59.999Z');
 

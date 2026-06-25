@@ -222,6 +222,7 @@ export async function POST(
     .from('trips')
     .select('id')
     .eq('id', tripId)
+    .is('deleted_at', null)
     .single();
   if (tripErr || !tripRow) {
     return json({ error: 'Trip not found' }, { status: 404 }, access.headers);
@@ -764,6 +765,7 @@ async function isOwner(userId: string, tripId: string): Promise<boolean> {
     .from('trips')
     .select('user_id')
     .eq('id', tripId)
+    .is('deleted_at', null)
     .single();
   return data?.user_id === userId;
 }

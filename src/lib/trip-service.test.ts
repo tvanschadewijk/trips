@@ -13,6 +13,7 @@ import {
   saveTripForUser,
   saveTripImageAssetInTripData,
   setTripHeroImageForUser,
+  softDeleteTripForUser,
   summarizeTripImages,
   syncMarkdownSourceForUser,
   trackTripImageDownload,
@@ -87,14 +88,27 @@ function fixtureRecord() {
   };
 }
 
+function tripEditRevisionTableMock(onInsert?: (payload: Record<string, unknown>) => void) {
+  return {
+    insert: async (payload: Record<string, unknown>) => {
+      onInsert?.(payload);
+      return { error: null };
+    },
+  };
+}
+
 test('saveTripForUser normalizes route point aliases and returns ingestion warnings', async () => {
   let insertedTripData: Record<string, unknown> | null = null;
   const admin = {
     from(table: string) {
+      if (table === 'trip_edit_revisions') {
+        return tripEditRevisionTableMock();
+      }
       if (table === 'trip_accommodation_reviews') {
         return {
           select() { return this; },
           eq() { return this; },
+          is() { return this; },
           maybeSingle: async () => ({ data: null, error: null }),
           upsert: async () => ({ error: null }),
         };
@@ -120,6 +134,7 @@ test('saveTripForUser normalizes route point aliases and returns ingestion warni
       return {
         select() { return this; },
         eq() { return this; },
+        is() { return this; },
         insert(payload: Record<string, unknown>) {
           insertedTripData = payload.data as Record<string, unknown>;
           inserted = true;
@@ -175,10 +190,14 @@ test('saveTripForUser refuses to overwrite an existing trip with a partial day p
   let updateCalled = false;
   const admin = {
     from(table: string) {
+      if (table === 'trip_edit_revisions') {
+        return tripEditRevisionTableMock();
+      }
       assert.equal(table, 'trips');
       return {
         select() { return this; },
         eq() { return this; },
+        is() { return this; },
         update() {
           updateCalled = true;
           return this;
@@ -370,12 +389,19 @@ test('syncMarkdownSourceForUser adds an updated_at guard when expected hash is s
   };
   const updateEqCalls: Array<[string, string]> = [];
   let isUpdateQuery = false;
+  let revisionInsert: Record<string, unknown> | null = null;
   const admin = {
     from(table: string) {
+      if (table === 'trip_edit_revisions') {
+        return tripEditRevisionTableMock((payload) => {
+          revisionInsert = payload;
+        });
+      }
       if (table === 'trip_accommodation_reviews') {
         return {
           select() { return this; },
           eq() { return this; },
+          is() { return this; },
           maybeSingle: async () => ({ data: null, error: null }),
           upsert: async () => ({ error: null }),
         };
@@ -390,6 +416,7 @@ test('syncMarkdownSourceForUser adds an updated_at guard when expected hash is s
           }
           return this;
         },
+        is() { return this; },
         update() {
           isUpdateQuery = true;
           return this;
@@ -427,11 +454,70 @@ test('syncMarkdownSourceForUser adds an updated_at guard when expected hash is s
   );
 
   assert.equal(result.summary.markdown_source.previous_sha256, hashMarkdownSource(trip.data.markdown_source));
+  assert.equal(revisionInsert?.trip_id, 'trip-1');
+  assert.equal(revisionInsert?.user_id, 'user-1');
+  assert.equal(revisionInsert?.tool, 'mutate_trip_data');
+  assert.deepEqual(revisionInsert?.before_data, trip.data);
+  assert.equal(
+    hashMarkdownSource(
+      ((revisionInsert?.after_data as { markdown_source?: string }) ?? {}).markdown_source
+    ),
+    hashMarkdownSource('# Updated plan')
+  );
   assert.deepEqual(updateEqCalls, [
     ['id', 'trip-1'],
     ['user_id', 'user-1'],
     ['updated_at', '2026-06-02T00:00:00.000Z'],
   ]);
+});
+
+test('softDeleteTripForUser records a recovery snapshot and keeps the trip row', async () => {
+  const trip = {
+    ...fixtureRecord(),
+    user_id: 'user-1',
+    deleted_at: null,
+    deleted_by: null,
+  };
+  let revisionInsert: Record<string, unknown> | null = null;
+  let updatePayload: Record<string, unknown> | null = null;
+  let updateQuery = false;
+
+  const admin = {
+    from(table: string) {
+      if (table === 'trip_edit_revisions') {
+        return tripEditRevisionTableMock((payload) => {
+          revisionInsert = payload;
+        });
+      }
+
+      assert.equal(table, 'trips');
+      return {
+        select() { return this; },
+        eq() { return this; },
+        is() { return this; },
+        update(payload: Record<string, unknown>) {
+          updateQuery = true;
+          updatePayload = payload;
+          Object.assign(trip, payload);
+          return this;
+        },
+        single: async () => ({ data: updateQuery ? trip : { ...trip, data: fixtureData() }, error: null }),
+      };
+    },
+  };
+
+  const deleted = await softDeleteTripForUser(admin as never, 'user-1', 'trip-1', {
+    source: 'test',
+    tool: 'delete_trip',
+  });
+
+  assert.equal(deleted.id, 'trip-1');
+  assert.equal(typeof updatePayload?.deleted_at, 'string');
+  assert.equal(updatePayload?.deleted_by, 'user-1');
+  assert.equal(revisionInsert?.action, 'soft_delete');
+  assert.equal(revisionInsert?.tool, 'delete_trip');
+  assert.deepEqual(revisionInsert?.before_data, fixtureData());
+  assert.deepEqual(revisionInsert?.after_data, fixtureData());
 });
 
 test('deleteDayItemInTripData removes tourist sites and attractions by title', () => {
@@ -472,10 +558,14 @@ test('patchTripForUserWithResult rejects replacement paths that corrupt required
   let updateCalled = false;
   const admin = {
     from(table: string) {
+      if (table === 'trip_edit_revisions') {
+        return tripEditRevisionTableMock();
+      }
       assert.equal(table, 'trips');
       return {
         select() { return this; },
         eq() { return this; },
+        is() { return this; },
         update() {
           updateCalled = true;
           return this;
@@ -609,10 +699,14 @@ test('completeMissingTripImagesForUser fills missing trip and day images without
 
   const admin = {
     from(table: string) {
+      if (table === 'trip_edit_revisions') {
+        return tripEditRevisionTableMock();
+      }
       if (table === 'trip_accommodation_reviews') {
         return {
           select() { return this; },
           eq() { return this; },
+          is() { return this; },
           maybeSingle: async () => ({ data: null, error: null }),
           upsert: async () => ({ error: null }),
         };
@@ -622,6 +716,7 @@ test('completeMissingTripImagesForUser fills missing trip and day images without
       return {
         select() { return this; },
         eq() { return this; },
+        is() { return this; },
         update(payload: { data?: typeof stored.data; updated_at?: string; name?: string }) {
           if (payload.data) stored.data = payload.data;
           if (payload.updated_at) stored.updated_at = payload.updated_at;
@@ -721,10 +816,14 @@ test('setTripHeroImageForUser rejects missing day hero targets without appending
   let updateCalled = false;
   const admin = {
     from(table: string) {
+      if (table === 'trip_edit_revisions') {
+        return tripEditRevisionTableMock();
+      }
       assert.equal(table, 'trips');
       return {
         select() { return this; },
         eq() { return this; },
+        is() { return this; },
         update() {
           updateCalled = true;
           return this;
@@ -764,10 +863,14 @@ test('verifyTripPublicDataForUser uses the configured public origin for outbound
   const fetchedUrls: string[] = [];
   const admin = {
     from(table: string) {
+      if (table === 'trip_edit_revisions') {
+        return tripEditRevisionTableMock();
+      }
       assert.equal(table, 'trips');
       return {
         select() { return this; },
         eq() { return this; },
+        is() { return this; },
         single: async () => ({ data: trip, error: null }),
       };
     },

@@ -23,6 +23,7 @@ export async function POST(
     .from('trips')
     .select('id, user_id')
     .eq('id', tripId)
+    .is('deleted_at', null)
     .single();
 
   if (error || !trip) {

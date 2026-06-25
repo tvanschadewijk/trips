@@ -695,6 +695,7 @@ export async function tryRunFastLaneTurn(
     .from('trips')
     .select('data')
     .eq('id', args.tripId)
+    .is('deleted_at', null)
     .single();
 
   if (read.error || !read.data) {
@@ -717,7 +718,8 @@ export async function tryRunFastLaneTurn(
   const write = await args.supabase
     .from('trips')
     .update(payload)
-    .eq('id', args.tripId);
+    .eq('id', args.tripId)
+    .is('deleted_at', null);
 
   if (write.error) {
     throw new Error(`Error writing fast-lane trip edit: ${write.error.message}`);

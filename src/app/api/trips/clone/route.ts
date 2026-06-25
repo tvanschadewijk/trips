@@ -32,6 +32,7 @@ export async function POST(request: NextRequest) {
     .select('id, user_id, name, data, share_mode')
     .eq('share_id', share_id)
     .in('share_mode', ['companion', 'remix'])
+    .is('deleted_at', null)
     .single();
 
   if (fetchErr || !source) {
@@ -49,7 +50,8 @@ export async function POST(request: NextRequest) {
     .from('trips')
     .select('id, share_id')
     .eq('user_id', user.id)
-    .eq('name', source.name);
+    .eq('name', source.name)
+    .is('deleted_at', null);
 
   const existing = existingRows?.find(row => !isPublicItineraryShareId(row.share_id));
   if (existing) {

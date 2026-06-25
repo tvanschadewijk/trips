@@ -24,6 +24,7 @@ async function isOwner(userId: string, tripId: string): Promise<boolean> {
     .from('trips')
     .select('user_id')
     .eq('id', tripId)
+    .is('deleted_at', null)
     .single();
   return data?.user_id === userId;
 }

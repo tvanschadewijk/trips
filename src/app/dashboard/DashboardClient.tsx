@@ -396,12 +396,14 @@ export default function DashboardClient({ initialAgentOpen = false }: DashboardC
       .from('trips')
       .select('id, name, share_id, data, share_mode, created_at, updated_at')
       .eq('user_id', user.id)
+      .is('deleted_at', null)
       .order('updated_at', { ascending: false });
     if (withMode.error) {
       const fallback = await supabase
         .from('trips')
         .select('id, name, share_id, data, created_at, updated_at')
         .eq('user_id', user.id)
+        .is('deleted_at', null)
         .order('updated_at', { ascending: false });
       if (!fallback.error && fallback.data) rawTrips = fallback.data as RawTrip[];
     } else if (withMode.data) {

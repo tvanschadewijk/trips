@@ -37,6 +37,7 @@ const loadPublicTrip = cache(async (shareId: string): Promise<PublicTripRecord |
       .select('data, share_mode')
       .eq('share_id', shareId)
       .in('share_mode', ['companion', 'remix'])
+      .is('deleted_at', null)
       .single();
 
     if (error || !data) return null;

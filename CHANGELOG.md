@@ -4,6 +4,16 @@ Selected product updates for OurTrips.
 
 ## Unreleased
 
+## 2026-06-25 - 0.6.0 - Trip recovery safeguards
+
+### Added
+- Added soft-delete support for trips so product deletes mark rows as deleted instead of removing itinerary data.
+- Added immutable trip recovery snapshots before full saves, focused itinerary edits, share-mode changes, action-item status changes, accommodation promotions, and image/markdown mutations.
+
+### Improved
+- Updated trip reads, public share pages, clone/remix, chat, MCP, billing counts, and admin rollups to ignore soft-deleted trips by default.
+- Tightened Supabase row-level security so authenticated browser clients can no longer hard-delete rows from `public.trips`.
+
 ## 2026-06-25 - 0.5.2 - Trip chat edit safety
 
 ### Fixed

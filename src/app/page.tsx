@@ -140,7 +140,8 @@ export default async function Home() {
         const { data: trips } = await supabase
           .from('trips')
           .select('share_id, data')
-          .eq('user_id', user.id);
+          .eq('user_id', user.id)
+          .is('deleted_at', null);
         const active = trips?.find(t => {
           const start = t.data?.trip?.dates?.start;
           const end = t.data?.trip?.dates?.end;

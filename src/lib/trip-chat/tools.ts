@@ -1210,6 +1210,7 @@ async function requireTripOwnerUserId(ctx: TripToolContext): Promise<string> {
     .from('trips')
     .select('user_id')
     .eq('id', ctx.tripId)
+    .is('deleted_at', null)
     .single();
 
   if (error || !data) {
@@ -1231,6 +1232,7 @@ async function readTripData(ctx: TripToolContext): Promise<TripData> {
     .from('trips')
     .select('data')
     .eq('id', ctx.tripId)
+    .is('deleted_at', null)
     .single();
 
   if (error || !data) {
@@ -1245,7 +1247,8 @@ async function writeTripData(ctx: TripToolContext, next: TripData): Promise<void
   const { error } = await ctx.supabase
     .from('trips')
     .update({ data: next, updated_at: new Date().toISOString() })
-    .eq('id', ctx.tripId);
+    .eq('id', ctx.tripId)
+    .is('deleted_at', null);
 
   if (error) {
     throw new Error(`Error writing trip: ${error.message}`);
@@ -2283,6 +2286,7 @@ export function createTripEditorMcpServer(
         .from('trips')
         .select('id, share_id, name, share_mode, created_at, updated_at, data')
         .eq('id', ctx.tripId)
+        .is('deleted_at', null)
         .single();
 
       if (error || !data) {
@@ -2358,6 +2362,7 @@ export function createTripEditorMcpServer(
         .from('trips')
         .select('data')
         .eq('id', ctx.tripId)
+        .is('deleted_at', null)
         .single();
 
       if (error || !data) {
@@ -2884,6 +2889,7 @@ export function createTripEditorMcpServer(
         .from('trips')
         .select('data')
         .eq('id', ctx.tripId)
+        .is('deleted_at', null)
         .single();
 
       if (read.error || !read.data) {
@@ -2919,7 +2925,8 @@ export function createTripEditorMcpServer(
       const write = await ctx.supabase
         .from('trips')
         .update({ data: after, updated_at: new Date().toISOString() })
-        .eq('id', ctx.tripId);
+        .eq('id', ctx.tripId)
+        .is('deleted_at', null);
 
       if (write.error) {
         return {
@@ -2985,6 +2992,7 @@ export function createTripEditorMcpServer(
         .from('trips')
         .select('data')
         .eq('id', ctx.tripId)
+        .is('deleted_at', null)
         .single();
 
       if (read.error || !read.data) {
@@ -3006,7 +3014,8 @@ export function createTripEditorMcpServer(
       const write = await ctx.supabase
         .from('trips')
         .update({ data: result.next, updated_at: new Date().toISOString() })
-        .eq('id', ctx.tripId);
+        .eq('id', ctx.tripId)
+        .is('deleted_at', null);
 
       if (write.error) {
         return textToolError(`Error writing trip: ${write.error.message}`);
@@ -3061,6 +3070,7 @@ export function createTripEditorMcpServer(
         .from('trips')
         .select('data')
         .eq('id', ctx.tripId)
+        .is('deleted_at', null)
         .single();
 
       if (read.error || !read.data) {
@@ -3081,7 +3091,8 @@ export function createTripEditorMcpServer(
       const write = await ctx.supabase
         .from('trips')
         .update({ data: result.next, updated_at: new Date().toISOString() })
-        .eq('id', ctx.tripId);
+        .eq('id', ctx.tripId)
+        .is('deleted_at', null);
 
       if (write.error) {
         return textToolError(`Error writing trip: ${write.error.message}`);
@@ -3403,7 +3414,8 @@ export function createTripEditorMcpServer(
           const writeTrip = await ctx.supabase
             .from('trips')
             .update({ data: afterTrip, updated_at: new Date().toISOString() })
-            .eq('id', ctx.tripId);
+            .eq('id', ctx.tripId)
+            .is('deleted_at', null);
           if (writeTrip.error) {
             return textToolError(`Error writing trip: ${writeTrip.error.message}`);
           }
@@ -3472,7 +3484,8 @@ export function createTripEditorMcpServer(
         const writeTrip = await ctx.supabase
           .from('trips')
           .update({ data: afterTrip, updated_at: new Date().toISOString() })
-          .eq('id', ctx.tripId);
+          .eq('id', ctx.tripId)
+          .is('deleted_at', null);
         if (writeTrip.error) {
           return textToolError(`Error writing trip: ${writeTrip.error.message}`);
         }

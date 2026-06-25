@@ -17,6 +17,7 @@ export async function GET(
     .from('trips')
     .select('data, updated_at')
     .eq('id', tripId)
+    .is('deleted_at', null)
     .single();
 
   if (error || !data) {
