@@ -4,6 +4,12 @@ Selected product updates for OurTrips.
 
 ## Unreleased
 
+## 2026-06-25 - 0.5.1 - Day spread typography
+
+### Changed
+- Standardized day-story drop caps so short lead lines get the same editorial treatment as longer descriptions.
+- Reduced the day title scale, slightly lifted the subtitle/lead text, and switched day fact values to the UI typeface for a calmer Stay/Places/Base hierarchy.
+
 ## 2026-06-25 - 0.5.0 - Internal agent tool parity
 
 ### Added

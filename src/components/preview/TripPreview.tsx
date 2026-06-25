@@ -2812,7 +2812,6 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
       ...fallbackStoryStats,
     ].slice(0, 4);
     const dayLeadText = trimDisplayText(dayIntro.body) || trimDisplayText(dayIntro.title) || trimDisplayText(day.description) || trimDisplayText(day.subtitle);
-    const dayLeadChars = Array.from(dayLeadText);
     const dayStandfirst = dayIntro.title && dayIntro.body ? dayIntro.title : '';
 
     const dayPhotoSection = day.hero_image ? (
@@ -3372,14 +3371,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
         <p className="day-spread-overline">Day {day.day_number} &middot; {dateStr}{nightLabel ? ` · ${nightLabel}` : ''}</p>
         <h2 id={dayTitleId}>{day.title}</h2>
         {dayStandfirst && <p className="day-spread-standfirst">{dayStandfirst}</p>}
-        {dayLeadText && (
-          <p className="day-spread-lead">
-            {dayLeadChars.length > 36 && (
-              <span className="day-spread-dropcap">{dayLeadChars[0]}</span>
-            )}
-            {dayLeadChars.length > 36 ? dayLeadChars.slice(1).join('') : dayLeadText}
-          </p>
-        )}
+        {dayLeadText && <p className="day-spread-lead">{dayLeadText}</p>}
         {heroMeta && <p className="day-spread-meta">{heroMeta}</p>}
         {dayStoryStats.length ? (
           <div className="day-spread-facts">

@@ -2004,7 +2004,7 @@
   font-family: var(--font-serif);
   font-optical-sizing: auto;
   font-variation-settings: 'SOFT' 44;
-  font-size: 36px;
+  font-size: 32px;
   font-weight: 360;
   line-height: 1.02;
   letter-spacing: 0;
@@ -2015,7 +2015,7 @@
   margin: 14px 0 0;
   font-family: var(--font-serif);
   font-optical-sizing: auto;
-  font-size: 19px;
+  font-size: 20px;
   font-weight: 380;
   font-style: italic;
   line-height: 1.45;
@@ -2025,13 +2025,13 @@
   margin: 15px 0 0;
   font-family: var(--font-serif);
   font-optical-sizing: auto;
-  font-size: 18px;
+  font-size: 19px;
   font-weight: 380;
   line-height: 1.58;
   letter-spacing: 0;
   color: var(--color-text-secondary);
 }
-.day-spread-dropcap {
+.day-spread-lead::first-letter {
   float: left;
   padding: 5px 10px 0 0;
   font-family: var(--font-serif);
@@ -2040,7 +2040,13 @@
   line-height: 0.78;
   color: var(--color-text-primary);
 }
+.day-spread-lead::after {
+  content: '';
+  display: block;
+  clear: both;
+}
 .day-spread-meta {
+  clear: both;
   margin: 13px 0 0;
   font-family: var(--font-sans);
   font-size: 13px;
@@ -2074,11 +2080,10 @@
 .day-spread-fact strong {
   min-width: 0;
   overflow-wrap: anywhere;
-  font-family: var(--font-serif);
-  font-optical-sizing: auto;
-  font-size: 21px;
-  font-weight: 380;
-  line-height: 1.12;
+  font-family: var(--font-sans);
+  font-size: 15px;
+  font-weight: 520;
+  line-height: 1.35;
   color: var(--color-text-primary);
 }
 .day-order-panel {
@@ -5808,24 +5813,24 @@ button.day-brief-place:active {
 
   .day-spread-story h2 {
     margin-top: 14px;
-    font-size: 48px;
-    line-height: 1;
+    font-size: 32px;
+    line-height: 1.04;
     letter-spacing: 0;
   }
 
   .day-spread-standfirst {
     margin-top: 18px;
-    font-size: 20px;
+    font-size: 21px;
     line-height: 1.48;
   }
 
   .day-spread-lead {
     margin-top: 18px;
-    font-size: 18px;
+    font-size: 19px;
     line-height: 1.6;
   }
 
-  .day-spread-dropcap {
+  .day-spread-lead::first-letter {
     padding: 6px 12px 0 0;
     font-size: 60px;
   }
@@ -5837,7 +5842,7 @@ button.day-brief-place:active {
   }
 
   .day-spread-fact strong {
-    font-size: 23px;
+    font-size: 15px;
   }
 
   .day-order-panel {
