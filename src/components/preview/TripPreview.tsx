@@ -2811,17 +2811,39 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     ].slice(0, 4);
     const dayLeadText = trimDisplayText(dayIntro.body) || trimDisplayText(dayIntro.title) || trimDisplayText(day.description) || trimDisplayText(day.subtitle);
     const dayStandfirst = dayIntro.title && dayIntro.body ? dayIntro.title : '';
+    const dayPhotoOverlayStats = [
+      ...fallbackStoryStats,
+      ...dayStoryStats.filter((stat) => !fallbackStoryStats.some((fallback) => fallback.label === stat.label && fallback.value === stat.value)),
+    ].slice(0, 3);
+    const dayPhotoOverlay = (
+      <div className="day-spread-photo-overlay" aria-hidden="true">
+        <p className="day-spread-photo-overline">Day {day.day_number} &middot; {dateStr}{nightLabel ? ` · ${nightLabel}` : ''}</p>
+        <h2 className="day-spread-photo-heading">{day.title}</h2>
+        {dayPhotoOverlayStats.length ? (
+          <div className="day-spread-photo-meta">
+            {dayPhotoOverlayStats.map((stat, index) => (
+              <span className="day-spread-photo-meta-item" key={`${stat.label}-${index}`}>
+                <span>{stat.label}</span>
+                <strong>{stat.value}</strong>
+              </span>
+            ))}
+          </div>
+        ) : null}
+      </div>
+    );
 
     const dayPhotoSection = day.hero_image ? (
       <figure className="day-spread-photo">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={day.hero_image} alt={day.title} style={{ opacity: brokenImages.has(day.hero_image) ? 0 : 1 }} onError={() => onImgError(day.hero_image!)} loading="lazy" />
+        {dayPhotoOverlay}
         <figcaption>{day.subtitle || day.title}</figcaption>
       </figure>
     ) : (
       <div className="day-spread-photo day-spread-photo-empty">
         <span>Day {day.day_number}</span>
         <strong>{dateStr}</strong>
+        {dayPhotoOverlay}
       </div>
     );
 

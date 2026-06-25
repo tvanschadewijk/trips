@@ -4,6 +4,12 @@ Selected product updates for OurTrips.
 
 ## Unreleased
 
+## 2026-06-26 - 0.7.1 - Mobile day layout
+
+### Fixed
+- Reworked mobile itinerary day headers so day/date tabs, hero titles, and trip metadata stay readable and aligned.
+- Moved mobile day titles and key metadata onto the hero image with a translucent overlay while keeping the larger day description below the image.
+
 ## 2026-06-26 - 0.7.0 - Downloaded trip details
 
 ### Added

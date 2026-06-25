@@ -40,7 +40,7 @@
   --ease-exit: cubic-bezier(0.4, 0, 1, 1);
   --app-max-width: 430px;
   --nav-height: 56px;
-  --date-strip-height: 58px;
+  --date-strip-height: 74px;
   --trip-chat-sheet-width: 100vw;
   --trip-chat-sheet-gutter: 0px;
   --trip-chat-sheet-height: min(var(--trip-chat-available-height, calc(100dvh - 12px)), 720px);
@@ -328,24 +328,56 @@
    ============================================ */
 .date-strip { position: absolute; top: calc(var(--nav-height) + env(safe-area-inset-top)); left: 0; right: 0; height: var(--date-strip-height); border-bottom: 1px solid var(--color-border); box-shadow: none; background: var(--color-surface); z-index: 10; opacity: 1; transform: translateY(0); transition: opacity var(--motion-medium) var(--ease-standard), transform var(--motion-medium) var(--ease-standard), border-color var(--motion-medium) var(--ease-standard); will-change: opacity, transform; -webkit-mask-image: linear-gradient(to right, transparent, black 16px, black calc(100% - 16px), transparent); mask-image: linear-gradient(to right, transparent, black 16px, black calc(100% - 16px), transparent); }
 .date-strip.hidden { opacity: 0; transform: translateY(-10px); pointer-events: none; overflow: hidden; border-bottom-color: transparent; }
-.date-strip-inner { display: flex; gap: 6px; padding: 8px 12px; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; height: 100%; align-items: center; touch-action: pan-x; }
+.date-strip-inner { display: flex; gap: 8px; padding: 8px 14px; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; height: 100%; align-items: center; touch-action: pan-x; }
 .date-strip-inner::-webkit-scrollbar { display: none; }
 .date-strip-label,
-.date-strip-summary,
-.date-btn-day-label,
-.date-btn-date-label {
+.date-strip-summary {
   display: none;
 }
-.date-btn { display: flex; align-items: center; justify-content: center; width: 56px; height: 42px; border-radius: 14px; border: none; cursor: pointer; flex-shrink: 0; transition: background var(--motion-fast) var(--ease-standard), color var(--motion-fast) var(--ease-standard), box-shadow var(--motion-medium) var(--ease-standard), transform var(--motion-fast) var(--ease-standard); background: transparent; color: var(--color-text-muted); font-family: var(--font-sans); }
+.date-btn { display: flex; align-items: center; justify-content: center; min-width: 88px; height: 56px; padding: 7px 12px; border-radius: 16px; border: none; cursor: pointer; flex-shrink: 0; transition: background var(--motion-fast) var(--ease-standard), color var(--motion-fast) var(--ease-standard), box-shadow var(--motion-medium) var(--ease-standard), transform var(--motion-fast) var(--ease-standard); background: transparent; color: var(--color-text-muted); font-family: var(--font-sans); }
 .date-btn:active:not(.active) { background: var(--color-surface-deep); transform: scale(0.92); }
 .date-btn.active { background: var(--color-card); color: var(--color-text-primary); box-shadow: rgba(26, 20, 16, 0.04) 0 1px 0 0, rgba(26, 20, 16, 0.10) 0 8px 22px -14px; }
 @media (hover: hover) {
   .date-btn:hover:not(.active) { background: var(--color-surface-deep); color: var(--color-text-secondary); }
 }
-.date-btn-day { font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; line-height: 1; color: var(--color-text-tertiary); white-space: nowrap; }
-.date-btn.active .date-btn-day { color: var(--color-accent); }
-.date-btn-date { font-family: var(--font-sans); font-feature-settings: 'tnum' on, 'cv11' on, 'ss01' on; font-size: 15px; font-weight: 600; line-height: 1; letter-spacing: -0.01em; white-space: nowrap; color: var(--color-text-muted); }
-.date-btn.active .date-btn-date { color: var(--color-text-primary); }
+.date-btn-number-row { display: grid; min-width: 0; gap: 4px; justify-items: center; }
+.date-btn-trip-day,
+.date-btn-wd,
+.date-btn-d {
+  display: none;
+}
+.date-btn-day-label {
+  display: block;
+  font-family: var(--font-sans);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.13em;
+  line-height: 1;
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+  white-space: nowrap;
+}
+.date-btn-date-stack {
+  display: block;
+  min-width: 0;
+}
+.date-btn-date-label {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-family: var(--font-serif);
+  font-feature-settings: 'tnum' on;
+  font-optical-sizing: auto;
+  font-size: 16px;
+  font-weight: 380;
+  letter-spacing: 0;
+  line-height: 1.08;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.date-btn.active .date-btn-day-label { color: var(--color-accent); }
+.date-btn.active .date-btn-date-label { color: var(--color-text-primary); font-weight: 420; }
 
 /* ============================================
    SWIPE CONTAINER
@@ -1909,17 +1941,16 @@
 /* ============================================
    DAY SLIDE
    ============================================ */
-.day-slide { padding: calc(var(--nav-height) + var(--date-strip-height) + env(safe-area-inset-top) + 12px) 16px calc(32px + env(safe-area-inset-bottom)); padding-left: max(16px, env(safe-area-inset-left)); padding-right: max(16px, env(safe-area-inset-right)); overflow-x: hidden; background: var(--color-surface); }
+.day-slide { display: grid; gap: 18px; padding: calc(var(--nav-height) + var(--date-strip-height) + env(safe-area-inset-top) + 12px) 16px calc(32px + env(safe-area-inset-bottom)); padding-left: max(16px, env(safe-area-inset-left)); padding-right: max(16px, env(safe-area-inset-right)); overflow-x: hidden; background: var(--color-surface); }
 .day-spread-topband {
-  display: grid;
-  gap: 12px;
-  margin-bottom: calc(76px + env(safe-area-inset-bottom));
+  display: contents;
 }
 .day-spread-photo {
   position: relative;
-  min-height: 236px;
-  height: 44vh;
-  max-height: 340px;
+  order: 1;
+  min-height: 300px;
+  height: clamp(300px, 52vh, 420px);
+  max-height: none;
   margin: 0;
   overflow: hidden;
   border-radius: var(--radius-card);
@@ -1935,9 +1966,85 @@
   content: "";
   position: absolute;
   inset: auto 0 0;
-  height: 42%;
-  background: linear-gradient(to top, rgba(26, 20, 16, 0.58), transparent);
+  height: 76%;
+  background: linear-gradient(to top, rgba(26, 20, 16, 0.8), rgba(26, 20, 16, 0.42) 52%, transparent);
   pointer-events: none;
+}
+.day-spread-photo-overlay {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 2;
+  display: grid;
+  gap: 10px;
+  padding: 18px 16px 16px;
+  border-top: 1px solid rgba(251, 247, 241, 0.18);
+  background: linear-gradient(to top, rgba(26, 20, 16, 0.72), rgba(26, 20, 16, 0.38));
+  color: #FBF7F1;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.42);
+  backdrop-filter: blur(7px) saturate(120%);
+  -webkit-backdrop-filter: blur(7px) saturate(120%);
+}
+.day-spread-photo-overline {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 0.14em;
+  line-height: 1;
+  text-transform: uppercase;
+  color: rgba(251, 247, 241, 0.78);
+}
+.day-spread-photo-heading {
+  margin: 0;
+  max-width: 12ch;
+  font-family: var(--font-serif);
+  font-optical-sizing: auto;
+  font-variation-settings: 'SOFT' 44;
+  font-size: 32px;
+  font-weight: 380;
+  letter-spacing: 0;
+  line-height: 1.02;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+}
+.day-spread-photo-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+.day-spread-photo-meta-item {
+  display: grid;
+  max-width: 100%;
+  min-width: 0;
+  gap: 3px;
+  padding: 7px 10px;
+  border: 1px solid rgba(251, 247, 241, 0.18);
+  border-radius: 12px;
+  background: rgba(251, 247, 241, 0.12);
+}
+.day-spread-photo-meta-item span {
+  color: rgba(251, 247, 241, 0.68);
+  font-family: var(--font-sans);
+  font-size: 9px;
+  font-weight: 650;
+  letter-spacing: 0.13em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+.day-spread-photo-meta-item strong {
+  min-width: 0;
+  overflow: hidden;
+  color: #FBF7F1;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 560;
+  letter-spacing: 0;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .day-spread-photo figcaption {
   position: absolute;
@@ -1953,6 +2060,7 @@
   text-transform: uppercase;
   color: rgba(251, 247, 241, 0.92);
   text-shadow: 0 1px 6px rgba(0, 0, 0, 0.46);
+  display: none;
 }
 .day-spread-photo-empty {
   display: grid;
@@ -1964,6 +2072,10 @@
   box-shadow: var(--shadow-card);
 }
 .day-spread-photo-empty::after {
+  display: none;
+}
+.day-spread-photo-empty > span,
+.day-spread-photo-empty > strong {
   display: none;
 }
 .day-spread-photo-empty span {
@@ -1983,11 +2095,17 @@
   letter-spacing: 0;
 }
 .day-spread-body {
-  display: grid;
-  gap: 18px;
+  display: contents;
 }
 .day-spread-story {
-  padding: 4px 2px 0;
+  order: 2;
+  padding: 0 2px;
+}
+.day-spread-topband .day-map-card {
+  order: 3;
+}
+.day-order-panel {
+  order: 4;
 }
 .day-spread-overline {
   margin: 0;
@@ -2000,7 +2118,23 @@
   color: var(--color-accent);
 }
 .day-spread-story h2 {
-  margin: 12px 0 0;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+.day-spread-story > .day-spread-overline,
+.day-spread-story > .day-spread-meta,
+.day-spread-story > .day-spread-facts {
+  display: none;
+}
+.day-spread-story h2 {
   font-family: var(--font-serif);
   font-optical-sizing: auto;
   font-variation-settings: 'SOFT' 44;
@@ -2012,33 +2146,34 @@
   text-wrap: balance;
 }
 .day-spread-standfirst {
-  margin: 14px 0 0;
+  margin: 0;
+  font-family: var(--font-serif);
+  font-optical-sizing: auto;
+  font-size: 21px;
+  font-weight: 380;
+  font-style: italic;
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+}
+.day-spread-lead {
+  margin: 0;
   font-family: var(--font-serif);
   font-optical-sizing: auto;
   font-size: 20px;
   font-weight: 380;
-  font-style: italic;
-  line-height: 1.45;
-  color: var(--color-text-secondary);
-}
-.day-spread-lead {
-  margin: 15px 0 0;
-  font-family: var(--font-serif);
-  font-optical-sizing: auto;
-  font-size: 19px;
-  font-weight: 380;
-  line-height: 1.58;
+  line-height: 1.55;
   letter-spacing: 0;
   color: var(--color-text-secondary);
 }
+.day-spread-standfirst + .day-spread-lead {
+  margin-top: 12px;
+}
 .day-spread-lead::first-letter {
-  float: left;
-  padding: 5px 10px 0 0;
-  font-family: var(--font-serif);
-  font-size: 54px;
-  font-weight: 380;
-  line-height: 0.78;
-  color: var(--color-text-primary);
+  color: inherit;
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  line-height: inherit;
 }
 .day-spread-lead::after {
   content: '';
@@ -4923,8 +5058,8 @@ button.day-brief-place:active {
   .hero-stats { gap: 32px; }
   .hero-pill { padding: 6px 16px; }
   .nav-back { width: 44px; height: 44px; border-radius: 14px; }
-  .date-btn { min-width: 64px; padding: 7px 13px; }
-  .date-btn-date { font-size: 16px; }
+  .date-btn { min-width: 96px; padding: 7px 13px; }
+  .date-btn-date-label { font-size: 17px; }
   .day-slide { padding-left: max(20px, env(safe-area-inset-left)); padding-right: max(20px, env(safe-area-inset-right)); }
   .day-section { padding: 22px; }
   .text-body { font-size: 15px; line-height: 1.6; }
@@ -5727,12 +5862,23 @@ button.day-brief-place:active {
   }
 
   .day-spread-photo {
+    order: initial;
     min-height: 0;
     height: 300px;
     max-height: none;
     margin: 0;
     border-radius: 0;
     box-shadow: none;
+  }
+
+  .day-spread-photo-overlay {
+    display: none;
+  }
+
+  .day-spread-photo figcaption,
+  .day-spread-photo-empty > span,
+  .day-spread-photo-empty > strong {
+    display: block;
   }
 
   .day-map-card {
@@ -5806,13 +5952,32 @@ button.day-brief-place:active {
   }
 
   .day-spread-story {
+    order: initial;
     min-width: 0;
     padding: 36px 40px 96px;
     border-right: 1px solid var(--color-border);
   }
 
+  .day-spread-story > .day-spread-overline,
+  .day-spread-story > .day-spread-meta {
+    display: block;
+  }
+
+  .day-spread-story > .day-spread-facts {
+    display: grid;
+  }
+
   .day-spread-story h2 {
-    margin-top: 14px;
+    position: static;
+    width: auto;
+    height: auto;
+    padding: 0;
+    margin: 14px 0 0;
+    overflow: visible;
+    clip: auto;
+    clip-path: none;
+    white-space: normal;
+    border: 0;
     font-size: 32px;
     line-height: 1.04;
     letter-spacing: 0;
@@ -5831,8 +5996,13 @@ button.day-brief-place:active {
   }
 
   .day-spread-lead::first-letter {
+    float: left;
     padding: 6px 12px 0 0;
+    font-family: var(--font-serif);
     font-size: 60px;
+    font-weight: 380;
+    line-height: 0.78;
+    color: var(--color-text-primary);
   }
 
   .day-spread-facts {
