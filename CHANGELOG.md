@@ -4,6 +4,11 @@ Selected product updates for OurTrips.
 
 ## Unreleased
 
+## 2026-06-26 - 0.7.2 - Mobile hero metadata cleanup
+
+### Fixed
+- Removed duplicate base/location copy from the mobile day hero image metadata while keeping the larger description below the image.
+
 ## 2026-06-26 - 0.7.1 - Mobile day layout
 
 ### Fixed

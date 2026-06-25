@@ -2814,7 +2814,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     const dayPhotoOverlayStats = [
       ...fallbackStoryStats,
       ...dayStoryStats.filter((stat) => !fallbackStoryStats.some((fallback) => fallback.label === stat.label && fallback.value === stat.value)),
-    ].slice(0, 3);
+    ].filter((stat) => stat.label.toLowerCase() !== 'base').slice(0, 3);
     const dayPhotoOverlay = (
       <div className="day-spread-photo-overlay" aria-hidden="true">
         <p className="day-spread-photo-overline">Day {day.day_number} &middot; {dateStr}{nightLabel ? ` · ${nightLabel}` : ''}</p>
