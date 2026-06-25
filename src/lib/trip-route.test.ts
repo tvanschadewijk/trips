@@ -6,6 +6,7 @@ import {
   buildTripRouteAtlas,
   buildTripRouteSummaryLabels,
   lookupRoutePlace,
+  routeDistanceKmForAtlas,
   routePlaceTextMatches,
   TRIP_ROUTE_SUMMARY_ELLIPSIS,
 } from './trip-route';
@@ -124,6 +125,30 @@ test('stored route_points override derived geocoding when present', () => {
   assert.ok(atlas);
   assert.equal(atlas.points[1].label, 'Beach base');
   assert.equal(atlas.legs[0].mode, 'flight');
+});
+
+test('routeDistanceKmForAtlas totals coordinate-backed route legs', () => {
+  const atlas = buildTripRouteAtlas({
+    ...baseTrip([]),
+    trip: {
+      ...baseTrip([]).trip,
+      route_points: [
+        { label: 'Amsterdam', lat: 52.3676, lng: 4.9041, role: 'home' },
+        { label: 'Lake Como', lat: 45.984, lng: 9.261, mode: 'car' },
+        { label: 'Ravenna', lat: 44.4184, lng: 12.2035, mode: 'car' },
+      ],
+    },
+  });
+
+  assert.ok(atlas);
+  const distance = routeDistanceKmForAtlas(atlas);
+
+  assert.ok(distance > 1000);
+  assert.ok(distance < 1200);
+});
+
+test('routeDistanceKmForAtlas returns zero without a usable atlas', () => {
+  assert.equal(routeDistanceKmForAtlas(undefined), 0);
 });
 
 test('stored route_points accept name aliases and skip malformed entries', () => {

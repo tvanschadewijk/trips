@@ -16,6 +16,7 @@ import {
   buildTripOverviewRouteAtlas,
   buildTripRouteAtlas,
   buildTripRouteSummaryLabels,
+  routeDistanceKmForAtlas,
   TRIP_ROUTE_SUMMARY_ELLIPSIS,
   type TripRouteAtlas as TripRouteAtlasData,
 } from '@/lib/trip-route';
@@ -240,17 +241,19 @@ function overviewMetrics(
   fallbackStopCount = 0
 ): OverviewMetric[] {
   const hotelNames: string[] = [];
-  let distanceKm = 0;
+  let loggedDistanceKm = 0;
 
   for (const day of days) {
     const accommodationName = trimDisplayText(day.accommodation?.name);
     if (accommodationName && !isPlaceholderAccommodationName(accommodationName)) addUniqueText(hotelNames, accommodationName);
 
     for (const transport of day.transport ?? []) {
-      distanceKm += distanceKmFromText(transport.distance);
+      loggedDistanceKm += distanceKmFromText(transport.distance);
     }
   }
 
+  const mappedDistanceKm = routeDistanceKmForAtlas(atlas);
+  const distanceKm = Math.max(loggedDistanceKm, mappedDistanceKm);
   const routeStops = routeStopCountFor(atlas);
   const hotelCount = hotelNames.length;
   const stopCount = routeStops || fallbackStopCount || days.length;
@@ -262,7 +265,7 @@ function overviewMetrics(
     {
       icon: dominantTransportSummary(days).icon,
       value: formatKm(distanceKm) || String(days.length),
-      label: distanceKm > 0 ? 'km logged' : 'days planned',
+      label: distanceKm > 0 ? 'route km' : 'days planned',
     },
   ];
 }

@@ -29,6 +29,7 @@ export interface TripRouteAtlas {
 
 export const TRIP_ROUTE_SUMMARY_ELLIPSIS = '…';
 const DEFAULT_TRIP_ROUTE_SUMMARY_LABEL_LIMIT = 7;
+const EARTH_RADIUS_KM = 6371;
 
 interface GazetteerEntry {
   label: string;
@@ -275,6 +276,36 @@ export function buildTripRouteSummaryLabels(
     : fallbackRouteSummaryLabels(days);
 
   return compactTripRouteSummaryLabels(labels, maxLabels);
+}
+
+function toRadians(value: number): number {
+  return (value * Math.PI) / 180;
+}
+
+function distanceKmBetweenPoints(
+  from: Pick<TripRouteAtlasPoint, 'lat' | 'lng'>,
+  to: Pick<TripRouteAtlasPoint, 'lat' | 'lng'>
+): number {
+  const lat1 = toRadians(from.lat);
+  const lat2 = toRadians(to.lat);
+  const deltaLat = toRadians(to.lat - from.lat);
+  const deltaLng = toRadians(to.lng - from.lng);
+  const a =
+    Math.sin(deltaLat / 2) ** 2
+    + Math.cos(lat1) * Math.cos(lat2) * Math.sin(deltaLng / 2) ** 2;
+
+  return EARTH_RADIUS_KM * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+export function routeDistanceKmForAtlas(atlas: TripRouteAtlas | undefined): number {
+  if (!atlas || atlas.points.length < 2) return 0;
+
+  return atlas.legs.reduce((total, leg) => {
+    const from = atlas.points[leg.from];
+    const to = atlas.points[leg.to];
+    if (!from || !to) return total;
+    return total + distanceKmBetweenPoints(from, to);
+  }, 0);
 }
 
 function routePointNumber(value: unknown): number | undefined {

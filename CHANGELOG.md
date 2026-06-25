@@ -4,6 +4,12 @@ Selected product updates for OurTrips.
 
 ## Unreleased
 
+## 2026-06-25 - 0.4.1 - Route distance metric
+
+### Fixed
+- Changed the trip cover distance metric to use coordinate-backed route legs when transport distance fields are incomplete, so long road trips no longer show only the first logged leg.
+- Renamed the cover metric label from "km logged" to "route km" for clearer public trip summaries.
+
 ## 2026-06-25 - 0.4.0 - Robust trip image completion
 
 ### Added
