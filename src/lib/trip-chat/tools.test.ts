@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { z } from 'zod';
 import type { TripData } from '@/lib/types';
 import { _internal } from './tools';
+import { TRIP_EDITOR_TOOL_NAMES } from './tool-names';
 
 const {
   applyAccommodationPatch,
@@ -12,12 +13,23 @@ const {
   collectAccommodations,
   CompleteMissingImagesInputShape,
   CreateAccommodationCandidateInputShape,
+  DeleteAccommodationInputShape,
   DeleteActivityInputShape,
+  DeleteDayInputShape,
   extractPolicySnippets,
   inferPolicyFromText,
+  ReplaceAccommodationInputShape,
+  ReplaceBookedAccommodationCandidateInputShape,
+  ReplaceDayInputShape,
+  ReplaceDaySectionInputShape,
+  SaveTripImageAssetInputShape,
   SearchTripImagesInputShape,
   SetTripImageInputShape,
+  SyncMarkdownSourceInputShape,
+  TruncateDaysAfterInputShape,
   UpdateAccommodationCandidateInputShape,
+  UpdateFromMarkdownInputShape,
+  UpsertAccommodationInputShape,
   UpsertActivityInputShape,
   upsertAccommodationAgentNote,
   upsertDayItemAgentNote,
@@ -190,6 +202,107 @@ test('focused day item schemas support activities, meals, and transport edits', 
   );
 });
 
+test('internal agent allowlist includes focused parity tools', () => {
+  const names = new Set(TRIP_EDITOR_TOOL_NAMES);
+  for (const name of [
+    'mcp__trip_editor__upsert_accommodation',
+    'mcp__trip_editor__delete_accommodation',
+    'mcp__trip_editor__replace_accommodation',
+    'mcp__trip_editor__replace_day_section',
+    'mcp__trip_editor__replace_day',
+    'mcp__trip_editor__delete_day',
+    'mcp__trip_editor__truncate_days_after',
+    'mcp__trip_editor__sync_markdown_source',
+    'mcp__trip_editor__update_from_markdown',
+    'mcp__trip_editor__replace_booked_accommodation_candidate',
+    'mcp__trip_editor__get_trip_image_prompts',
+    'mcp__trip_editor__save_trip_image_asset',
+  ]) {
+    assert.equal(names.has(name), true, `${name} should be allowed`);
+  }
+});
+
+test('focused accommodation schemas support add, delete, and replace edits', () => {
+  const upsertSchema = z.object(UpsertAccommodationInputShape);
+  assert.equal(
+    upsertSchema.safeParse({
+      day_number: 2,
+      accommodation: {
+        name: 'Kimpton Blythswood Square',
+        status: 'booked',
+        detail: { check_in: '15:00', address: '11 Blythswood Square, Glasgow' },
+      },
+      scope: 'matching_accommodation_name',
+    }).success,
+    true
+  );
+
+  const deleteSchema = z.object(DeleteAccommodationInputShape);
+  assert.equal(
+    deleteSchema.safeParse({
+      day_number: 2,
+      match: { name: 'Grasshopper Hotel Glasgow' },
+    }).success,
+    true
+  );
+
+  const replaceSchema = z.object(ReplaceAccommodationInputShape);
+  assert.equal(
+    replaceSchema.safeParse({
+      day_number: 2,
+      accommodation: {
+        name: 'Dakota Glasgow',
+        detail: { parking: 'Check valet availability directly.' },
+      },
+    }).success,
+    true
+  );
+});
+
+test('structural day and markdown schemas support safe rewrites', () => {
+  assert.equal(
+    z.object(ReplaceDaySectionInputShape).safeParse({
+      day_number: 3,
+      section: 'meals',
+      value: [{ type: 'dinner', name: 'Cail Bruich' }],
+    }).success,
+    true
+  );
+  assert.equal(
+    z.object(ReplaceDayInputShape).safeParse({
+      day_number: 3,
+      day: {
+        date: '2026-04-26',
+        title: 'Glasgow -> Fort William',
+        blocks: [],
+        tips: [{ title: 'Rail timing', content: 'Keep the connection relaxed.' }],
+      },
+    }).success,
+    true
+  );
+  assert.equal(z.object(DeleteDayInputShape).safeParse({ day_number: 5 }).success, true);
+  assert.equal(
+    z.object(TruncateDaysAfterInputShape).safeParse({ keep_through_day_number: 7 }).success,
+    true
+  );
+  assert.equal(
+    z.object(SyncMarkdownSourceInputShape).safeParse({
+      markdown_source: '# Updated original plan',
+      expected_current_hash: 'abc123',
+    }).success,
+    true
+  );
+  assert.equal(
+    z.object(UpdateFromMarkdownInputShape).safeParse({
+      markdown_source: '# Updated original plan',
+      trip: { summary: 'A revised Highland trip.' },
+      days: [{ day_number: 1, title: 'Arrival' }],
+      mode: 'merge',
+    }).success,
+    true
+  );
+});
+
 test('image tool schemas support search, single set, and bulk completion', () => {
   const searchSchema = z.object(SearchTripImagesInputShape);
   assert.equal(
@@ -224,6 +337,37 @@ test('image tool schemas support search, single set, and bulk completion', () =>
       max_updates: 999,
     }).success,
     false
+  );
+});
+
+test('generated image asset and booked-stay replacement schemas are available', () => {
+  assert.equal(
+    z.object(SaveTripImageAssetInputShape).safeParse({
+      slot: 'cover_portrait',
+      asset: {
+        url: 'https://cdn.example.com/trips/cover.png',
+        prompt: 'Editorial travel cover',
+        aspect_ratio: '4:5',
+        width: 1200,
+        height: 1500,
+        source: 'imagegen',
+      },
+    }).success,
+    true
+  );
+
+  assert.equal(
+    z.object(ReplaceBookedAccommodationCandidateInputShape).safeParse({
+      candidate_id: 'stay-kimpton-blythswood-square',
+      booking: {
+        source: 'direct',
+        confirmation: 'Do not invent real refs in production',
+        price: 'EUR 210/night',
+        note: 'Traveler chose this hotel instead.',
+      },
+      message: 'Traveler chose this hotel instead.',
+    }).success,
+    true
   );
 });
 

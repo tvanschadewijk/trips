@@ -53,6 +53,18 @@ test('system prompt gives the agent a durable image completion workflow', () => 
   assert.match(prompt, /Do not use `update_trip` to fabricate image URLs/);
 });
 
+test('system prompt teaches focused internal edit tools before update_trip', () => {
+  const prompt = buildSystemPrompt();
+
+  assert.match(prompt, /mcp__trip_editor__replace_accommodation/);
+  assert.match(prompt, /mcp__trip_editor__replace_day_section/);
+  assert.match(prompt, /mcp__trip_editor__truncate_days_after/);
+  assert.match(prompt, /mcp__trip_editor__sync_markdown_source/);
+  assert.match(prompt, /mcp__trip_editor__replace_booked_accommodation_candidate/);
+  assert.match(prompt, /Prefer focused tools over `update_trip`/);
+  assert.match(prompt, /Use `update_trip` only when no narrower tool can express/);
+});
+
 test('intent ledger catches booked hotel and restaurant booking request in one turn', () => {
   const message = `[The user is currently viewing Day 7 (2026-07-26) — "Novi Sad". If their question is ambiguous about which day, default to this one.]
 

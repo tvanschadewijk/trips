@@ -4,6 +4,15 @@ Selected product updates for OurTrips.
 
 ## Unreleased
 
+## 2026-06-25 - 0.5.0 - Internal agent tool parity
+
+### Added
+- Added focused internal travel-agent tools for public accommodation add/delete/replace, day section replacement, full-day replacement, day deletion, trailing-day truncation, markdown source sync, markdown-backed updates, generated image assets, and booked accommodation candidate replacement.
+
+### Improved
+- Taught the in-app travel agent to prefer focused edit tools over broad `update_trip` patches, reducing stale nested itinerary data after hotel swaps, day rewrites, and route-shortening edits.
+- Resolved internal service writes through the trip's owner id so admin support edits can use owner-scoped mutation helpers reliably.
+
 ## 2026-06-25 - 0.4.1 - Route distance metric
 
 ### Fixed

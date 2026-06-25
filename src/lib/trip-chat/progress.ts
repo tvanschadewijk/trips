@@ -151,13 +151,16 @@ function transportLabel(input: Record<string, unknown> | null): string | undefin
 }
 
 function accommodationLabel(input: Record<string, unknown> | null): string | undefined {
+  const accommodation = nestedRecord(input, 'accommodation');
   const patch = nestedRecord(input, 'accommodation_patch');
   const candidate = nestedRecord(input, 'candidate');
   const candidatePatch = nestedRecord(input, 'candidate_patch');
   return (
+    cleanLabel(accommodation?.name) ??
     cleanLabel(patch?.name) ??
     cleanLabel(candidate?.candidate) ??
-    cleanLabel(candidatePatch?.candidate)
+    cleanLabel(candidatePatch?.candidate) ??
+    cleanLabel(input?.candidate_id)
   );
 }
 
@@ -344,6 +347,55 @@ export function getToolProgressUpdate(
       message: 'Saving accommodation notes...',
     });
   }
+  if (
+    normalized === 'upsert_accommodation' ||
+    normalized === 'replace_accommodation' ||
+    normalized === 'delete_accommodation'
+  ) {
+    const dayNumber = numberField(input, 'day_number');
+    const label = accommodationLabel(input) ?? objectFromMatch(nestedRecord(input, 'match'));
+    const action = normalized === 'delete_accommodation'
+      ? 'delete'
+      : normalized === 'replace_accommodation'
+        ? 'replace'
+        : 'save';
+    return observed({
+      stage: 'editing',
+      action,
+      object_type: 'accommodation',
+      object_label: label,
+      message: label
+        ? `${action === 'delete' ? 'Removing' : action === 'replace' ? 'Replacing' : 'Saving'} stay ${label}${dayPhrase(dayNumber)}...`
+        : `${action === 'delete' ? 'Removing' : action === 'replace' ? 'Replacing' : 'Saving'} the stay${dayPhrase(dayNumber)}...`,
+    });
+  }
+  if (
+    normalized === 'replace_day_section' ||
+    normalized === 'replace_day' ||
+    normalized === 'delete_day' ||
+    normalized === 'truncate_days_after'
+  ) {
+    const dayNumber = numberField(input, 'day_number') ?? numberField(input, 'keep_through_day_number');
+    return observed({
+      stage: 'editing',
+      action: normalized === 'delete_day' || normalized === 'truncate_days_after' ? 'delete' : 'replace',
+      object_type: 'day',
+      object_label: dayNumber ? `Day ${dayNumber}` : undefined,
+      message: normalized === 'truncate_days_after'
+        ? `Removing days after Day ${dayNumber ?? ''}...`.trim()
+        : `${normalized === 'delete_day' ? 'Deleting' : 'Replacing'}${dayPhrase(dayNumber)}...`,
+    });
+  }
+  if (normalized === 'sync_markdown_source' || normalized === 'update_from_markdown') {
+    return observed({
+      stage: 'editing',
+      action: 'save',
+      object_type: 'markdown_source',
+      message: normalized === 'update_from_markdown'
+        ? 'Updating the Original Plan and itinerary data...'
+        : 'Updating the Original Plan...',
+    });
+  }
   if (normalized === 'upsert_activity') {
     const dayNumber = numberField(input, 'day_number');
     const label = activityLabel(input);
@@ -466,6 +518,18 @@ export function getToolProgressUpdate(
       message: 'Promoting the booked stay into the trip...',
     });
   }
+  if (normalized === 'replace_booked_accommodation_candidate') {
+    const label = accommodationLabel(input);
+    return observed({
+      stage: 'editing',
+      action: 'replace',
+      object_type: 'accommodation_candidate',
+      object_label: label,
+      message: label
+        ? `Replacing the booked stay with ${label}...`
+        : 'Replacing the booked stay...',
+    });
+  }
   if (normalized === 'set_trip_image') {
     const target = cleanLabel(input?.target);
     return observed({
@@ -484,6 +548,16 @@ export function getToolProgressUpdate(
       action: 'save',
       object_type: 'trip_images',
       message: 'Filling missing trip photography...',
+    });
+  }
+  if (normalized === 'save_trip_image_asset') {
+    const slot = cleanLabel(input?.slot);
+    return observed({
+      stage: 'editing',
+      action: 'save',
+      object_type: 'trip_image_asset',
+      object_label: slot,
+      message: slot ? `Saving ${slot.replace(/_/g, ' ')} image asset...` : 'Saving image asset...',
     });
   }
   if (normalized === 'booking_link_restaurant') {
@@ -584,6 +658,55 @@ export function getAppliedToolProgressUpdate(
       action: 'saved',
       object_type: 'accommodation_detail',
       message: 'Saved the accommodation notes.',
+    });
+  }
+  if (
+    normalized === 'upsert_accommodation' ||
+    normalized === 'replace_accommodation' ||
+    normalized === 'delete_accommodation'
+  ) {
+    const dayNumber = numberField(input, 'day_number');
+    const label = accommodationLabel(input) ?? objectFromMatch(nestedRecord(input, 'match'));
+    const action = normalized === 'delete_accommodation'
+      ? 'removed'
+      : normalized === 'replace_accommodation'
+        ? 'replaced'
+        : 'saved';
+    return completed({
+      stage: 'reviewing',
+      action,
+      object_type: 'accommodation',
+      object_label: label,
+      message: label
+        ? `${action === 'removed' ? 'Removed' : action === 'replaced' ? 'Replaced' : 'Saved'} stay ${label}${dayPhrase(dayNumber)}.`
+        : `${action === 'removed' ? 'Removed' : action === 'replaced' ? 'Replaced' : 'Saved'} the stay${dayPhrase(dayNumber)}.`,
+    });
+  }
+  if (
+    normalized === 'replace_day_section' ||
+    normalized === 'replace_day' ||
+    normalized === 'delete_day' ||
+    normalized === 'truncate_days_after'
+  ) {
+    const dayNumber = numberField(input, 'day_number') ?? numberField(input, 'keep_through_day_number');
+    return completed({
+      stage: 'reviewing',
+      action: normalized === 'delete_day' || normalized === 'truncate_days_after' ? 'removed' : 'saved',
+      object_type: 'day',
+      object_label: dayNumber ? `Day ${dayNumber}` : undefined,
+      message: normalized === 'truncate_days_after'
+        ? `Removed days after Day ${dayNumber ?? ''}.`.trim()
+        : `${normalized === 'delete_day' ? 'Deleted' : 'Replaced'}${dayPhrase(dayNumber)}.`,
+    });
+  }
+  if (normalized === 'sync_markdown_source' || normalized === 'update_from_markdown') {
+    return completed({
+      stage: 'reviewing',
+      action: 'saved',
+      object_type: 'markdown_source',
+      message: normalized === 'update_from_markdown'
+        ? 'Updated the Original Plan and itinerary data.'
+        : 'Updated the Original Plan.',
     });
   }
   if (normalized === 'upsert_activity') {
@@ -706,6 +829,18 @@ export function getAppliedToolProgressUpdate(
       message: 'Promoted the booked stay into the trip.',
     });
   }
+  if (normalized === 'replace_booked_accommodation_candidate') {
+    const label = accommodationLabel(input);
+    return completed({
+      stage: 'reviewing',
+      action: 'replaced',
+      object_type: 'accommodation_candidate',
+      object_label: label,
+      message: label
+        ? `Replaced the booked stay with ${label}.`
+        : 'Replaced the booked stay.',
+    });
+  }
   if (normalized === 'set_trip_image') {
     const target = cleanLabel(input?.target);
     return completed({
@@ -724,6 +859,16 @@ export function getAppliedToolProgressUpdate(
       action: 'saved',
       object_type: 'trip_images',
       message: 'Updated missing trip photography.',
+    });
+  }
+  if (normalized === 'save_trip_image_asset') {
+    const slot = cleanLabel(input?.slot);
+    return completed({
+      stage: 'reviewing',
+      action: 'saved',
+      object_type: 'trip_image_asset',
+      object_label: slot,
+      message: slot ? `Saved ${slot.replace(/_/g, ' ')} image asset.` : 'Saved image asset.',
     });
   }
 

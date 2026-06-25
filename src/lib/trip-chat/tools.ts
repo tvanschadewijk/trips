@@ -18,6 +18,7 @@ import {
   addAccommodationCandidate,
   moveAccommodationCandidate,
   promoteCandidateToTrip,
+  replaceBookedAccommodationCandidate,
   updateAccommodationCandidate,
 } from '@/lib/accommodation-review';
 import {
@@ -26,11 +27,21 @@ import {
 } from '@/lib/accommodation-review-store';
 import {
   completeMissingTripImagesForUser,
+  deleteDayForUser,
   deleteDayItemInTripData,
   formatTripForRead,
+  getTripImagePromptsForUser,
+  replaceDayForUser,
+  replaceDaySectionForUser,
+  saveTripImageAssetForUser,
   searchTripImages,
   setTripHeroImageForUser,
   summarizeTripImages,
+  syncMarkdownSourceForUser,
+  truncateDaysAfterForUser,
+  deleteDayItemForUser,
+  updateTripFromMarkdownForUser,
+  upsertDayItemForUser,
   upsertDayItemInTripData,
 } from '@/lib/trip-service';
 import { buildTripLogisticsLedger } from '@/lib/trip-logistics-ledger';
@@ -288,6 +299,80 @@ failed, skipped, and remaining-missing targets.
 After this tool returns partial, call get_image_status before the final reply
 and tell the user exactly which targets are still missing and why.`;
 
+const GET_TRIP_IMAGE_PROMPTS_DESCRIPTION = `Build grounded prompts for generated OurTrips cover/social assets.
+
+Use this when the user asks for generated cover artwork, OpenGraph/social
+images, or image prompt guidance. It reads the current trip and returns prompts
+for supported asset slots. Use save_trip_image_asset only after an image has
+already been generated and hosted at a public URL.`;
+
+const SAVE_TRIP_IMAGE_ASSET_DESCRIPTION = `Save one generated or externally hosted public image URL into trip.image_assets.
+
+Use this after an image-generation flow has produced and hosted a real image.
+Do not pass local file paths, data URLs, or invented URLs. For ordinary trip/day
+hero photography, prefer search_trip_images, set_trip_image, or
+complete_missing_images.`;
+
+const UPSERT_ACCOMMODATION_DESCRIPTION = `Add or update one public accommodation card without replacing the full itinerary.
+
+Use this when the user asks to add a hotel/stay to a specific day, update the
+same stay across repeated nights, or patch a stay object with fields that do not
+fit update_accommodation's small top-level patch. Use scope
+"matching_accommodation_name" for repeated nights of the same current stay.`;
+
+const DELETE_ACCOMMODATION_DESCRIPTION = `Remove one public accommodation card without replacing the full itinerary.
+
+Use this when a stay should be cleared from one day or from all repeated nights
+matching the current accommodation name. Prefer truncate_days_after or
+delete_day for route/date removals that remove entire days.`;
+
+const REPLACE_ACCOMMODATION_DESCRIPTION = `Replace one public accommodation object without merge leftovers.
+
+Use this for hotel swaps where old nested detail fields, addresses, booking
+notes, or stale stay facts must not survive. Use scope
+"matching_accommodation_name" when replacing repeated cards for the same stay.`;
+
+const REPLACE_DAY_SECTION_DESCRIPTION = `Replace a complete section on one day.
+
+Use this when the safest edit is a clean overwrite of one day section such as
+blocks, transport, accommodation, meals, tips, or stats. Prefer focused
+upsert/delete tools for single item edits.`;
+
+const REPLACE_DAY_DESCRIPTION = `Replace one complete day object by day_number.
+
+Use this for rewritten days, destination changes, or broad day repairs where
+merge semantics could leave stale nested data behind. Read the current day
+first and preserve fields that should remain.`;
+
+const DELETE_DAY_DESCRIPTION = `Delete one complete day by day_number.
+
+Use this only when the itinerary truly loses that calendar day. For shortening
+a trip by removing a trailing route tail, prefer truncate_days_after.`;
+
+const TRUNCATE_DAYS_AFTER_DESCRIPTION = `Delete every day after a given day number.
+
+Use this when a trip gets shorter and all trailing days must disappear. Read the
+date ledger first for edits involving trip duration, sleeps/nights, stays, or
+route shape.`;
+
+const SYNC_MARKDOWN_SOURCE_DESCRIPTION = `Replace the stored Original Plan markdown_source.
+
+Use this when the user asks to update the Original Plan text only. Pass
+expected_current_hash from get_trip summary/full reads when available so the
+edit fails instead of overwriting a newer markdown_source.`;
+
+const UPDATE_FROM_MARKDOWN_DESCRIPTION = `Replace markdown_source and optionally apply parsed trip/days JSON.
+
+Use this when the user gives updated source markdown and you have also parsed
+the corresponding structured trip or days changes. OurTrips stores markdown
+verbatim and does not infer structured itinerary updates server-side.`;
+
+const REPLACE_BOOKED_ACCOMMODATION_CANDIDATE_DESCRIPTION = `Replace the currently booked private accommodation candidate for a destination.
+
+Use this when the user chooses a different candidate as the booked stay. This
+demotes the old booked candidate, marks the selected candidate booked, and
+promotes the selected stay into the public itinerary accommodation cards.`;
+
 const UPSERT_ACTIVITY_DESCRIPTION = `Add or update one day programme item without loading or replacing the full itinerary.
 
 Use this for museums, galleries, beaches, viewpoints, walks, excursions,
@@ -529,6 +614,26 @@ const TransportSchema = z
   })
   .passthrough();
 
+const AccommodationItemSchema = z
+  .object({
+    name: z.string().min(1).optional(),
+    price: z.string().optional(),
+    rating: z.string().optional(),
+    status: z.string().optional(),
+    booking_status: z.string().optional(),
+    nights: z.number().optional(),
+    note: z.string().optional(),
+    detail: DetailPatchSchema.optional(),
+  })
+  .passthrough()
+  .refine((value: Record<string, unknown>) => Object.keys(value).length > 0, {
+    message: 'Provide at least one accommodation field.',
+  });
+
+const AccommodationScopeSchema = z
+  .enum(['day', 'matching_accommodation_name'])
+  .default('day');
+
 const UpsertActivityInputShape = {
   day_number: DayNumberSchema,
   activity: ActivitySchema,
@@ -566,6 +671,66 @@ const UpsertTransportInputShape = {
 const DeleteTransportInputShape = {
   day_number: DayNumberSchema,
   match: ItemMatchSchema,
+} as const;
+
+const UpsertAccommodationInputShape = {
+  day_number: DayNumberSchema,
+  accommodation: AccommodationItemSchema,
+  match: ItemMatchSchema.optional(),
+  mode: PatchModeSchema,
+  scope: AccommodationScopeSchema,
+} as const;
+
+const DeleteAccommodationInputShape = {
+  day_number: DayNumberSchema,
+  match: ItemMatchSchema.optional(),
+  scope: AccommodationScopeSchema,
+} as const;
+
+const ReplaceAccommodationInputShape = {
+  day_number: DayNumberSchema,
+  accommodation: AccommodationItemSchema,
+  match: ItemMatchSchema.optional(),
+  scope: AccommodationScopeSchema,
+} as const;
+
+const DaySectionSchema = z.enum(['blocks', 'transport', 'accommodation', 'meals', 'tips', 'stats']);
+const DayReplacementSchema = z
+  .record(z.string(), z.unknown())
+  .refine((value) => Object.keys(value).length > 0, {
+    message: 'Provide a complete replacement day object.',
+  });
+
+const ReplaceDaySectionInputShape = {
+  day_number: DayNumberSchema,
+  section: DaySectionSchema,
+  value: z.unknown(),
+} as const;
+
+const ReplaceDayInputShape = {
+  day_number: DayNumberSchema,
+  day: DayReplacementSchema,
+} as const;
+
+const DeleteDayInputShape = {
+  day_number: DayNumberSchema,
+} as const;
+
+const TruncateDaysAfterInputShape = {
+  keep_through_day_number: DayNumberSchema,
+} as const;
+
+const SyncMarkdownSourceInputShape = {
+  markdown_source: z.string().max(262144),
+  expected_current_hash: z.string().optional(),
+} as const;
+
+const UpdateFromMarkdownInputShape = {
+  markdown_source: z.string().max(262144),
+  expected_current_hash: z.string().optional(),
+  trip: z.record(z.string(), z.unknown()).optional(),
+  days: z.array(DayReplacementSchema).optional(),
+  mode: PatchModeSchema,
 } as const;
 
 const ResearchPlacePolicyInputShape = {
@@ -768,6 +933,30 @@ const CompleteMissingImagesInputShape = {
   replace_existing: z.boolean().optional(),
   include_overview: z.boolean().optional(),
   max_updates: z.number().int().positive().max(24).optional(),
+} as const;
+
+const ImageAssetSlotSchema = z.enum(['cover_portrait', 'cover_landscape', 'social_og']);
+const ImageAssetSchema = z.object({
+  url: z.string().min(1),
+  prompt: z.string().optional(),
+  aspect_ratio: z.string().optional(),
+  width: z.number().int().positive().optional(),
+  height: z.number().int().positive().optional(),
+  provider: z.string().optional(),
+  model: z.string().optional(),
+  source: z.enum(['imagegen', 'manual', 'search']).optional(),
+  generated_at: z.string().optional(),
+});
+
+const SaveTripImageAssetInputShape = {
+  slot: ImageAssetSlotSchema,
+  asset: ImageAssetSchema,
+} as const;
+
+const ReplaceBookedAccommodationCandidateInputShape = {
+  candidate_id: z.string().min(1),
+  booking: AccommodationCandidateBookingSchema.optional(),
+  message: z.string().optional(),
 } as const;
 
 const GET_TRIP_DESCRIPTION = `Read the current trip the user is editing, with compact views by default.
@@ -988,6 +1177,28 @@ function requireContextUserId(ctx: TripToolContext): string {
   return ctx.userId;
 }
 
+async function requireTripOwnerUserId(ctx: TripToolContext): Promise<string> {
+  requireContextUserId(ctx);
+  const { data, error } = await ctx.supabase
+    .from('trips')
+    .select('user_id')
+    .eq('id', ctx.tripId)
+    .single();
+
+  if (error || !data) {
+    throw new Error(`Error reading trip owner: ${error?.message ?? 'not found'}`);
+  }
+
+  const ownerId = typeof data.user_id === 'string'
+    ? data.user_id
+    : String(data.user_id ?? '');
+  if (!ownerId) {
+    throw new Error('Trip owner is missing for this write tool.');
+  }
+
+  return ownerId;
+}
+
 async function readTripData(ctx: TripToolContext): Promise<TripData> {
   const { data, error } = await ctx.supabase
     .from('trips')
@@ -1012,6 +1223,33 @@ async function writeTripData(ctx: TripToolContext, next: TripData): Promise<void
   if (error) {
     throw new Error(`Error writing trip: ${error.message}`);
   }
+}
+
+async function applyTripServiceMutation(args: {
+  ctx: TripToolContext;
+  toolName: string;
+  rawInput: unknown;
+  mutate: (ownerUserId: string) => Promise<{ record: Record<string, unknown>; summary: unknown }>;
+}) {
+  const before = await readTripData(args.ctx);
+  const ownerUserId = await requireTripOwnerUserId(args.ctx);
+  const result = await args.mutate(ownerUserId);
+  const after = normalizeTripData(result.record.data);
+
+  if (args.ctx.onUpdateApplied) {
+    try {
+      await args.ctx.onUpdateApplied({
+        tool: args.toolName,
+        before,
+        after,
+        input: args.rawInput,
+      });
+    } catch {
+      // Telemetry errors must not fail the tool call.
+    }
+  }
+
+  return jsonToolResponse(result.summary);
 }
 
 function cloneTripData(data: TripData): TripData {
@@ -2180,11 +2418,11 @@ export function createTripEditorMcpServer(
       }
 
       try {
-        const userId = requireContextUserId(ctx);
+        const ownerUserId = await requireTripOwnerUserId(ctx);
         const before = await readTripData(ctx);
         const result = await setTripHeroImageForUser(
           ctx.supabase,
-          userId,
+          ownerUserId,
           ctx.tripId,
           {
             target:
@@ -2231,11 +2469,11 @@ export function createTripEditorMcpServer(
       }
 
       try {
-        const userId = requireContextUserId(ctx);
+        const ownerUserId = await requireTripOwnerUserId(ctx);
         const before = await readTripData(ctx);
         const result = await completeMissingTripImagesForUser(
           ctx.supabase,
-          userId,
+          ownerUserId,
           ctx.tripId,
           parsed.data,
           ctx.origin ?? ''
@@ -2255,6 +2493,337 @@ export function createTripEditorMcpServer(
         const summary = { ...result };
         delete summary.trip_data;
         return jsonToolResponse(summary);
+      } catch (err) {
+        return textToolError(err instanceof Error ? err.message : String(err));
+      }
+    }
+  );
+
+  const getTripImagePrompts = tool(
+    'get_trip_image_prompts',
+    GET_TRIP_IMAGE_PROMPTS_DESCRIPTION,
+    {},
+    async () => {
+      try {
+        const ownerUserId = await requireTripOwnerUserId(ctx);
+        const result = await getTripImagePromptsForUser(
+          ctx.supabase,
+          ownerUserId,
+          ctx.tripId
+        );
+        return jsonToolResponse(result);
+      } catch (err) {
+        return textToolError(err instanceof Error ? err.message : String(err));
+      }
+    }
+  );
+
+  const saveTripImageAsset = tool(
+    'save_trip_image_asset',
+    SAVE_TRIP_IMAGE_ASSET_DESCRIPTION,
+    SaveTripImageAssetInputShape,
+    async (rawArgs) => {
+      const parsed = z.object(SaveTripImageAssetInputShape).safeParse(rawArgs);
+      if (!parsed.success) {
+        return textToolError(`Invalid input: ${formatZodIssues(parsed.error)}`);
+      }
+
+      try {
+        return await applyTripServiceMutation({
+          ctx,
+          toolName: 'save_trip_image_asset',
+          rawInput: parsed.data,
+          mutate: (ownerUserId) => saveTripImageAssetForUser(
+            ctx.supabase,
+            ownerUserId,
+            ctx.tripId,
+            parsed.data,
+            ctx.origin ?? ''
+          ),
+        });
+      } catch (err) {
+        return textToolError(err instanceof Error ? err.message : String(err));
+      }
+    }
+  );
+
+  const upsertAccommodation = tool(
+    'upsert_accommodation',
+    UPSERT_ACCOMMODATION_DESCRIPTION,
+    UpsertAccommodationInputShape,
+    async (rawArgs) => {
+      const parsed = z.object(UpsertAccommodationInputShape).safeParse(rawArgs);
+      if (!parsed.success) {
+        return textToolError(`Invalid input: ${formatZodIssues(parsed.error)}`);
+      }
+
+      try {
+        return await applyTripServiceMutation({
+          ctx,
+          toolName: 'upsert_accommodation',
+          rawInput: parsed.data,
+          mutate: (ownerUserId) => upsertDayItemForUser(
+            ctx.supabase,
+            ownerUserId,
+            ctx.tripId,
+            {
+              kind: 'accommodation',
+              day_number: parsed.data.day_number,
+              item: parsed.data.accommodation as Record<string, unknown>,
+              match: parsed.data.match,
+              mode: parsed.data.mode,
+              scope: parsed.data.scope,
+            },
+            ctx.origin ?? ''
+          ),
+        });
+      } catch (err) {
+        return textToolError(err instanceof Error ? err.message : String(err));
+      }
+    }
+  );
+
+  const deleteAccommodation = tool(
+    'delete_accommodation',
+    DELETE_ACCOMMODATION_DESCRIPTION,
+    DeleteAccommodationInputShape,
+    async (rawArgs) => {
+      const parsed = z.object(DeleteAccommodationInputShape).safeParse(rawArgs);
+      if (!parsed.success) {
+        return textToolError(`Invalid input: ${formatZodIssues(parsed.error)}`);
+      }
+
+      try {
+        return await applyTripServiceMutation({
+          ctx,
+          toolName: 'delete_accommodation',
+          rawInput: parsed.data,
+          mutate: (ownerUserId) => deleteDayItemForUser(
+            ctx.supabase,
+            ownerUserId,
+            ctx.tripId,
+            {
+              kind: 'accommodation',
+              day_number: parsed.data.day_number,
+              match: parsed.data.match,
+              scope: parsed.data.scope,
+            },
+            ctx.origin ?? ''
+          ),
+        });
+      } catch (err) {
+        return textToolError(err instanceof Error ? err.message : String(err));
+      }
+    }
+  );
+
+  const replaceAccommodation = tool(
+    'replace_accommodation',
+    REPLACE_ACCOMMODATION_DESCRIPTION,
+    ReplaceAccommodationInputShape,
+    async (rawArgs) => {
+      const parsed = z.object(ReplaceAccommodationInputShape).safeParse(rawArgs);
+      if (!parsed.success) {
+        return textToolError(`Invalid input: ${formatZodIssues(parsed.error)}`);
+      }
+
+      try {
+        return await applyTripServiceMutation({
+          ctx,
+          toolName: 'replace_accommodation',
+          rawInput: parsed.data,
+          mutate: (ownerUserId) => upsertDayItemForUser(
+            ctx.supabase,
+            ownerUserId,
+            ctx.tripId,
+            {
+              kind: 'accommodation',
+              day_number: parsed.data.day_number,
+              item: parsed.data.accommodation as Record<string, unknown>,
+              match: parsed.data.match,
+              mode: 'replace',
+              scope: parsed.data.scope,
+            },
+            ctx.origin ?? ''
+          ),
+        });
+      } catch (err) {
+        return textToolError(err instanceof Error ? err.message : String(err));
+      }
+    }
+  );
+
+  const replaceDaySection = tool(
+    'replace_day_section',
+    REPLACE_DAY_SECTION_DESCRIPTION,
+    ReplaceDaySectionInputShape,
+    async (rawArgs) => {
+      const parsed = z.object(ReplaceDaySectionInputShape).safeParse(rawArgs);
+      if (!parsed.success) {
+        return textToolError(`Invalid input: ${formatZodIssues(parsed.error)}`);
+      }
+
+      try {
+        return await applyTripServiceMutation({
+          ctx,
+          toolName: 'replace_day_section',
+          rawInput: parsed.data,
+          mutate: (ownerUserId) => replaceDaySectionForUser(
+            ctx.supabase,
+            ownerUserId,
+            ctx.tripId,
+            parsed.data,
+            ctx.origin ?? ''
+          ),
+        });
+      } catch (err) {
+        return textToolError(err instanceof Error ? err.message : String(err));
+      }
+    }
+  );
+
+  const replaceDay = tool(
+    'replace_day',
+    REPLACE_DAY_DESCRIPTION,
+    ReplaceDayInputShape,
+    async (rawArgs) => {
+      const parsed = z.object(ReplaceDayInputShape).safeParse(rawArgs);
+      if (!parsed.success) {
+        return textToolError(`Invalid input: ${formatZodIssues(parsed.error)}`);
+      }
+
+      try {
+        return await applyTripServiceMutation({
+          ctx,
+          toolName: 'replace_day',
+          rawInput: parsed.data,
+          mutate: (ownerUserId) => replaceDayForUser(
+            ctx.supabase,
+            ownerUserId,
+            ctx.tripId,
+            {
+              day_number: parsed.data.day_number,
+              day: parsed.data.day,
+            },
+            ctx.origin ?? ''
+          ),
+        });
+      } catch (err) {
+        return textToolError(err instanceof Error ? err.message : String(err));
+      }
+    }
+  );
+
+  const deleteDay = tool(
+    'delete_day',
+    DELETE_DAY_DESCRIPTION,
+    DeleteDayInputShape,
+    async (rawArgs) => {
+      const parsed = z.object(DeleteDayInputShape).safeParse(rawArgs);
+      if (!parsed.success) {
+        return textToolError(`Invalid input: ${formatZodIssues(parsed.error)}`);
+      }
+
+      try {
+        return await applyTripServiceMutation({
+          ctx,
+          toolName: 'delete_day',
+          rawInput: parsed.data,
+          mutate: (ownerUserId) => deleteDayForUser(
+            ctx.supabase,
+            ownerUserId,
+            ctx.tripId,
+            parsed.data,
+            ctx.origin ?? ''
+          ),
+        });
+      } catch (err) {
+        return textToolError(err instanceof Error ? err.message : String(err));
+      }
+    }
+  );
+
+  const truncateDaysAfter = tool(
+    'truncate_days_after',
+    TRUNCATE_DAYS_AFTER_DESCRIPTION,
+    TruncateDaysAfterInputShape,
+    async (rawArgs) => {
+      const parsed = z.object(TruncateDaysAfterInputShape).safeParse(rawArgs);
+      if (!parsed.success) {
+        return textToolError(`Invalid input: ${formatZodIssues(parsed.error)}`);
+      }
+
+      try {
+        return await applyTripServiceMutation({
+          ctx,
+          toolName: 'truncate_days_after',
+          rawInput: parsed.data,
+          mutate: (ownerUserId) => truncateDaysAfterForUser(
+            ctx.supabase,
+            ownerUserId,
+            ctx.tripId,
+            parsed.data,
+            ctx.origin ?? ''
+          ),
+        });
+      } catch (err) {
+        return textToolError(err instanceof Error ? err.message : String(err));
+      }
+    }
+  );
+
+  const syncMarkdownSource = tool(
+    'sync_markdown_source',
+    SYNC_MARKDOWN_SOURCE_DESCRIPTION,
+    SyncMarkdownSourceInputShape,
+    async (rawArgs) => {
+      const parsed = z.object(SyncMarkdownSourceInputShape).safeParse(rawArgs);
+      if (!parsed.success) {
+        return textToolError(`Invalid input: ${formatZodIssues(parsed.error)}`);
+      }
+
+      try {
+        return await applyTripServiceMutation({
+          ctx,
+          toolName: 'sync_markdown_source',
+          rawInput: parsed.data,
+          mutate: (ownerUserId) => syncMarkdownSourceForUser(
+            ctx.supabase,
+            ownerUserId,
+            ctx.tripId,
+            parsed.data,
+            ctx.origin ?? ''
+          ),
+        });
+      } catch (err) {
+        return textToolError(err instanceof Error ? err.message : String(err));
+      }
+    }
+  );
+
+  const updateFromMarkdown = tool(
+    'update_from_markdown',
+    UPDATE_FROM_MARKDOWN_DESCRIPTION,
+    UpdateFromMarkdownInputShape,
+    async (rawArgs) => {
+      const parsed = z.object(UpdateFromMarkdownInputShape).safeParse(rawArgs);
+      if (!parsed.success) {
+        return textToolError(`Invalid input: ${formatZodIssues(parsed.error)}`);
+      }
+
+      try {
+        return await applyTripServiceMutation({
+          ctx,
+          toolName: 'update_from_markdown',
+          rawInput: parsed.data,
+          mutate: (ownerUserId) => updateTripFromMarkdownForUser(
+            ctx.supabase,
+            ownerUserId,
+            ctx.tripId,
+            parsed.data,
+            ctx.origin ?? ''
+          ),
+        });
       } catch (err) {
         return textToolError(err instanceof Error ? err.message : String(err));
       }
@@ -2907,6 +3476,64 @@ export function createTripEditorMcpServer(
     }
   );
 
+  const replaceBookedAccommodationReviewCandidate = tool(
+    'replace_booked_accommodation_candidate',
+    REPLACE_BOOKED_ACCOMMODATION_CANDIDATE_DESCRIPTION,
+    ReplaceBookedAccommodationCandidateInputShape,
+    async (rawArgs) => {
+      const parsed = z.object(ReplaceBookedAccommodationCandidateInputShape).safeParse(rawArgs);
+      if (!parsed.success) {
+        return textToolError(`Invalid input: ${formatZodIssues(parsed.error)}`);
+      }
+
+      try {
+        const beforeTrip = await readTripData(ctx);
+        const beforeReview = await loadOrCreateAccommodationReview(ctx, beforeTrip);
+        let nextReview = replaceBookedAccommodationCandidate(
+          beforeReview,
+          parsed.data.candidate_id,
+          'agent',
+          parsed.data.booking as AccommodationCandidateBooking | undefined,
+          parsed.data.message
+        );
+        const afterTrip = promoteCandidateToTrip(
+          beforeTrip,
+          nextReview,
+          parsed.data.candidate_id,
+          parsed.data.booking as AccommodationCandidateBooking | undefined
+        );
+        await enrichTripPlaces(afterTrip);
+        await writeTripData(ctx, afterTrip);
+        await saveAccommodationReview(ctx, nextReview);
+        nextReview = await syncAccommodationReviewForTrip(ctx.supabase, ctx.tripId, afterTrip);
+
+        if (ctx.onUpdateApplied) {
+          try {
+            await ctx.onUpdateApplied({
+              tool: 'replace_booked_accommodation_candidate',
+              before: beforeTrip,
+              after: afterTrip,
+              input: parsed.data,
+            });
+          } catch {
+            // Telemetry errors must not fail the tool call.
+          }
+        }
+
+        return jsonToolResponse({
+          ok: true,
+          candidate_id: parsed.data.candidate_id,
+          promoted_to_trip: true,
+          cascade_review: buildAccommodationCascadeReview(beforeTrip, afterTrip),
+          accommodation_review_sync: 'synced',
+          review: summarizeAccommodationReview(nextReview),
+        });
+      } catch (err) {
+        return textToolError(err instanceof Error ? err.message : String(err));
+      }
+    }
+  );
+
   return createSdkMcpServer({
     name: 'trip_editor',
     version: '0.1.0',
@@ -2920,6 +3547,17 @@ export function createTripEditorMcpServer(
       searchTripImagesTool,
       setTripImage,
       completeMissingImages,
+      getTripImagePrompts,
+      saveTripImageAsset,
+      upsertAccommodation,
+      deleteAccommodation,
+      replaceAccommodation,
+      replaceDaySection,
+      replaceDay,
+      deleteDay,
+      truncateDaysAfter,
+      syncMarkdownSource,
+      updateFromMarkdown,
       updateTrip,
       updateAccommodation,
       updateAccommodationDetail,
@@ -2934,6 +3572,7 @@ export function createTripEditorMcpServer(
       updateAccommodationReviewCandidate,
       moveAccommodationReviewCandidate,
       promoteAccommodationReviewCandidate,
+      replaceBookedAccommodationReviewCandidate,
       ...createBookingTools(),
     ],
   });
@@ -2949,15 +3588,26 @@ export const _internal = {
   collectAccommodations,
   CompleteMissingImagesInputShape,
   CreateAccommodationCandidateInputShape,
+  DeleteAccommodationInputShape,
   extractPolicySnippets,
   inferPolicyFromText,
   DeleteActivityInputShape,
+  DeleteDayInputShape,
   DeleteMealInputShape,
   DeleteTransportInputShape,
+  ReplaceAccommodationInputShape,
+  ReplaceBookedAccommodationCandidateInputShape,
+  ReplaceDayInputShape,
+  ReplaceDaySectionInputShape,
+  SaveTripImageAssetInputShape,
   SearchTripImagesInputShape,
   SetTripImageInputShape,
+  SyncMarkdownSourceInputShape,
+  TruncateDaysAfterInputShape,
   UpdateAccommodationCandidateInputShape,
+  UpdateFromMarkdownInputShape,
   UpsertActivityInputShape,
+  UpsertAccommodationInputShape,
   upsertAccommodationAgentNote,
   upsertDayItemAgentNote,
   UpsertMealInputShape,
