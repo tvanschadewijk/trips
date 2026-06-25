@@ -107,6 +107,40 @@ test('keeps existing current-schema data intact', () => {
   assert.equal(trip.markdown_source, '# London');
 });
 
+test('keeps downloaded trip details intact', () => {
+  const trip = normalizeTripData({
+    trip: {
+      name: 'London by Rail',
+      dates: { start: '2026-07-01', end: '2026-07-03' },
+      travelers: [],
+    },
+    days: [],
+    trip_details: {
+      accommodation_review: {
+        tripTitle: 'London by Rail',
+        tripSlug: 'london-by-rail',
+        generatedAt: '2026-06-26T10:00:00.000Z',
+        storageKey: 'ourtrips:accommodation-review:london-by-rail',
+        destinations: [],
+        accommodations: [
+          {
+            id: 'stay-1',
+            destinationId: 'london',
+            stop: 'London',
+            lane: 'proposed',
+            candidate: 'Town Hall Hotel',
+          },
+        ],
+      },
+    },
+  });
+
+  assert.equal(
+    trip.trip_details?.accommodation_review?.accommodations[0]?.candidate,
+    'Town Hall Hotel'
+  );
+});
+
 test('drops empty tip placeholders and normalizes useful legacy tip fields', () => {
   const trip = normalizeTripData({
     trip: {

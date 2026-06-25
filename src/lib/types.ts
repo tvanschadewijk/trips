@@ -2,6 +2,7 @@ export interface TripData {
   trip_schema_version?: number;
   trip: TripMeta;
   days: Day[];
+  trip_details?: TripDetails;
   /**
    * Optional original markdown source the trip was built from. Stored
    * verbatim so the user can see content that didn't fit the structured
@@ -9,6 +10,10 @@ export interface TripData {
    * present.
    */
   markdown_source?: string;
+}
+
+export interface TripDetails {
+  accommodation_review?: AccommodationReview;
 }
 
 export interface TripMeta {

@@ -3,12 +3,15 @@ import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireTripChatAccess } from '@/lib/trip-chat/access';
 import { normalizeTripData } from '@/lib/trip-data-normalize';
+import { attachDownloadableTripDetails } from '@/lib/trip-details';
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id: tripId } = await params;
+  const includeDetails =
+    new URL(request.url).searchParams.get('include_details') === '1';
   const access = await requireTripChatAccess(tripId);
   if ('response' in access) return access.response;
 
@@ -27,9 +30,13 @@ export async function GET(
     );
   }
 
+  const tripData = normalizeTripData(data.data);
+
   return NextResponse.json(
     {
-      trip_data: normalizeTripData(data.data),
+      trip_data: includeDetails
+        ? await attachDownloadableTripDetails(admin, tripId, tripData)
+        : tripData,
       updated_at: data.updated_at,
     },
     {

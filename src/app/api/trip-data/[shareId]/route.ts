@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { normalizeTripData } from '@/lib/trip-data-normalize';
+import { attachDownloadableTripDetails } from '@/lib/trip-details';
 import { scrubTripData, stripPrivateTravelWalletData } from '@/lib/scrub-trip';
 
 // GET /api/trip-data/[shareId] — Public, share-id read for offline use.
@@ -12,11 +13,13 @@ import { scrubTripData, stripPrivateTravelWalletData } from '@/lib/scrub-trip';
 //
 // Non-owners viewing a remix-mode trip get the PII-scrubbed body.
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ shareId: string }> }
 ) {
   const { shareId } = await params;
   try {
+    const includeDetails =
+      new URL(request.url).searchParams.get('include_details') === '1';
     const admin = createAdminClient();
     const { data, error } = await admin
       .from('trips')
@@ -39,11 +42,14 @@ export async function GET(
 
     const raw = normalizeTripData(data.data);
     const shareMode = (data.share_mode as 'companion' | 'remix') ?? 'companion';
-    const body = !isOwner && shareMode === 'remix'
+    const publicBody = !isOwner && shareMode === 'remix'
       ? normalizeTripData(scrubTripData(raw))
       : !isOwner
         ? normalizeTripData(stripPrivateTravelWalletData(raw))
         : raw;
+    const body = isOwner && includeDetails
+      ? await attachDownloadableTripDetails(admin, data.id, publicBody)
+      : publicBody;
 
     return NextResponse.json(
       {

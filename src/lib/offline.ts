@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { normalizeTripData } from './trip-data-normalize';
 import type { TripData } from './types';
 
 /**
@@ -81,6 +82,26 @@ export function saveOfflineTripData(shareId: string, data: TripData): void {
     );
   } catch {
     // ignore
+  }
+}
+
+async function fetchDownloadTripData(shareId: string, fallback: TripData): Promise<TripData> {
+  if (typeof window === 'undefined') return fallback;
+
+  try {
+    const response = await fetch(
+      `/api/trip-data/${encodeURIComponent(shareId)}?include_details=1`,
+      {
+        cache: 'no-store',
+        credentials: 'same-origin',
+      }
+    );
+    if (!response.ok) return fallback;
+    const json = (await response.json()) as { data?: unknown };
+    if (!json?.data) return fallback;
+    return normalizeTripData(json.data);
+  } catch {
+    return fallback;
   }
 }
 
@@ -206,9 +227,10 @@ export function useOfflineTrip(
   const save = useCallback(async (data: TripData) => {
     if (!shareId) return;
     setOffline((current) => ({ ...current, state: { status: 'saving' } }));
-    saveOfflineTripData(shareId, data);
+    const downloadData = await fetchDownloadTripData(shareId, data);
+    saveOfflineTripData(shareId, downloadData);
 
-    const urls = collectTripAssetUrls(shareId, data);
+    const urls = collectTripAssetUrls(shareId, downloadData);
     const result = await postToSw<{ ok: number; failed: number } | null>({
       type: 'cache-trip-assets',
       urls,
@@ -219,11 +241,11 @@ export function useOfflineTrip(
       // localStorage as a fallback).
       const entry: OfflineManifestEntry = {
         shareId,
-        name: meta?.name ?? data.trip.name,
-        subtitle: meta?.subtitle ?? data.trip.subtitle,
-        heroImage: meta?.heroImage ?? data.trip.hero_image,
-        start: meta?.start ?? data.trip.dates?.start,
-        end: meta?.end ?? data.trip.dates?.end,
+        name: meta?.name ?? downloadData.trip.name,
+        subtitle: meta?.subtitle ?? downloadData.trip.subtitle,
+        heroImage: meta?.heroImage ?? downloadData.trip.hero_image,
+        start: meta?.start ?? downloadData.trip.dates?.start,
+        end: meta?.end ?? downloadData.trip.dates?.end,
         savedAt: Date.now(),
       };
       setManifestEntry(entry);
@@ -233,11 +255,11 @@ export function useOfflineTrip(
 
     const entry: OfflineManifestEntry = {
       shareId,
-      name: meta?.name ?? data.trip.name,
-      subtitle: meta?.subtitle ?? data.trip.subtitle,
-      heroImage: meta?.heroImage ?? data.trip.hero_image,
-      start: meta?.start ?? data.trip.dates?.start,
-      end: meta?.end ?? data.trip.dates?.end,
+      name: meta?.name ?? downloadData.trip.name,
+      subtitle: meta?.subtitle ?? downloadData.trip.subtitle,
+      heroImage: meta?.heroImage ?? downloadData.trip.hero_image,
+      start: meta?.start ?? downloadData.trip.dates?.start,
+      end: meta?.end ?? downloadData.trip.dates?.end,
       savedAt: Date.now(),
     };
     setManifestEntry(entry);

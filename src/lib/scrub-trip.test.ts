@@ -257,3 +257,29 @@ test('scrubAndAnchorTripData composes both', () => {
   today.setHours(12, 0, 0, 0);
   assert.equal(out.trip.dates.start, today.toISOString().slice(0, 10));
 });
+
+test('stripPrivateTravelWalletData removes private trip details from shared downloads', () => {
+  const out = stripPrivateTravelWalletData({
+    ...fixture(),
+    trip_details: {
+      accommodation_review: {
+        tripTitle: 'Private stay list',
+        tripSlug: 'private-stay-list',
+        generatedAt: '2026-06-26T10:00:00.000Z',
+        storageKey: 'ourtrips:accommodation-review:private-stay-list',
+        destinations: [],
+        accommodations: [
+          {
+            id: 'stay-1',
+            destinationId: 'stop-1',
+            stop: 'Amsterdam',
+            lane: 'proposed',
+            candidate: 'Hidden shortlist hotel',
+          },
+        ],
+      },
+    },
+  });
+
+  assert.equal(out.trip_details, undefined);
+});

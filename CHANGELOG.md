@@ -4,6 +4,12 @@ Selected product updates for OurTrips.
 
 ## Unreleased
 
+## 2026-06-26 - 0.7.0 - Downloaded trip details
+
+### Added
+- Included owner-only trip details, including the accommodation review list, in downloaded offline trip files.
+- Added an explicit `trip_details.accommodation_review` payload for authenticated trip downloads while keeping shared companion/remix downloads scrubbed.
+
 ## 2026-06-25 - 0.6.1 - Accommodation booking status repair
 
 ### Fixed

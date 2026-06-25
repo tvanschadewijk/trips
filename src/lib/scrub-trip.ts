@@ -260,7 +260,9 @@ function stripWalletItems(value: unknown): unknown {
  * by default for non-owners.
  */
 export function stripPrivateTravelWalletData(data: TripData): TripData {
-  return normalizeTripData(stripWalletItems(normalizeTripData(data)));
+  const stripped = normalizeTripData(stripWalletItems(normalizeTripData(data)));
+  delete stripped.trip_details;
+  return stripped;
 }
 
 /**
