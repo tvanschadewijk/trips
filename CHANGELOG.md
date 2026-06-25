@@ -4,6 +4,11 @@ Selected product updates for OurTrips.
 
 ## Unreleased
 
+## 2026-06-26 - 0.7.4 - Mobile date bar translucency
+
+### Fixed
+- Matched the mobile itinerary date strip background translucency and blur to the trip title bar while keeping date buttons fully opaque.
+
 ## 2026-06-26 - 0.7.3 - Mobile top navigation
 
 ### Fixed
