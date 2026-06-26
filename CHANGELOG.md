@@ -4,6 +4,11 @@ Selected product updates for OurTrips.
 
 ## Unreleased
 
+## 2026-06-26 - 0.7.5 - Reliable share previews
+
+### Fixed
+- Disabled streamed metadata so social and messaging app crawlers receive Open Graph and Twitter image tags in the initial page head instead of showing grey placeholders.
+
 ## 2026-06-26 - 0.7.4 - Mobile date bar translucency
 
 ### Fixed

@@ -7,6 +7,8 @@ const supabaseHostname = process.env.NEXT_PUBLIC_SUPABASE_URL
 
 const nextConfig: NextConfig = {
   devIndicators: false,
+  // Keep dynamic page metadata in the initial head so messaging apps can render share cards.
+  htmlLimitedBots: /.*/,
   typescript: {
     tsconfigPath: 'tsconfig.build.json',
   },
