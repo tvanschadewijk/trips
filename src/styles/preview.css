@@ -244,6 +244,37 @@
     font-size: 17px;
     line-height: 1.12;
   }
+
+  .app-topbar.trip-topbar.has-login-action .app-topbar-actions {
+    flex: 0 1 auto;
+    min-width: 0;
+  }
+
+  .app-topbar.trip-topbar.has-login-action .app-topbar-suffix {
+    max-width: min(30vw, 96px);
+  }
+
+  .app-topbar.trip-topbar.has-login-action .add-to-trips-btn {
+    width: 40px;
+    max-width: 40px;
+    min-width: 40px;
+    gap: 0;
+    padding: 0;
+    font-size: 0;
+  }
+
+  .app-topbar.trip-topbar.has-login-action .add-to-trips-btn svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .app-topbar.trip-topbar.has-login-action .trip-login-btn {
+    padding: 0 12px;
+  }
+
+  .app-topbar.trip-topbar.has-login-action .trip-cover-menu-wrap {
+    display: none;
+  }
 }
 .nav-bar { position: absolute; top: 0; left: 0; right: 0; height: calc(var(--nav-height) + env(safe-area-inset-top)); display: flex; align-items: center; gap: 4px; padding: 0 8px; padding-top: env(safe-area-inset-top); z-index: 20; transition: background var(--motion-medium) var(--ease-standard), border-color var(--motion-medium) var(--ease-standard), color var(--motion-fast) ease; background: var(--color-surface); border-bottom: 1px solid var(--color-border); }
 .nav-bar.over-hero { background: transparent; border-bottom-color: transparent; }
@@ -2751,6 +2782,11 @@
   gap: 10px;
   min-width: 0;
 }
+.day-brief-hotel-inline-actions .day-brief-detail-btn {
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
+}
 .day-brief-pending-pill {
   display: inline-flex;
   align-items: center;
@@ -2841,6 +2877,18 @@
   display: flex;
   width: 100%;
   padding-bottom: 12px;
+}
+.day-brief-card-topline-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  min-width: 0;
+  flex: 0 0 auto;
+}
+.day-brief-card-topline-actions .day-brief-detail-btn {
+  width: 26px;
+  height: 26px;
 }
 .day-brief-see-card > .day-brief-card-kicker::after,
 .day-brief-detail-card > .day-brief-card-topline::after,
@@ -4695,11 +4743,41 @@ button.day-brief-place:active {
   color: #FBF7F1;
   box-shadow: 0 2px 12px rgba(26,20,16,0.14), 0 8px 24px rgba(26,20,16,0.08);
 }
+.trip-login-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--color-text-primary);
+  border-radius: 999px;
+  background: rgba(255, 253, 249, 0.72);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 620;
+  line-height: 1;
+  text-decoration: none;
+  white-space: nowrap;
+  flex: 0 0 auto;
+  -webkit-tap-highlight-color: transparent;
+  transition: background var(--motion-fast) var(--ease-standard), color var(--motion-fast) var(--ease-standard), transform var(--motion-fast) var(--ease-standard);
+}
+.trip-login-btn:active {
+  transform: scale(0.96);
+  background: var(--color-text-primary);
+  color: var(--color-surface);
+}
 @media (hover: hover) {
   .add-to-trips-btn:hover:not(:disabled) {
     background: var(--color-accent-deep);
     transform: translateY(-1px);
     box-shadow: 0 4px 16px rgba(26,20,16,0.2), 0 12px 32px rgba(26,20,16,0.12);
+  }
+
+  .trip-login-btn:hover {
+    background: var(--color-text-primary);
+    color: var(--color-surface);
   }
 }
 .trip-cover-menu-wrap {
@@ -5277,6 +5355,17 @@ button.day-brief-place:active {
   .add-to-trips-btn svg {
     width: 20px;
     height: 20px;
+  }
+
+  .trip-login-btn {
+    height: 64px;
+    padding: 0 24px;
+    border-radius: 18px;
+    background: rgba(255, 253, 249, 0.92);
+    font-size: 15px;
+    box-shadow:
+      rgba(26, 20, 16, 0.04) 0 1px 0 0,
+      rgba(26, 20, 16, 0.10) 0 14px 34px -24px;
   }
 
   .nav-home:active,

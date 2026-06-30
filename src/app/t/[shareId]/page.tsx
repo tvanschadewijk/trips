@@ -182,6 +182,8 @@ export default async function TripPage({ params }: Props) {
         shareMode={result.shareMode}
         tripId={!isLocalPreview && !isPublicSample && result.isOwner ? result.tripId : undefined}
         homeHref={isLocalPreview || result.viewerUserId ? '/dashboard' : '/'}
+        showLoginAction={!isLocalPreview && !result.viewerUserId}
+        loginHref={`/login?next=${encodeURIComponent(`/t/${shareId}`)}`}
       />
       {canEditViaChat && (
         <TripChatPanel

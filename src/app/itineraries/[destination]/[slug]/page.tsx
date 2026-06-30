@@ -164,10 +164,14 @@ export default async function PublicItineraryPage({ params }: Props) {
   if (!record) notFound();
 
   let homeHref = '/';
+  let viewerLoggedIn = false;
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
-    if (user) homeHref = '/dashboard';
+    if (user) {
+      viewerLoggedIn = true;
+      homeHref = '/dashboard';
+    }
   } catch {
     homeHref = '/';
   }
@@ -181,6 +185,8 @@ export default async function PublicItineraryPage({ params }: Props) {
         canAddToTrips
         shareMode={record.shareMode}
         homeHref={homeHref}
+        showLoginAction={!viewerLoggedIn}
+        loginHref={`/login?next=${encodeURIComponent(itinerary.canonicalPath)}`}
       />
       <script
         type="application/ld+json"

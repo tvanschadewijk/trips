@@ -4,6 +4,12 @@ Selected product updates for OurTrips.
 
 ## Unreleased
 
+## 2026-06-30 - 0.7.6 - Shared trip controls
+
+### Fixed
+- Restored hotel detail info buttons on itinerary accommodation cards, including pending stays.
+- Restored an explicit mobile-visible login action for signed-out shared-trip and public itinerary viewers.
+
 ## 2026-06-26 - 0.7.5 - Reliable share previews
 
 ### Fixed

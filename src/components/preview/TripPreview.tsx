@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 import { flushSync } from 'react-dom';
@@ -63,6 +64,8 @@ interface TripPreviewProps {
   shareMode?: ShareMode;
   tripId?: string;
   homeHref?: string;
+  showLoginAction?: boolean;
+  loginHref?: string;
 }
 
 function formatDate(dateStr: string, opts: Intl.DateTimeFormatOptions) {
@@ -824,7 +827,18 @@ function SwipeDots({ total, current, onDotClick }: { total: number; current: num
   );
 }
 
-export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, shareId, canAddToTrips, shareMode, tripId, homeHref = '/' }: TripPreviewProps) {
+export default function TripPreview({
+  trips: initialTrips,
+  onDelete,
+  autoOpen,
+  shareId,
+  canAddToTrips,
+  shareMode,
+  tripId,
+  homeHref = '/',
+  showLoginAction = false,
+  loginHref = '/login',
+}: TripPreviewProps) {
   const normalizedInitialTrips = useMemo(
     () => initialTrips.map((tripData) => normalizeTripData(tripData)),
     [initialTrips]
@@ -1239,11 +1253,21 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
     if (!shareId || !canAddToTrips || saveStatus === 'already_owned') return null;
 
     const isSaved = saveStatus === 'saved' || saveStatus === 'already_saved';
+    const actionLabel = saveStatus === 'saving'
+      ? 'Saving trip'
+      : isSaved
+        ? (saveStatus === 'already_saved' ? 'Already saved — View trips' : 'Saved — View trips')
+        : saveStatus === 'error'
+          ? 'Failed to save trip. Try again'
+          : shareMode === 'remix'
+            ? 'Remix this trip'
+            : 'Add to my trips';
 
     return (
       <button
         type="button"
         className={`add-to-trips-btn ${isSaved ? 'saved' : ''}`}
+        aria-label={actionLabel}
         onClick={isSaved ? () => { window.location.href = '/dashboard'; } : handleAddToTrips}
         disabled={saveStatus === 'saving'}
       >
@@ -1268,6 +1292,16 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
           </>
         )}
       </button>
+    );
+  }
+
+  function renderLoginAction() {
+    if (!showLoginAction) return null;
+
+    return (
+      <Link href={loginHref} className="trip-login-btn">
+        Log in
+      </Link>
     );
   }
 
@@ -3135,6 +3169,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
         const isMarkingBooked = inlineBookingKey === actionKey;
         const hasBookingError = inlineBookingErrorKey === actionKey;
         const canMarkBooked = Boolean(tripId && hasNamedHotel);
+        const hasAccommodationDetail = Boolean(a.detail);
 
         return (
           <article className="day-brief-detail-card day-brief-hotel-inline-card">
@@ -3150,6 +3185,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
               </div>
             </div>
             <div className="day-brief-hotel-inline-actions">
+              {hasAccommodationDetail && renderBriefDetailButton(`Hotel details for ${hasNamedHotel ? hotelName : 'this stay'}`, () => openDetail('accommodation', a))}
               <span className="day-brief-pending-pill">
                 <Icon name="clock" />
                 <span>{pendingStatusLabel}</span>
@@ -3187,8 +3223,11 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
               <span className="day-brief-card-icon"><Icon name="hotel" /></span>
               <span>Accommodation</span>
             </div>
-            <span className={`text-status status-badge day-brief-status status-${a.status || 'pending'}`}>
-              {a.status || 'pending'}
+            <span className="day-brief-card-topline-actions">
+              {a.detail && renderBriefDetailButton(`Hotel details for ${trimDisplayText(a.name) || 'this stay'}`, () => openDetail('accommodation', a))}
+              <span className={`text-status status-badge day-brief-status status-${a.status || 'pending'}`}>
+                {a.status || 'pending'}
+              </span>
             </span>
           </div>
           <h3 className="day-brief-card-title">
@@ -3196,11 +3235,6 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
           </h3>
           {stayMeta && <p className="day-brief-card-meta">{stayMeta}</p>}
           {a.note && <p className="day-brief-card-copy">{a.note}</p>}
-          {a.detail && (
-            <div className="day-brief-card-actions">
-              {renderBriefCardAction('Stay details', () => openDetail('accommodation', a))}
-            </div>
-          )}
         </article>
       );
     })() : null;
@@ -3498,7 +3532,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
           <AppTopBar
             href={homeHref}
             suffix={trip?.name}
-            className="trip-topbar"
+            className={`trip-topbar ${showLoginAction ? 'has-login-action' : ''}`}
             actions={
               <>
                 {!isHero ? (
@@ -3512,6 +3546,7 @@ export default function TripPreview({ trips: initialTrips, onDelete, autoOpen, s
                     <span>Trip overview</span>
                   </button>
                 ) : null}
+              {renderLoginAction()}
               {renderAddToTripsButton()}
               {isHero && renderCoverActionsMenu()}
               </>
