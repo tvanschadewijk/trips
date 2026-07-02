@@ -98,12 +98,24 @@
   .landing-nav-inner { padding: 0 20px; height: 60px; }
   .landing-logo { font-size: 18px; }
   .landing-logo .logo-suffix { display: none; }
-  .landing-nav-links { display: none; }
+  .landing-nav-links {
+    display: flex;
+    gap: 10px;
+  }
+
+  .landing-nav-link {
+    display: none;
+  }
+
+  .landing-btn-outline {
+    min-height: 36px;
+    padding: 0 14px;
+    white-space: nowrap;
+  }
 }
 
 @media (max-width: 460px) {
-  .landing-nav-link:nth-child(3),
-  .landing-btn-outline {
+  .landing-nav-link:nth-child(3) {
     display: none;
   }
 }

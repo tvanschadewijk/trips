@@ -4,6 +4,11 @@ Selected product updates for OurTrips.
 
 ## Unreleased
 
+## 2026-07-02 - 0.7.7 - Mobile login access
+
+### Fixed
+- Kept the login action visible on mobile homepage and itinerary catalogue headers while secondary public navigation links collapse.
+
 ## 2026-06-30 - 0.7.6 - Shared trip controls
 
 ### Fixed
